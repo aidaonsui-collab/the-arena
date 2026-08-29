@@ -64,11 +64,11 @@ Creation fee is taken from `quote_reserve` (aborts if short). No extra SUI coin.
 
 **XAUM quote PTB** — `lock::seed_and_lock_bluefin_with_fee<T, XAUM>`: same objects plus an extra `Coin<SUI>` paying Bluefin's pool-creation fee. Residuals from the seed go to the pool creator, not the platform.
 
-The Bluefin pool is named `SYM-SUI` / `SYM-XAUM`, fee 1% (`fee_rate=100_000` in 1e6, 1 bps = 1e3), tick spacing 60, full-range ticks snapped from GlobalConfig min/max (`−443636` / `443636` bits `4294523660` / `443636`) inward to spacing 60. Initial `sqrtPriceX64` is the curve spot `(virtual_quote + real_quote) / token_reserve`. The Position NFT sits in a shared `BluefinPositionLock` for `Config.lp_lock_ms` (180 days); the creator calls `claim_bluefin_position` after `unlock_ms`.
+The Bluefin pool is named `SYM-SUI` / `SYM-XAUM`, fee 1% (`fee_rate=10_000` in 1e6), tick spacing 60, full-range ticks snapped from GlobalConfig min/max (`−443636` / `443636` bits `4294523660` / `443636`) inward to spacing 60. Initial `sqrtPriceX64` is the curve spot `(virtual_quote + real_quote) / token_reserve`. The Position NFT sits in a shared `BluefinPositionLock` for `Config.lp_lock_ms` (180 days); the creator calls `claim_bluefin_position` after `unlock_ms`.
 
 `lock::lock_graduated_lp` remains as the raw-coin vault for tests and as a fallback.
 
-Types (`GlobalConfig`, `Pool`, `Position`) stay on the original Bluefin package `0x3492c874c1e3b3e2984e8c41b589e642d4d0a5d6459e5a9cfc2d52fd7c89c267`. Functions added in later upgrades (`create_pool_and_get_object`, `get_pool_creation_fee_amount`, …) CALL published-at `0xd075338d105482f1527cbfd363d6413558f184dec36d9138a70261e87f486e9c` via `contracts/deps/bluefin_latest`. Unit tests never invoke `arena::bluefin`.
+Types (`GlobalConfig`, `Pool`, `Position`) stay on the original Bluefin package `0x3492c874c1e3b3e2984e8c41b589e642d4d0a5d6459e5a9cfc2d52fd7c89c267`. The official interface CALLs published-at `0xd075338d105482f1527cbfd363d6413558f184dec36d9138a70261e87f486e9c`. Unit tests never invoke `arena::bluefin`.
 
 Graduation emits `BluefinLockEvent` (spot pool + position ids). The original `LockEvent` is unchanged so the package stays upgrade-compatible.
 

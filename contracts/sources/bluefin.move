@@ -1,14 +1,13 @@
 /// Isolated Bluefin Spot CALL wrappers.
 ///
 /// Types (`GlobalConfig`, `Pool`, `Position`) come from the original Bluefin
-/// package `0x3492c874…`. Functions added after that upgrade
-/// (`create_pool_and_get_object`, `get_pool_creation_fee_amount`, …) CALL
-/// published-at `0xd075338d…` via the local `bluefin_latest` stubs.
+/// package `0x3492c874…`. The official BluefinSpot interface already CALLs
+/// published-at `0xd075338d…` for `create_pool_and_get_object` and friends.
+/// Do not add a second named package at `0xd075` (InvalidLinkage on upgrade).
 /// Unit tests must never invoke this module.
 module arena::bluefin;
 
-use bluefin_latest::config as bf_config_latest;
-use bluefin_latest::pool as bf_pool;
+use bluefin_spot::pool as bf_pool;
 use bluefin_spot::config::{Self as bf_config, GlobalConfig};
 use bluefin_spot::position::Position;
 use integer_mate::i32;
@@ -17,15 +16,15 @@ use sui::clock::Clock;
 use sui::object::ID;
 use sui::tx_context::TxContext;
 
-/// Volatile SUI meme pool: tick spacing 60, 1% fee (100 bps × 1e3).
+/// Volatile SUI meme pool: tick spacing 60, 1% fee (1e6 scale: 10_000 = 1%).
 const TICK_SPACING: u32 = 60;
-const FEE_RATE: u64 = 100_000;
+const FEE_RATE: u64 = 10_000;
 
 public(package) fun tick_spacing(): u32 { TICK_SPACING }
 public(package) fun fee_rate(): u64 { FEE_RATE }
 
 public(package) fun creation_fee_amount<Fee>(protocol_config: &GlobalConfig): (bool, u64) {
-    bf_config_latest::get_pool_creation_fee_amount<Fee>(protocol_config)
+    bf_config::get_pool_creation_fee_amount<Fee>(protocol_config)
 }
 
 /// Full-range tick bits from GlobalConfig, snapped inward to `tick_spacing`.

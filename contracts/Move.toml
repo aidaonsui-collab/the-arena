@@ -2,12 +2,11 @@
 name = "arena"
 edition = "2024.beta"
 license = "Apache-2.0"
-published-at = "0x5cfddf8ba23be6835644a8ea22482ff6ebb0081e42cc1bc052b5f770ca8bbdea"
+published-at = "0x067136624c5bec5221247e9b0a0a1afbd77a79aadbabdac18a95a10bc186cc74"
 
 [dependencies]
 Sui = { git = "https://github.com/MystenLabs/sui.git", subdir = "crates/sui-framework/packages/sui-framework", rev = "framework/mainnet", override = true }
 BluefinSpot = { git = "https://github.com/fireflyprotocol/bluefin-spot-contract-interface.git", subdir = "", rev = "main" }
-BluefinLatest = { local = "deps/bluefin_latest" }
 IntegerMate = { git = "https://github.com/CetusProtocol/integer-mate.git", subdir = "sui", rev = "sui-v1.1.2" }
 
 [addresses]
