@@ -166,6 +166,22 @@ main{padding:18px 0 72px}
 .token-head h1{font-family:"Instrument Sans",ui-sans-serif,system-ui,sans-serif;font-size:clamp(28px,4.5vw,44px);margin:0;font-weight:700;letter-spacing:-.03em;line-height:1}
 .badges{display:flex;gap:6px;flex-wrap:wrap}
 .badge{font-size:11px;font-weight:650;border-radius:999px;padding:5px 10px;background:var(--card);box-shadow:var(--shadow)}
+
+.about-card{padding:22px 24px;margin:14px 0 0}
+.about-card h2{font-size:18px;font-weight:650;margin:0;letter-spacing:-.02em}
+.about-desc{color:var(--muted);margin:10px 0 22px;max-width:56ch;line-height:1.5}
+.about-metrics{display:grid;grid-template-columns:1fr 1fr;gap:22px 28px;margin-bottom:22px}
+.about-k{font-size:12px;color:var(--muted);font-weight:500}
+.about-v{font-size:clamp(26px,4vw,34px);font-weight:700;letter-spacing:-.04em;line-height:1.15;margin-top:6px;font-variant-numeric:tabular-nums}
+.about-v .tick{font-size:14px;font-weight:550;color:var(--muted);margin-left:6px;letter-spacing:0}
+.about-s{font-size:13px;color:var(--muted);margin-top:6px}
+.about-links{display:flex;flex-wrap:wrap;gap:8px}
+.about-link{display:inline-flex;align-items:center;gap:7px;background:#101211;border:0;border-radius:999px;padding:8px 12px;font-size:13px;font-weight:600;color:var(--ink);cursor:pointer;text-decoration:none}
+.about-link:hover{background:var(--lift);color:var(--ink)}
+.about-link svg{flex:none;opacity:.9}
+@media (max-width:860px){
+  .about-metrics{grid-template-columns:1fr;gap:18px}
+}
 .holder-card{background:var(--card);border-radius:20px;padding:14px 18px;box-shadow:var(--shadow);display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;margin:12px 0}
 .empty{padding:48px 16px;text-align:center;color:var(--muted)}
 
@@ -319,6 +335,44 @@ html.shot,html.shot *{animation:none!important;transition:none!important}
   function $$(s,r){ return Array.prototype.slice.call((r||document).querySelectorAll(s)); }
   function fmt(n){ return n >= 1000 ? (n/1000).toFixed(2)+"k" : (n >= 1 ? n.toFixed(2) : n.toFixed(n>=0.1?2:3)); }
   function money(n, q){ return fmt(n)+" "+(q||"SUI"); }
+  function fmtBig(n){
+    n = Number(n)||0;
+    const a = Math.abs(n);
+    if (a >= 1e6) return (n/1e6).toFixed(2)+"M";
+    if (a >= 1e3) return (n/1e3).toFixed(2)+"k";
+    if (a >= 1) return n.toFixed(2);
+    return n.toFixed(4);
+  }
+  const VIRTUAL_SUPPLY = 1e9;
+  function burnedOf(tk){
+    const rec = bus.index && bus.index.pools && bus.index.pools[tk.t];
+    if (rec && rec.virtual_token != null && rec.total_supply != null){
+      return Math.max(0, fromMist(rec.virtual_token) - fromMist(rec.total_supply));
+    }
+    const bell = BELLS.find(function(b){ return b.t === tk.t && b.burn; });
+    if (bell && bell.burn){
+      const s = String(bell.burn);
+      if (/M$/i.test(s)) return parseFloat(s)*1e6;
+      if (/k$/i.test(s)) return parseFloat(s)*1e3;
+      return parseFloat(s)||0;
+    }
+    return 0;
+  }
+  function curveCap(tk){
+    const last = tapeItems(1, tk.t)[0];
+    if (last){
+      const vq = fromMist(last.virtual_quote);
+      const rq = fromMist(last.quote_real);
+      const vt = fromMist(last.virtual_token);
+      const tr = fromMist(last.token_reserve);
+      if (tr > 0 && vt > 0) return (vq + rq) * vt / tr;
+    }
+    return tk.cap;
+  }
+  function demoTypeId(tk){
+    return "0xarena::"+String(tk.t||"tok").toLowerCase()+"::"+tk.t;
+  }
+
   function gradTarget(k){ return poolQuote(k) === "XAUM" ? 1 : GRAD; }
   function walletBal(q){ return (q === "XAUM" ? xaumBal : balance); }
   function clockStr(){ return Math.floor(secs/60)+":"+String(secs%60).padStart(2,"0"); }
@@ -813,23 +867,45 @@ html.shot,html.shot *{animation:none!important;transition:none!important}
     const hopRow = (q === "XAUM")
       ? '<div class="kv" id="hop-row"><span style="color:var(--muted)">Hop</span><span id="hop-text" class="mono" style="text-align:right;max-width:28ch">'+meta.hopLine+'</span></div>'
       : "";
+    const capN = curveCap(tk);
+    const burnedN = burnedOf(tk);
+    const burnedQ = burnedN * lastPx(tk.t);
+    const burnedPct = VIRTUAL_SUPPLY > 0 ? (burnedN / VIRTUAL_SUPPLY * 100) : 0;
+    const capSub = chText(tk)+' · '+tk.h+' holders · '+pct.toFixed(0)+'% to grad';
+    const burnSub = burnedN > 0
+      ? money(burnedQ, q)+' · '+burnedPct.toFixed(2)+'% of supply'
+      : (tk.mode === "Buy & burn" ? "No pit burns yet" : "Holders mode · no burn");
+    const xq = encodeURIComponent("$"+tk.t);
+    const aboutLinks =
+      '<a class="about-link" href="https://x.com/search?q='+xq+'" target="_blank" rel="noopener">'+
+        '<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.172-5.397 6.172H2.75l7.73-8.835L1.254 2.25H8.08l4.253 5.622L18.244 2.25zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>X</a>'+
+      '<a class="about-link" href="https://dexscreener.com/sui" target="_blank" rel="noopener">Dexscreener</a>'+
+      '<a class="about-link" href="https://www.geckoterminal.com/sui-network" target="_blank" rel="noopener">GeckoTerminal</a>'+
+      '<button type="button" class="about-link" data-copy="'+demoTypeId(tk)+'">Contract</button>'+
+      '<button type="button" class="about-link" data-copy="'+tk.t+'">Pool</button>';
     return '<div data-screen-label="Token">'+
       '<div class="back" data-go="explore">← Explore</div>'+
       '<div class="token-head">'+
         '<div style="display:flex;align-items:center;gap:14px;min-width:0">'+avatar(tk,52)+
-          '<div><h1>'+tk.n+'</h1><div style="color:var(--muted);margin-top:6px;max-width:52ch">'+tk.b+'</div></div></div>'+
+          '<div><h1>'+tk.n+'</h1><div class="feat-tick" style="margin-top:6px">'+tk.t+' / '+q+'</div></div></div>'+
         '<div class="badges">'+
           '<span class="badge">'+tk.st+'</span>'+
           '<span class="badge">Pit · '+tk.mode+'</span>'+
           '<span class="badge">'+q+'</span></div></div>'+
-      '<div class="stats">'+
-        '<div class="stat"><div class="k">Price</div><div class="v" data-px>'+px+'</div></div>'+
-        '<div class="stat"><div class="k">Market cap</div><div class="v" data-cap="'+tk.t+'">'+money(tk.cap,q)+'</div></div>'+
-        '<div class="stat"><div class="k">24h</div><div class="v" style="color:'+chColor(tk)+'">'+chText(tk)+'</div></div>'+
-        '<div class="stat"><div class="k">Holders</div><div class="v">'+tk.h+'</div></div></div>'+
       '<div class="split">'+
         '<div class="split-main">'+
-          '<div class="card" style="padding:18px">'+
+        '<div class="about-card card">'+
+          '<h2>About</h2>'+
+          '<div class="about-desc">'+(tk.b || "No description yet.")+'</div>'+
+          '<div class="about-metrics">'+
+            '<div><div class="about-k">Market cap</div>'+
+              '<div class="about-v"><span data-cap="'+tk.t+'">'+fmtBig(capN)+'</span><span class="tick">'+q+'</span></div>'+
+              '<div class="about-s">'+capSub+'</div></div>'+
+            '<div><div class="about-k">Burned</div>'+
+              '<div class="about-v">'+fmtBig(burnedN)+'<span class="tick">'+tk.t+'</span></div>'+
+              '<div class="about-s">'+burnSub+'</div></div></div>'+
+          '<div class="about-links">'+aboutLinks+'</div></div>'+
+          '<div class="card" style="padding:18px;margin-top:12px">'+
             '<div style="display:flex;justify-content:space-between;margin-bottom:8px"><span class="stat k">Chart</span><span class="feat-tick">'+tk.t+' / '+q+'</span></div>'+
             '<div id="tv-host" class="tv-host"></div>'+
             '<div class="bar" style="margin-top:14px"><i data-bar="'+tk.t+'" style="width:'+barPct(tk)+'"></i></div>'+
@@ -905,6 +981,7 @@ html.shot,html.shot *{animation:none!important;transition:none!important}
     T.forEach(function(k){
       $$('[data-cap="'+k.t+'"]').forEach(function(el){
         if (el.closest("#contenders")) el.textContent = fmt(k.cap);
+        else if (el.closest(".about-v")) el.textContent = fmtBig(curveCap(k));
         else el.textContent = money(k.cap, poolQuote(k));
       });
       $$('[data-bar="'+k.t+'"]').forEach(function(el){ el.style.width = barPct(k); });
@@ -1238,6 +1315,15 @@ html.shot,html.shot *{animation:none!important;transition:none!important}
     if (wal){ state.connected = !state.connected; paintWallet(); paintTicket(); return; }
     const side = e.target.closest("[data-side]");
     if (side){ state.side = side.getAttribute("data-side"); paintTicket(); return; }
+    const copyBtn = e.target.closest("[data-copy]");
+    if (copyBtn){
+      const val = copyBtn.getAttribute("data-copy") || "";
+      const prev = copyBtn.textContent;
+      function done(){ copyBtn.textContent = "Copied"; setTimeout(function(){ copyBtn.textContent = prev; }, 1200); }
+      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(val).then(done).catch(done);
+      else done();
+      return;
+    }
     const pay = e.target.closest("[data-pay]");
     if (pay){
       state.payWith = pay.getAttribute("data-pay");
