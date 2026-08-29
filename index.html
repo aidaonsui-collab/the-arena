@@ -140,13 +140,14 @@ main{padding:18px 0 72px}
 .btn-trade.sell{background:#FECACA}
 
 .tape-tabs{display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap}
-.tape-row{display:grid;grid-template-columns:28px minmax(0,1.3fr) minmax(0,.9fr) 36px;gap:10px;align-items:center;padding:12px 4px;border-bottom:1px solid var(--line);cursor:pointer}
+.tape-row{display:grid;grid-template-columns:28px minmax(0,1fr) minmax(72px,.7fr) 40px;gap:8px;align-items:center;padding:12px 2px;border-bottom:1px solid var(--line);cursor:pointer}
+.tape-row>div:nth-child(2){min-width:0}
 .tape-row:hover{background:var(--lift)}
 .tape-row.open{background:rgba(41,141,255,.08);border-radius:12px;border-bottom-color:transparent}
 .tape-arrow{width:22px;height:22px;border-radius:6px;display:grid;place-items:center;font-size:12px;font-weight:700}
 .tape-arrow.buy{background:rgba(41,141,255,.18);color:#298DFF}
 .tape-arrow.sell{background:rgba(255,102,64,.16);color:#FF6640}
-.tape-sz{font-size:14px;font-weight:650;line-height:1.2}
+.tape-sz{font-size:14px;font-weight:650;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .tape-sub{font-size:12px;color:var(--muted);margin-top:2px;font-family:"IBM Plex Mono",monospace}
 .tape-quote{text-align:right}
 .tape-quote .tape-sz{font-family:"IBM Plex Mono",ui-monospace,monospace}
@@ -234,7 +235,11 @@ html[data-route="pit"] .search-row,html[data-route="launch"] .search-row,html[da
 }
 @media (max-width:720px){
   .nav-item{padding:8px 12px;font-size:13px}
+  .tape-row{grid-template-columns:22px minmax(0,1fr) minmax(64px,auto);gap:8px;padding:10px 0}
+  .tape-ago{display:none}
+  .tape-sz{font-size:13px}
 }
+
 html.shot,html.shot *{animation:none!important;transition:none!important}
 @media (max-width:1100px){
   .featured,.launches{grid-template-columns:repeat(3,minmax(0,1fr))}
@@ -559,9 +564,10 @@ window.ARENA_PIT_XAUM = "0xa8a391bf380914c04be5deb478474b42754a5aa8c29c0955f267d
       const tok = fromMist(r.token_amount);
       const key = tapeKey(r);
       const open = state.tapeOpen === key;
+      const tick = (findT(r.pool_id) && findT(r.pool_id).t) || shortAddr(r.pool_id);
       return '<div class="tape-row'+(open?" open":"")+'" data-tape="'+key+'">'+
         '<div class="tape-arrow '+(bought?"buy":"sell")+'">'+(bought?"↗":"↙")+'</div>'+
-        '<div><div class="tape-sz">'+fmt(tok)+' '+r.pool_id+'</div><div class="tape-sub">'+shortAddr(r.trader)+'</div></div>'+
+        '<div><div class="tape-sz">'+fmtBig(tok)+' '+tick+'</div><div class="tape-sub">'+shortAddr(r.trader)+'</div></div>'+
         '<div class="tape-quote"><div class="tape-sz">'+fmt(quote)+'</div><div class="tape-sub">'+q+'</div></div>'+
         '<div class="tape-ago">'+agoOf(r.ts)+'</div>'+
         '<div class="tape-fees">'+tapeFeeChips(r)+'</div></div>';
