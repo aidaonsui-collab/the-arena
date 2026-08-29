@@ -163,7 +163,7 @@ main{padding:18px 0 72px}
 .bell-card{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:20px 22px}
 .bell-card .feat-name{font-size:18px;margin-top:8px}
 .bell-card .chip{margin-left:0}
-html[data-route="pit"] .search-row,html[data-route="launch"] .search-row,html[data-route="token"] .search-row{display:none}
+html[data-route="pit"] .search-row,html[data-route="launch"] .search-row,html[data-route="token"] .search-row,html[data-route="metrics"] .search-row{display:none}
 @media (max-width:860px){
   .pit-hero{grid-template-columns:1fr;grid-template-areas:"pot" "clock" "copy";text-align:left;padding:22px}
   .pit-hero .pit-clock{text-align:left;margin-top:10px}
@@ -171,6 +171,30 @@ html[data-route="pit"] .search-row,html[data-route="launch"] .search-row,html[da
   .pit-row .mode-col,.pit-row .chg{display:none}
   .bells-grid{grid-template-columns:1fr}
   [data-screen-label="Pit"] > .card:last-of-type{grid-template-columns:1fr!important}
+}
+
+.metrics-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:8px 0 18px}
+.mstat{background:var(--card);border-radius:20px;padding:18px 20px;box-shadow:var(--shadow)}
+.mstat .k{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.mstat .v{font-size:clamp(22px,3vw,32px);font-weight:650;margin-top:8px;font-variant-numeric:tabular-nums;letter-spacing:-.03em;font-family:"IBM Plex Mono",ui-monospace,monospace}
+.mstat .s{margin-top:4px;font-size:12px;color:var(--muted)}
+.vol-bars{display:flex;align-items:flex-end;gap:4px;height:120px;padding:8px 0 0}
+.vol-bars i{flex:1;background:var(--lime);border-radius:4px 4px 0 0;min-height:2px;opacity:.85}
+.fee-rows{display:grid;gap:10px}
+.fee-row{display:grid;grid-template-columns:88px 1fr 90px;gap:10px;align-items:center;font-size:13px}
+.fee-row b{height:6px;border-radius:99px;background:#101211;overflow:hidden;display:block}
+.fee-row b>i{display:block;height:100%;border-radius:99px}
+.m-table{width:100%;border-collapse:collapse;font-size:14px}
+.m-table th{text-align:left;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600;padding:8px 6px;border-bottom:1px solid var(--line)}
+.m-table td{padding:12px 6px;border-bottom:1px solid var(--line)}
+.m-table tr{cursor:pointer}
+.m-table tr:hover td{background:var(--lift)}
+.m-note{margin-top:18px;font-size:12px;color:var(--muted);max-width:62ch}
+@media (max-width:860px){
+  .metrics-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media (max-width:720px){
+  .nav-item{padding:8px 12px;font-size:13px}
 }
 html.shot,html.shot *{animation:none!important;transition:none!important}
 @media (max-width:1100px){
@@ -254,7 +278,7 @@ html.shot,html.shot *{animation:none!important;transition:none!important}
   let bshift = 0, pot = 31.94, prevPot = "", roundNo = 128, secs = ROUND_SECONDS;
   let balance = 48.60;
   let xaumBal = 2.40;
-  const state = {route:"explore", sym:"VOLT", filter:"All", sort:"Market cap", time:"All", side:"Buy", amt:"1", connected:false, search:"", lName:"", lTick:"", lQuote:"SUI", lMode:"Holders"};
+  const state = {route:"explore", sym:"VOLT", filter:"All", sort:"Market cap", time:"All", side:"Buy", amt:"1", connected:false, search:"", lName:"", lTick:"", lQuote:"SUI", lMode:"Holders", metricsWindow:"All"};
   let hashLock = false;
   const SHOT = /Headless/i.test(String(navigator.userAgent||"")) || /(?:^|[?&])shot=1(?:&|$)/.test(location.search);
   if (SHOT) document.documentElement.classList.add("shot");
@@ -525,7 +549,7 @@ html.shot,html.shot *{animation:none!important;transition:none!important}
     return '<footer class="footer">'+
       '<div><div class="brand-name" style="color:var(--ink);margin-bottom:8px">ARENA</div>'+
         '<p style="margin:0;max-width:36ch">Fair launches on Sui. Bonding curves, no presale. Graduation at 2,000 SUI or 1 XAUM. The pit is fed by every fill.</p></div>'+
-      '<div><h4>Product</h4><div data-go="explore">Explore</div><div data-go="pit">Pit</div><div data-go="launch">Create</div></div>'+
+      '<div><h4>Product</h4><div data-go="explore">Explore</div><div data-go="pit">Pit</div><div data-go="metrics">Metrics</div><div data-go="launch">Create</div></div>'+
       '<div><h4>Fees</h4>1% on every fill.<br>Default 60/10/30 creator/platform/pit.<br>Reflection 50/20/20/10.</div></footer>';
   }
   function exploreHTML(){
@@ -588,6 +612,91 @@ html.shot,html.shot *{animation:none!important;transition:none!important}
       '<div class="card" style="padding:18px 22px;margin-top:14px;display:grid;grid-template-columns:1fr 1fr;gap:18px;color:var(--muted);font-size:14px">'+
         '<div><strong style="color:var(--ink)">Burn</strong> — the pot buys the winner off its curve and destroys those units.</div>'+
         '<div><strong style="color:var(--ink)">Split</strong> — every holder gets quote pro-rata when the bell rings.</div></div>'+
+      footerHTML()+'</div>';
+  }
+  function metricsRollup(){
+    const win = state.metricsWindow || "All";
+    const cut = win === "24h" ? Date.now() - 86400000 : 0;
+    const rows = (bus.trades || []).filter(function(t){ return (t.ts || 0) >= cut; });
+    const out = {fills:rows.length, suiVol:0, xaumVol:0, suiFee:0, xaumFee:0, refl:0, creator:0, pit:0, plat:0, byPool:{}, hours:[]};
+    const hourMap = {};
+    rows.forEach(function(t){
+      const q = poolQuote(t.pool_id);
+      const amt = fromMist(t.quote_amount);
+      const f = fromMist(t.reflection_fee)+fromMist(t.creator_fee)+fromMist(t.pit_fee)+fromMist(t.platform_fee);
+      if (q === "XAUM"){ out.xaumVol += amt; out.xaumFee += f; }
+      else { out.suiVol += amt; out.suiFee += f; }
+      out.refl += fromMist(t.reflection_fee);
+      out.creator += fromMist(t.creator_fee);
+      out.pit += fromMist(t.pit_fee);
+      out.plat += fromMist(t.platform_fee);
+      const id = t.pool_id || "?";
+      if (!out.byPool[id]) out.byPool[id] = {id:id, vol:0, fills:0, q:q};
+      out.byPool[id].vol += amt;
+      out.byPool[id].fills += 1;
+      const h = Math.floor((t.ts||0)/3600000)*3600000;
+      hourMap[h] = (hourMap[h]||0) + amt;
+    });
+    const hours = Object.keys(hourMap).map(Number).sort(function(a,b){return a-b;}).slice(-24);
+    const max = hours.reduce(function(m,h){return Math.max(m, hourMap[h]);}, 0) || 1;
+    out.hours = hours.map(function(h){ return {t:h, v:hourMap[h], pct: Math.max(4, hourMap[h]/max*100)}; });
+    const claims = (bus.sub && bus.sub.claims) || [];
+    out.claims = claims.length;
+    out.reflClaims = claims.filter(function(c){ return Number(c.kind)===0; }).length;
+    out.pitClaims = claims.filter(function(c){ return Number(c.kind)===1; }).length;
+    out.launches = T.length;
+    out.grads = GRADS.length;
+    out.bells = BELLS.length;
+    out.bellPaid = BELLS.reduce(function(a,b){ return a + (b.amt||0); }, 0);
+    return out;
+  }
+  function metricsHTML(){
+    const m = metricsRollup();
+    const win = state.metricsWindow || "All";
+    const top = Object.keys(m.byPool).map(function(k){ return m.byPool[k]; })
+      .sort(function(a,b){ return b.vol-a.vol; }).slice(0,8);
+    const feeTotal = m.refl+m.creator+m.pit+m.plat;
+    function feeBar(label, n, color){
+      const pct = feeTotal>0 ? (n/feeTotal*100) : 0;
+      return '<div class="fee-row"><span>'+label+'</span><b><i style="width:'+pct.toFixed(1)+'%;background:'+color+'"></i></b><span class="mono">'+fmt(n)+'</span></div>';
+    }
+    const bars = m.hours.length
+      ? m.hours.map(function(h){ return '<i style="height:'+h.pct+'%" title="'+fmt(h.v)+'"></i>'; }).join("")
+      : '<div class="empty" style="width:100%">No TradeEvent fills in this window.</div>';
+    const rows = top.map(function(r,i){
+      const tk = T.find(function(k){ return k.t === r.id; }) || GRADS.find(function(g){ return g.t === r.id; }) || {n:r.id,t:r.id,c:"#298DFF"};
+      return '<tr data-go="token:'+r.id+'"><td class="mono" style="color:var(--muted)">'+rank(i)+'</td><td><div class="feat-name">'+tk.n+'</div><div class="feat-tick">$'+r.id+'</div></td><td class="mono">'+r.fills+'</td><td class="mono" style="text-align:right">'+fmt(r.vol)+' '+r.q+'</td></tr>';
+    }).join("");
+    const src = (window.ARENA_PACKAGE_ID)
+      ? "Indexed from on-chain TradeEvent, ClaimEvent, BellEvent, GraduationEvent."
+      : "Demo tape until ARENA_PACKAGE_ID is published. Same TradeEvent fields the keepers emit.";
+    return '<div data-screen-label="Metrics">'+
+      '<div class="explore-head"><div><h1>Metrics</h1><p>Volume, fees, the pit, and graduates — rolled up from events, not a dashboard guess.</p></div>'+
+        '<div class="pills">'+pill("24h","metricsWindow","24h")+pill("All","metricsWindow","All")+'</div></div>'+
+      '<div class="metrics-grid">'+
+        '<div class="mstat"><div class="k">Volume · SUI</div><div class="v">'+fmt(m.suiVol)+'</div><div class="s">'+m.fills+' fills · '+win+'</div></div>'+
+        '<div class="mstat"><div class="k">Volume · XAUM</div><div class="v">'+fmt(m.xaumVol)+'</div><div class="s">gold bouts</div></div>'+
+        '<div class="mstat"><div class="k">Fees collected</div><div class="v">'+fmt(m.suiFee)+'</div><div class="s">1% of quote · four slices</div></div>'+
+        '<div class="mstat"><div class="k">Pit pot</div><div class="v" data-pot>'+money(pot)+'</div><div class="s">round <span data-round>'+roundNo+'</span> · live</div></div>'+
+        '<div class="mstat"><div class="k">On the curve</div><div class="v">'+m.launches+'</div><div class="s">'+m.grads+' graduated</div></div>'+
+        '<div class="mstat"><div class="k">Bells rung</div><div class="v">'+m.bells+'</div><div class="s">'+fmt(m.bellPaid)+' SUI paid</div></div>'+
+        '<div class="mstat"><div class="k">Claims</div><div class="v">'+m.claims+'</div><div class="s">'+m.reflClaims+' reflection · '+m.pitClaims+' pit</div></div>'+
+        '<div class="mstat"><div class="k">Pit from fills</div><div class="v">'+fmt(m.pit)+'</div><div class="s">pit_fee on TradeEvent</div></div>'+
+      '</div>'+
+      '<div class="card" style="padding:20px 22px;margin-bottom:14px"><div class="sec-label" style="margin-top:0">Volume <span>last '+Math.max(m.hours.length,1)+' hours with fills</span></div>'+
+        '<div class="vol-bars">'+bars+'</div></div>'+
+      '<div class="grid-2">'+
+        '<div class="card" style="padding:20px 22px"><div class="sec-label" style="margin-top:0">Fee split <span>from TradeEvent</span></div>'+
+          '<div class="fee-rows">'+
+            feeBar("Reflections", m.refl, "#298DFF")+
+            feeBar("Creator", m.creator, "#C9BBA3")+
+            feeBar("Pit", m.pit, "#C8F135")+
+            feeBar("Platform", m.plat, "#9CA3AF")+
+          '</div></div>'+
+        '<div class="card" style="padding:20px 22px"><div class="sec-label" style="margin-top:0">Top by volume <span>'+win+'</span></div>'+
+          (rows ? '<table class="m-table"><thead><tr><th>#</th><th>Token</th><th>Fills</th><th style="text-align:right">Volume</th></tr></thead><tbody>'+rows+'</tbody></table>' : '<div class="empty">No fills yet.</div>')+
+        '</div></div>'+
+      '<p class="m-note">'+src+' Keepers: TradeEvent (volume + four fee slices + raised), BellEvent / PitSettleEvent, GraduationEvent, ClaimEvent.</p>'+
       footerHTML()+'</div>';
   }
   function launchHTML(){
@@ -684,11 +793,11 @@ html.shot,html.shot *{animation:none!important;transition:none!important}
     }
     const r = parts[0];
     if (r === "discover" || r === "floor" || r === "home" || r === "explore") return {route:"explore", sym:state.sym};
-    if (r === "pit" || r === "launch") return {route:r, sym:state.sym};
+    if (r === "pit" || r === "launch" || r === "metrics" || r === "analytics") return {route: r==="analytics"?"metrics":r, sym:state.sym};
     return {route:"explore", sym:state.sym};
   }
   function paintNav(){
-    const nav = [["Explore","explore"],["Pit","pit"]];
+    const nav = [["Explore","explore"],["Pit","pit"],["Metrics","metrics"]];
     $("#nav-pill").innerHTML = nav.map(function(n){
       const on = state.route === n[1] || (n[1]==="explore" && state.route==="token");
       return '<div class="nav-item'+(on?" on":"")+'" data-go="'+n[1]+'">'+n[0]+'</div>';
@@ -906,7 +1015,7 @@ html.shot,html.shot *{animation:none!important;transition:none!important}
   function renderScreen(){
     dropTv();
     const host = $("#screens");
-    const map = {explore:exploreHTML, pit:pitHTML, token:tokenHTML, launch:launchHTML};
+    const map = {explore:exploreHTML, pit:pitHTML, token:tokenHTML, launch:launchHTML, metrics:metricsHTML};
     host.innerHTML = (map[state.route] || exploreHTML)();
     document.documentElement.setAttribute("data-route", state.route);
     paintNav();
@@ -1002,7 +1111,7 @@ html.shot,html.shot *{animation:none!important;transition:none!important}
       const key = set.getAttribute("data-set");
       const val = set.getAttribute("data-val");
       state[key] = val;
-      if (state.route === "launch") renderScreen();
+      if (state.route === "launch" || state.route === "metrics") renderScreen();
       else if (state.route === "explore"){
         const keepQ = state.search;
         renderScreen();
