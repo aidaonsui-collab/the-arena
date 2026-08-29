@@ -155,6 +155,14 @@ main{padding:18px 0 72px}
 .tape-fees{grid-column:1/-1;display:none;flex-wrap:wrap;gap:6px;padding:2px 0 4px}
 .tape-row.open .tape-fees{display:flex}
 .tape-count{margin-left:auto}
+.q-mark{width:14px;height:14px;display:inline-block;vertical-align:-2px;margin-left:5px;flex:none}
+.tape-quote .tape-sz{display:inline-flex;align-items:center;justify-content:flex-end}
+.holder-row{display:grid;grid-template-columns:28px minmax(0,1fr) minmax(48px,auto) minmax(64px,auto);gap:8px;align-items:center;padding:10px 2px;border-bottom:1px solid var(--line)}
+.holder-row .tape-sz{font-size:14px}
+.holder-who{min-width:0}
+.holder-pct{text-align:right;font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:13px;color:var(--muted)}
+.holder-amt{text-align:right}
+.holder-curve .holder-who .tape-sz{color:var(--muted);font-weight:550}
 
 .form-grid{display:grid;gap:12px;text-align:left;max-width:520px;margin:28px auto 0}
 .form-grid label{font-size:12px;font-weight:600;color:var(--muted);letter-spacing:.06em;text-transform:uppercase}
@@ -235,9 +243,10 @@ html[data-route="pit"] .search-row,html[data-route="launch"] .search-row,html[da
 }
 @media (max-width:720px){
   .nav-item{padding:8px 12px;font-size:13px}
-  .tape-row{grid-template-columns:22px minmax(0,1fr) minmax(64px,auto);gap:8px;padding:10px 0}
-  .tape-ago{display:none}
+  .tape-row{grid-template-columns:22px minmax(0,1fr) minmax(72px,auto) 32px;gap:6px;padding:10px 0}
   .tape-sz{font-size:13px}
+  .q-mark{width:12px;height:12px;margin-left:4px}
+  .holder-row{grid-template-columns:22px minmax(0,1fr) minmax(40px,auto) minmax(56px,auto);gap:6px}
 }
 
 html.shot,html.shot *{animation:none!important;transition:none!important}
@@ -369,6 +378,16 @@ window.ARENA_PIT_XAUM = "0xa8a391bf380914c04be5deb478474b42754a5aa8c29c0955f267d
   }
   function quoteUsd(q){
     return q === "XAUM" ? hop.usd : hop.suiUsd;
+  }
+  function quoteMark(q){
+    if (q === "XAUM"){
+      return '<svg class="q-mark" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="8" fill="#C9A97E"/></svg>';
+    }
+    return '<svg class="q-mark" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="8" fill="#4DA2FF"/><path fill="#fff" d="M8 3.2c.18 1.65-2.05 3.35-2.05 5.2 0 1.16.9 2.1 2.05 2.1s2.05-.94 2.05-2.1c0-1.85-2.23-3.55-2.05-5.2z"/></svg>';
+  }
+  function quoteUsdAmt(amt, q){
+    const px = quoteUsd(q);
+    return px > 0 ? fmtUsd(Number(amt) * px) : "—";
   }
   function usdCap(tk){
     const px = quoteUsd(poolQuote(tk));
@@ -515,7 +534,24 @@ window.ARENA_PIT_XAUM = "0xa8a391bf380914c04be5deb478474b42754a5aa8c29c0955f267d
     if (src) return '<div class="avatar" style="width:'+sz+'px;height:'+sz+'px;padding:0;overflow:hidden"><img src="'+src+'" alt=""></div>';
     return '<div class="avatar" style="width:'+sz+'px;height:'+sz+'px;background:'+k.c+'"><i class="diamond"></i></div>';
   }
-  function holderHTML(tk){
+  function holdersOf(tk){
+    const rows = bus.trades.filter(function(r){ return matchesPool(r, tk); }).slice().sort(function(a,b){ return (a.ts||0)-(b.ts||0); });
+    const map = {};
+    let last = null;
+    rows.forEach(function(r){
+      last = r;
+      const who = String(r.trader || "").toLowerCase();
+      if (!who) return;
+      if (!map[who]) map[who] = { address: r.trader, bal: 0 };
+      const tok = fromMist(r.token_amount);
+      map[who].bal += r.is_buy ? tok : -tok;
+    });
+    const list = Object.keys(map).map(function(k){ return map[k]; }).filter(function(h){ return h.bal > 1e-9; });
+    list.sort(function(a,b){ return b.bal - a.bal; });
+    const curve = last ? fromMist(last.token_reserve) : 0;
+    return { list: list, curve: curve > 0 ? curve : 0 };
+  }
+  function holderReflCard(tk){
     if (!isRefl(tk)) return "";
     const q = poolQuote(tk);
     const rec = bus.index && bus.index.pools && bus.index.pools[tk.t];
@@ -537,6 +573,27 @@ window.ARENA_PIT_XAUM = "0xa8a391bf380914c04be5deb478474b42754a5aa8c29c0955f267d
         '<div><div class="stat k">Unpaid</div><div data-unpaid style="font-size:18px;font-weight:650;color:#298DFF;margin-top:4px">'+unpaid.toFixed(4)+' '+q+'</div></div>'+
         '<div><div class="stat k">Claimed</div><div data-claimed style="font-size:18px;font-weight:650;margin-top:4px">'+claimed.toFixed(4)+' '+q+'</div></div>'+
       '</div></div>';
+  }
+  function holderRow(rank, name, amt, pct, curve){
+    return '<div class="holder-row'+(curve?" holder-curve":"")+'">'+
+      '<div class="tape-sub">'+rank+'</div>'+
+      '<div class="holder-who"><div class="tape-sz">'+name+'</div></div>'+
+      '<div class="holder-pct">'+(pct >= 0.1 ? (pct*100).toFixed(1) : (pct*100).toFixed(2))+'%</div>'+
+      '<div class="holder-amt"><div class="tape-sz">'+fmtBig(amt)+'</div></div></div>';
+  }
+  function holderHTML(tk){
+    const pack = holdersOf(tk);
+    const list = pack.list;
+    const curve = pack.curve;
+    let total = list.reduce(function(s,h){ return s + h.bal; }, 0) + curve;
+    if (!(total > 0)) total = 1;
+    const refl = holderReflCard(tk);
+    if (!list.length && !(curve > 0)) return refl || '<div class="empty">No holders yet.</div>';
+    const curveRow = curve > 0 ? holderRow("—", "Bonding curve", curve, curve/total, true) : "";
+    const rows = list.slice(0, 50).map(function(h, i){
+      return holderRow(String(i+1), shortAddr(h.address), h.bal, h.bal/total, false);
+    }).join("");
+    return refl + curveRow + rows;
   }
   function tapeChip(n, label, color){
     if (!(n > 0)) return "";
@@ -568,7 +625,7 @@ window.ARENA_PIT_XAUM = "0xa8a391bf380914c04be5deb478474b42754a5aa8c29c0955f267d
       return '<div class="tape-row'+(open?" open":"")+'" data-tape="'+key+'">'+
         '<div class="tape-arrow '+(bought?"buy":"sell")+'">'+(bought?"↗":"↙")+'</div>'+
         '<div><div class="tape-sz">'+fmtBig(tok)+' '+tick+'</div><div class="tape-sub">'+shortAddr(r.trader)+'</div></div>'+
-        '<div class="tape-quote"><div class="tape-sz">'+fmt(quote)+'</div><div class="tape-sub">'+q+'</div></div>'+
+        '<div class="tape-quote"><div class="tape-sz">'+fmt(quote)+quoteMark(q)+'</div><div class="tape-sub">'+quoteUsdAmt(quote,q)+'</div></div>'+
         '<div class="tape-ago">'+agoOf(r.ts)+'</div>'+
         '<div class="tape-fees">'+tapeFeeChips(r)+'</div></div>';
     }).join("");
@@ -990,8 +1047,8 @@ window.ARENA_PIT_XAUM = "0xa8a391bf380914c04be5deb478474b42754a5aa8c29c0955f267d
           '<div class="card" style="padding:18px;margin-top:12px">'+
             '<div class="tape-tabs">'+
               '<button type="button" class="pill'+(state.tapeTab!=="holders"?" on":"")+'" data-set="tapeTab" data-val="trades">Recent trades</button>'+
-              (isRefl(tk)?'<button type="button" class="pill'+(state.tapeTab==="holders"?" on":"")+'" data-set="tapeTab" data-val="holders">Holders</button>':'')+
-              '<span class="count-pill tape-count">'+tapeItems(50, tk.t).length+'</span></div>'+
+              '<button type="button" class="pill'+(state.tapeTab==="holders"?" on":"")+'" data-set="tapeTab" data-val="holders">Holders</button>'+
+              '<span class="count-pill tape-count">'+(state.tapeTab==="holders" ? holdersOf(tk).list.length : tapeItems(50, tk.t).length)+'</span></div>'+
             '<div id="tape">'+(state.tapeTab==="holders" ? (holderHTML(tk)||'<div class="empty">No holder snapshot.</div>') : tapeHTML(tk.t))+'</div></div></div>'+
         '<div class="ticket">'+
           '<div class="sides">'+
@@ -1123,8 +1180,11 @@ window.ARENA_PIT_XAUM = "0xa8a391bf380914c04be5deb478474b42754a5aa8c29c0955f267d
     const tapeEl = $("#tape");
     if (!tapeEl) return;
     const tk = findT(state.sym);
-    if (state.tapeTab === "holders" && isRefl(tk)){
-      tapeEl.innerHTML = holderHTML(tk) || '<div class="empty">No holder snapshot.</div>';
+    const n = state.tapeTab === "holders" ? holdersOf(tk).list.length : tapeItems(50, tk.t).length;
+    const count = document.querySelector(".tape-count");
+    if (count) count.textContent = n;
+    if (state.tapeTab === "holders"){
+      tapeEl.innerHTML = holderHTML(tk) || '<div class="empty">No holders yet.</div>';
       return;
     }
     tapeEl.innerHTML = tapeHTML(state.route === "token" ? state.sym : null);
