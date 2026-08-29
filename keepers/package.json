@@ -1,0 +1,17 @@
+{
+  "name": "arena-keepers",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "ring": "npx tsx src/cli.ts ring",
+    "settle": "npx tsx src/cli.ts settle",
+    "reflections": "npx tsx src/cli.ts reflections"
+  },
+  "dependencies": {
+    "@mysten/sui": "^1.37.0"
+  },
+  "devDependencies": {
+    "tsx": "^4.20.0",
+    "typescript": "^5.9.0"
+  }
+}
