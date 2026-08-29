@@ -131,7 +131,23 @@ main{padding:18px 0 72px}
 .fee-chip{font-family:"IBM Plex Mono",monospace;font-size:10px;letter-spacing:.04em;text-transform:uppercase;border:1px solid currentColor;border-radius:999px;padding:2px 7px;opacity:.9}
 .btn-trade{width:100%;border:0;border-radius:999px;padding:14px;font-weight:700;background:var(--lime);margin-top:12px}
 .btn-trade.sell{background:#FECACA}
-.tape-row{display:flex;align-items:center;gap:8px;padding:10px 0;border-bottom:1px solid var(--line);font-family:"IBM Plex Mono",monospace;font-size:12px;flex-wrap:wrap}
+
+.tape-tabs{display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap}
+.tape-row{display:grid;grid-template-columns:28px minmax(0,1.3fr) minmax(0,.9fr) 36px;gap:10px;align-items:center;padding:12px 4px;border-bottom:1px solid var(--line);cursor:pointer}
+.tape-row:hover{background:var(--lift)}
+.tape-row.open{background:rgba(200,241,53,.07);border-radius:12px;border-bottom-color:transparent}
+.tape-arrow{width:22px;height:22px;border-radius:6px;display:grid;place-items:center;font-size:12px;font-weight:700}
+.tape-arrow.buy{background:rgba(200,241,53,.16);color:#C8F135}
+.tape-arrow.sell{background:rgba(255,102,64,.16);color:#FF6640}
+.tape-sz{font-size:14px;font-weight:650;line-height:1.2}
+.tape-sub{font-size:12px;color:var(--muted);margin-top:2px;font-family:"IBM Plex Mono",monospace}
+.tape-quote{text-align:right}
+.tape-quote .tape-sz{font-family:"IBM Plex Mono",ui-monospace,monospace}
+.tape-ago{text-align:right;color:var(--muted);font-size:12px}
+.tape-fees{grid-column:1/-1;display:none;flex-wrap:wrap;gap:6px;padding:2px 0 4px}
+.tape-row.open .tape-fees{display:flex}
+.tape-count{margin-left:auto}
+
 .form-grid{display:grid;gap:12px;text-align:left;max-width:520px;margin:28px auto 0}
 .form-grid label{font-size:12px;font-weight:600;color:var(--muted);letter-spacing:.06em;text-transform:uppercase}
 .form-grid input{width:100%;border:1px solid var(--line);border-radius:16px;padding:12px 14px;background:#16171A;outline:none;color:var(--ink)}
@@ -279,7 +295,7 @@ html.shot,html.shot *{animation:none!important;transition:none!important}
   let bshift = 0, pot = 31.94, prevPot = "", roundNo = 128, secs = ROUND_SECONDS;
   let balance = 48.60;
   let xaumBal = 2.40;
-  const state = {route:"explore", sym:"VOLT", filter:"All", sort:"Market cap", time:"All", side:"Buy", amt:"1", connected:false, search:"", lName:"", lTick:"", lQuote:"SUI", lMode:"Holders", metricsWindow:"All"};
+  const state = {route:"explore", sym:"VOLT", filter:"All", sort:"Market cap", time:"All", side:"Buy", amt:"1", connected:false, search:"", lName:"", lTick:"", lQuote:"SUI", lMode:"Holders", metricsWindow:"All", tapeTab:"trades", tapeOpen:""};
   let hashLock = false;
   const SHOT = /Headless/i.test(String(navigator.userAgent||"")) || /(?:^|[?&])shot=1(?:&|$)/.test(location.search);
   if (SHOT) document.documentElement.classList.add("shot");
@@ -408,18 +424,24 @@ html.shot,html.shot *{animation:none!important;transition:none!important}
     }
     return tapeChip(creator,"creator","#6B7280")+tapeChip(plat,"plat","#9CA3AF")+tapeChip(pit,"pit","#298DFF");
   }
+  function tapeKey(r){ return String(r.ts||"")+"|"+String(r.pool_id||"")+"|"+String(r.trader||""); }
   function tapeHTML(pool){
-    return tapeItems(8, pool).map(function(r){
+    const q = poolQuote(pool);
+    const rows = tapeItems(24, pool);
+    if (!rows.length) return '<div class="empty">No fills yet.</div>';
+    return rows.map(function(r){
       const bought = !!r.is_buy;
-      const amt = fromMist(r.quote_amount);
-      return '<div class="tape-row">'+
-        '<span style="color:#9CA3AF;width:88px;overflow:hidden">'+shortAddr(r.trader)+'</span>'+
-        '<span style="width:52px;color:'+(bought?"#3DDC84":"#FF6640")+'">'+(bought?"bought":"sold")+'</span>'+
-        '<span>'+amt.toFixed(2)+'</span>'+
-        '<span style="color:#6B7280">'+r.pool_id+'</span>'+
-        tapeFeeChips(r)+
-        '<span style="margin-left:auto;color:#9CA3AF">'+agoOf(r.ts)+'</span></div>';
-    }).join("") || '<div class="empty">No fills yet.</div>';
+      const quote = fromMist(r.quote_amount);
+      const tok = fromMist(r.token_amount);
+      const key = tapeKey(r);
+      const open = state.tapeOpen === key;
+      return '<div class="tape-row'+(open?" open":"")+'" data-tape="'+key+'">'+
+        '<div class="tape-arrow '+(bought?"buy":"sell")+'">'+(bought?"↗":"↙")+'</div>'+
+        '<div><div class="tape-sz">'+fmt(tok)+' '+r.pool_id+'</div><div class="tape-sub">'+shortAddr(r.trader)+'</div></div>'+
+        '<div class="tape-quote"><div class="tape-sz">'+fmt(quote)+'</div><div class="tape-sub">'+q+'</div></div>'+
+        '<div class="tape-ago">'+agoOf(r.ts)+'</div>'+
+        '<div class="tape-fees">'+tapeFeeChips(r)+'</div></div>';
+    }).join("");
   }
   function sparkSVG(k){
     const d = spark(k.ch>=0?0.7:0.32);
@@ -748,7 +770,6 @@ html.shot,html.shot *{animation:none!important;transition:none!important}
         '<div class="stat"><div class="k">Market cap</div><div class="v" data-cap="'+tk.t+'">'+money(tk.cap,q)+'</div></div>'+
         '<div class="stat"><div class="k">24h</div><div class="v" style="color:'+chColor(tk)+'">'+chText(tk)+'</div></div>'+
         '<div class="stat"><div class="k">Holders</div><div class="v">'+tk.h+'</div></div></div>'+
-      holderHTML(tk)+
       '<div class="split">'+
         '<div class="split-main">'+
           '<div class="card" style="padding:18px">'+
@@ -759,8 +780,11 @@ html.shot,html.shot *{animation:none!important;transition:none!important}
               '<span>'+pct.toFixed(0)+'% to graduation</span>'+
               '<span><span data-cap="'+tk.t+'">'+money(tk.cap,q)+'</span> / '+gLabel+'</span></div></div>'+
           '<div class="card" style="padding:18px;margin-top:12px">'+
-            '<div class="stat k" style="margin-bottom:6px">Tape</div>'+
-            '<div id="tape">'+tapeHTML(tk.t)+'</div></div></div>'+
+            '<div class="tape-tabs">'+
+              '<button type="button" class="pill'+(state.tapeTab!=="holders"?" on":"")+'" data-set="tapeTab" data-val="trades">Recent trades</button>'+
+              (isRefl(tk)?'<button type="button" class="pill'+(state.tapeTab==="holders"?" on":"")+'" data-set="tapeTab" data-val="holders">Holders</button>':'')+
+              '<span class="count-pill tape-count">'+tapeItems(50, tk.t).length+'</span></div>'+
+            '<div id="tape">'+(state.tapeTab==="holders" ? (holderHTML(tk)||'<div class="empty">No holder snapshot.</div>') : tapeHTML(tk.t))+'</div></div></div>'+
         '<div class="ticket">'+
           '<div class="sides">'+
             '<div data-side="Buy" id="btn-buy" class="'+(buyOn?"on-buy":"")+'">Buy</div>'+
@@ -864,7 +888,13 @@ html.shot,html.shot *{animation:none!important;transition:none!important}
   }
   function paintTape(){
     const tapeEl = $("#tape");
-    if (tapeEl) tapeEl.innerHTML = tapeHTML(state.route === "token" ? state.sym : null);
+    if (!tapeEl) return;
+    const tk = findT(state.sym);
+    if (state.tapeTab === "holders" && isRefl(tk)){
+      tapeEl.innerHTML = holderHTML(tk) || '<div class="empty">No holder snapshot.</div>';
+      return;
+    }
+    tapeEl.innerHTML = tapeHTML(state.route === "token" ? state.sym : null);
   }
   function paintLive(){
     paintClocks();
@@ -1107,11 +1137,24 @@ html.shot,html.shot *{animation:none!important;transition:none!important}
       paintTicket();
       return;
     }
+    const tapeRow = e.target.closest("[data-tape]");
+    if (tapeRow){
+      const key = tapeRow.getAttribute("data-tape");
+      state.tapeOpen = state.tapeOpen === key ? "" : key;
+      paintTape();
+      return;
+    }
     const set = e.target.closest("[data-set]");
     if (set){
       const key = set.getAttribute("data-set");
       const val = set.getAttribute("data-val");
       state[key] = val;
+      if (key === "tapeTab"){ paintTape();
+        $$("[data-set=\"tapeTab\"]").forEach(function(el){
+          el.classList.toggle("on", el.getAttribute("data-val") === state.tapeTab);
+        });
+        return;
+      }
       if (state.route === "launch" || state.route === "metrics") renderScreen();
       else if (state.route === "explore"){
         const keepQ = state.search;
