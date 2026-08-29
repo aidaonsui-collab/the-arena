@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Arena</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Source+Sans+3:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#000000; --stone:#0C0D0F;
+  --ink:#FFFFFF; --muted:#6C7584; --faint:#4A5563;
+  --cyan:#298DFF; --sui:#298DFF; --sui-deep:#1759C4; --line:rgba(255,255,255,.10);
+  --up:#7A9A6A; --down:#C17A72;
+  --ease:cubic-bezier(.22,1,.36,1);
+}
+*{box-sizing:border-box;-webkit-font-smoothing:antialiased}
+html,body{margin:0;padding:0;background:var(--bg);color:var(--ink)}
+body{
+  font-family:"Source Sans 3",system-ui,sans-serif;
+  font-size:15px; line-height:1.5; min-height:100dvh;
+  background:
+    radial-gradient(ellipse 70% 42% at 50% 18%, rgba(41,141,255,.11), transparent 58%),
+    #000000;
+}
+a{color:inherit;text-decoration:none}
+button{font:inherit;color:inherit;border:0;background:none;cursor:pointer}
+.wrap{max-width:1080px;margin:0 auto;padding:0 28px}
+
+.nav{position:sticky;top:0;z-index:50;
+  background:rgba(0,0,0,.72); backdrop-filter:blur(16px);
+  border-bottom:1px solid var(--line)}
+.nav .wrap{display:flex;align-items:center;gap:22px;height:58px}
+.brand{display:flex;align-items:center;gap:10px;font-family:Cinzel,serif;font-size:15px;letter-spacing:.22em;font-weight:600}
+.sui-mark{width:22px;height:22px;display:block;filter:drop-shadow(0 0 8px rgba(41,141,255,.55))}
+.pill{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);border:1px solid var(--line);padding:3px 9px}
+.navlinks{display:flex;gap:2px}
+.navlinks a{font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);padding:8px 12px; position:relative}
+.navlinks a.on{color:var(--ink);text-shadow:0 0 12px rgba(41,141,255,.45)}
+.navlinks a.on::after{content:"";position:absolute;left:12px;right:12px;bottom:4px;height:1px;background:var(--cyan);box-shadow:0 0 8px var(--cyan)}
+.navright{margin-left:auto;display:flex;align-items:center;gap:10px}
+.btn{padding:8px 16px;font-size:12px;letter-spacing:.14em;text-transform:uppercase; transition:border-color .25s var(--ease), box-shadow .25s var(--ease), transform .2s var(--ease)}
+.btn:active{transform:scale(.97)}
+.btn-line{border:1px solid rgba(255,255,255,.35); color:var(--ink)}
+.btn-line:hover{border-color:var(--cyan); box-shadow:0 0 16px rgba(41,141,255,.25)}
+.btn-cyan{border:1px solid var(--cyan); color:var(--bg); background:var(--cyan); box-shadow:0 0 18px rgba(41,141,255,.35)}
+.btn-ghost{color:var(--muted)}
+.btn-wide{display:block;width:100%;text-align:center;padding:14px}
+
+.page{padding:36px 0 80px; animation:pageIn .45s var(--ease) both}
+.eyebrow{font-size:11px;letter-spacing:.28em;text-transform:uppercase;color:var(--muted);margin-bottom:12px}
+h1.large{font-family:Cinzel,serif;font-size:56px;line-height:.95;font-weight:600;letter-spacing:.08em;margin:0 0 16px}
+h1.large .the{display:block;font-size:16px;letter-spacing:.46em;margin-bottom:10px;color:var(--muted);font-weight:400}
+h2{font-family:Cinzel,serif;font-size:18px;letter-spacing:.16em;font-weight:600;margin:0 0 16px}
+h3{font-size:16px;font-weight:600;margin:0}
+.sub{color:var(--muted);max-width:520px;margin:0 0 28px;font-size:16px}
+.card{background:linear-gradient(180deg,rgba(18,19,23,.92),rgba(12,13,15,.96)); border:1px solid var(--line); transition:border-color .25s var(--ease), transform .25s var(--ease), box-shadow .25s var(--ease)}
+.pad{padding:22px}
+.grid{display:grid;gap:16px}
+.g2{grid-template-columns:1fr 1fr}
+.g3{grid-template-columns:repeat(3,1fr)}
+.g4{grid-template-columns:repeat(4,1fr)}
+.row{display:flex;align-items:center;gap:12px}
+.spread{display:flex;align-items:center;justify-content:space-between;gap:16px}
+.muted{color:var(--muted)} .faint{color:var(--faint)}
+.small{font-size:13px} .tiny{font-size:11px;letter-spacing:.12em;text-transform:uppercase}
+.num{font-variant-numeric:tabular-nums}
+.up{color:var(--up)} .down{color:var(--down)} .accent{color:var(--cyan)}
+.stat .k{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted)}
+.stat .v{font-family:Cinzel,serif;font-size:22px;margin-top:6px;letter-spacing:.04em}
+.sec{margin-top:48px}
+.seclink{font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:var(--cyan)}
+.hr{height:1px;background:var(--line);margin:0}
+
+.hero{position:relative;text-align:center;padding:56px 0 28px}
+.hero .rings{position:absolute;inset:-40px 0 auto;height:340px;pointer-events:none;
+  background:
+    radial-gradient(circle at 50% 70%, transparent 62px, rgba(41,141,255,.09) 63px, transparent 64px),
+    radial-gradient(circle at 50% 70%, transparent 110px, rgba(41,141,255,.07) 111px, transparent 112px),
+    radial-gradient(circle at 50% 70%, transparent 168px, rgba(41,141,255,.05) 169px, transparent 170px);
+  mask-image:radial-gradient(circle at 50% 70%, #000 0, transparent 72%);
+  animation:ringPulse 6s ease-in-out infinite;
+}
+.glow{position:absolute;left:50%;top:58%;width:220px;height:80px;transform:translate(-50%,-50%);
+  background:radial-gradient(ellipse, rgba(41,141,255,.45), transparent 70%); filter:blur(8px); pointer-events:none; animation:breathe 3s ease-in-out infinite}
+.sparks{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+.sparks b{position:absolute;width:2px;height:2px;background:var(--cyan);border-radius:50%;opacity:.7;
+  box-shadow:0 0 6px var(--cyan); animation:rise 5s linear infinite}
+
+.tok{display:flex;align-items:center;gap:12px}
+.avatar{width:38px;height:38px;border:1px solid var(--line); display:grid;place-items:center;
+  font-family:Cinzel,serif;font-size:11px;letter-spacing:.08em;color:var(--ink); flex:none; transition:transform .3s var(--ease)}
+.tcard:hover .avatar{transform:translateY(-3px) scale(1.06)}
+.tag{font-size:10px;letter-spacing:.14em;text-transform:uppercase;padding:3px 8px;border:1px solid var(--line);color:var(--muted)}
+.tag.cyan{border-color:rgba(41,141,255,.4); color:var(--cyan); box-shadow:0 0 10px rgba(41,141,255,.15)}
+.bar{height:2px;background:rgba(255,255,255,.08);margin-top:14px; overflow:hidden}
+.bar i{display:block;height:100%;width:0;background:var(--cyan);box-shadow:0 0 8px var(--cyan); transition:width .8s var(--ease)}
+.tcard{padding:20px;display:block; animation:fadeUp .55s var(--ease) both}
+.tcard:hover{border-color:rgba(41,141,255,.35); transform:translateY(-4px); box-shadow:0 12px 40px rgba(41,141,255,.08)}
+.tcard.flash-up{box-shadow:inset 0 0 0 1px var(--up), 0 0 18px rgba(122,154,106,.25)}
+.tcard.flash-down{box-shadow:inset 0 0 0 1px var(--down), 0 0 18px rgba(193,122,114,.25)}
+.list .item{display:flex;align-items:center;gap:14px;padding:14px 22px;border-top:1px solid var(--line)}
+.list .item:first-child{border-top:0}
+.list .item.in{animation:tapeIn .35s var(--ease) both}
+.rank{width:22px;color:var(--faint);font-size:12px;font-family:Cinzel,serif}
+.field{display:block;margin-bottom:16px}
+.field label,.field>span{display:block;font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);margin-bottom:7px}
+.field input,.field textarea{width:100%;background:transparent;border:1px solid var(--line);padding:12px 14px;font:inherit;color:var(--ink);outline:none}
+.field input:focus,.field textarea:focus{border-color:var(--cyan)}
+.opt{border:1px solid var(--line);padding:14px;cursor:pointer; transition:border-color .2s, box-shadow .2s}
+.opt.on{border-color:var(--cyan); box-shadow:0 0 0 1px rgba(41,141,255,.25), 0 0 18px rgba(41,141,255,.12)}
+.seg{display:flex;border:1px solid var(--line)}
+.seg button{flex:1;padding:10px;font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.seg button.on{color:var(--bg);background:var(--cyan)}
+.chips{display:flex;gap:8px;margin-top:10px}
+.chips button{border:1px solid var(--line);padding:6px 12px;font-size:12px;letter-spacing:.08em}
+.kv{display:flex;justify-content:space-between;padding:9px 0;font-size:14px;border-top:1px solid var(--line)}
+.kv:first-of-type{border-top:0}
+.clock{font-family:Cinzel,serif;font-size:28px;letter-spacing:.12em}
+.potn{font-family:Cinzel,serif;font-size:42px;letter-spacing:.06em;text-shadow:0 0 24px rgba(41,141,255,.45)}
+.potn.tick{animation:tickFlash .55s ease}
+.king{animation:kingGlow 2.8s ease-in-out infinite}
+.live-dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--cyan);box-shadow:0 0 8px var(--cyan); margin-right:8px; animation:breathe 1.2s ease-in-out infinite}
+.tape-row{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--line); font-size:13px; animation:tapeIn .32s var(--ease) both}
+.bell{position:fixed;inset:0;z-index:80;display:flex;align-items:center;justify-content:center;pointer-events:none;opacity:0}
+.bell.show{opacity:1; animation:bellIn 2.4s var(--ease) both}
+.bell .veil{position:absolute;inset:0;background:radial-gradient(circle at 50% 50%, rgba(41,141,255,.18), rgba(5,5,5,.82))}
+.bell h2{position:relative;font-family:Cinzel,serif;font-size:64px;letter-spacing:.2em;text-shadow:0 0 40px var(--cyan)}
+.tabbar{display:none}
+
+@keyframes pageIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+@keyframes fadeUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+@keyframes tapeIn{from{opacity:0;transform:translateX(-16px)}to{opacity:1;transform:none}}
+@keyframes breathe{0%,100%{opacity:.55}50%{opacity:1}}
+@keyframes ringPulse{0%,100%{opacity:.7;transform:scale(1)}50%{opacity:1;transform:scale(1.03)}}
+@keyframes rise{from{transform:translateY(40px);opacity:0}20%{opacity:.8}to{transform:translateY(-180px);opacity:0}}
+@keyframes tickFlash{0%{color:var(--cyan);text-shadow:0 0 22px var(--cyan)}100%{color:var(--ink);text-shadow:0 0 24px rgba(41,141,255,.45)}}
+@keyframes kingGlow{0%,100%{box-shadow:0 0 0 1px rgba(41,141,255,.15), 0 0 24px rgba(41,141,255,.08)}50%{box-shadow:0 0 0 1px rgba(41,141,255,.45), 0 0 40px rgba(41,141,255,.22)}}
+@keyframes bellIn{0%{opacity:0}12%{opacity:1}80%{opacity:1}100%{opacity:0}}
+
+@media (max-width:767px){
+  .wrap{padding:0 18px}
+  h1.large{font-size:40px}
+  .g2,.g3,.g4{grid-template-columns:1fr}
+  .navlinks{display:none}
+  body{padding-bottom:88px}
+  .tabbar{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:60;
+    background:rgba(5,5,5,.88); backdrop-filter:blur(16px);
+    border-top:1px solid var(--line); padding:8px 6px calc(8px + env(safe-area-inset-bottom))}
+  .tabbar a{flex:1;text-align:center;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint);padding:6px 0}
+  .tabbar a.on{color:var(--cyan)}
+}
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation:none!important;transition:none!important}
+}
+</style>
+</head>
+<body>
+<nav class="nav"><div class="wrap">
+  <a class="brand" href="#/"><svg class="sui-mark" fill="#298DFF" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M17.636 10.009a7.16 7.16 0 0 1 1.565 4.474 7.2 7.2 0 0 1-1.608 4.53l-.087.106-.023-.135a7 7 0 0 0-.07-.349c-.502-2.21-2.142-4.106-4.84-5.642-1.823-1.034-2.866-2.278-3.14-3.693-.177-.915-.046-1.834.209-2.62.254-.787.631-1.446.953-1.843l1.05-1.284a.46.46 0 0 1 .713 0l5.28 6.456zm1.66-1.283L12.26.123a.336.336 0 0 0-.52 0L4.704 8.726l-.023.029a9.33 9.33 0 0 0-2.07 5.872C2.612 19.803 6.816 24 12 24s9.388-4.197 9.388-9.373a9.32 9.32 0 0 0-2.07-5.871zM6.389 9.981l.63-.77.018.142q.023.17.055.34c.408 2.136 1.862 3.917 4.294 5.297 2.114 1.203 3.345 2.586 3.7 4.103a5.3 5.3 0 0 1 .109 1.801l-.004.034-.03.014A7.2 7.2 0 0 1 12 21.67c-3.976 0-7.2-3.218-7.2-7.188 0-1.705.594-3.27 1.587-4.503z"/></svg>ARENA</a>
+  <span class="pill">Sui</span>
+  <div class="navlinks" id="navlinks"></div>
+  <div class="navright">
+    <a class="btn btn-line" href="#/launch">Launch</a>
+    <button class="btn btn-ghost" id="connect">Connect</button>
+  </div>
+</div></nav>
+<main id="app"></main>
+<div class="bell" id="bell"><div class="veil"></div><h2>THE BELL</h2></div>
+<nav class="tabbar" id="tabbar"></nav>
+<script>
+const NAV=[["Floor","#/"],["Discover","#/discover"],["Pit","#/pit"],["Board","#/board"]];
+const fmt=n=>n>=1000?(n/1000).toFixed(2)+"k":n.toFixed(2);
+const money=n=>fmt(n)+" SUI";
+const GRAD=2000;
+const COLORS={VOLT:"#298DFF",IRON:"#7A8A9A",BRINE:"#3A8A9A",HEX:"#8A6A9A",SILK:"#C4A07A",NITE:"#4A5560",RAZR:"#C49A5A",GLOW:"#8AA87A",PBL:"#6A6A62",QUILL:"#8A7A62",DUNE:"#C7943A",AXM:"#6A8AAA",KRKN:"#1C6E8C",ORBT:"#6E6E73"};
+const TOKENS=[
+ {t:"VOLT",n:"Voltcats",b:"Nine lives, one curve. Currently clawing at graduation.",cap:4650,ch:31.3,h:612,st:"Graduating",mode:"Holders",pit:true},
+ {t:"IRON",n:"Ironclad",b:"Object-centric collateral. One vault, many blows.",cap:4380,ch:18.9,h:503,st:"Graduating",mode:"Buy & burn"},
+ {t:"BRINE",n:"Brine",b:"Spreads so tight they sting. Order-book spray for Sui.",cap:2140,ch:9.6,h:466,st:"Live",mode:"Buy & burn"},
+ {t:"HEX",n:"Hexweaver",b:"Compose Move packages like hexes. No mercy for bad bytecode.",cap:1540,ch:22.5,h:328,st:"Live",mode:"Holders"},
+ {t:"SILK",n:"Silk",b:"Soft launch, sharp exits. A quiet book with teeth.",cap:1280,ch:-1.8,h:266,st:"Live",mode:"Holders"},
+ {t:"NITE",n:"Night Market",b:"After-hours liquidity. The floor never really closes.",cap:1020,ch:-4.7,h:215,st:"Live",mode:"Holders"},
+ {t:"RAZR",n:"Razorfin",b:"Latency as a weapon. Built for the hot path.",cap:769,ch:41.0,h:169,st:"Live",mode:"Holders"},
+ {t:"GLOW",n:"Glowmoth",b:"Drawn to the light. A moth that refuses to rug.",cap:454,ch:12.7,h:140,st:"Live",mode:"Holders"},
+ {t:"PBL",n:"Pebble",b:"Small stone, long throw. Microcaps with a spine.",cap:257,ch:8.2,h:118,st:"Live",mode:"Holders"},
+ {t:"QUILL",n:"Quill",b:"Write once, settle forever.",cap:179,ch:3.1,h:96,st:"Live",mode:"Holders"}
+];
+const GRADS=[{t:"DUNE",n:"Dune",cap:12400},{t:"AXM",n:"Axiom",cap:9800},{t:"KRKN",n:"Kraken",cap:6100},{t:"ORBT",n:"Orbit",cap:3450}];
+const BELLS=[{t:"VOLT",n:"Voltcats",amt:34.20,ago:"1h",mode:"Holders"},{t:"IRON",n:"Ironclad",amt:41.90,ago:"3h",mode:"Buy & burn",burn:"9.1M"},{t:"BRINE",n:"Brine",amt:28.10,ago:"4h",mode:"Buy & burn",burn:"6.02M"}];
+const ADDR=["0x8f2a…ab71","0xa91c…d012","0x11c0…012f","0x70bb…4410","0xcc81…e203","0x5d0e…c801","0x09ae…3290","0xbb21…aa13"];
+let wallet=JSON.parse(localStorage.getItem("arena_wallet")||"null");
+if(!wallet){wallet={connected:false,balance:48.60};save()}
+function save(){localStorage.setItem("arena_wallet",JSON.stringify(wallet))}
+let pot=31.94, secs=172;
+let tape=[{a:ADDR[0],side:"bought",amt:22.40,t:"VOLT",ago:"now"},{a:ADDR[1],side:"bought",amt:8.10,t:"IRON",ago:"1m"},{a:ADDR[2],side:"sold",amt:3.60,t:"RAZR",ago:"2m"},{a:ADDR[3],side:"bought",amt:5.00,t:"GLOW",ago:"4m"},{a:ADDR[4],side:"bought",amt:14.20,t:"BRINE",ago:"6m"},{a:ADDR[5],side:"sold",amt:2.20,t:"HEX",ago:"8m"}];
+
+function pushFill(){
+  const k=TOKENS[Math.floor(Math.random()*TOKENS.length)];
+  const side=Math.random()>.28?"bought":"sold";
+  const amt=+(Math.random()*18+.4).toFixed(2);
+  tape.unshift({a:ADDR[Math.floor(Math.random()*ADDR.length)],side,amt,t:k.t,ago:"now"});
+  tape=tape.slice(0,24);
+  const bump=amt*0.01;
+  pot+=bump;
+  k.cap+=side==="bought"?amt*4.2:-amt*3.1;
+  k.cap=Math.max(40,k.cap);
+  document.querySelectorAll("[data-pot]").forEach(e=>{e.textContent=money(pot); e.classList.remove("tick"); void e.offsetWidth; e.classList.add("tick")});
+  const card=document.querySelector(`[data-tok="${k.t}"]`);
+  if(card){card.classList.remove("flash-up","flash-down"); void card.offsetWidth; card.classList.add(side==="bought"?"flash-up":"flash-down"); setTimeout(()=>card.classList.remove("flash-up","flash-down"),700);
+    const bar=card.querySelector(".bar i"); if(bar) bar.style.width=Math.min(100,k.cap/GRAD*100).toFixed(0)+"%";
+    const capEl=card.querySelector("[data-cap]"); if(capEl) capEl.textContent=money(k.cap);
+  }
+  paintTape();
+}
+
+function ringBell(){
+  const el=document.getElementById("bell");
+  el.classList.remove("show"); void el.offsetWidth; el.classList.add("show");
+  pot=0.42;
+}
+
+setInterval(()=>{
+  secs=secs>0?secs-1:180;
+  if(secs===180) ringBell();
+  const c=document.getElementById("clock"); if(c)c.textContent=clockStr();
+},1000);
+setInterval(pushFill, 1800 + Math.random()*900);
+const clockStr=()=>Math.floor(secs/60)+":"+String(secs%60).padStart(2,"0");
+const av=t=>`<div class="avatar" style="border-color:${COLORS[t]||"#6C7584"}33;color:${COLORS[t]||"#FFFFFF"}">${t.slice(0,2)}</div>`;
+const spark=(seed,color)=>{let p="",y=30;for(let i=0;i<=28;i++){y+=Math.sin(i*seed)*4+(seed>0.5?-0.9:0.6);y=Math.max(6,Math.min(46,y));p+=(i?"L":"M")+(i*3.4)+" "+y.toFixed(1)}return `<svg width="96" height="52" viewBox="0 0 96 52" fill="none"><path d="${p}" stroke="${color}" stroke-width="1.4" stroke-linecap="round"/></svg>`};
+const tCard=(k,i)=>`<a class="card tcard" data-tok="${k.t}" href="#/token/${k.t.toLowerCase()}" style="animation-delay:${(i||0)*70}ms">
+  <div class="spread"><div class="tok">${av(k.t)}<div><h3>${k.n}</h3><div class="tiny faint">${k.t}</div></div></div>
+  <span class="tag ${k.st==="Graduating"?"cyan":""}">${k.st}</span></div>
+  <div class="small muted" style="margin:14px 0 16px;min-height:38px">${k.b}</div>
+  <div class="spread"><div><div class="tiny">Market cap</div><div class="num" data-cap style="font-family:Cinzel,serif;font-size:17px;margin-top:4px">${money(k.cap)}</div></div>
+  <div style="text-align:right"><div class="tiny">24h</div><div class="num ${k.ch>=0?"up":"down"}" style="margin-top:4px">${k.ch>=0?"+":""}${k.ch.toFixed(1)}%</div></div></div>
+  <div class="bar"><i style="width:${Math.min(100,k.cap/GRAD*100).toFixed(0)}%"></i></div>
+  <div class="tiny faint" style="margin-top:8px">${Math.min(100,k.cap/GRAD*100).toFixed(0)}% to graduation</div></a>`;
+const potCard=()=>`<div class="card pad king" style="position:relative;overflow:hidden">
+  <div style="position:absolute;inset:auto 0 -40px;height:120px;background:radial-gradient(ellipse at 50% 0, rgba(41,141,255,.18), transparent 70%);pointer-events:none"></div>
+  <div class="spread"><div><div class="eyebrow" style="margin:0"><span class="live-dot"></span>The pit · Round 128</div>
+  <div class="potn num" data-pot>${money(pot)}</div>
+  <div class="small muted">Funded by 1% of every fill. Highest cap on the curve takes it.</div></div>
+  <div style="text-align:right"><div class="tiny">Bell in</div><div class="clock num" id="clock">${clockStr()}</div></div></div>
+  <div class="hr" style="margin:20px 0"></div>
+  <div class="spread"><div class="tok">${av("VOLT")}<div><div class="tiny">Leading</div><h3>Voltcats <span class="muted" style="font-weight:500">VOLT</span></h3></div></div>
+  <div style="text-align:right"><div class="num" style="font-family:Cinzel,serif">4.65k SUI</div><span class="tag cyan">Holders</span></div></div></div>`;
+function tapeHTML(n=8){return tape.slice(0,n).map(r=>`<div class="tape-row"><span class="num faint" style="width:92px">${r.a}</span><span class="${r.side==="bought"?"up":"down"}" style="width:58px">${r.side}</span><span class="num">${r.amt.toFixed(2)}</span><span class="muted">${r.t}</span><span class="faint" style="margin-left:auto">${r.ago}</span></div>`).join("")}
+function paintTape(){const el=document.getElementById("live-tape"); if(el) el.innerHTML=tapeHTML(9)}
+const routes={
+"/":()=>`<div class="page"><div class="wrap">
+  <div class="hero">
+    <div class="rings"></div><div class="glow"></div>
+    <div class="sparks">${Array.from({length:12},(_,i)=>`<b style="left:${8+i*7}%;bottom:20%;animation-delay:${i*.4}s"></b>`).join("")}</div>
+    <div class="eyebrow">Fair launches on Sui</div>
+    <h1 class="large"><span class="the">THE</span>ARENA</h1>
+    <p class="sub" style="margin-left:auto;margin-right:auto">The floor is open. Launch a token, buy the curve, fight for the daily pit. No presale. Highest cap still on the sand takes the pot.</p>
+    <div class="row" style="justify-content:center"><a class="btn btn-cyan" href="#/launch">Enter a token</a><a class="btn btn-line" href="#/pit">Watch the pit</a></div>
+  </div>
+  <div class="grid g4 sec">
+    ${[["24h volume","4.02k SUI"],["Live bouts","12"],["In the pit",money(pot)],["Graduated","4"]].map((s,i)=>`<div class="card pad stat" style="animation:fadeUp .5s var(--ease) both;animation-delay:${i*80}ms"><div class="k">${s[0]}</div><div class="v num" ${s[0]==="In the pit"?"data-pot":""}>${s[1]}</div></div>`).join("")}
+  </div>
+  <div class="sec">${potCard()}</div>
+  <div class="grid g2 sec" style="grid-template-columns:1.4fr .8fr">
+    <div>
+      <div class="spread"><h2>Highest cap on the curve</h2><a class="seclink" href="#/board">Full board</a></div>
+      <div class="card pad king"><div class="spread"><div class="tok">${av("VOLT")}<div><h3>Voltcats <span class="muted" style="font-weight:500">VOLT</span></h3><div class="small muted">Nine lives, one curve. Currently clawing at graduation.</div></div></div>${spark(0.7,"#298DFF")}</div>
+      <div class="grid g4" style="margin-top:22px">${[["Market cap","4.65k SUI"],["24h","+31.3%"],["Holders","612"],["Raised","1.97k SUI"]].map(s=>`<div class="stat"><div class="k">${s[0]}</div><div class="v num" style="font-size:18px">${s[1]}</div></div>`).join("")}</div>
+      <div class="bar"><i style="width:98%"></i></div></div>
+    </div>
+    <div>
+      <div class="spread"><h2>Live fills</h2><span class="tiny"><span class="live-dot"></span>Live</span></div>
+      <div class="card pad" id="live-tape" style="padding-top:8px;padding-bottom:8px">${tapeHTML(9)}</div>
+    </div>
+  </div>
+  <div class="sec"><div class="spread"><h2>Live bouts</h2><a class="seclink" href="#/discover">All launches</a></div>
+    <div class="grid g3">${TOKENS.slice(0,6).map(tCard).join("")}</div></div>
+  <div class="grid g3 sec">${[["Enter","Launch a token for 1 SUI. Pick burn or holder split if you take the pit."],["Fight","Buy and sell against the bonding curve. One percent of every fill funds the pot."],["Graduate","At 2,000 SUI raised, liquidity leaves for DeepBook. The pit stays on the curve."]].map((s,i)=>`<div class="card pad" style="animation:fadeUp .55s var(--ease) both;animation-delay:${.2+i*.08}s"><div class="tiny faint">0${i+1}</div><h3 style="margin:8px 0;font-family:Cinzel,serif;letter-spacing:.12em">${s[0]}</h3><div class="small muted">${s[1]}</div></div>`).join("")}</div>
+</div></div>`,
+
+"/discover":()=>`<div class="page"><div class="wrap">
+  <div class="eyebrow">Discover</div><h1 class="large">Every bout on the floor.</h1>
+  <p class="sub">Twelve live curves, four graduates. Sorted by market cap.</p>
+  <div class="grid g3">${TOKENS.map(tCard).join("")}</div>
+  <div class="sec"><h2>Graduated</h2><div class="card list">${GRADS.map(g=>`<div class="item">${av(g.t)}<div style="flex:1"><h3>${g.n} <span class="muted" style="font-weight:500">${g.t}</span></h3><div class="tiny faint">Trading on DeepBook</div></div><span class="tag">Graduated</span><div class="num" style="font-family:Cinzel,serif;width:96px;text-align:right">${money(g.cap)}</div></div>`).join("")}</div></div>
+</div></div>`,
+
+"/pit":()=>`<div class="page"><div class="wrap">
+  <div class="hero" style="padding-top:20px">
+    <div class="rings"></div><div class="glow"></div>
+    <div class="eyebrow">The pit</div>
+    <h1 class="large">Daily pot.<br>Winner takes the fees.</h1>
+    <p class="sub" style="margin-left:auto;margin-right:auto">One percent of every fill funds the sand. When the bell rings, the highest cap still on the curve wins — burn, or split to holders.</p>
+  </div>
+  ${potCard()}
+  <div class="grid g3 sec">${[["Fees fill the pit","Every fill on the curve pays 1% in SUI into the pot. The rest stays on the bout."],["Cap is the fight","Live and graduating tokens only. Graduates already left for DeepBook."],["Burn or split","If the leader burns, the pot buys the token and those units vanish. If split, holders receive SUI pro-rata."]].map((s,i)=>`<div class="card pad"><div class="tiny faint">0${i+1}</div><h3 style="margin:8px 0;font-family:Cinzel,serif;letter-spacing:.1em">${s[0]}</h3><div class="small muted">${s[1]}</div></div>`).join("")}</div>
+  <div class="grid g2 sec">
+    <div class="card"><div class="spread pad" style="padding-bottom:14px"><h2 style="margin:0">Contenders</h2><a class="seclink" href="#/board">Full board</a></div>
+      <div class="list">${TOKENS.slice(0,8).map((k,i)=>`<div class="item"><span class="rank num">${i+1}</span>${av(k.t)}<div style="flex:1"><h3 style="font-size:15px">${k.n}</h3><div class="tiny faint">${k.t}</div></div><span class="tag ${k.mode==="Holders"?"cyan":""}">${k.mode}</span><div class="num" data-cap style="font-family:Cinzel,serif;width:74px;text-align:right">${fmt(k.cap)}</div></div>`).join("")}</div></div>
+    <div class="card"><div class="pad" style="padding-bottom:14px"><h2 style="margin:0">Past bells</h2></div>
+      <div class="list">${BELLS.map(b=>`<div class="item">${av(b.t)}<div style="flex:1"><h3 style="font-size:15px">${b.n} <span class="muted" style="font-weight:500">${b.t}</span></h3><div class="tiny faint num">${b.amt.toFixed(2)} SUI · ${b.ago}${b.burn?" · burned "+b.burn:""}</div></div><span class="tag ${b.mode==="Holders"?"cyan":""}">${b.mode}</span></div>`).join("")}</div></div>
+  </div>
+</div></div>`,
+
+"/board":()=>`<div class="page"><div class="wrap">
+  <div class="eyebrow">Board</div><h1 class="large">The standings.</h1>
+  <p class="sub">Live market caps across the floor. Graduation clears at 2,000 SUI.</p>
+  <div class="card list">${TOKENS.map((k,i)=>`<div class="item" data-tok="${k.t}"><span class="rank num">${i+1}</span>${av(k.t)}
+    <div style="flex:1;min-width:0"><h3 style="font-size:15px">${k.n} <span class="muted" style="font-weight:500">${k.t}</span></h3><div class="tiny faint">${k.h} holders · ${k.mode}</div></div>
+    ${spark(k.ch>=0?0.7:0.3,k.ch>=0?"#7A9A6A":"#C17A72")}
+    <div class="num ${k.ch>=0?"up":"down"}" style="width:70px;text-align:right">${k.ch>=0?"+":""}${k.ch.toFixed(1)}%</div>
+    <div class="num" data-cap style="font-family:Cinzel,serif;width:96px;text-align:right">${money(k.cap)}</div></div>`).join("")}</div>
+</div></div>`,
+
+"/launch":()=>`<div class="page"><div class="wrap">
+  <div class="eyebrow">Launch</div><h1 class="large">Enter the arena.</h1>
+  <p class="sub">One SUI opens a bout. If you lead the pit when the bell rings, the pot either buys and burns your token, or splits to your holders.</p>
+  <div class="grid" style="grid-template-columns:1.6fr 1fr">
+    <div class="card pad">
+      <div class="grid g2" style="gap:0 18px"><label class="field"><span>Name</span><input id="f-name" placeholder="Ironclad"></label><label class="field"><span>Ticker</span><input id="f-tick" placeholder="IRON" maxlength="6"></label></div>
+      <label class="field"><span>Blurb</span><textarea id="f-blurb" rows="3" placeholder="What is this token fighting for?"></textarea></label>
+      <label class="field"><span>X handle (optional)</span><input id="f-x" placeholder="project"></label>
+      <div class="field"><span>If you win the pit</span><div class="grid g2">
+        <div class="opt on" data-mode="Holders"><h3 style="font-size:15px">Split to holders</h3><div class="tiny faint" style="margin-top:5px;letter-spacing:.06em">The pot is paid in SUI, pro-rata to whoever holds the token.</div></div>
+        <div class="opt" data-mode="Buy & burn"><h3 style="font-size:15px">Buy and burn</h3><div class="tiny faint" style="margin-top:5px;letter-spacing:.06em">The pot buys this token on the curve. Those units are destroyed.</div></div></div></div>
+      <div class="small muted" style="margin:18px 0 14px">Launch fee 1 SUI · wallet ${wallet.balance.toFixed(2)} SUI</div>
+      <button class="btn btn-cyan btn-wide" id="do-launch">${wallet.connected?"Launch for 1 SUI":"Connect to launch"}</button>
+    </div>
+    <div class="card pad" style="align-self:start">
+      <div class="eyebrow">Preview</div>
+      <div class="tok" style="margin:14px 0 16px"><div class="avatar" id="p-av">TI</div><div><h3 id="p-name">Unnamed</h3><div class="tiny faint" id="p-tick">TICK</div></div></div>
+      <div class="small muted" id="p-blurb">Your blurb lands here.</div>
+      <div style="margin-top:16px"><span class="tag cyan" id="p-mode">Holders</span></div>
+      <div class="hr" style="margin:18px 0"></div>
+      <div class="kv"><span class="muted">Opens at</span><span class="num">1 SUI raised</span></div>
+      <div class="kv"><span class="muted">Graduation</span><span class="num">2,000 SUI</span></div>
+      <div class="kv"><span class="muted">Pit fee</span><span class="num">1% of every fill</span></div>
+    </div>
+  </div>
+</div></div>`,
+};
+
+function tokenPage(sym){
+  const k=TOKENS.find(x=>x.t.toLowerCase()===sym)||TOKENS[0];
+  const pct=Math.min(100,k.cap/GRAD*100).toFixed(0);
+  return `<div class="page"><div class="wrap">
+    <a class="seclink" href="#/discover">← Discover</a>
+    <div class="spread" style="margin:18px 0 26px"><div class="tok">${av(k.t)}<div><h1 class="large" style="font-size:36px;margin:0;letter-spacing:.06em">${k.n}</h1><div class="small muted">${k.t} · ${k.b}</div></div></div>
+      <div class="row"><span class="tag ${k.st==="Graduating"?"cyan":""}">${k.st}</span><span class="tag">${k.mode}</span></div></div>
+    <div class="grid g4">${[["Price","4.65e-6 SUI"],["Market cap",money(k.cap)],["24h",(k.ch>=0?"+":"")+k.ch.toFixed(1)+"%"],["Holders",String(k.h)]].map(s=>`<div class="card pad stat"><div class="k">${s[0]}</div><div class="v num" style="font-size:18px">${s[1]}</div></div>`).join("")}</div>
+    ${k.pit?`<div class="card pad sec spread king"><div><div class="tiny"><span class="live-dot"></span>Pit standing</div><h3 style="margin:4px 0;font-family:Cinzel,serif;letter-spacing:.08em">Leading the pit</h3><div class="small muted">If this token wins the bell, the pot splits to holders.</div></div><div class="clock num" id="clock">${clockStr()}</div></div>`:""}
+    <div class="grid sec" style="grid-template-columns:1.6fr 1fr">
+      <div class="card pad"><div class="spread"><div class="eyebrow" style="margin:0">Price path</div>${spark(k.ch>=0?0.7:0.3,"#298DFF")}</div>
+        <svg viewBox="0 0 600 220" width="100%" height="220" style="margin-top:12px"><defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#298DFF" stop-opacity=".22"/><stop offset="1" stop-color="#298DFF" stop-opacity="0"/></linearGradient></defs>
+        <path d="M0 196 C 160 186, 320 132, 600 34 L600 220 L0 220Z" fill="url(#g)"/>
+        <path d="M0 196 C 160 186, 320 132, 600 34" stroke="#298DFF" stroke-width="2" fill="none" stroke-linecap="round" style="stroke-dasharray:800;stroke-dashoffset:800;animation:draw 1.4s var(--ease) .2s forwards"/>
+        <circle cx="592" cy="36" r="4" fill="#298DFF"/></svg>
+        <style>@keyframes draw{to{stroke-dashoffset:0}}</style>
+        <div class="bar"><i style="width:${pct}%"></i></div>
+        <div class="spread tiny faint" style="margin-top:8px"><span>${pct}% to graduation</span><span class="num">${money(k.cap)} / 2,000 SUI</span></div></div>
+      <div class="card pad" style="align-self:start">
+        <div class="seg" id="seg"><button class="on">Buy</button><button>Sell</button></div>
+        <div class="spread small muted" style="margin:18px 0 7px"><span>Pay with SUI</span><span class="num">${wallet.balance.toFixed(2)} SUI</span></div>
+        <input class="num" id="amt" value="1" style="width:100%;background:transparent;border:1px solid var(--line);padding:12px 14px;font:inherit;font-size:22px;outline:none;color:var(--ink)">
+        <div class="chips">${["0.1","0.5","1","5","Max"].map(c=>`<button>${c}</button>`).join("")}</div>
+        <div style="margin:18px 0 4px"><div class="kv"><span class="muted">You receive</span><span class="num">213.6k ${k.t}</span></div>
+        <div class="kv"><span class="muted">Pit fee (1%)</span><span class="num accent">0.0100 SUI</span></div>
+        <div class="kv"><span class="muted">Price</span><span class="num">4.65e-6 SUI</span></div>
+        <div class="kv"><span class="muted">Venue</span><span>Bonding curve</span></div></div>
+        <button class="btn btn-cyan btn-wide" style="margin-top:14px" id="do-buy">${wallet.connected?"Buy "+k.t:"Connect wallet"}</button>
+        <div class="tiny faint" style="margin-top:10px;text-align:center">The 1% fee goes to the pit, not the launcher.</div>
+      </div></div>
+    <div class="card sec"><div class="pad" style="padding-bottom:10px"><h2 style="margin:0">Tape</h2></div>
+      <div class="pad" id="live-tape" style="padding-top:0">${tapeHTML(8)}</div></div>
+  </div></div>`;
+}
+
+function render(){
+  const h=(location.hash||"#/").slice(1);
+  document.getElementById("app").innerHTML = h.startsWith("/token/")?tokenPage(h.split("/")[2]):(routes[h]||routes["/"])();
+  document.getElementById("navlinks").innerHTML=NAV.map(n=>`<a href="${n[1]}" class="${"#"+h===n[1]?"on":""}">${n[0]}</a>`).join("");
+  document.getElementById("tabbar").innerHTML=NAV.concat([["Launch","#/launch"]]).map(n=>`<a href="${n[1]}" class="${"#"+h===n[1]?"on":""}">${n[0]}</a>`).join("");
+  document.getElementById("connect").textContent=wallet.connected?wallet.balance.toFixed(2)+" SUI":"Connect";
+  requestAnimationFrame(()=>document.querySelectorAll(".bar i").forEach(el=>{const w=el.style.width; el.style.width="0"; requestAnimationFrame(()=>el.style.width=w)}));
+  wire(); window.scrollTo(0,0);
+}
+function wire(){
+  document.querySelectorAll(".opt").forEach(o=>o.onclick=()=>{document.querySelectorAll(".opt").forEach(x=>x.classList.remove("on"));o.classList.add("on");document.getElementById("p-mode").textContent=o.dataset.mode});
+  const nm=document.getElementById("f-name");
+  if(nm){const p=()=>{document.getElementById("p-name").textContent=nm.value||"Unnamed";const t=(document.getElementById("f-tick").value||"TICK").toUpperCase();document.getElementById("p-tick").textContent=t;document.getElementById("p-av").textContent=t.slice(0,2);document.getElementById("p-blurb").textContent=document.getElementById("f-blurb").value||"Your blurb lands here."};["f-name","f-tick","f-blurb"].forEach(id=>document.getElementById(id).oninput=p)}
+  const seg=document.getElementById("seg");
+  if(seg)seg.querySelectorAll("button").forEach(b=>b.onclick=()=>{seg.querySelectorAll("button").forEach(x=>x.classList.remove("on"));b.classList.add("on")});
+  document.querySelectorAll(".chips button").forEach(b=>b.onclick=()=>{document.getElementById("amt").value=b.textContent==="Max"?wallet.balance.toFixed(2):b.textContent});
+  [["do-buy"],["do-launch"]].forEach(([id])=>{const e=document.getElementById(id);if(e)e.onclick=()=>{if(!wallet.connected){wallet.connected=true;save();render()}}});
+}
+document.getElementById("connect").onclick=()=>{wallet.connected=!wallet.connected;save();render()};
+addEventListener("hashchange",render); render();
+</script>
+</body>
+</html>
