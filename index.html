@@ -302,8 +302,10 @@ html.shot,html.shot *{animation:none!important;transition:none!important}
   let bshift = 0, pot = 31.94, prevPot = "", roundNo = 128, secs = ROUND_SECONDS;
   let balance = 48.60;
   let xaumBal = 2.40;
-  const state = {route:"explore", sym:"VOLT", filter:"All", sort:"Market cap", time:"All", side:"Buy", amt:"1", connected:false, search:"", lName:"", lTick:"", lQuote:"SUI", lMode:"Holders", metricsWindow:"All", tapeTab:"trades", tapeOpen:"", lFile:null, lArtUrl:"", lArtPreview:""};
+  const state = {route:"explore", sym:"VOLT", filter:"All", sort:"Market cap", time:"All", side:"Buy", amt:"1", connected:false, search:"", lName:"", lTick:"", lQuote:"SUI", lMode:"Holders", metricsWindow:"All", tapeTab:"trades", tapeOpen:"", lFile:null, lArtUrl:"", lArtPreview:"", payWith:"SUI"};
   let hashLock = false;
+  const hop = { suiPerXaum: null, usd: null, source: "" };
+
   const SHOT = /Headless/i.test(String(navigator.userAgent||"")) || /(?:^|[?&])shot=1(?:&|$)/.test(location.search);
   if (SHOT) document.documentElement.classList.add("shot");
   const Index = window.ArenaIndex || window.ArenaIndexer || null;
@@ -465,9 +467,19 @@ html.shot,html.shot *{animation:none!important;transition:none!important}
     const txt = n >= 0.01 ? n.toFixed(4) : (n > 0 ? n.toFixed(6) : "0");
     return '<span class="fee-chip" style="color:'+color+'">'+txt+' '+label+'</span>';
   }
+  function goldQuote(){ return poolQuote(state.sym) === "XAUM"; }
+  function payingSui(){ return goldQuote() && state.side === "Buy" && state.payWith === "SUI"; }
+  function curveAmt(){
+    const amtN = parseFloat(state.amt) || 0;
+    if (payingSui()){
+      if (!(hop.suiPerXaum > 0)) return 0;
+      return amtN / hop.suiPerXaum;
+    }
+    return amtN;
+  }
   function feeParts(tk){
     const q = poolQuote(tk);
-    const amtN = parseFloat(state.amt) || 0;
+    const amtN = curveAmt();
     const total = amtN * 0.01;
     const last = tapeItems(1, tk.t)[0];
     const lastQ = last ? fromMist(last.quote_amount) : 0;
@@ -500,18 +512,33 @@ html.shot,html.shot *{animation:none!important;transition:none!important}
     const tk = findT(state.sym);
     const q = poolQuote(tk);
     const amtN = parseFloat(state.amt) || 0;
+    const fill = curveAmt();
     const px = lastPx(tk.t);
     const receive = state.side === "Buy"
-      ? (px > 0 ? (amtN/px/1000).toFixed(1)+"k "+tk.t : "—")
+      ? (px > 0 && fill > 0 ? (fill/px/1000).toFixed(1)+"k "+tk.t : "—")
       : ((amtN*px).toFixed(4)+" "+q);
     const parts = feeParts(tk);
     const fee = parts.total.toFixed(4)+" "+q;
-    const tradeLabel = state.connected ? (state.side === "Buy" ? "Buy "+tk.t : "Sell "+tk.t) : "Connect wallet";
-    const payLabel = state.side === "Buy" ? "Pay with "+q : "Sell "+tk.t;
+    const suiPay = payingSui();
+    const payAsset = suiPay ? "SUI" : q;
+    const tradeLabel = state.connected
+      ? (state.side === "Buy" ? (suiPay ? "Buy "+tk.t+" with SUI" : "Buy "+tk.t) : "Sell "+tk.t)
+      : "Connect wallet";
+    const payLabel = state.side === "Buy" ? "Pay with "+payAsset : "Sell "+tk.t;
     const note = parts.reflectionMode
-      ? "1% · 50% reflections / 20% creator / 20% pit / 10% platform · launch 1 SUI"
-      : "1% · 60% creator / 10% platform / 30% pit · launch 1 SUI";
-    return {receive:receive, fee:fee, tradeLabel:tradeLabel, payLabel:payLabel, quote:q, parts:parts, note:note, chips:feeChipsHTML(parts)};
+      ? "1% on the XAUM fill · 50/20/20/10 · launch 1 SUI"
+      : "1% on the fill · 60/10/30 · launch 1 SUI";
+    let hopLine = "";
+    if (goldQuote() && state.side === "Buy"){
+      if (suiPay && hop.suiPerXaum > 0){
+        hopLine = amtN.toFixed(2)+" SUI → "+fill.toFixed(6)+" XAUM on Bluefin Spot, then the curve";
+      } else if (suiPay){
+        hopLine = "Bluefin XAUM/SUI rate pending";
+      } else {
+        hopLine = "Curve fill in XAUM. Switch to SUI to hop Bluefin Spot first.";
+      }
+    }
+    return {receive:receive, fee:fee, tradeLabel:tradeLabel, payLabel:payLabel, quote:q, payAsset:payAsset, parts:parts, note:note, chips:feeChipsHTML(parts), hopLine:hopLine, suiPay:suiPay, gold:goldQuote()};
   }
   function sortPool(list){
     const s = state.sort;
@@ -773,10 +800,19 @@ html.shot,html.shot *{animation:none!important;transition:none!important}
     const meta = ticketMeta();
     const buyOn = state.side === "Buy";
     const px = fmtPx(lastPx(tk.t))+" "+q;
-    const chipVals = q === "XAUM" ? ["0.01","0.05","0.1","0.25","Max"] : ["0.1","0.5","1","5","Max"];
+    const suiPay = q === "XAUM" && buyOn && state.payWith === "SUI";
+    const chipVals = suiPay ? ["1","5","10","50","Max"] : (q === "XAUM" ? ["0.01","0.05","0.1","0.25","Max"] : ["0.1","0.5","1","5","Max"]);
     const chips = chipVals.map(function(c){
       return '<div data-chip="'+c+'">'+c+'</div>';
     }).join("");
+    const payRoute = (q === "XAUM" && buyOn)
+      ? '<div class="toggle" id="pay-route" style="margin:12px 0 0">'+
+          '<button type="button" class="pill'+(state.payWith==="SUI"?" on":"")+'" data-pay="SUI">Pay SUI</button>'+
+          '<button type="button" class="pill'+(state.payWith!=="SUI"?" on":"")+'" data-pay="XAUM">Pay XAUM</button></div>'
+      : "";
+    const hopRow = (q === "XAUM")
+      ? '<div class="kv" id="hop-row"><span style="color:var(--muted)">Hop</span><span id="hop-text" class="mono" style="text-align:right;max-width:28ch">'+meta.hopLine+'</span></div>'
+      : "";
     return '<div data-screen-label="Token">'+
       '<div class="back" data-go="explore">← Explore</div>'+
       '<div class="token-head">'+
@@ -810,14 +846,16 @@ html.shot,html.shot *{animation:none!important;transition:none!important}
           '<div class="sides">'+
             '<div data-side="Buy" id="btn-buy" class="'+(buyOn?"on-buy":"")+'">Buy</div>'+
             '<div data-side="Sell" id="btn-sell" class="'+(buyOn?"":"on-sell")+'">Sell</div></div>'+
-          '<div style="display:flex;justify-content:space-between;margin:16px 0 8px;font-size:13px;color:var(--muted)"><span id="pay-label">'+meta.payLabel+'</span><span id="bal-text" class="mono">'+walletBal(q).toFixed(2)+' '+q+'</span></div>'+
+          payRoute+
+          '<div style="display:flex;justify-content:space-between;margin:16px 0 8px;font-size:13px;color:var(--muted)"><span id="pay-label">'+meta.payLabel+'</span><span id="bal-text" class="mono">'+(suiPay?balance:walletBal(q)).toFixed(2)+' '+(suiPay?"SUI":q)+'</span></div>'+
           '<input id="amt" class="amt" value="'+state.amt+'">'+
-          '<div class="chips">'+chips+'</div>'+
+          '<div class="chips" id="amt-chips">'+chips+'</div>'+
           '<div style="margin-top:16px">'+
             '<div class="kv"><span style="color:var(--muted)">You receive</span><span id="receive" class="mono">'+meta.receive+'</span></div>'+
+            hopRow+
             '<div class="kv"><span style="color:var(--muted)">Swap fee · 1%</span><span id="fee" class="mono" style="color:#298DFF">'+meta.fee+'</span></div>'+
             '<div id="fee-chips" class="fee-chips">'+meta.chips+'</div>'+
-            '<div class="kv"><span style="color:var(--muted)">Venue</span><span>Bonding curve</span></div></div>'+
+            '<div class="kv"><span style="color:var(--muted)">Venue</span><span id="venue-text">'+(suiPay?"Bluefin Spot → curve":"Bonding curve")+'</span></div></div>'+
           '<button type="button" class="btn-trade'+(buyOn?"":" sell")+'" id="trade-btn" data-trade>'+meta.tradeLabel+'</button>'+
           '<div id="fee-note" style="margin-top:10px;text-align:center;font-size:11px;color:var(--muted)">'+meta.note+'</div>'+
         '</div></div>'+
@@ -880,11 +918,30 @@ html.shot,html.shot *{animation:none!important;transition:none!important}
     buy.className = buyOn ? "on-buy" : "";
     sell.className = buyOn ? "" : "on-sell";
     const pl = $("#pay-label"); if (pl) pl.textContent = meta.payLabel;
-    const bt = $("#bal-text"); if (bt) bt.textContent = walletBal(meta.quote).toFixed(2)+" "+meta.quote;
+    const payAsset = meta.payAsset || meta.quote;
+    const bal = payAsset === "SUI" ? balance : walletBal(meta.quote);
+    const bt = $("#bal-text"); if (bt) bt.textContent = bal.toFixed(2)+" "+payAsset;
     const rec = $("#receive"); if (rec) rec.textContent = meta.receive;
     const fee = $("#fee"); if (fee) fee.textContent = meta.fee;
-    const chips = $("#fee-chips"); if (chips) chips.innerHTML = meta.chips;
+    const fchips = $("#fee-chips"); if (fchips) fchips.innerHTML = meta.chips;
     const note = $("#fee-note"); if (note) note.textContent = meta.note;
+    const hopEl = $("#hop-text"); if (hopEl) hopEl.textContent = meta.hopLine || "";
+    const hopRow = $("#hop-row"); if (hopRow) hopRow.style.display = meta.gold ? "" : "none";
+    const venue = $("#venue-text"); if (venue) venue.textContent = meta.suiPay ? "Bluefin Spot → curve" : "Bonding curve";
+    const route = $("#pay-route");
+    if (route){
+      route.style.display = (meta.gold && buyOn) ? "" : "none";
+      $$("[data-pay]", route).forEach(function(el){
+        el.classList.toggle("on", el.getAttribute("data-pay") === state.payWith);
+      });
+    }
+    const chipHost = $("#amt-chips");
+    if (chipHost){
+      const suiPay = meta.suiPay;
+      const q = meta.quote;
+      const vals = suiPay ? ["1","5","10","50","Max"] : (q === "XAUM" ? ["0.01","0.05","0.1","0.25","Max"] : ["0.1","0.5","1","5","Max"]);
+      chipHost.innerHTML = vals.map(function(c){ return '<div data-chip="'+c+'">'+c+'</div>'; }).join("");
+    }
     const tr = $("#trade-btn");
     if (tr){
       tr.textContent = meta.tradeLabel;
@@ -1105,7 +1162,8 @@ html.shot,html.shot *{animation:none!important;transition:none!important}
   function userFill(){
     if (!Index || !bus.sub) return;
     const tk = findT(state.sym);
-    const amt = parseFloat(state.amt) || 0;
+    const amt = curveAmt();
+    if (!(amt > 0)) return;
     const ev = Index.makeTrade({
       pool_id: tk.t,
       trader: DEMO_WALLET,
@@ -1180,10 +1238,18 @@ html.shot,html.shot *{animation:none!important;transition:none!important}
     if (wal){ state.connected = !state.connected; paintWallet(); paintTicket(); return; }
     const side = e.target.closest("[data-side]");
     if (side){ state.side = side.getAttribute("data-side"); paintTicket(); return; }
+    const pay = e.target.closest("[data-pay]");
+    if (pay){
+      state.payWith = pay.getAttribute("data-pay");
+      state.amt = state.payWith === "SUI" ? "5" : "0.01";
+      const inp = $("#amt"); if (inp) inp.value = state.amt;
+      paintTicket();
+      return;
+    }
     const chip = e.target.closest("[data-chip]");
     if (chip){
       const v = chip.getAttribute("data-chip");
-      state.amt = v === "Max" ? walletBal(poolQuote(state.sym)).toFixed(2) : v;
+      state.amt = v === "Max" ? (payingSui() ? balance : walletBal(poolQuote(state.sym))).toFixed(2) : v;
       const inp = $("#amt"); if (inp) inp.value = state.amt;
       paintTicket();
       return;
@@ -1312,6 +1378,17 @@ html.shot,html.shot *{animation:none!important;transition:none!important}
       }).catch(function(){ paintHolder(); });
     }
   }
+  function loadHop(){
+    function apply(d){
+      const n = Number(d && (d.suiPerXaum || d.last_price));
+      if (n > 0){ hop.suiPerXaum = n; hop.usd = Number(d.usd || d.last_price_usd)||null; hop.source = d.source || "Bluefin XAUM/SUI"; paintTicket(); }
+    }
+    fetch("/api/hop").then(function(r){ return r.ok ? r.json() : Promise.reject(); }).then(apply).catch(function(){
+      fetch("https://api.dexpaprika.com/networks/sui/pools/0xe80e81a24dc18b5ce708bea23dc151385df291767db4b1cccb4517105f35aa17")
+        .then(function(r){ return r.json(); }).then(apply).catch(function(){});
+    });
+  }
+  loadHop();
   const parsed = parseHash();
   state.route = parsed.route;
   state.sym = parsed.sym;
