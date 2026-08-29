@@ -47,7 +47,28 @@ Graduation for XAUM defaults to **1 XAUM** (not 2,000 units). 2,000 SUI is only 
 
 ## Graduation
 
-Trading freezes when `raised` hits the quote threshold. Call `lock::lock_graduated_lp` to vault remaining reserves for `lp_lock_ms` (180 days) to the creator. Stand-in until DeepBook LP (no hardcoded package IDs).
+Trading freezes when `raised` hits the quote threshold. Production then seeds a Bluefin Spot pool and time-locks the Position NFT:
+
+**SUI quote PTB** — `lock::seed_and_lock_bluefin<T>`:
+
+| Arg | Object |
+| --- | --- |
+| `pool` | graduated `Pool<T, SUI>` |
+| `config` | Arena `Config` |
+| `clock` | `0x6` |
+| `bf_config` | Bluefin `GlobalConfig` `0x03db251ba509a8d5d8777b6338836082335d93eecbdd09a11e190a1cff51c352` |
+| `meta_t` | `CoinMetadata<T>` |
+| `meta_q` | `CoinMetadata<SUI>` |
+
+Creation fee is taken from `quote_reserve` (aborts if short). No extra SUI coin.
+
+**XAUM quote PTB** — `lock::seed_and_lock_bluefin_with_fee<T, XAUM>`: same objects plus an extra `Coin<SUI>` paying Bluefin's pool-creation fee. Residuals from the seed go to the pool creator, not the platform.
+
+The Bluefin pool is named `SYM-SUI` / `SYM-XAUM`, fee 1% (`fee_rate=100_000` in 1e6, 1 bps = 1e3), tick spacing 60, full-range ticks snapped from GlobalConfig min/max (`−443636` / `443636` bits `4294523660` / `443636`) inward to spacing 60. Initial `sqrtPriceX64` is the curve spot `(virtual_quote + real_quote) / token_reserve`. The Position NFT sits in a shared `BluefinPositionLock` for `Config.lp_lock_ms` (180 days); the creator calls `claim_bluefin_position` after `unlock_ms`.
+
+`lock::lock_graduated_lp` remains as the raw-coin vault for tests and as a fallback.
+
+Bluefin interface functions abort(0); they only exist so bytecode CALLs the live package `0x3492c874c1e3b3e2984e8c41b589e642d4d0a5d6459e5a9cfc2d52fd7c89c267`. Unit tests never invoke `arena::bluefin`.
 
 ## Holder registry
 
@@ -56,6 +77,7 @@ Sui coins have no transfer hooks. Reflections and pit-holder claims follow **net
 ## Build / test
 
 ```
-sui move build
-sui move test
+sui move test -e mainnet
 ```
+
+Bluefin's own Move.toml pins Sui `mainnet-v1.35.2` (`override=true`). Arena overrides Sui to `framework/mainnet` so CLI 1.78's test VM can run; the interface still CALLs the live Bluefin package. The Bluefin README git tag `mainnet-v1.35.2` is not on their repo; the dep uses `main`.

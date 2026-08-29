@@ -74,6 +74,10 @@ public struct LockEvent has copy, drop {
     unlock_ms: u64,
     token_amount: u64,
     quote_amount: u64,
+    /// Bluefin Spot pool id when seeding via `seed_and_lock_*`. `@0x0` for the raw-coin vault.
+    bluefin_pool_id: ID,
+    /// Bluefin Position NFT id, or `@0x0` for the raw-coin vault.
+    position_id: ID,
 }
 
 public struct LpClaimEvent has copy, drop {
@@ -167,6 +171,8 @@ public fun emit_lock(
     unlock_ms: u64,
     token_amount: u64,
     quote_amount: u64,
+    bluefin_pool_id: ID,
+    position_id: ID,
 ) {
     sui::event::emit(LockEvent {
         lock_id,
@@ -175,6 +181,8 @@ public fun emit_lock(
         unlock_ms,
         token_amount,
         quote_amount,
+        bluefin_pool_id,
+        position_id,
     })
 }
 

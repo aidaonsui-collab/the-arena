@@ -10,6 +10,8 @@ Sui Move package for the launchpad lives in [`contracts/`](contracts/). TOKEN/SU
 
 Platform treasury (1 SUI launch fee + the 10% platform cut of swap fees) withdraws with `AdminCap`. That cap is sent at publish to the same wallet The Odyssey on Sui uses: `0x92a32ac7fd525f8bd37ed359423b8d7d858cad26224854dfbff1914b75ee658b`.
 
+At graduation the production path (`lock::seed_and_lock_bluefin` / `_with_fee`) seeds a Bluefin Spot pool and time-locks the Position NFT for 180 days to the creator. PTB: Pool, Config, Clock (`0x6`), Bluefin GlobalConfig `0x03db251ba509a8d5d8777b6338836082335d93eecbdd09a11e190a1cff51c352`, CoinMetadata T and Q, optional SUI creation fee when the quote is XAUM. Raw-coin vault `lock::lock_graduated_lp` remains for tests/fallback.
+
 ## Keepers
 
 Cron jobs (pit bell, pit settle, reflection index) live in [`keepers/`](keepers/).

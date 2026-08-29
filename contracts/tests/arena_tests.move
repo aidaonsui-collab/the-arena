@@ -553,3 +553,23 @@ fun test_slippage_abort() {
     ts::return_shared(clock);
     scenario.end();
 }
+
+#[test]
+fun test_sqrt_and_tick_align() {
+    use arena::math;
+    assert!(math::sqrt_u256(0) == 0, 0);
+    assert!(math::sqrt_u256(1) == 1, 1);
+    assert!(math::sqrt_u256(4) == 2, 2);
+    assert!(math::sqrt_u256(9) == 3, 3);
+    assert!(math::sqrt_u256(10) == 3, 4);
+    // sqrt(1)*2^64
+    assert!(math::sqrt_price_x64(1, 1) == math::q64(), 5);
+    // sqrt(1/4)*2^64 = 2^63
+    assert!(math::sqrt_price_x64(4, 1) == 9223372036854775808, 6);
+    // Verified GlobalConfig ticks snapped to spacing 60.
+    // min_tick.bits = 4294523660 (−443636), max = 443636.
+    // 443636 % 60 = 56 → aligned 443580; −443580 bits = 4294523716.
+    assert!(math::align_tick_bits(443636, 60) == 443580, 7);
+    assert!(math::align_tick_bits(4294523660, 60) == 4294523716, 8);
+    assert!(math::align_tick_bits(443636, 1) == 443636, 9);
+}
