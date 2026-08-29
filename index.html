@@ -313,6 +313,7 @@ html.shot,html.shot *{animation:none!important;transition:none!important}
     {t:"IRON",n:"Ironclad",amt:41.90,ago:"3h",mode:"Buy & burn",burn:"9.1M"},
     {t:"BRINE",n:"Brine",amt:28.10,ago:"4h",mode:"Buy & burn",burn:"6.02M"}
   ];
+  const PLATFORM_WALLET = "0x2957f0f19ee92eb5283bf1aa6ce7a3742ea7bc79bc9d1dc907fbbf7a11567409";
   const ADDR = ["0x8f2a…ab71","0xa91c…d012","0x11c0…012f","0x70bb…4410","0xcc81…e203","0x5d0e…c801","0x09ae…3290","0xbb21…aa13"];
   const ROUND_SECONDS = 96;
   let bshift = 0, pot = 31.94, prevPot = "", roundNo = 128, secs = ROUND_SECONDS;
@@ -601,8 +602,8 @@ html.shot,html.shot *{animation:none!important;transition:none!important}
       : "Connect wallet";
     const payLabel = state.side === "Buy" ? "Pay with "+payAsset : "Sell "+tk.t;
     const note = parts.reflectionMode
-      ? "1% on the XAUM fill · 50/20/20/10 · launch 1 SUI"
-      : "1% on the fill · 60/10/30 · launch 1 SUI";
+      ? "1% · 50/20/20/10 · 10% to "+shortAddr(PLATFORM_WALLET)
+      : "1% · 60/10/30 · 10% to "+shortAddr(PLATFORM_WALLET);
     let hopLine = "";
     if (goldQuote() && state.side === "Buy"){
       if (suiPay && hop.suiPerXaum > 0){
@@ -690,9 +691,9 @@ html.shot,html.shot *{animation:none!important;transition:none!important}
   function footerHTML(){
     return '<footer class="footer">'+
       '<div><div class="brand-name" style="color:var(--ink);margin-bottom:8px">ARENA</div>'+
-        '<p style="margin:0;max-width:36ch">Fair launches on Sui. Bonding curves, no presale. Graduation at 2,000 SUI or 1 XAUM. The pit is fed by every fill.</p></div>'+
+        '<p style="margin:0;max-width:36ch">Fair launches on Sui. Bonding curves, no presale. Graduation at 2,000 SUI or 1 XAUM. Platform cut goes to the Odyssey admin wallet.</p></div>'+
       '<div><h4>Product</h4><div data-go="explore">Explore</div><div data-go="pit">Pit</div><div data-go="metrics">Metrics</div><div data-go="launch">Create</div></div>'+
-      '<div><h4>Fees</h4>1% on every fill.<br>Default 60/10/30 creator/platform/pit.<br>Reflection 50/20/20/10.</div></footer>';
+      '<div><h4>Fees</h4>1% on every fill.<br>Default 60/10/30 creator/platform/pit.<br>Reflection 50/20/20/10.<br>10% platform · '+shortAddr(PLATFORM_WALLET)+'</div></footer>';
   }
   function exploreHTML(){
     const pool = launchPool();
@@ -952,7 +953,8 @@ html.shot,html.shot *{animation:none!important;transition:none!important}
             hopRow+
             '<div class="kv"><span style="color:var(--muted)">Swap fee · 1%</span><span id="fee" class="mono" style="color:#298DFF">'+meta.fee+'</span></div>'+
             '<div id="fee-chips" class="fee-chips">'+meta.chips+'</div>'+
-            '<div class="kv"><span style="color:var(--muted)">Venue</span><span id="venue-text">'+(suiPay?"Bluefin Spot → curve":"Bonding curve")+'</span></div></div>'+
+            '<div class="kv"><span style="color:var(--muted)">Venue</span><span id="venue-text">'+(suiPay?"Bluefin Spot → curve":"Bonding curve")+'</span></div>'+
+            '<div class="kv"><span style="color:var(--muted)">Platform</span><button type="button" class="about-link" style="padding:4px 10px" data-copy="'+PLATFORM_WALLET+'">'+shortAddr(PLATFORM_WALLET)+'</button></div></div>'+
           '<button type="button" class="btn-trade'+(buyOn?"":" sell")+'" id="trade-btn" data-trade>'+meta.tradeLabel+'</button>'+
           '<div id="fee-note" style="margin-top:10px;text-align:center;font-size:11px;color:var(--muted)">'+meta.note+'</div>'+
         '</div></div>'+
