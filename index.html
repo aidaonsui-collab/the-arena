@@ -305,6 +305,7 @@ html.shot,html.shot *{animation:none!important;transition:none!important}
 window.ARENA_PACKAGE_ID = "0x5cfddf8ba23be6835644a8ea22482ff6ebb0081e42cc1bc052b5f770ca8bbdea";
 window.ARENA_INSTADEX_PACKAGE = "0xcf7835ae4e3f8a3d4eb4bd9d14cb4a3dbdd80e70908feb6c433688a31e119de3";
 window.ARENA_CALL_PACKAGE = window.ARENA_INSTADEX_PACKAGE;
+window.ARENA_COLLECT_PACKAGE = "0x68e178d50276b3bcbce11a136df48909aceff1f2a8ee8a45483e9f128e989972";
 window.ARENA_LOCK_PACKAGE = "0x067136624c5bec5221247e9b0a0a1afbd77a79aadbabdac18a95a10bc186cc74";
 window.ARENA_BLUEFIN_EVENT_PACKAGE = "0x8e28ff4116a8c9025b5d615b0b0a7bc45f4f543120f30a9d226e5b94c7277b79";
 window.ARENA_CONFIG = "0xcd527cb2389d806e5285ae708ee28df30a841ec5df7508ebfebaa0c9660b5d2c";
@@ -1081,7 +1082,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       '<div><div class="brand-name" style="color:var(--ink);margin-bottom:8px">ARENA</div>'+
         '<p style="margin:0;max-width:36ch">Fair launches on Sui. Instadex seeds Bluefin in block one. Quote is SUI or XAUM. LP locked forever.</p></div>'+
       '<div><h4>Product</h4><div data-go="explore">Explore</div><div data-go="pit">Pit</div><div data-go="metrics">Metrics</div><div data-go="launch">Create</div></div>'+
-      '<div><h4>Fees</h4>Bluefin 1% on the pair.<br>80% collects to the creator.<br>20% stays in the pool as Bluefin protocol.</div></footer>';
+      '<div><h4>Fees</h4>Bluefin 1% on the pair (keeps 20%).<br>Our 80% quote split 60/10/30 creator/platform/pit.<br>Token fees still go to the creator.</div></footer>';
   }
   function exploreHTML(){
     if (state.filter === "Graduating" || state.filter === "Near graduation" || state.filter === "Graduated") state.filter = "All";
@@ -1263,8 +1264,10 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       : (tk.bluefinPool
         ? "Not a curve buy or sell. The pair is on Bluefin. The pad does not offer a curve ticket."
         : "This bout launched on the bonding curve. The pad no longer offers curve buy or sell.");
+    const canCollect = !!(tk.lockId && tk.bluefinPool);
     const cta = tk.bluefinPool
-      ? '<a class="btn-trade" href="https://trade.bluefin.io/swap?pool='+tk.bluefinPool+'" target="_blank" rel="noopener">Open Bluefin</a>'
+      ? '<a class="btn-trade" href="https://trade.bluefin.io/swap?pool='+tk.bluefinPool+'" target="_blank" rel="noopener">Open Bluefin</a>'+
+        (canCollect ? '<button type="button" class="btn-trade" id="collect-go" style="margin-top:10px;background:#16171A;color:var(--ink)">Collect LP fees</button>' : '')
       : (insta
         ? '<button type="button" class="btn-trade" disabled>Bluefin pool pending</button>'
         : '<button type="button" class="btn-trade" disabled>Curve ticket retired</button>');
@@ -1272,7 +1275,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       ? '<div class="kv"><span style="color:var(--muted)">Lock</span><span>'+lockLabel+'</span></div>'
       : '';
     const note = (insta || tk.bluefinPool)
-      ? "Anyone can poke collect_bluefin_fees. 80% of fees go to the creator. 20% stays in the pool as Bluefin protocol."
+      ? "Anyone can poke collect_lp_fees. Bluefin keeps 20%. Our 80% quote splits 60/10/30. Token fees go to the creator."
       : "Create is Instadex only. Live curve tokens stay listed.";
     return '<div class="ticket">'+
       '<div class="pit-kicker">'+kicker+'</div>'+
@@ -1346,7 +1349,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
             (dexBout
               ? '<div><div class="about-k">Lock &amp; fees</div>'+
                   '<div class="about-v">Forever<span class="tick">lock</span></div>'+
-                  '<div class="about-s">LP locked forever. Anyone can poke collect_bluefin_fees. 80% to the creator, 20% stays as Bluefin protocol. Not the pit.</div></div>'
+                  '<div class="about-s">LP locked forever. collect_lp_fees: Bluefin keeps 20%. Quote 60/10/30 creator/platform/pit. Token fees to the creator.</div></div>'
               : '<div><div class="about-k">Burned</div>'+
                   '<div class="about-v">'+fmtBig(burnedN)+'<span class="tick">'+tk.t+'</span></div>'+
                   '<div class="about-s">'+burnSub+'</div></div>')+
@@ -1771,6 +1774,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       tk.unlockMs = l.unlock_ms;
       tk.lpLocked = true;
       tk.bluefin = true;
+      if (l.token) tk.token = l.token;
       tk.b = "Instadex. Skipped the curve. Seeded Bluefin; LP locked forever.";
       if (cap > 0) tk.cap = cap;
       if (l.token) tk.token = l.token;
@@ -1969,9 +1973,51 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       if (!launchedOk && btn){ btn.disabled = false; paintLaunchBtn(); }
     }
   }
+  async function doCollect(){
+    var btn = $("#collect-go");
+    var tk = findT(state.sym);
+    if (!tk || !tk.lockId || !tk.bluefinPool) return;
+    try {
+      if (!hasSuiWallet() && !suiSession.address){
+        if (btn) btn.textContent = "No Sui wallet found";
+        return;
+      }
+      if (!suiSession.address) await connectWallet();
+      if (btn){ btn.disabled = true; btn.textContent = "Collecting…"; }
+      var Transaction = await loadTransaction();
+      var CALL = window.ARENA_COLLECT_PACKAGE;
+      if (!CALL) throw new Error("ARENA_COLLECT_PACKAGE missing");
+      var Ttype = tk.token || demoTypeId(tk);
+      var q = poolQuote(tk);
+      var Qtype = q === "XAUM" ? window.ARENA_XAUM_TYPE : "0x2::sui::SUI";
+      var pit = q === "XAUM" ? window.ARENA_PIT_XAUM : window.ARENA_PIT_SUI;
+      var tx = new Transaction();
+      tx.setSender(suiSession.address);
+      tx.moveCall({
+        target: CALL + "::lock::collect_lp_fees",
+        typeArguments: [Ttype, Qtype],
+        arguments: [
+          tx.object(tk.lockId),
+          tx.object(window.ARENA_CLOCK || "0x6"),
+          tx.object(window.ARENA_BLUEFIN_CONFIG),
+          tx.object(tk.bluefinPool),
+          tx.object(window.ARENA_CONFIG),
+          tx.object(pit)
+        ]
+      });
+      var result = await walletExec(tx);
+      var digest = result && (result.digest || (result.effects && result.effects.transactionDigest) || result.transactionDigest);
+      if (btn){ btn.disabled = false; btn.textContent = digest ? ("Collected · " + String(digest).slice(0, 8)) : "Collected"; }
+    } catch (err){
+      var msg = (err && err.message) ? err.message : String(err || "Collect failed");
+      if (btn){ btn.disabled = false; btn.textContent = msg.length > 28 ? "Collect failed" : msg; }
+    }
+  }
   document.addEventListener("click", function(e){
     const launch = e.target.closest("#launch-go");
     if (launch){ doLaunch(); return; }
+    const collect = e.target.closest("#collect-go");
+    if (collect){ doCollect(); return; }
     const trade = e.target.closest("[data-trade]");
     if (trade){
       if (!state.connected){ state.connected = true; paintWallet(); paintTicket(); }
