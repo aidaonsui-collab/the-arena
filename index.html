@@ -1081,7 +1081,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       '<div><div class="brand-name" style="color:var(--ink);margin-bottom:8px">ARENA</div>'+
         '<p style="margin:0;max-width:36ch">Fair launches on Sui. Instadex seeds Bluefin in block one. Quote is SUI or XAUM. LP locked forever.</p></div>'+
       '<div><h4>Product</h4><div data-go="explore">Explore</div><div data-go="pit">Pit</div><div data-go="metrics">Metrics</div><div data-go="launch">Create</div></div>'+
-      '<div><h4>Fees</h4>Bluefin 1% on the pair.<br>Fees sit on the Position NFT.<br>collect_bluefin_fees → creator, not the pit.</div></footer>';
+      '<div><h4>Fees</h4>Bluefin 1% on the pair.<br>80% collects to the creator.<br>20% stays in the pool as Bluefin protocol.</div></footer>';
   }
   function exploreHTML(){
     if (state.filter === "Graduating" || state.filter === "Near graduation" || state.filter === "Graduated") state.filter = "All";
@@ -1272,7 +1272,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       ? '<div class="kv"><span style="color:var(--muted)">Lock</span><span>'+lockLabel+'</span></div>'
       : '';
     const note = (insta || tk.bluefinPool)
-      ? "Anyone can poke collect_bluefin_fees. Coin A/B go to the creator, not the pit."
+      ? "Anyone can poke collect_bluefin_fees. 80% of fees go to the creator. 20% stays in the pool as Bluefin protocol."
       : "Create is Instadex only. Live curve tokens stay listed.";
     return '<div class="ticket">'+
       '<div class="pit-kicker">'+kicker+'</div>'+
@@ -1346,7 +1346,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
             (dexBout
               ? '<div><div class="about-k">Lock &amp; fees</div>'+
                   '<div class="about-v">Forever<span class="tick">lock</span></div>'+
-                  '<div class="about-s">LP locked forever. Anyone can poke collect_bluefin_fees. Coin A/B go to the creator. Not the pit.</div></div>'
+                  '<div class="about-s">LP locked forever. Anyone can poke collect_bluefin_fees. 80% to the creator, 20% stays as Bluefin protocol. Not the pit.</div></div>'
               : '<div><div class="about-k">Burned</div>'+
                   '<div class="about-v">'+fmtBig(burnedN)+'<span class="tick">'+tk.t+'</span></div>'+
                   '<div class="about-s">'+burnSub+'</div></div>')+
