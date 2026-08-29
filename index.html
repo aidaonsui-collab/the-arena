@@ -145,6 +145,33 @@ main{padding:18px 0 72px}
 .badge{font-size:11px;font-weight:650;border-radius:999px;padding:5px 10px;background:var(--card);box-shadow:var(--shadow)}
 .holder-card{background:var(--card);border-radius:20px;padding:14px 18px;box-shadow:var(--shadow);display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;margin:12px 0}
 .empty{padding:48px 16px;text-align:center;color:var(--muted)}
+
+.pit-hero{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:28px 32px;display:grid;grid-template-columns:1fr auto;grid-template-areas:"pot clock" "copy copy";gap:6px 40px;align-items:end;text-align:left}
+.pit-hero .pit-pot{font-size:clamp(40px,5vw,64px);margin:6px 0 0;letter-spacing:-.05em}
+.pit-hero .pit-clock{font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:clamp(32px,4vw,48px);line-height:1;letter-spacing:-.04em;text-align:right}
+.pit-hero .pit-clock span{display:block;margin-top:8px;font-size:13px;color:var(--muted);font-family:"Instrument Sans",sans-serif;letter-spacing:0;font-weight:500}
+.pit-hero p{grid-area:copy;max-width:62ch;margin:14px 0 0;color:var(--muted)}
+.pit-row{display:grid;grid-template-columns:40px 44px minmax(0,1.4fr) 100px 72px 80px;gap:10px;align-items:center;padding:12px 2px;border-top:1px solid var(--line);cursor:pointer}
+.pit-row:first-child{border-top:0}
+.pit-row:hover{background:transparent}
+.pit-row .rank{font-family:"IBM Plex Mono",monospace;color:var(--muted);font-size:13px}
+.pit-row .cap{font-family:"IBM Plex Mono",monospace;font-weight:650;text-align:right}
+.pit-row.lead{background:rgba(200,241,53,.08);border-radius:12px;padding:12px 8px;border-top:0;margin-top:2px}
+.bell-row{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:12px;align-items:center;padding:14px 2px;border-top:1px solid var(--line)}
+.bell-row:first-of-type{border-top:0}
+.bells-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-top:14px}
+.bell-card{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:20px 22px}
+.bell-card .feat-name{font-size:18px;margin-top:8px}
+.bell-card .chip{margin-left:0}
+html[data-route="pit"] .search-row,html[data-route="launch"] .search-row,html[data-route="token"] .search-row{display:none}
+@media (max-width:860px){
+  .pit-hero{grid-template-columns:1fr;grid-template-areas:"pot" "clock" "copy";text-align:left;padding:22px}
+  .pit-hero .pit-clock{text-align:left;margin-top:10px}
+  .pit-row{grid-template-columns:28px 36px minmax(0,1fr) 64px; }
+  .pit-row .mode-col,.pit-row .chg{display:none}
+  .bells-grid{grid-template-columns:1fr}
+  [data-screen-label="Pit"] > .card:last-of-type{grid-template-columns:1fr!important}
+}
 html.shot,html.shot *{animation:none!important;transition:none!important}
 @media (max-width:1100px){
   .featured,.launches{grid-template-columns:repeat(3,minmax(0,1fr))}
@@ -530,35 +557,36 @@ html.shot,html.shot *{animation:none!important;transition:none!important}
       footerHTML()+'</div>';
   }
   function pitHTML(){
-    const rows = sortedT().slice(0,8).map(function(k,i){
-      return '<div class="row" data-go="token:'+k.t+'">'+
-        '<span class="mono" style="color:#9CA3AF">'+rank(i)+'</span>'+
-        '<div style="display:flex;align-items:center;gap:10px;min-width:0">'+avatar(k,32)+
-          '<div style="min-width:0"><div class="feat-name">'+k.n+'</div><div class="feat-tick">'+k.t+' · '+k.mode+'</div></div></div>'+
+    const rows = sortedT().map(function(k,i){
+      return '<div class="pit-row'+(i===0?" lead":"")+'" data-go="token:'+k.t+'">'+
+        '<span class="rank">'+rank(i)+'</span>'+avatar(k,40)+
+        '<div style="min-width:0"><div class="feat-name">'+k.n+'</div><div class="feat-tick">$'+k.t+'</div></div>'+
+        '<span class="feat-tick mode-col">'+k.mode+'</span>'+
         '<span class="chg" style="color:'+chColor(k)+'">'+chText(k)+'</span>'+
-        '<div data-cap="'+k.t+'" class="mono" style="font-weight:650">'+fmt(k.cap)+'</div></div>';
+        '<div data-cap="'+k.t+'" class="cap">'+fmt(k.cap)+'</div></div>';
     }).join("");
     const bells = BELLS.map(function(b){
       const holders = b.mode === "Holders";
-      return '<div class="row">'+
-        '<span></span><div><div class="feat-name">'+b.n+'</div>'+
-        '<div class="feat-tick">'+b.amt.toFixed(2)+' SUI · '+b.ago+(b.burn?" · burned "+b.burn:"")+'</div></div>'+
-        '<span class="chip '+(holders?"live":"")+'">'+b.mode+'</span></div>';
+      return '<div class="bell-card">'+
+        '<div class="pit-kicker">'+b.ago+' ago</div>'+
+        '<div class="feat-name">'+b.n+'</div>'+
+        '<div class="pit-pot" style="font-size:28px;margin-top:10px">'+b.amt.toFixed(2)+' SUI</div>'+
+        '<div class="feat-tick" style="margin-top:8px">'+(b.burn?"burned "+b.burn:"split to holders")+'</div>'+
+        '<span class="chip '+(holders?"live":"")+'" style="margin-top:12px;display:inline-block">'+b.mode+'</span></div>';
     }).join("");
     return '<div data-screen-label="Pit">'+
-      '<div class="hero-card">'+
-        '<div class="pit-kicker"><span style="display:inline-block;width:7px;height:7px;border-radius:99px;background:#298DFF;margin-right:8px"></span>Round <span data-round>'+roundNo+'</span> · live</div>'+
-        '<div class="pit-pot" data-pot style="font-size:clamp(52px,10vw,96px);margin-top:10px">'+money(pot)+'</div>'+
-        '<div class="mono" data-clock style="font-size:28px;margin-top:10px;color:var(--muted)">'+clockStr()+'</div>'+
-        '<p style="max-width:44ch;margin:18px auto 0;color:var(--muted)">The pot is fed by one percent of every fill on every curve. Highest cap still fighting when the bell rings takes all of it — split to holders or buy &amp; burn.</p>'+
+      '<div class="pit-hero">'+
+        '<div style="grid-area:pot"><div class="pit-kicker"><span style="display:inline-block;width:7px;height:7px;border-radius:99px;background:var(--lime);margin-right:8px"></span>Round <span data-round>'+roundNo+'</span> · live</div>'+
+          '<div class="pit-pot" data-pot>'+money(pot)+'</div></div>'+
+        '<div class="pit-clock" style="grid-area:clock"><span data-clock>'+clockStr()+'</span><span>until the bell</span></div>'+
+        '<p>One percent of every fill feeds this pot. Highest cap still on the curve when the clock hits zero takes it — split to holders, or buy and burn.</p>'+
       '</div>'+
-      '<div class="grid-2">'+
-        '<div class="card" style="padding:22px"><div class="sec-label" style="margin-top:0">Contenders <span>CAP</span></div><div id="contenders">'+rows+'</div></div>'+
-        '<div class="card" style="padding:22px"><div class="sec-label" style="margin-top:0">Past bells <span>PAID</span></div>'+bells+
-          '<div style="margin-top:22px;display:grid;gap:14px;color:var(--muted);font-size:14px">'+
-            '<div><strong style="color:var(--ink)">Burn</strong> — the pot buys the winning token off its curve. Those units are destroyed.</div>'+
-            '<div><strong style="color:var(--ink)">Split</strong> — every holder receives quote pro-rata when the bell rings.</div>'+
-          '</div></div></div>'+
+      '<div class="card" style="padding:20px 22px;margin-top:14px"><div class="sec-label" style="margin-top:0">Contenders <span>CAP</span></div><div id="contenders">'+rows+'</div></div>'+
+      '<div class="sec-label" style="margin-top:22px">Past bells <span>last three</span></div>'+
+      '<div class="bells-grid">'+bells+'</div>'+
+      '<div class="card" style="padding:18px 22px;margin-top:14px;display:grid;grid-template-columns:1fr 1fr;gap:18px;color:var(--muted);font-size:14px">'+
+        '<div><strong style="color:var(--ink)">Burn</strong> — the pot buys the winner off its curve and destroys those units.</div>'+
+        '<div><strong style="color:var(--ink)">Split</strong> — every holder gets quote pro-rata when the bell rings.</div></div>'+
       footerHTML()+'</div>';
   }
   function launchHTML(){
@@ -879,6 +907,7 @@ html.shot,html.shot *{animation:none!important;transition:none!important}
     const host = $("#screens");
     const map = {explore:exploreHTML, pit:pitHTML, token:tokenHTML, launch:launchHTML};
     host.innerHTML = (map[state.route] || exploreHTML)();
+    document.documentElement.setAttribute("data-route", state.route);
     paintNav();
     paintWallet();
     const q = $("#q");
