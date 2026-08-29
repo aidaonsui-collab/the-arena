@@ -313,6 +313,8 @@ window.ARENA_PIT_XAUM = "0xa8a391bf380914c04be5deb478474b42754a5aa8c29c0955f267d
     k.fbuckets = k.buckets.map(function(v){return Math.max(1, Math.round(v/2.6));});
     k.born = i;
   });
+  const LIVE = !!(window.ARENA_PACKAGE_ID && window.ARENA_PACKAGE_ID !== "0x0");
+  if (LIVE) T.splice(0, T.length);
   const GRADS = [{t:"DUNE",n:"Dune",cap:12400,c:"#C9A97E"},{t:"AXM",n:"Axiom",cap:9800,c:"#298DFF"},{t:"KRKN",n:"Kraken",cap:6100,c:"#5A6472"},{t:"ORBT",n:"Orbit",cap:3450,c:"#9A7FB0"}];
   const BELLS = [
     {t:"VOLT",n:"Voltcats",amt:34.20,ago:"1h",mode:"Holders"},
@@ -387,10 +389,11 @@ window.ARENA_PIT_XAUM = "0xa8a391bf380914c04be5deb478474b42754a5aa8c29c0955f267d
   }
   function curveCap(tk){
     const last = tapeItems(1, tk.t)[0];
+    const launch = bus.launches[tk.t] || (tk.pool && bus.launches[tk.pool]) || {};
+    const vq = fromMist(last && last.virtual_quote != null ? last.virtual_quote : (tk.virtual_quote || launch.virtual_quote));
+    const vt = fromMist(last && last.virtual_token != null ? last.virtual_token : (tk.virtual_token || launch.virtual_token));
     if (last){
-      const vq = fromMist(last.virtual_quote);
       const rq = fromMist(last.quote_real);
-      const vt = fromMist(last.virtual_token);
       const tr = fromMist(last.token_reserve);
       if (tr > 0 && vt > 0) return (vq + rq) * vt / tr;
     }
@@ -417,7 +420,25 @@ window.ARENA_PIT_XAUM = "0xa8a391bf380914c04be5deb478474b42754a5aa8c29c0955f267d
   function rank(i){ return String(i+1).padStart(2,"0"); }
   function sortedT(){ return T.slice().sort(function(a,b){return b.cap-a.cap;}); }
   function vol(k){ return k.buckets.reduce(function(a,b){return a+b;},0); }
-  function findT(sym){ return T.find(function(k){return k.t === (sym||"").toUpperCase();}) || T[0]; }
+  function findT(sym){
+    const raw = (sym && sym.t) ? sym.t : String(sym || "");
+    const up = raw.toUpperCase();
+    const low = raw.toLowerCase();
+    return T.find(function(k){
+      return k.t === up || (k.pool && k.pool.toLowerCase() === low);
+    }) || T[0] || {t:"—",n:"—",cap:0,ch:0,h:0,st:"Live",mode:"Buy & burn",q:"SUI",c:"#298DFF",buckets:[1],fbuckets:[1],pool:""};
+  }
+  function poolKeys(tk){
+    tk = tk && tk.t ? tk : findT(tk);
+    const keys = [tk.t, tk.pool];
+    const launch = bus.launches[tk.t] || (tk.pool && bus.launches[tk.pool]);
+    if (launch && launch.pool_id) keys.push(launch.pool_id);
+    return keys.filter(Boolean).map(function(x){ return String(x).toLowerCase(); });
+  }
+  function matchesPool(row, tk){
+    const id = String((row && row.pool_id) || "").toLowerCase();
+    return poolKeys(tk).indexOf(id) >= 0;
+  }
   function poolQuote(sym){
     const id = (sym && sym.t) ? sym.t : (sym || state.sym);
     const tk = findT(id);
@@ -431,8 +452,9 @@ window.ARENA_PIT_XAUM = "0xa8a391bf380914c04be5deb478474b42754a5aa8c29c0955f267d
     tk = tk && tk.t ? tk : findT(tk || state.sym);
     const rec = bus.index && bus.index.pools && bus.index.pools[tk.t];
     if (rec && rec.reflection != null) return !!rec.reflection;
-    const launch = bus.launches[tk.t];
+    const launch = bus.launches[tk.t] || (tk.pool && bus.launches[tk.pool]);
     if (launch && launch.reflection != null) return !!launch.reflection;
+    if (tk.reflection != null) return !!tk.reflection;
     return tk.mode === "Holders";
   }
   function shortAddr(a){
@@ -456,7 +478,7 @@ window.ARENA_PIT_XAUM = "0xa8a391bf380914c04be5deb478474b42754a5aa8c29c0955f267d
   }
   function lastPx(sym){
     const id = (sym && sym.t) ? sym.t : (sym || state.sym);
-    const rows = bus.trades.filter(function(t){ return t.pool_id === id; });
+    const rows = bus.trades.filter(function(t){ return matchesPool(t, id); });
     if (!rows.length) return 4.65e-6;
     rows.sort(function(a,b){ return (a.ts||0)-(b.ts||0); });
     const last = rows[rows.length-1];
@@ -467,7 +489,7 @@ window.ARENA_PIT_XAUM = "0xa8a391bf380914c04be5deb478474b42754a5aa8c29c0955f267d
   function fromMist(s){ return Index ? Index.fromMist(s) : Number(s||0)/1e9; }
   function tapeItems(limit, pool){
     let rows = bus.trades.slice();
-    if (pool) rows = rows.filter(function(t){ return t.pool_id === pool; });
+    if (pool) rows = rows.filter(function(t){ return matchesPool(t, pool); });
     rows.sort(function(a,b){ return (b.ts||0)-(a.ts||0); });
     return rows.slice(0, limit == null ? 8 : limit);
   }
@@ -1117,10 +1139,8 @@ window.ARENA_PIT_XAUM = "0xa8a391bf380914c04be5deb478474b42754a5aa8c29c0955f267d
   function tvBars(sym){
     const id = String(sym || state.sym || '').toUpperCase();
     if (!Index || !Index.toCandles) return [];
-    let trades = (bus.trades || []).filter(function(t){
-      return String(t.pool_id || t.symbol || '').toUpperCase() === id;
-    });
-    if (!trades.length && Index.generateDemoHistory){
+    let trades = (bus.trades || []).filter(function(t){ return matchesPool(t, id); });
+    if (!trades.length && !LIVE && Index.generateDemoHistory){
       const hist = Index.generateDemoHistory([findT(id)]);
       trades = hist.trades || [];
     }
@@ -1228,6 +1248,42 @@ window.ARENA_PIT_XAUM = "0xa8a391bf380914c04be5deb478474b42754a5aa8c29c0955f267d
     });
   }
   function updateChartLive(){ /* static datafeed */ }
+  function upsertLaunch(l){
+    if (!l) return;
+    if (l.pool_id) bus.launches[l.pool_id] = l;
+    const sym = String(l.symbol || "").toUpperCase();
+    if (sym) bus.launches[sym] = l;
+    if (!sym && !l.pool_id) return;
+    let tk = T.find(function(k){ return (sym && k.t === sym) || (l.pool_id && k.pool === l.pool_id); });
+    const q = Index ? Index.quoteLabel(l.quote) : "SUI";
+    const mode = l.pit_mode === 1 ? "Buy & burn" : "Holders";
+    if (!tk){
+      tk = {
+        t: sym || "TOK",
+        n: l.name || sym || "Token",
+        b: l.reflection ? "Reflection bout." : "On the curve.",
+        cap: fromMist(l.virtual_quote) || 0,
+        ch: 0, h: 1, st: "Live", mode: mode, q: q, c: "#298DFF",
+        born: T.length, pool: l.pool_id || "",
+        reflection: !!l.reflection,
+        virtual_quote: l.virtual_quote, virtual_token: l.virtual_token
+      };
+      const base = Math.max(2.4, (tk.cap || 1) / 34);
+      tk.buckets = Array.from({length:12}, function(){ return +base.toFixed(2); });
+      tk.fbuckets = tk.buckets.map(function(){ return 1; });
+      T.push(tk);
+    } else {
+      tk.pool = l.pool_id || tk.pool;
+      tk.n = l.name || tk.n;
+      tk.q = q;
+      tk.mode = mode;
+      tk.reflection = !!l.reflection;
+      tk.virtual_quote = l.virtual_quote;
+      tk.virtual_token = l.virtual_token;
+    }
+    if (LIVE && state.sym && !T.some(function(k){ return k.t === state.sym; })) state.sym = tk.t;
+    if (state.route === "explore" || state.route === "token" || state.route === "pit") renderScreen();
+  }
   function renderScreen(){
     dropTv();
     const host = $("#screens");
@@ -1254,7 +1310,7 @@ window.ARENA_PIT_XAUM = "0xa8a391bf380914c04be5deb478474b42754a5aa8c29c0955f267d
     renderScreen();
   }
   function applyLiveTrade(ev){
-    const k = T.find(function(t){ return t.t === ev.pool_id; });
+    const k = T.find(function(t){ return matchesPool(ev, t); });
     if (!k) return;
     const amt = fromMist(ev.quote_amount);
     const gold = poolQuote(k) === "XAUM";
@@ -1481,8 +1537,7 @@ window.ARENA_PIT_XAUM = "0xa8a391bf380914c04be5deb478474b42754a5aa8c29c0955f267d
         updateChartLive();
       },
       onLaunch: function(l){
-        bus.launches[l.pool_id] = l;
-        if (l.symbol) bus.launches[l.symbol] = l;
+        upsertLaunch(l);
       }
     });
     bus.trades = bus.sub.trades;

@@ -301,14 +301,45 @@
     });
   }
 
+  var DEFAULT_GQL = "https://graphql.mainnet.sui.io/graphql";
+
+  function queryEventsGql(gql, type, cursor, limit) {
+    var q = "query($t:String!,$first:Int!,$after:String){ events(first:$first, after:$after, filter:{ type:$t }){ pageInfo { hasNextPage endCursor } nodes { timestamp sender { address } contents { json } transaction { digest } } } }";
+    return fetch(gql || DEFAULT_GQL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ query: q, variables: { t: type, first: limit || 50, after: cursor || null } })
+    }).then(function (r) { return r.json(); }).then(function (j) {
+      if (j.errors && j.errors.length) throw new Error(j.errors[0].message || "graphql");
+      var conn = (j.data && j.data.events) || {};
+      var nodes = conn.nodes || [];
+      var info = conn.pageInfo || {};
+      return {
+        data: nodes.map(function (n) {
+          return {
+            parsedJson: (n.contents && n.contents.json) || {},
+            timestampMs: Date.parse(n.timestamp) || Date.now(),
+            sender: n.sender && n.sender.address,
+            id: { txDigest: n.transaction && n.transaction.digest }
+          };
+        }),
+        hasNextPage: !!info.hasNextPage,
+        nextCursor: info.endCursor || null
+      };
+    });
+  }
+
   function queryEvents(rpc, type, cursor, limit) {
-    return rpcCall(rpc, "suix_queryEvents", [
-      { MoveEventType: type },
-      cursor || null,
-      limit || 50,
-      false,
-    ]).then(function (res) {
-      return res || { data: [], hasNextPage: false, nextCursor: null };
+    var gql = (typeof window !== "undefined" && window.SUI_GRAPHQL) || DEFAULT_GQL;
+    return queryEventsGql(gql, type, cursor, limit).catch(function () {
+      return rpcCall(rpc, "suix_queryEvents", [
+        { MoveEventType: type },
+        cursor || null,
+        limit || 50,
+        false,
+      ]).then(function (res) {
+        return res || { data: [], hasNextPage: false, nextCursor: null };
+      });
     });
   }
 
@@ -353,6 +384,8 @@
       reflection: !!p.reflection,
       name: p.name,
       symbol: p.symbol || "",
+      virtual_quote: p.virtual_quote,
+      virtual_token: p.virtual_token,
     };
   }
 
