@@ -9,7 +9,7 @@
 ///    time-lock the Bluefin Position NFT to the Arena creator for `Config.lp_lock_ms`
 ///    (default 180 days).
 /// 3. Instadex (`launch::launch_instadex`) reuses `seed_and_lock_internal` with no
-///    Arena `Pool`. `unlock_ms = 0` (permanent; claim aborts). Fees via `collect_bluefin_fees`.
+///    Arena `Pool`. `unlock_ms = 0` (permanent; claim aborts). Fees via `collect_lp_fees`.
 ///
 /// Graduate PTB (SUI quote):
 ///   Pool<T, SUI>, Config, Clock, Bluefin GlobalConfig,
@@ -20,10 +20,11 @@
 module arena::lock;
 
 use arena::bluefin;
-use arena::config::Config;
+use arena::config::{Self, Config};
 use arena::errors;
 use arena::events;
 use arena::math;
+use arena::pit::{Self, Pit};
 use arena::pool::{Self, Pool};
 use bluefin_spot::config::GlobalConfig;
 use bluefin_spot::position::Position;
@@ -36,6 +37,8 @@ use sui::sui::SUI;
 use sui::transfer;
 use sui::tx_context::TxContext;
 use sui::url;
+
+const BPS: u64 = 10_000;
 
 public struct LpLock<phantom T, phantom Q> has key {
     id: UID,
@@ -298,21 +301,74 @@ public fun claim_bluefin_position(
     position
 }
 
-/// Permissionless. Collects accrued Bluefin swap fees from the vaulted Position NFT
-/// and sends Coin A / Coin B to lock.beneficiary. NFT stays in the vault.
+/// Split already-collected LP quote by Config.std_* bps.
+/// Does **not** apply `swap_fee_bps` — the collected balances are already fees.
+/// Remainder dust from integer division goes to creator so the three amounts sum.
+public(package) fun split_std_lp_quote(
+    amount: u64,
+    creator_bps: u64,
+    platform_bps: u64,
+    pit_bps: u64,
+): (u64, u64, u64) {
+    let mut creator = math::mul_div(amount, creator_bps, BPS);
+    let platform = math::mul_div(amount, platform_bps, BPS);
+    let pit = math::mul_div(amount, pit_bps, BPS);
+    creator = creator + (amount - creator - platform - pit);
+    (creator, platform, pit)
+}
+
+/// Permissionless. Collects accrued Bluefin LP fees from the vaulted Position NFT.
+/// Coin A (token) goes 100% to `lock.beneficiary`. Coin B (quote) splits
+/// Config.std_* bps (default 60/10/30 creator/platform/pit). NFT stays in the vault.
 /// Aborts if the position has already been claimed (position is none).
-public fun collect_bluefin_fees<A, B>(
+public fun collect_lp_fees<A, B>(
     lock: &mut BluefinPositionLock,
     clock: &Clock,
     bf_config: &GlobalConfig,
     bf_pool: &mut bluefin_spot::pool::Pool<A, B>,
+    config: &mut Config,
+    pit: &mut Pit<B>,
     ctx: &mut TxContext,
 ) {
     assert!(lock.position.is_some(), errors::nothing_to_claim());
+    let beneficiary = lock.beneficiary;
     let position = option::borrow_mut(&mut lock.position);
-    let (_amt_a, _amt_b, bal_a, bal_b) = bluefin::collect_fee(clock, bf_config, bf_pool, position);
-    send_residual(bal_a, lock.beneficiary, ctx);
-    send_residual(bal_b, lock.beneficiary, ctx);
+    let (_amt_a, _amt_b, bal_a, mut bal_b) = bluefin::collect_fee(clock, bf_config, bf_pool, position);
+    let (creator_amt, platform_amt, pit_amt) = split_std_lp_quote(
+        bal_b.value(),
+        config.std_creator_bps(),
+        config.std_platform_bps(),
+        config.std_pit_bps(),
+    );
+    config::take_platform(config, bal_b.split(platform_amt));
+    pit::take_fee(pit, bal_b.split(pit_amt));
+    events::emit_collect_lp_fees(
+        object::id(lock),
+        beneficiary,
+        bal_a.value(),
+        creator_amt,
+        platform_amt,
+        pit_amt,
+    );
+    send_residual(bal_a, beneficiary, ctx);
+    send_residual(bal_b, beneficiary, ctx);
+}
+
+/// Disabled. Same signature as v4 for Compatible upgrades. Use `collect_lp_fees`.
+public fun collect_bluefin_fees<A, B>(
+    _lock: &mut BluefinPositionLock,
+    _clock: &Clock,
+    _bf_config: &GlobalConfig,
+    _bf_pool: &mut bluefin_spot::pool::Pool<A, B>,
+    _ctx: &mut TxContext,
+) {
+    abort_legacy_collect()
+}
+
+/// Body of the disabled `collect_bluefin_fees`. Extracted so unit tests can
+/// hit abort 23 without constructing Bluefin `GlobalConfig` / `Pool`.
+public(package) fun abort_legacy_collect() {
+    abort errors::use_split_collect()
 }
 
 fun metadata_url<C>(meta: &CoinMetadata<C>): vector<u8> {

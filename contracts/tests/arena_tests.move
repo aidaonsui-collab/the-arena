@@ -616,3 +616,39 @@ fun test_permanent_bluefin_lock_unclaimable() {
     ts::return_shared(clock);
     scenario.end();
 }
+
+#[test]
+fun test_split_std_lp_quote() {
+    let (c, p, pit) = lock::split_std_lp_quote(10_000, 6_000, 1_000, 3_000);
+    assert!(c == 6_000, 0);
+    assert!(p == 1_000, 1);
+    assert!(pit == 3_000, 2);
+    assert!(c + p + pit == 10_000, 3);
+
+    let (c, p, pit) = lock::split_std_lp_quote(1, 6_000, 1_000, 3_000);
+    assert!(c == 1, 4);
+    assert!(p == 0, 5);
+    assert!(pit == 0, 6);
+
+    let (c, p, pit) = lock::split_std_lp_quote(7, 6_000, 1_000, 3_000);
+    assert!(c + p + pit == 7, 7);
+    assert!(p == 0, 8);
+    assert!(pit == 2, 9);
+    assert!(c == 5, 10);
+
+    let (c, p, pit) = lock::split_std_lp_quote(0, 6_000, 1_000, 3_000);
+    assert!(c == 0 && p == 0 && pit == 0, 11);
+
+    // 80 LP quote from a 0.01 SUI swap's 1% * 80% share
+    let (c, p, pit) = lock::split_std_lp_quote(80_000, 6_000, 1_000, 3_000);
+    assert!(c == 48_000, 12);
+    assert!(p == 8_000, 13);
+    assert!(pit == 24_000, 14);
+}
+
+#[test]
+#[expected_failure(abort_code = 23)]
+fun test_legacy_collect_bluefin_fees_aborts() {
+    lock::abort_legacy_collect();
+}
+

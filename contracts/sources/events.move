@@ -111,6 +111,17 @@ public struct LpClaimEvent has copy, drop {
     quote_amount: u64,
 }
 
+/// Accrued Bluefin LP fees collected from a vaulted Position NFT.
+/// Quote (coin B) is already the LP share; split 60/10/30 creator/platform/pit.
+public struct CollectLpFeesEvent has copy, drop {
+    lock_id: ID,
+    beneficiary: address,
+    token_amount: u64,
+    creator_amount: u64,
+    platform_amount: u64,
+    pit_amount: u64,
+}
+
 public fun emit_launch(
     pool_id: ID,
     token: TypeName,
@@ -268,5 +279,23 @@ public fun emit_lp_claim(
         who,
         token_amount,
         quote_amount,
+    })
+}
+
+public fun emit_collect_lp_fees(
+    lock_id: ID,
+    beneficiary: address,
+    token_amount: u64,
+    creator_amount: u64,
+    platform_amount: u64,
+    pit_amount: u64,
+) {
+    sui::event::emit(CollectLpFeesEvent {
+        lock_id,
+        beneficiary,
+        token_amount,
+        creator_amount,
+        platform_amount,
+        pit_amount,
     })
 }
