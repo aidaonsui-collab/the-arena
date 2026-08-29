@@ -413,6 +413,21 @@
     };
   }
 
+  function parseBluefinLock(ev) {
+    var p = ev.parsedJson || {};
+    return {
+      lock_id: String(p.lock_id || ""),
+      pool_id: String(p.pool_id || ""),
+      beneficiary: String(p.beneficiary || ""),
+      unlock_ms: num(p.unlock_ms),
+      token_amount: p.token_amount,
+      quote_amount: p.quote_amount,
+      bluefin_pool_id: String(p.bluefin_pool_id || ""),
+      position_id: String(p.position_id || ""),
+      ts: num(ev.timestampMs) || Date.now()
+    };
+  }
+
   async function collect(rpc, type, parse, pages, limit) {
     var out = [];
     var cursor = null;
@@ -473,6 +488,14 @@
       collect(rpc, P + "::events::LockEvent", parseLock, 2, 50).then(function (rows) {
         rows.forEach(function (g) { if (opts.onLock) opts.onLock(g); });
       }).catch(function () {});
+      var lockPkgs = (opts.lockPackages || []).slice();
+      if (lockPkgs.indexOf(P) < 0) lockPkgs.push(P);
+      lockPkgs.forEach(function (LP) {
+        if (!LP || LP === "0x0") return;
+        collect(rpc, LP + "::events::BluefinLockEvent", parseBluefinLock, 2, 50).then(function (rows) {
+          rows.forEach(function (g) { if (opts.onBluefinLock) opts.onBluefinLock(g); });
+        }).catch(function () {});
+      });
     }
 
     return {
@@ -543,6 +566,7 @@
     demoSnapshot: demoSnapshot,
     parseGraduation: parseGraduation,
     parseLock: parseLock,
+    parseBluefinLock: parseBluefinLock,
     subscribe: subscribe,
     loadSnapshot: loadSnapshot,
     loadIndex: loadIndex,
