@@ -74,6 +74,13 @@ main{padding:18px 0 72px}
 .launches{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
 .lcard{background:var(--card);border-radius:20px;padding:10px;box-shadow:var(--shadow);cursor:pointer;min-width:0;transition:transform .18s,box-shadow .18s;display:flex;flex-direction:column;gap:10px}
 .lcard:hover{transform:translateY(-2px);box-shadow:0 14px 34px rgba(0,0,0,.4)}
+
+.lcard-art img,.avatar img{width:100%;height:100%;object-fit:cover;display:block}
+.art-field{display:flex;align-items:center;gap:14px}
+.art-preview{width:72px;height:72px;border-radius:18px;background:#101211;overflow:hidden;display:grid;place-items:center;flex:none;font-family:"Instrument Serif",Georgia,serif;font-size:28px;color:rgba(255,255,255,.8)}
+.art-preview img{width:100%;height:100%;object-fit:cover}
+.art-field input[type=file]{font-size:13px;color:var(--muted)}
+.art-note{font-size:12px;color:var(--muted);margin-top:6px}
 .lcard-art{position:relative;aspect-ratio:1;border-radius:16px;overflow:hidden;display:grid;place-items:center}
 .lcard-art .art-letter{font-family:"Instrument Serif",Georgia,serif;font-size:64px;line-height:1;color:rgba(255,255,255,.92);letter-spacing:-.04em}
 .lcard-art .chip{position:absolute;top:8px;left:8px;margin:0;background:rgba(16,18,17,.55);backdrop-filter:blur(8px);color:#fff}
@@ -295,7 +302,7 @@ html.shot,html.shot *{animation:none!important;transition:none!important}
   let bshift = 0, pot = 31.94, prevPot = "", roundNo = 128, secs = ROUND_SECONDS;
   let balance = 48.60;
   let xaumBal = 2.40;
-  const state = {route:"explore", sym:"VOLT", filter:"All", sort:"Market cap", time:"All", side:"Buy", amt:"1", connected:false, search:"", lName:"", lTick:"", lQuote:"SUI", lMode:"Holders", metricsWindow:"All", tapeTab:"trades", tapeOpen:""};
+  const state = {route:"explore", sym:"VOLT", filter:"All", sort:"Market cap", time:"All", side:"Buy", amt:"1", connected:false, search:"", lName:"", lTick:"", lQuote:"SUI", lMode:"Holders", metricsWindow:"All", tapeTab:"trades", tapeOpen:"", lFile:null, lArtUrl:"", lArtPreview:""};
   let hashLock = false;
   const SHOT = /Headless/i.test(String(navigator.userAgent||"")) || /(?:^|[?&])shot=1(?:&|$)/.test(location.search);
   if (SHOT) document.documentElement.classList.add("shot");
@@ -382,8 +389,15 @@ html.shot,html.shot *{animation:none!important;transition:none!important}
     return rows.slice(0, limit == null ? 8 : limit);
   }
   function barPct(k){ return Math.min(100, k.cap/gradTarget(k)*100).toFixed(0)+"%"; }
+  function escUrl(u){
+    u = String(u || "");
+    if (u.indexOf("https://") !== 0 && u.indexOf("blob:") !== 0) return "";
+    return u.replace(/"/g, "").replace(/</g, "");
+  }
   function avatar(k, sz){
     sz = sz || 42;
+    const src = escUrl(k.img);
+    if (src) return '<div class="avatar" style="width:'+sz+'px;height:'+sz+'px;padding:0;overflow:hidden"><img src="'+src+'" alt=""></div>';
     return '<div class="avatar" style="width:'+sz+'px;height:'+sz+'px;background:'+k.c+'"><i class="diamond"></i></div>';
   }
   function holderHTML(tk){
@@ -535,9 +549,12 @@ html.shot,html.shot *{animation:none!important;transition:none!important}
   }
   function artBlock(k, hot){
     const badge = hot ? "Pit lead" : k.st;
-    return '<div class="lcard-art" style="background:'+(hot?"#111":k.c)+'">'+
-      '<span class="chip">'+badge+'</span>'+
-      '<span class="art-letter">'+k.t.charAt(0)+'</span></div>';
+    const src = escUrl(k.img);
+    const inner = src
+      ? '<img src="'+src+'" alt="">'
+      : '<span class="art-letter">'+k.t.charAt(0)+'</span>';
+    return '<div class="lcard-art" style="background:'+(src?"#101211":(hot?"#111":k.c))+'">'+
+      '<span class="chip">'+badge+'</span>'+inner+'</div>';
   }
   function featCard(k){ return launchCard(k, 0); }
   function launchRow(k, i){
@@ -733,6 +750,10 @@ html.shot,html.shot *{animation:none!important;transition:none!important}
         '<h1 style="font-size:clamp(32px,6vw,56px)">Enter the arena.</h1>'+
         '<p style="color:var(--muted);max-width:48ch">One SUI opens a bout. No presale. If you lead the pit when the bell rings, the pot either buys and burns your token, or splits to holders.</p>'+
         '<div class="form-grid">'+
+          '<div><label>Art</label><div class="art-field">'+
+            '<div class="art-preview" id="l-art-preview">'+(state.lArtPreview?'<img src="'+escUrl(state.lArtPreview)+'" alt="">':(state.lTick?state.lTick.charAt(0):"?"))+'</div>'+
+            '<div><input id="l-art" type="file" accept="image/png,image/jpeg,image/webp,image/gif">'+
+            '<div class="art-note" id="l-art-note">'+(state.lArtUrl?"Ready · Blob URL set":"png, jpeg, webp, or gif · 2MB")+'</div></div></div></div>'+
           '<div><label>Name</label><input id="l-name" placeholder="Voltcats" value="'+state.lName+'"></div>'+
           '<div><label>Ticker</label><input id="l-tick" placeholder="VOLT" maxlength="8" value="'+state.lTick+'"></div>'+
           '<div><label>Quote</label><div class="toggle">'+tog("lQuote","SUI","SUI")+tog("lQuote","XAUM","XAUM")+'</div>'+
@@ -1103,18 +1124,48 @@ html.shot,html.shot *{animation:none!important;transition:none!important}
     pot = 0.42;
     prevPot = "";
   }
+  function uploadArt(file){
+    return fetch("/api/upload", {
+      method: "POST",
+      headers: { "content-type": file.type, "x-filename": file.name },
+      body: file
+    }).then(function(res){
+      return res.json().then(function(j){
+        if (!res.ok || !j.url) throw new Error(j.error || "upload failed");
+        return j.url;
+      });
+    });
+  }
   function doLaunch(){
     const name = (state.lName || ($("#l-name") && $("#l-name").value) || "").trim();
     const tick = (state.lTick || ($("#l-tick") && $("#l-tick").value) || "").trim().toUpperCase().replace(/[^A-Z0-9]/g,"").slice(0,8);
     if (!name || !tick) return;
     if (T.some(function(k){ return k.t === tick; })) { go("token", tick); return; }
-    const k = {t:tick,n:name,b:"Just entered the arena.",cap:state.lQuote==="XAUM"?0.04:48,ch:0,h:1,st:"Live",mode:state.lMode,q:state.lQuote,c:"#298DFF",born:T.length};
-    const base = Math.max(2.4, k.cap/34);
-    k.buckets = Array.from({length:12},function(){return +base.toFixed(2);});
-    k.fbuckets = k.buckets.map(function(){return 1;});
-    T.push(k);
-    if (!state.connected) state.connected = true;
-    go("token", tick);
+    const btn = $("#launch-go");
+    const note = $("#l-art-note");
+    const file = state.lFile;
+    function finish(img){
+      const k = {t:tick,n:name,b:"Just entered the arena.",cap:state.lQuote==="XAUM"?0.04:48,ch:0,h:1,st:"Live",mode:state.lMode,q:state.lQuote,c:"#298DFF",born:T.length,img:img||""};
+      const base = Math.max(2.4, k.cap/34);
+      k.buckets = Array.from({length:12},function(){return +base.toFixed(2);});
+      k.fbuckets = k.buckets.map(function(){return 1;});
+      T.push(k);
+      if (!state.connected) state.connected = true;
+      state.lFile = null; state.lArtUrl = ""; state.lArtPreview = "";
+      go("token", tick);
+    }
+    if (file && !state.lArtUrl){
+      if (btn){ btn.disabled = true; btn.textContent = "Uploading art…"; }
+      uploadArt(file).then(function(url){
+        state.lArtUrl = url;
+        finish(url);
+      }).catch(function(err){
+        if (btn){ btn.disabled = false; btn.textContent = "Launch token · 1 SUI"; }
+        if (note) note.textContent = (err && err.message) || "Upload failed";
+      });
+      return;
+    }
+    finish(state.lArtUrl);
   }
   document.addEventListener("click", function(e){
     const launch = e.target.closest("#launch-go");
@@ -1185,6 +1236,31 @@ html.shot,html.shot *{animation:none!important;transition:none!important}
     }
     if (e.target && e.target.id === "l-name") state.lName = e.target.value;
     if (e.target && e.target.id === "l-tick") state.lTick = e.target.value.toUpperCase();
+  });
+  document.addEventListener("change", function(e){
+    if (!(e.target && e.target.id === "l-art")) return;
+    const file = e.target.files && e.target.files[0];
+    const note = $("#l-art-note");
+    const prev = $("#l-art-preview");
+    if (!file){
+      state.lFile = null; state.lArtUrl = ""; state.lArtPreview = "";
+      if (prev) prev.textContent = (state.lTick||"?").charAt(0);
+      if (note) note.textContent = "png, jpeg, webp, or gif · 2MB";
+      return;
+    }
+    const ok = /image\/(png|jpeg|webp|gif)/.test(file.type);
+    if (!ok || file.size > 2*1024*1024){
+      state.lFile = null;
+      e.target.value = "";
+      if (note) note.textContent = !ok ? "png, jpeg, webp, or gif" : "empty or over 2MB";
+      return;
+    }
+    state.lFile = file;
+    state.lArtUrl = "";
+    if (state.lArtPreview && state.lArtPreview.indexOf("blob:") === 0) URL.revokeObjectURL(state.lArtPreview);
+    state.lArtPreview = URL.createObjectURL(file);
+    if (prev) prev.innerHTML = '<img src="'+escUrl(state.lArtPreview)+'" alt="">';
+    if (note) note.textContent = file.name+" · "+(file.size/1024).toFixed(0)+" KB";
   });
   document.addEventListener("keydown", function(e){
     if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k"){
