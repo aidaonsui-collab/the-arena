@@ -761,6 +761,10 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     tk = tk && tk.t ? tk : (tk ? findT(tk) : null);
     return !!(tk && (tk.instadex || tk.st === "Instadex"));
   }
+  function isDexBout(tk){
+    tk = tk && tk.t ? tk : (tk ? findT(tk) : null);
+    return !!(tk && (isInstadex(tk) || tk.bluefinPool));
+  }
   function isRefl(tk){
     tk = tk && tk.t ? tk : findT(tk || state.sym);
     if (isInstadex(tk)) return false;
@@ -1017,12 +1021,8 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     const f = state.filter;
     if (f === "Trending") list = list.filter(function(k){ return k.ch >= 12 || vol(k) > vol(T[0])*0.4; });
     else if (f === "New") list = list.filter(function(k){ return (k.born||0) >= T.length-5; });
-    else if (f === "Near graduation") list = list.filter(function(k){ return k.st === "Graduating"; });
-    else if (f === "Live") list = list.filter(function(k){ return k.st === "Live" || k.st === "Instadex" || k.instadex; });
-    else if (f === "Graduating") list = list.filter(function(k){ return k.st === "Graduating"; });
-    else if (f === "Graduated") list = list.filter(function(k){ return k.graduated || k.st === "Graduated"; });
-    else if (f === "All") list = list;
-    else list = list.filter(function(k){ return !k.graduated && k.st !== "Graduated"; });
+    else if (f === "Live") list = list.filter(function(k){ return k.st === "Live" || k.st === "Instadex" || k.instadex || k.bluefinPool; });
+    else list = list;
     return sortPool(list);
   }
   function pill(label, key, val){
@@ -1075,30 +1075,20 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       '<div><div class="brand-name" style="color:var(--ink);margin-bottom:8px">ARENA</div>'+
         '<p style="margin:0;max-width:36ch">Fair launches on Sui. Instadex seeds Bluefin in block one. Quote is SUI or XAUM. LP locked forever.</p></div>'+
       '<div><h4>Product</h4><div data-go="explore">Explore</div><div data-go="pit">Pit</div><div data-go="metrics">Metrics</div><div data-go="launch">Create</div></div>'+
-      '<div><h4>Fees</h4>1% on every fill.<br>Default 60/10/30 creator/platform/pit.<br>Reflection 50/20/20/10.</div></footer>';
+      '<div><h4>Fees</h4>Bluefin 1% on the pair.<br>Fees sit on the Position NFT.<br>collect_bluefin_fees → creator, not the pit.</div></footer>';
   }
   function exploreHTML(){
+    if (state.filter === "Graduating" || state.filter === "Near graduation" || state.filter === "Graduated") state.filter = "All";
     const pool = launchPool();
     const leader = sortedT()[0];
     const sorts = ["Recent","Newest","Market cap","Volume"];
-    const chips = ["All","Live","Graduating","Graduated"];
-    let cards;
-    if (state.filter === "Graduated"){
-      const liveG = T.filter(function(k){ return k.graduated || k.st === "Graduated"; });
-      const extra = LIVE ? [] : GRADS.map(function(g){
-        return {t:g.t,n:g.n,cap:g.cap,ch:0,h:0,st:"Graduated",mode:"LP locked",q:"SUI",c:g.c||"#298DFF",buckets:[1],graduated:true};
-      });
-      cards = liveG.concat(extra).map(function(k,i){ return launchCard(k,i); }).join("");
-    } else {
-      cards = pool.map(function(k,i){ return launchCard(k,i); }).join("");
-    }
+    const chips = ["All","Live"];
+    let cards = pool.map(function(k,i){ return launchCard(k,i); }).join("");
     if (!cards) cards = '<div class="empty card" style="grid-column:1/-1">No launches match.</div>';
-    const count = state.filter === "Graduated"
-      ? T.filter(function(k){ return k.graduated || k.st === "Graduated"; }).length + (LIVE ? 0 : GRADS.length)
-      : pool.length;
+    const count = pool.length;
     return '<div data-screen-label="Explore">'+
       '<div class="explore-head"><div><h1>Explore <span class="count-pill">'+count+'</span></h1>'+
-        '<p>Instadex on Bluefin. Quote SUI or XAUM. Legacy curve cards may still list.</p></div></div>'+
+        '<p>Instadex on Bluefin. Quote SUI or XAUM.</p></div></div>'+
       '<div class="pills" style="margin-bottom:8px">'+sorts.map(function(s){return pill(s,"sort",s);}).join("")+'</div>'+
       '<div class="pills" id="filters" style="margin-bottom:16px">'+chips.map(function(s){return pill(s,"filter",s);}).join("")+'</div>'+
       '<div class="pit-strip" data-go="pit">'+
@@ -1132,7 +1122,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
         '<div style="grid-area:pot"><div class="pit-kicker"><span style="display:inline-block;width:7px;height:7px;border-radius:99px;background:var(--sui);margin-right:8px"></span>Round <span data-round>'+roundNo+'</span> · live</div>'+
           '<div class="pit-pot" data-pot>'+money(pot)+'</div></div>'+
         '<div class="pit-clock" style="grid-area:clock"><span data-clock>'+clockStr()+'</span><span>until the bell</span></div>'+
-        '<p>One percent of every fill feeds this pot. Highest cap still on the curve when the clock hits zero takes it — split to holders, or buy and burn.</p>'+
+        '<p>Instadex pairs are on Bluefin. The pit is still here.</p>'+
       '</div>'+
       '<div class="card" style="padding:20px 22px;margin-top:14px"><div class="sec-label" style="margin-top:0">Contenders <span>CAP</span></div><div id="contenders">'+rows+'</div></div>'+
       '<div class="sec-label" style="margin-top:22px">Past bells <span>last three</span></div>'+
@@ -1276,7 +1266,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       ? '<div class="kv"><span style="color:var(--muted)">Lock</span><span>'+lockLabel+'</span></div>'
       : '';
     const note = (insta || tk.bluefinPool)
-      ? "Swap fees on Bluefin go to the position. Anyone can poke collect."
+      ? "Anyone can poke collect_bluefin_fees. Coin A/B go to the creator, not the pit."
       : "Create is Instadex only. Live curve tokens stay listed.";
     return '<div class="ticket">'+
       '<div class="pit-kicker">'+kicker+'</div>'+
@@ -1293,14 +1283,17 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     const tk = findT(state.sym);
     const q = poolQuote(tk);
     const insta = isInstadex(tk);
+    const dexBout = isDexBout(tk);
     const capN = curveCap(tk);
     const burnedN = burnedOf(tk);
     const burnedQ = burnedN * lastPx(tk.t);
     const burnedPct = VIRTUAL_SUPPLY > 0 ? (burnedN / VIRTUAL_SUPPLY * 100) : 0;
-    const capSub = fmtBig(capN)+' '+q+' · '+chText(tk)+' · '+tk.h+' holders';
+    const capSub = dexBout
+      ? "Price and volume live on Bluefin"
+      : fmtBig(capN)+' '+q+' · '+chText(tk)+' · '+tk.h+' holders';
     const burnSub = burnedN > 0
       ? money(burnedQ, q)+' · '+burnedPct.toFixed(2)+'% of supply'
-      : (insta ? "No curve. Live on Bluefin." : (tk.mode === "Buy & burn" ? "No pit burns yet" : "Holders mode · no burn"));
+      : (tk.mode === "Buy & burn" ? "No pit burns yet" : "Holders mode · no burn");
     const xq = encodeURIComponent("$"+tk.t);
     const dex = tk.bluefinPool
       ? "https://dexscreener.com/sui/"+tk.bluefinPool
@@ -1317,8 +1310,8 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       '<button type="button" class="about-link" data-copy="'+(tk.bluefinPool||tk.pool||tk.t)+'">Pool</button>'+
       (tk.bluefinPool ? '<a class="about-link" href="https://trade.bluefin.io/swap?pool='+tk.bluefinPool+'" target="_blank" rel="noopener">Bluefin</a>' : '')+
       (tk.lockId ? '<button type="button" class="about-link" data-copy="'+tk.lockId+'">Vault</button>' : '');
-    const tapeBody = (insta || tk.bluefinPool)
-      ? '<div id="tape"><div class="empty">Live on Bluefin.</div></div>'
+    const tapeBody = dexBout
+      ? '<div id="tape"><div class="empty">Live on Bluefin. No Arena tape.</div></div>'
       : '<div class="tape-tabs">'+
           '<button type="button" class="pill on" data-set="tapeTab" data-val="holders">Holders</button>'+
           '<span class="count-pill tape-count">'+holdersOf(tk).list.length+'</span></div>'+
@@ -1344,13 +1337,27 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
             '<div><div class="about-k">Market cap</div>'+
               '<div class="about-v"><span data-usd-cap="'+tk.t+'">'+usdCapText(tk)+'</span><span class="tick">mc</span></div>'+
               '<div class="about-s">'+capSub+'</div></div>'+
-            '<div><div class="about-k">Burned</div>'+
-              '<div class="about-v">'+fmtBig(burnedN)+'<span class="tick">'+tk.t+'</span></div>'+
-              '<div class="about-s">'+burnSub+'</div></div></div>'+
+            (dexBout
+              ? '<div><div class="about-k">Lock &amp; fees</div>'+
+                  '<div class="about-v">Forever<span class="tick">lock</span></div>'+
+                  '<div class="about-s">LP locked forever. Anyone can poke collect_bluefin_fees. Coin A/B go to the creator. Not the pit.</div></div>'
+              : '<div><div class="about-k">Burned</div>'+
+                  '<div class="about-v">'+fmtBig(burnedN)+'<span class="tick">'+tk.t+'</span></div>'+
+                  '<div class="about-s">'+burnSub+'</div></div>')+
+            '</div>'+
           '<div class="about-links">'+aboutLinks+'</div></div>'+
-          '<div class="card" style="padding:18px;margin-top:12px">'+
-            '<div style="display:flex;justify-content:space-between;margin-bottom:8px"><span class="stat k">Chart</span><span class="feat-tick">'+tk.t+' / '+q+'</span></div>'+
-            '<div id="tv-host" class="tv-host"></div></div>'+
+          (dexBout
+            ? '<div class="card" style="padding:18px;margin-top:12px">'+
+                '<div class="stat k">Price</div>'+
+                '<p style="color:var(--muted);margin:10px 0 14px">Price and volume live on the Bluefin pool. No Arena candles.</p>'+
+                '<div class="about-links">'+
+                  (tk.bluefinPool ? '<a class="about-link" href="'+dex+'" target="_blank" rel="noopener">Dexscreener</a>' : '')+
+                  (tk.bluefinPool ? '<a class="about-link" href="'+gecko+'" target="_blank" rel="noopener">GeckoTerminal</a>' : '')+
+                  (tk.bluefinPool ? '<a class="about-link" href="https://trade.bluefin.io/swap?pool='+tk.bluefinPool+'" target="_blank" rel="noopener">Bluefin</a>' : '<span class="feat-tick">Bluefin pool pending</span>')+
+                '</div></div>'
+            : '<div class="card" style="padding:18px;margin-top:12px">'+
+                '<div style="display:flex;justify-content:space-between;margin-bottom:8px"><span class="stat k">Chart</span><span class="feat-tick">'+tk.t+' / '+q+'</span></div>'+
+                '<div id="tv-host" class="tv-host"></div></div>')+
           '<div class="card" style="padding:18px;margin-top:12px">'+tapeBody+'</div></div>'+
         pairTicket(tk, q, insta)+'</div>'+
       footerHTML()+'</div>';
@@ -1476,8 +1483,8 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     const tapeEl = $("#tape");
     if (!tapeEl) return;
     const tk = findT(state.sym);
-    if (isInstadex(tk) || tk.bluefinPool){
-      tapeEl.innerHTML = '<div class="empty">Live on Bluefin.</div>';
+    if (isDexBout(tk)){
+      tapeEl.innerHTML = '<div class="empty">Live on Bluefin. No Arena tape.</div>';
       const count = document.querySelector(".tape-count");
       if (count) count.textContent = "";
       return;
@@ -1573,9 +1580,10 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   function mountTvChart(){
     dropTv();
     if (state.route !== "token") return;
+    const tk = findT(state.sym);
+    if (isDexBout(tk)) return;
     const host = document.getElementById("tv-host");
     if (!host) return;
-    const tk = findT(state.sym);
     const quote = poolQuote(tk);
     const ticker = tk.t;
     const seq = ++tvSeq;
@@ -1785,7 +1793,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     const q = $("#q");
     if (q) q.value = state.search;
     prevPot = money(pot);
-    if (state.route === "token") mountTvChart();
+    if (state.route === "token" && !isDexBout(findT(state.sym))) mountTvChart();
   }
   function go(route, sym){
     const nextSym = sym || state.sym;
