@@ -1,0 +1,39 @@
+# Arena keepers
+
+Cron jobs for The Arena launchpad. Reflection payouts **accrue on every fill** in Move (`pool::buy` / `pool::sell`). Keepers do not push SUI/XAUM to wallets (the holder table is not iterable). They index, and they ring/settle the pit.
+
+## Jobs
+
+| Cron | Path | What |
+| --- | --- | --- |
+| `* * * * *` | `/api/reflections` | Ingest `TradeEvent` + `ClaimEvent` (kind=0). Snapshot unpaid/claimed per holder. |
+| `*/5 * * * *` | `/api/ring` | Call `pit::ring` when the round clock is up. |
+| `*/5 * * * *` | `/api/settle` | Call `pool::settle_pit` on the winning pool after `BellEvent`. |
+
+Local:
+
+```
+ARENA_PACKAGE_ID=0x... npx tsx src/cli.ts reflections
+```
+
+## Events for the UI indexer
+
+Package `P`. Subscribe:
+
+- `P::events::TradeEvent` — candles, tape, `reflection_fee`
+- `P::events::ClaimEvent` — `kind=0` reflection, `kind=1` pit
+- `P::events::LaunchEvent` — `reflection: bool`, quote type
+- `P::events::BellEvent` / `PitSettleEvent` / `PitNudgeEvent`
+- `P::events::GraduationEvent`
+
+Gold quote type: `0x9d297676e7a4b771ab023291377b2adfaa4938fb9080b8d12430e4b108b836a9::xaum::XAUM`
+
+Snapshot file (default `./data/reflections.json`) is the shape the token page can read for unpaid quote.
+
+## Env
+
+- `ARENA_PACKAGE_ID`
+- `SUI_RPC`
+- `ARENA_PIT_SUI` / `ARENA_PIT_XAUM` (shared object ids after publish)
+- `ARENA_KEEPER_PHRASE` (signing key for ring/settle, later)
+- `KEEPERS_CURSOR_PATH`

@@ -5,3 +5,7 @@ build.py
 
 # Move build cache
 contracts/build/
+
+keepers/node_modules/
+keepers/dist/
+keepers/data/
