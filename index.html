@@ -210,9 +210,10 @@ html.shot,html.shot *{animation:none!important;transition:none!important}
 }
 @media (max-width:720px){
   .shell{width:calc(100% - 20px)}
-  .topbar-inner{grid-template-columns:1fr auto;padding:10px 0 12px}
-  .nav-pill{grid-column:1/-1;width:100%;justify-content:center;justify-self:stretch}
-  .btn-connect{justify-self:end}
+  .topbar-inner{grid-template-columns:1fr auto;grid-template-areas:"brand connect" "nav nav";padding:10px 0 12px}
+  .brand{grid-area:brand}
+  .btn-connect{grid-area:connect;justify-self:end}
+  .nav-pill{grid-area:nav;width:100%;justify-content:center;justify-self:stretch}
   .search-row{gap:8px}
   .btn-create{flex:none;padding:12px 14px}
   .featured,.launches{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
