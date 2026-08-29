@@ -2,3 +2,6 @@ shots/
 build.py
 .vercel/
 .DS_Store
+
+# Move build cache
+contracts/build/
