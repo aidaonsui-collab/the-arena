@@ -428,6 +428,43 @@
     };
   }
 
+  function typeNameOf(v) {
+    if (v == null || v === "") return "";
+    if (typeof v === "string") return v;
+    if (typeof v === "object") {
+      if (v.name) return String(v.name);
+      if (v.address && v.module) return String(v.address) + "::" + v.module + "::" + (v.name || "");
+    }
+    return String(v);
+  }
+
+  /**
+   * InstadexLaunchEvent — no Arena pool_id. unlock_ms 0 = permanent lock.
+   * quoteLabel maps quote TypeName to SUI / XAUM. Missing event types are ignored by collect().
+   */
+  function parseInstadexLaunch(ev) {
+    var p = ev.parsedJson || {};
+    var unlock = num(p.unlock_ms);
+    var quoteRaw = p.quote;
+    return {
+      lock_id: String(p.lock_id || ""),
+      bluefin_pool_id: String(p.bluefin_pool_id || ""),
+      position_id: String(p.position_id || ""),
+      token: p.token,
+      quote: quoteRaw,
+      quoteLabel: quoteLabel(typeNameOf(quoteRaw) || quoteRaw),
+      creator: String(p.creator || ev.sender || ""),
+      token_amount: p.token_amount,
+      quote_amount: p.quote_amount,
+      unlock_ms: unlock,
+      permanent: unlock === 0,
+      name: p.name,
+      symbol: p.symbol || "",
+      instadex: true,
+      ts: num(ev.timestampMs) || Date.now()
+    };
+  }
+
   async function collect(rpc, type, parse, pages, limit) {
     var out = [];
     var cursor = null;
@@ -443,7 +480,9 @@
   }
 
   /**
-   * subscribe({ packageId, rpc, tokens, live, demoMs, onTrade, onLaunch })
+   * subscribe({ packageId, rpc, tokens, live, demoMs, onTrade, onLaunch, onInstadex })
+   * InstadexLaunchEvent fires onInstadex, or onLaunch with instadex:true if that callback is omitted.
+   * Missing event types (pre-upgrade) are ignored.
    * Returns { trades, claims, push, stop }. trades is a live array.
    */
   function subscribe(opts) {
@@ -496,6 +535,18 @@
           rows.forEach(function (g) { if (opts.onBluefinLock) opts.onBluefinLock(g); });
         }).catch(function () {});
       });
+      function emitInstadex(l) {
+        if (opts.onInstadex) opts.onInstadex(l);
+        else if (opts.onLaunch) opts.onLaunch(l);
+      }
+      function pullInstadex(pkg) {
+        if (!pkg || pkg === "0x0") return;
+        collect(rpc, pkg + "::events::InstadexLaunchEvent", parseInstadexLaunch, 2, 50).then(function (rows) {
+          rows.forEach(emitInstadex);
+        }).catch(function () {});
+      }
+      pullInstadex(P);
+      lockPkgs.forEach(pullInstadex);
     }
 
     return {
@@ -567,6 +618,7 @@
     parseGraduation: parseGraduation,
     parseLock: parseLock,
     parseBluefinLock: parseBluefinLock,
+    parseInstadexLaunch: parseInstadexLaunch,
     subscribe: subscribe,
     loadSnapshot: loadSnapshot,
     loadIndex: loadIndex,

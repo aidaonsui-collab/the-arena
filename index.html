@@ -138,6 +138,8 @@ main{padding:18px 0 72px}
 .fee-chip{font-family:"IBM Plex Mono",monospace;font-size:10px;letter-spacing:.04em;text-transform:uppercase;border:1px solid currentColor;border-radius:999px;padding:2px 7px;opacity:.9}
 .btn-trade{width:100%;border:0;border-radius:999px;padding:14px;font-weight:700;background:var(--sui);color:#fff;margin-top:12px}
 .btn-trade.sell{background:#FECACA}
+.btn-trade:disabled{opacity:.5;cursor:not-allowed;filter:none}
+a.btn-trade{display:block;text-align:center;text-decoration:none;box-sizing:border-box}
 
 .tape-tabs{display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap}
 .tape-row{display:grid;grid-template-columns:28px minmax(0,1fr) minmax(72px,.7fr) 40px;gap:8px;align-items:center;padding:12px 2px;border-bottom:1px solid var(--line);cursor:pointer}
@@ -342,7 +344,7 @@ window.ARENA_PIT_XAUM = "0xa8a391bf380914c04be5deb478474b42754a5aa8c29c0955f267d
   let bshift = 0, pot = 31.94, prevPot = "", roundNo = 128, secs = ROUND_SECONDS;
   let balance = 48.60;
   let xaumBal = 2.40;
-  const state = {route:"explore", sym:"VOLT", filter:"All", sort:"Market cap", time:"All", side:"Buy", amt:"1", connected:false, search:"", lName:"", lTick:"", lQuote:"SUI", lMode:"Holders", metricsWindow:"All", tapeTab:"trades", tapeOpen:"", lFile:null, lArtUrl:"", lArtPreview:"", payWith:"SUI"};
+  const state = {route:"explore", sym:"VOLT", filter:"All", sort:"Market cap", time:"All", side:"Buy", amt:"1", connected:false, search:"", lName:"", lTick:"", lQuote:"SUI", lPath:"sui", lMode:"Holders", lTokenAmt:"", lQuoteAmt:"", metricsWindow:"All", tapeTab:"trades", tapeOpen:"", lFile:null, lArtUrl:"", lArtPreview:"", payWith:"SUI"};
   let hashLock = false;
   const hop = { suiPerXaum: null, usd: null, suiUsd: null, source: "" };
 
@@ -454,14 +456,15 @@ window.ARENA_PIT_XAUM = "0xa8a391bf380914c04be5deb478474b42754a5aa8c29c0955f267d
     const up = raw.toUpperCase();
     const low = raw.toLowerCase();
     return T.find(function(k){
-      return k.t === up || (k.pool && k.pool.toLowerCase() === low);
+      return k.t === up || (k.pool && k.pool.toLowerCase() === low) || (k.bluefinPool && k.bluefinPool.toLowerCase() === low);
     }) || T[0] || {t:"—",n:"—",cap:0,ch:0,h:0,st:"Live",mode:"Buy & burn",q:"SUI",c:"#298DFF",buckets:[1],fbuckets:[1],pool:""};
   }
   function poolKeys(tk){
     tk = tk && tk.t ? tk : findT(tk);
-    const keys = [tk.t, tk.pool];
-    const launch = bus.launches[tk.t] || (tk.pool && bus.launches[tk.pool]);
+    const keys = [tk.t, tk.pool, tk.bluefinPool];
+    const launch = bus.launches[tk.t] || (tk.pool && bus.launches[tk.pool]) || (tk.bluefinPool && bus.launches[tk.bluefinPool]);
     if (launch && launch.pool_id) keys.push(launch.pool_id);
+    if (launch && launch.bluefin_pool_id) keys.push(launch.bluefin_pool_id);
     return keys.filter(Boolean).map(function(x){ return String(x).toLowerCase(); });
   }
   function matchesPool(row, tk){
@@ -477,8 +480,13 @@ window.ARENA_PIT_XAUM = "0xa8a391bf380914c04be5deb478474b42754a5aa8c29c0955f267d
     if (launch && Index) return Index.quoteLabel(launch.quote);
     return tk.q || tk.quote || "SUI";
   }
+  function isInstadex(tk){
+    tk = tk && tk.t ? tk : (tk ? findT(tk) : null);
+    return !!(tk && (tk.instadex || tk.st === "Instadex"));
+  }
   function isRefl(tk){
     tk = tk && tk.t ? tk : findT(tk || state.sym);
+    if (isInstadex(tk)) return false;
     const rec = bus.index && bus.index.pools && bus.index.pools[tk.t];
     if (rec && rec.reflection != null) return !!rec.reflection;
     const launch = bus.launches[tk.t] || (tk.pool && bus.launches[tk.pool]);
@@ -731,7 +739,7 @@ window.ARENA_PIT_XAUM = "0xa8a391bf380914c04be5deb478474b42754a5aa8c29c0955f267d
     if (f === "Trending") list = list.filter(function(k){ return k.ch >= 12 || vol(k) > vol(T[0])*0.4; });
     else if (f === "New") list = list.filter(function(k){ return (k.born||0) >= T.length-5; });
     else if (f === "Near graduation") list = list.filter(function(k){ return k.st === "Graduating"; });
-    else if (f === "Live") list = list.filter(function(k){ return k.st === "Live"; });
+    else if (f === "Live") list = list.filter(function(k){ return k.st === "Live" || k.st === "Instadex" || k.instadex; });
     else if (f === "Graduating") list = list.filter(function(k){ return k.st === "Graduating"; });
     else if (f === "Graduated") list = list.filter(function(k){ return k.graduated || k.st === "Graduated"; });
     else if (f === "All") list = list;
@@ -782,7 +790,7 @@ window.ARENA_PIT_XAUM = "0xa8a391bf380914c04be5deb478474b42754a5aa8c29c0955f267d
       artBlock(k, hot)+
       '<div><div class="feat-name">'+k.n+'</div><div class="feat-tick">$'+k.t+'</div></div>'+
       '<div class="feat-mcap" data-usd-cap="'+k.t+'" style="font-size:15px">'+usdCapText(k)+' MC</div>'+
-      (k.graduated ? '' : '<div class="bar-row"><div class="bar"><i data-bar="'+k.t+'" style="width:'+pct+'"></i></div><span class="bar-pct">'+pct+'</span></div>')+
+      (k.graduated || k.instadex ? '' : '<div class="bar-row"><div class="bar"><i data-bar="'+k.t+'" style="width:'+pct+'"></i></div><span class="bar-pct">'+pct+'</span></div>')+
       '<div class="lcard-foot"><span class="mono">'+addr+'</span><span class="ago">'+lastAgo(k)+'</span></div></div>';
   }
   function footerHTML(){
@@ -947,11 +955,28 @@ window.ARENA_PIT_XAUM = "0xa8a391bf380914c04be5deb478474b42754a5aa8c29c0955f267d
       const on = state[key] === val;
       return '<button type="button" class="pill'+(on?" on":"")+'" data-set="'+key+'" data-val="'+val+'">'+label+'</button>';
     }
+    const insta = state.lPath === "instadex";
+    const pathNote = insta
+      ? "Skips the bonding curve. Seeds Bluefin in block one. LP locked forever. No Arena pool."
+      : (state.lQuote==="XAUM" ? "Graduation at 1 XAUM · SILK is the gold bout." : "Graduation at 2,000 SUI · SILK is the gold bout.");
+    const quoteBlock = insta
+      ? ('<div><label>Quote</label><div class="toggle">'+tog("lQuote","SUI","SUI")+tog("lQuote","XAUM","XAUM")+'</div>'+
+         '<div style="font-size:12px;color:var(--muted);margin-top:6px">Both sides seed the Bluefin pair. '+state.lQuote+' is coin B.</div></div>'+
+         '<div><label>Token seed</label><input id="l-token-amt" inputmode="decimal" placeholder="Token amount" value="'+state.lTokenAmt+'"></div>'+
+         '<div><label>Quote seed · '+state.lQuote+'</label><input id="l-quote-amt" inputmode="decimal" placeholder="'+(state.lQuote==="XAUM"?"XAUM amount":"SUI amount")+'" value="'+state.lQuoteAmt+'"></div>')
+      : ('<div><label>Pit outcome</label><div class="toggle">'+tog("lMode","Holders","Holders")+tog("lMode","Buy & burn","Buy & burn")+'</div>'+
+         '<div style="font-size:12px;color:var(--muted);margin-top:6px">'+(state.lMode==="Holders"?"Reflection 50/20/20/10. Unpaid quote streams to holders.":"Default 60/10/30. Winning pot buys and burns.")+'</div></div>');
+    const goBtn = insta
+      ? '<button type="button" class="btn-trade" id="launch-go" disabled>Instadex waits on the next package upgrade</button>'+
+        '<div style="font-size:12px;color:var(--muted);margin-top:8px;text-align:center">No PTB until the upgrade. Curve launch is unchanged.</div>'
+      : '<button type="button" class="btn-trade" id="launch-go">Launch token · 1 SUI</button>';
     return '<div data-screen-label="Launch">'+
       '<div class="hero-card" style="text-align:left">'+
         '<div class="pit-kicker">Launch</div>'+
         '<h1 style="font-size:clamp(32px,6vw,56px)">Enter the arena.</h1>'+
-        '<p style="color:var(--muted);max-width:48ch">One SUI opens a bout. No presale. If you lead the pit when the bell rings, the pot either buys and burns your token, or splits to holders.</p>'+
+        '<p style="color:var(--muted);max-width:48ch">'+(insta
+          ? "Skip the curve. Bring both LP sides and seed Bluefin in the first block. The Position NFT is locked forever."
+          : "One SUI opens a bout. No presale. If you lead the pit when the bell rings, the pot either buys and burns your token, or splits to holders.")+'</p>'+
         '<div class="form-grid">'+
           '<div><label>Art</label><div class="art-field">'+
             '<div class="art-preview" id="l-art-preview">'+(state.lArtPreview?'<img src="'+escUrl(state.lArtPreview)+'" alt="">':(state.lTick?state.lTick.charAt(0):"?"))+'</div>'+
@@ -959,17 +984,17 @@ window.ARENA_PIT_XAUM = "0xa8a391bf380914c04be5deb478474b42754a5aa8c29c0955f267d
             '<div class="art-note" id="l-art-note">'+(state.lArtUrl?"Ready · Blob URL set":"png, jpeg, webp, or gif · 2MB")+'</div></div></div></div>'+
           '<div><label>Name</label><input id="l-name" placeholder="Voltcats" value="'+state.lName+'"></div>'+
           '<div><label>Ticker</label><input id="l-tick" placeholder="VOLT" maxlength="8" value="'+state.lTick+'"></div>'+
-          '<div><label>Quote</label><div class="toggle">'+tog("lQuote","SUI","SUI")+tog("lQuote","XAUM","XAUM")+'</div>'+
-            '<div style="font-size:12px;color:var(--muted);margin-top:6px">Graduation at '+(state.lQuote==="XAUM"?"1 XAUM":"2,000 SUI")+' · SILK is the gold bout.</div></div>'+
-          '<div><label>Pit outcome</label><div class="toggle">'+tog("lMode","Holders","Holders")+tog("lMode","Buy & burn","Buy & burn")+'</div>'+
-            '<div style="font-size:12px;color:var(--muted);margin-top:6px">'+(state.lMode==="Holders"?"Reflection 50/20/20/10. Unpaid quote streams to holders.":"Default 60/10/30. Winning pot buys and burns.")+'</div></div>'+
-          '<button type="button" class="btn-trade" id="launch-go">Launch token · 1 SUI</button>'+
+          '<div><label>Launch</label><div class="toggle">'+tog("lPath","sui","Curve SUI")+tog("lPath","xaum","Curve XAUM")+tog("lPath","instadex","Instadex")+'</div>'+
+            '<div style="font-size:12px;color:var(--muted);margin-top:6px">'+pathNote+'</div></div>'+
+          quoteBlock+
+          goBtn+
         '</div></div>'+
       footerHTML()+'</div>';
   }
   function tokenHTML(){
     const tk = findT(state.sym);
     const q = poolQuote(tk);
+    const insta = isInstadex(tk);
     const gTarget = gradTarget(tk);
     const pct = Math.min(100, tk.cap/gTarget*100);
     const gLabel = q === "XAUM" ? "1 XAUM" : "2,000 SUI";
@@ -996,7 +1021,7 @@ window.ARENA_PIT_XAUM = "0xa8a391bf380914c04be5deb478474b42754a5aa8c29c0955f267d
     const capSub = fmtBig(capN)+' '+q+' · '+chText(tk)+' · '+tk.h+' holders';
     const burnSub = burnedN > 0
       ? money(burnedQ, q)+' · '+burnedPct.toFixed(2)+'% of supply'
-      : (tk.mode === "Buy & burn" ? "No pit burns yet" : "Holders mode · no burn");
+      : (insta ? "No curve. Live on Bluefin." : (tk.mode === "Buy & burn" ? "No pit burns yet" : "Holders mode · no burn"));
     const xq = encodeURIComponent("$"+tk.t);
     const dex = tk.bluefinPool
       ? "https://dexscreener.com/sui/"+tk.bluefinPool
@@ -1010,7 +1035,7 @@ window.ARENA_PIT_XAUM = "0xa8a391bf380914c04be5deb478474b42754a5aa8c29c0955f267d
       '<a class="about-link" href="'+dex+'" target="_blank" rel="noopener">Dexscreener</a>'+
       '<a class="about-link" href="'+gecko+'" target="_blank" rel="noopener">GeckoTerminal</a>'+
       '<button type="button" class="about-link" data-copy="'+demoTypeId(tk)+'">Contract</button>'+
-      '<button type="button" class="about-link" data-copy="'+(tk.pool||tk.t)+'">Pool</button>'+
+      '<button type="button" class="about-link" data-copy="'+(tk.bluefinPool||tk.pool||tk.t)+'">Pool</button>'+
       (tk.bluefinPool ? '<a class="about-link" href="https://trade.bluefin.io/swap?pool='+tk.bluefinPool+'" target="_blank" rel="noopener">Bluefin</a>' : '')+
       (tk.lockId ? '<button type="button" class="about-link" data-copy="'+tk.lockId+'">Vault</button>' : '');
     return '<div data-screen-label="Token">'+
@@ -1020,9 +1045,10 @@ window.ARENA_PIT_XAUM = "0xa8a391bf380914c04be5deb478474b42754a5aa8c29c0955f267d
           '<div><h1>'+tk.n+'</h1><div class="feat-tick" style="margin-top:6px">'+tk.t+' / '+q+'</div></div></div>'+
         '<div class="badges">'+
           '<span class="badge">'+tk.st+'</span>'+
-          '<span class="badge">Pit · '+tk.mode+'</span>'+
-          (tk.bluefinPool ? '<span class="badge">Bluefin</span>' : '')+
-          (tk.lpLocked ? '<span class="badge">Vault · '+ (tk.unlockMs ? new Date(tk.unlockMs).toLocaleDateString() : "180d") +'</span>' : '')+
+          (insta ? '' : '<span class="badge">Pit · '+tk.mode+'</span>')+
+          (tk.bluefinPool ? '<span class="badge">Bluefin · '+tk.t+'/'+q+'</span>' : '')+
+          (tk.bluefinPool ? '<span class="badge">Pool · '+shortAddr(tk.bluefinPool)+'</span>' : '')+
+          (tk.lpLocked ? '<span class="badge">'+(insta || Number(tk.unlockMs)===0 ? "Lock · permanent" : ("Vault · "+(tk.unlockMs ? new Date(tk.unlockMs).toLocaleDateString() : "180d")))+'</span>' : '')+
           '<span class="badge">'+q+'</span></div></div>'+
       '<div class="split">'+
         '<div class="split-main">'+
@@ -1040,17 +1066,32 @@ window.ARENA_PIT_XAUM = "0xa8a391bf380914c04be5deb478474b42754a5aa8c29c0955f267d
           '<div class="card" style="padding:18px;margin-top:12px">'+
             '<div style="display:flex;justify-content:space-between;margin-bottom:8px"><span class="stat k">Chart</span><span class="feat-tick">'+tk.t+' / '+q+'</span></div>'+
             '<div id="tv-host" class="tv-host"></div>'+
-            '<div class="bar" style="margin-top:14px"><i data-bar="'+tk.t+'" style="width:'+barPct(tk)+'"></i></div>'+
+            (insta ? '' : '<div class="bar" style="margin-top:14px"><i data-bar="'+tk.t+'" style="width:'+barPct(tk)+'"></i></div>'+
             '<div style="display:flex;justify-content:space-between;margin-top:8px;font-size:12px;color:var(--muted)">'+
               '<span>'+pct.toFixed(0)+'% to graduation</span>'+
-              '<span><span data-cap="'+tk.t+'">'+money(tk.cap,q)+'</span> / '+gLabel+'</span></div></div>'+
+              '<span><span data-cap="'+tk.t+'">'+money(tk.cap,q)+'</span> / '+gLabel+'</span></div>')+'</div>'+
           '<div class="card" style="padding:18px;margin-top:12px">'+
             '<div class="tape-tabs">'+
               '<button type="button" class="pill'+(state.tapeTab!=="holders"?" on":"")+'" data-set="tapeTab" data-val="trades">Recent trades</button>'+
               '<button type="button" class="pill'+(state.tapeTab==="holders"?" on":"")+'" data-set="tapeTab" data-val="holders">Holders</button>'+
               '<span class="count-pill tape-count">'+(state.tapeTab==="holders" ? holdersOf(tk).list.length : tapeItems(50, tk.t).length)+'</span></div>'+
-            '<div id="tape">'+(state.tapeTab==="holders" ? (holderHTML(tk)||'<div class="empty">No holder snapshot.</div>') : tapeHTML(tk.t))+'</div></div></div>'+
-        '<div class="ticket">'+
+            '<div id="tape">'+(insta
+              ? '<div class="empty">Live on Bluefin.</div>'
+              : (state.tapeTab==="holders" ? (holderHTML(tk)||'<div class="empty">No holder snapshot.</div>') : tapeHTML(tk.t)))+'</div></div></div>'+
+        (insta
+          ? '<div class="ticket">'+
+              '<div class="pit-kicker">Instadex</div>'+
+              '<div style="font-size:22px;font-weight:700;letter-spacing:-.03em;margin:8px 0 10px">Trade on Bluefin</div>'+
+              '<p style="color:var(--muted);margin:0 0 14px">Not a curve buy or sell. The pair is live on Bluefin Spot. LP is locked forever.</p>'+
+              '<div class="kv"><span style="color:var(--muted)">Pair</span><span class="mono">'+tk.t+' / '+q+'</span></div>'+
+              '<div class="kv"><span style="color:var(--muted)">Pool</span><span class="mono">'+(tk.bluefinPool ? shortAddr(tk.bluefinPool) : "—")+'</span></div>'+
+              '<div class="kv"><span style="color:var(--muted)">Lock</span><span>Permanent</span></div>'+
+              (tk.bluefinPool
+                ? '<a class="btn-trade" href="https://trade.bluefin.io/swap?pool='+tk.bluefinPool+'" target="_blank" rel="noopener">Open Bluefin</a>'
+                : '<button type="button" class="btn-trade" disabled>Bluefin pool pending</button>')+
+              '<div style="margin-top:10px;text-align:center;font-size:11px;color:var(--muted)">Swap fees on Bluefin go to the position. Anyone can poke collect.</div>'+
+            '</div>'
+          : '<div class="ticket">'+
           '<div class="sides">'+
             '<div data-side="Buy" id="btn-buy" class="'+(buyOn?"on-buy":"")+'">Buy</div>'+
             '<div data-side="Sell" id="btn-sell" class="'+(buyOn?"":"on-sell")+'">Sell</div></div>'+
@@ -1066,7 +1107,7 @@ window.ARENA_PIT_XAUM = "0xa8a391bf380914c04be5deb478474b42754a5aa8c29c0955f267d
             '<div class="kv"><span style="color:var(--muted)">Venue</span><span id="venue-text">'+(suiPay?"Bluefin Spot → curve":"Bonding curve")+'</span></div></div>'+
           '<button type="button" class="btn-trade'+(buyOn?"":" sell")+'" id="trade-btn" data-trade>'+meta.tradeLabel+'</button>'+
           '<div id="fee-note" style="margin-top:10px;text-align:center;font-size:11px;color:var(--muted)">'+meta.note+'</div>'+
-        '</div></div>'+
+        '</div>')+'</div>'+
       footerHTML()+'</div>';
   }
   function hashFor(route, sym){
@@ -1412,6 +1453,68 @@ window.ARENA_PIT_XAUM = "0xa8a391bf380914c04be5deb478474b42754a5aa8c29c0955f267d
     tk.b = "Graduated onto Bluefin. Position vaulted 180 days.";
     if (state.route === "explore" || state.route === "token" || state.route === "pit") renderScreen();
   }
+  function upsertInstadex(l){
+    if (!l) return;
+    const sym = String(l.symbol || "").toUpperCase();
+    const bf = String(l.bluefin_pool_id || "");
+    if (bf) bus.launches[bf] = l;
+    if (sym) bus.launches[sym] = l;
+    if (l.lock_id) bus.launches[l.lock_id] = l;
+    if (!sym && !bf) return;
+    let tk = T.find(function(k){
+      return (sym && k.t === sym) || (bf && k.bluefinPool === bf);
+    });
+    const q = l.quoteLabel || (Index ? Index.quoteLabel(l.quote) : "SUI");
+    const cap = fromMist(l.quote_amount) || 0;
+    if (!tk){
+      tk = {
+        t: sym || "TOK",
+        n: l.name || sym || "Token",
+        b: "Instadex. Skipped the curve. Seeded Bluefin; LP locked forever.",
+        cap: cap,
+        ch: 0, h: 1,
+        st: "Instadex",
+        mode: "Instadex",
+        q: q, c: "#298DFF",
+        born: T.length,
+        pool: "",
+        instadex: true,
+        graduated: true,
+        lpLocked: true,
+        bluefin: true,
+        bluefinPool: bf,
+        lockId: l.lock_id,
+        positionId: l.position_id,
+        unlockMs: l.unlock_ms,
+        token: l.token,
+        creator: l.creator
+      };
+      const base = Math.max(2.4, (tk.cap || 1) / 34);
+      tk.buckets = Array.from({length:12}, function(){ return +base.toFixed(2); });
+      tk.fbuckets = tk.buckets.map(function(){ return 1; });
+      T.push(tk);
+    } else {
+      tk.instadex = true;
+      tk.graduated = true;
+      tk.st = "Instadex";
+      tk.mode = "Instadex";
+      tk.q = q;
+      tk.n = l.name || tk.n;
+      tk.pool = "";
+      tk.bluefinPool = bf || tk.bluefinPool;
+      tk.lockId = l.lock_id || tk.lockId;
+      tk.positionId = l.position_id || tk.positionId;
+      tk.unlockMs = l.unlock_ms;
+      tk.lpLocked = true;
+      tk.bluefin = true;
+      tk.b = "Instadex. Skipped the curve. Seeded Bluefin; LP locked forever.";
+      if (cap > 0) tk.cap = cap;
+      if (l.token) tk.token = l.token;
+      if (l.creator) tk.creator = l.creator;
+    }
+    if (LIVE && state.sym && !T.some(function(k){ return k.t === state.sym; })) state.sym = tk.t;
+    if (state.route === "explore" || state.route === "token" || state.route === "pit") renderScreen();
+  }
   function renderScreen(){
     dropTv();
     const host = $("#screens");
@@ -1486,6 +1589,13 @@ window.ARENA_PIT_XAUM = "0xa8a391bf380914c04be5deb478474b42754a5aa8c29c0955f267d
     });
   }
   function doLaunch(){
+    if (state.lPath === "instadex"){
+      const wait = $("#launch-go");
+      if (wait){ wait.disabled = true; wait.textContent = "Instadex waits on the next package upgrade"; }
+      return;
+    }
+    if (state.lPath === "sui") state.lQuote = "SUI";
+    if (state.lPath === "xaum") state.lQuote = "XAUM";
     const name = (state.lName || ($("#l-name") && $("#l-name").value) || "").trim();
     const tick = (state.lTick || ($("#l-tick") && $("#l-tick").value) || "").trim().toUpperCase().replace(/[^A-Z0-9]/g,"").slice(0,8);
     if (!name || !tick) return;
@@ -1566,6 +1676,10 @@ window.ARENA_PIT_XAUM = "0xa8a391bf380914c04be5deb478474b42754a5aa8c29c0955f267d
       const key = set.getAttribute("data-set");
       const val = set.getAttribute("data-val");
       state[key] = val;
+      if (key === "lPath"){
+        if (val === "sui") state.lQuote = "SUI";
+        else if (val === "xaum") state.lQuote = "XAUM";
+      }
       if (key === "tapeTab"){ paintTape();
         $$("[data-set=\"tapeTab\"]").forEach(function(el){
           el.classList.toggle("on", el.getAttribute("data-val") === state.tapeTab);
@@ -1602,6 +1716,8 @@ window.ARENA_PIT_XAUM = "0xa8a391bf380914c04be5deb478474b42754a5aa8c29c0955f267d
     }
     if (e.target && e.target.id === "l-name") state.lName = e.target.value;
     if (e.target && e.target.id === "l-tick") state.lTick = e.target.value.toUpperCase();
+    if (e.target && e.target.id === "l-token-amt") state.lTokenAmt = e.target.value;
+    if (e.target && e.target.id === "l-quote-amt") state.lQuoteAmt = e.target.value;
   });
   document.addEventListener("change", function(e){
     if (!(e.target && e.target.id === "l-art")) return;
@@ -1665,8 +1781,10 @@ window.ARENA_PIT_XAUM = "0xa8a391bf380914c04be5deb478474b42754a5aa8c29c0955f267d
         updateChartLive();
       },
       onLaunch: function(l){
-        upsertLaunch(l);
+        if (l && l.instadex) upsertInstadex(l);
+        else upsertLaunch(l);
       },
+      onInstadex: function(l){ upsertInstadex(l); },
       onGraduate: function(g){ applyGraduate(g); },
       onLock: function(g){ applyLock(g); },
       onBluefinLock: function(g){ applyBluefinLock(g); },
