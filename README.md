@@ -1,6 +1,6 @@
 # The Arena
 
-Fair launches on Sui. Bonding curves, no presale. Graduation at 2,000 SUI. 1% of every fill funds The Pit.
+Fair launches on Sui. Bonding curves, no presale. Graduation at 2,000 SUI. 1% swap fee on every fill, split 60/10/30 creator/platform/pit (reflection: 50/25/25 reflections/creator/platform, pit_fee=0).
 
 Static demo of the Floor, Discover, Pit, Board, Launch, and token pages.
 

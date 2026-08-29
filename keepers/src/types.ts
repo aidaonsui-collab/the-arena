@@ -6,6 +6,8 @@ export type TradeEvent = {
   token_amount: string;
   pit_fee: string;
   reflection_fee: string;
+  creator_fee: string;
+  platform_fee: string;
   raised: string;
   token_reserve: string;
   quote_real: string;
@@ -15,7 +17,22 @@ export type ClaimEvent = {
   pool_id: string;
   who: string;
   amount: string;
-  kind: number; // 0 reflection, 1 pit
+  kind: number; // 0 reflection, 1 pit, 2 creator
+};
+
+export type LockEvent = {
+  pool_id: string;
+  lock_id: string;
+  unlock_ms: string;
+  token_amount: string;
+  quote_amount: string;
+};
+
+export type LpClaimEvent = {
+  lock_id: string;
+  who: string;
+  token_amount: string;
+  quote_amount: string;
 };
 
 export type HolderSnapshot = {

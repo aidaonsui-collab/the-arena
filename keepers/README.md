@@ -20,11 +20,12 @@ ARENA_PACKAGE_ID=0x... npx tsx src/cli.ts reflections
 
 Package `P`. Subscribe:
 
-- `P::events::TradeEvent` — candles, tape, `reflection_fee`
-- `P::events::ClaimEvent` — `kind=0` reflection, `kind=1` pit
+- `P::events::TradeEvent` — candles, tape, `pit_fee`, `reflection_fee`, `creator_fee`, `platform_fee` (reflection fills have `pit_fee`=0)
+- `P::events::ClaimEvent` — `kind=0` reflection, `kind=1` pit, `kind=2` creator
 - `P::events::LaunchEvent` — `reflection: bool`, quote type
 - `P::events::BellEvent` / `PitSettleEvent` / `PitNudgeEvent`
 - `P::events::GraduationEvent`
+- `P::events::LockEvent` / `LpClaimEvent` — graduated LP time vault
 
 Gold quote type: `0x9d297676e7a4b771ab023291377b2adfaa4938fb9080b8d12430e4b108b836a9::xaum::XAUM`
 

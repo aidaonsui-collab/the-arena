@@ -27,6 +27,8 @@ public struct TradeEvent has copy, drop {
     token_amount: u64,
     pit_fee: u64,
     reflection_fee: u64,
+    creator_fee: u64,
+    platform_fee: u64,
     raised: u64,
     token_reserve: u64,
     quote_real: u64,
@@ -54,7 +56,7 @@ public struct ClaimEvent has copy, drop {
     pool_id: ID,
     who: address,
     amount: u64,
-    /// 0 = reflection, 1 = pit holders payout
+    /// 0 = reflection, 1 = pit holders payout, 2 = creator
     kind: u8,
 }
 
@@ -63,6 +65,23 @@ public struct GraduationEvent has copy, drop {
     raised: u64,
     token_reserve: u64,
     quote_real: u64,
+}
+
+public struct LockEvent has copy, drop {
+    lock_id: ID,
+    pool_id: ID,
+    beneficiary: address,
+    unlock_ms: u64,
+    token_amount: u64,
+    quote_amount: u64,
+}
+
+public struct LpClaimEvent has copy, drop {
+    lock_id: ID,
+    pool_id: ID,
+    who: address,
+    token_amount: u64,
+    quote_amount: u64,
 }
 
 public fun emit_launch(
@@ -99,6 +118,8 @@ public fun emit_trade(
     token_amount: u64,
     pit_fee: u64,
     reflection_fee: u64,
+    creator_fee: u64,
+    platform_fee: u64,
     raised: u64,
     token_reserve: u64,
     quote_real: u64,
@@ -111,6 +132,8 @@ public fun emit_trade(
         token_amount,
         pit_fee,
         reflection_fee,
+        creator_fee,
+        platform_fee,
         raised,
         token_reserve,
         quote_real,
@@ -135,4 +158,38 @@ public fun emit_claim(pool_id: ID, who: address, amount: u64, kind: u8) {
 
 public fun emit_graduation(pool_id: ID, raised: u64, token_reserve: u64, quote_real: u64) {
     sui::event::emit(GraduationEvent { pool_id, raised, token_reserve, quote_real })
+}
+
+public fun emit_lock(
+    lock_id: ID,
+    pool_id: ID,
+    beneficiary: address,
+    unlock_ms: u64,
+    token_amount: u64,
+    quote_amount: u64,
+) {
+    sui::event::emit(LockEvent {
+        lock_id,
+        pool_id,
+        beneficiary,
+        unlock_ms,
+        token_amount,
+        quote_amount,
+    })
+}
+
+public fun emit_lp_claim(
+    lock_id: ID,
+    pool_id: ID,
+    who: address,
+    token_amount: u64,
+    quote_amount: u64,
+) {
+    sui::event::emit(LpClaimEvent {
+        lock_id,
+        pool_id,
+        who,
+        token_amount,
+        quote_amount,
+    })
 }

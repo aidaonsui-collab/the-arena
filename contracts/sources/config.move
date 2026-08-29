@@ -1,44 +1,64 @@
-/// Shared protocol parameters, SUI treasury, and AdminCap.
+/// Shared protocol parameters, SUI treasury, platform quote bag, and AdminCap.
 /// Init shares Config plus Pit<SUI>. Create Pit<XAUM> after publish via pit::create_pit.
 module arena::config;
 
 use arena::errors;
+use arena::math;
 use arena::pit;
 use std::type_name;
+use sui::bag::{Self, Bag};
 use sui::balance::{Self, Balance};
-use sui::coin::Coin;
+use sui::coin::{Self, Coin};
 use sui::sui::SUI;
 use sui::object::{Self, UID};
 use sui::transfer;
 use sui::tx_context::TxContext;
 
 const DEFAULT_LAUNCH_FEE_SUI: u64 = 1_000_000_000;
-const DEFAULT_PIT_BPS: u64 = 100;
-const DEFAULT_REFLECTION_BPS: u64 = 200;
+const DEFAULT_SWAP_FEE_BPS: u64 = 100;
+const DEFAULT_STD_CREATOR_BPS: u64 = 6_000;
+const DEFAULT_STD_PLATFORM_BPS: u64 = 1_000;
+const DEFAULT_STD_PIT_BPS: u64 = 3_000;
+const DEFAULT_REFL_REFLECTION_BPS: u64 = 5_000;
+const DEFAULT_REFL_CREATOR_BPS: u64 = 2_500;
+const DEFAULT_REFL_PLATFORM_BPS: u64 = 2_500;
 const DEFAULT_GRADUATION_SUI: u64 = 2_000 * 1_000_000_000;
 const DEFAULT_GRADUATION_XAUM: u64 = 1_000_000_000; // 1 XAUM
 const DEFAULT_VIRTUAL_QUOTE_SUI: u64 = 30_000_000_000;
 const DEFAULT_VIRTUAL_QUOTE_XAUM: u64 = 100_000_000; // 0.1 XAUM
 const DEFAULT_VIRTUAL_TOKEN: u64 = 800_000_000 * 1_000_000_000;
 const DEFAULT_ROUND_MS: u64 = 86_400_000;
+/// 180 days.
+const DEFAULT_LP_LOCK_MS: u64 = 15_552_000_000;
 const BPS: u64 = 10_000;
 
 public struct AdminCap has key, store {
     id: UID,
 }
 
+public struct StoredQuote<phantom Q> has store {
+    inner: Balance<Q>,
+}
+
 public struct Config has key {
     id: UID,
     launch_fee_sui: u64,
-    pit_bps: u64,
-    reflection_bps: u64,
+    swap_fee_bps: u64,
+    std_creator_bps: u64,
+    std_platform_bps: u64,
+    std_pit_bps: u64,
+    refl_reflection_bps: u64,
+    refl_creator_bps: u64,
+    refl_platform_bps: u64,
     graduation_sui: u64,
     graduation_xaum: u64,
     virtual_quote_sui: u64,
     virtual_quote_xaum: u64,
     virtual_token: u64,
     round_ms: u64,
+    lp_lock_ms: u64,
     treasury: Balance<SUI>,
+    platform: Bag,
     paused: bool,
 }
 
@@ -49,15 +69,22 @@ fun init(ctx: &mut TxContext) {
     transfer::share_object(Config {
         id: object::new(ctx),
         launch_fee_sui: DEFAULT_LAUNCH_FEE_SUI,
-        pit_bps: DEFAULT_PIT_BPS,
-        reflection_bps: DEFAULT_REFLECTION_BPS,
+        swap_fee_bps: DEFAULT_SWAP_FEE_BPS,
+        std_creator_bps: DEFAULT_STD_CREATOR_BPS,
+        std_platform_bps: DEFAULT_STD_PLATFORM_BPS,
+        std_pit_bps: DEFAULT_STD_PIT_BPS,
+        refl_reflection_bps: DEFAULT_REFL_REFLECTION_BPS,
+        refl_creator_bps: DEFAULT_REFL_CREATOR_BPS,
+        refl_platform_bps: DEFAULT_REFL_PLATFORM_BPS,
         graduation_sui: DEFAULT_GRADUATION_SUI,
         graduation_xaum: DEFAULT_GRADUATION_XAUM,
         virtual_quote_sui: DEFAULT_VIRTUAL_QUOTE_SUI,
         virtual_quote_xaum: DEFAULT_VIRTUAL_QUOTE_XAUM,
         virtual_token: DEFAULT_VIRTUAL_TOKEN,
         round_ms: DEFAULT_ROUND_MS,
+        lp_lock_ms: DEFAULT_LP_LOCK_MS,
         treasury: balance::zero<SUI>(),
+        platform: bag::new(ctx),
         paused: false,
     });
 
@@ -69,6 +96,58 @@ public fun take_launch_fee(config: &mut Config, fee: Coin<SUI>) {
     assert!(!config.paused, errors::paused());
     assert!(fee.value() == config.launch_fee_sui, errors::invalid_fee());
     config.treasury.join(fee.into_balance());
+}
+
+/// `(creator, platform, pit, refl)` split of `swap_fee_bps` on `quote_amount`.
+/// Standard: 60/10/30 creator/platform/pit. Reflection: 50/25/25 refl/creator/platform, pit=0.
+public fun fee_split(config: &Config, reflection: bool, quote_amount: u64): (u64, u64, u64, u64) {
+    let fee = math::mul_div(quote_amount, config.swap_fee_bps, BPS);
+    if (reflection) {
+        let creator = math::mul_div(fee, config.refl_creator_bps, BPS);
+        let platform = math::mul_div(fee, config.refl_platform_bps, BPS);
+        let refl = math::mul_div(fee, config.refl_reflection_bps, BPS);
+        (creator, platform, 0, refl)
+    } else {
+        let creator = math::mul_div(fee, config.std_creator_bps, BPS);
+        let platform = math::mul_div(fee, config.std_platform_bps, BPS);
+        let pit = math::mul_div(fee, config.std_pit_bps, BPS);
+        (creator, platform, pit, 0)
+    }
+}
+
+public fun take_platform<Q>(config: &mut Config, fee: Balance<Q>) {
+    if (fee.value() == 0) {
+        fee.destroy_zero();
+        return
+    };
+    let key = type_name::with_defining_ids<Q>();
+    if (config.platform.contains(key)) {
+        let stored: &mut StoredQuote<Q> = config.platform.borrow_mut(key);
+        stored.inner.join(fee);
+    } else {
+        config.platform.add(key, StoredQuote { inner: fee });
+    }
+}
+
+public fun withdraw_platform<Q>(
+    config: &mut Config,
+    _: &AdminCap,
+    amount: u64,
+    ctx: &mut TxContext,
+): Coin<Q> {
+    let key = type_name::with_defining_ids<Q>();
+    let stored: &mut StoredQuote<Q> = config.platform.borrow_mut(key);
+    coin::from_balance(stored.inner.split(amount), ctx)
+}
+
+public fun platform_value<Q>(config: &Config): u64 {
+    let key = type_name::with_defining_ids<Q>();
+    if (!config.platform.contains(key)) {
+        0
+    } else {
+        let stored: &StoredQuote<Q> = config.platform.borrow(key);
+        stored.inner.value()
+    }
 }
 
 /// `(virtual_quote, graduation_threshold)` for quote type `Q`.
@@ -86,14 +165,20 @@ public fun assert_not_paused(config: &Config) {
 }
 
 public fun launch_fee_sui(config: &Config): u64 { config.launch_fee_sui }
-public fun pit_bps(config: &Config): u64 { config.pit_bps }
-public fun reflection_bps(config: &Config): u64 { config.reflection_bps }
+public fun swap_fee_bps(config: &Config): u64 { config.swap_fee_bps }
+public fun std_creator_bps(config: &Config): u64 { config.std_creator_bps }
+public fun std_platform_bps(config: &Config): u64 { config.std_platform_bps }
+public fun std_pit_bps(config: &Config): u64 { config.std_pit_bps }
+public fun refl_reflection_bps(config: &Config): u64 { config.refl_reflection_bps }
+public fun refl_creator_bps(config: &Config): u64 { config.refl_creator_bps }
+public fun refl_platform_bps(config: &Config): u64 { config.refl_platform_bps }
 public fun graduation_sui(config: &Config): u64 { config.graduation_sui }
 public fun graduation_xaum(config: &Config): u64 { config.graduation_xaum }
 public fun virtual_quote_sui(config: &Config): u64 { config.virtual_quote_sui }
 public fun virtual_quote_xaum(config: &Config): u64 { config.virtual_quote_xaum }
 public fun virtual_token(config: &Config): u64 { config.virtual_token }
 public fun round_ms(config: &Config): u64 { config.round_ms }
+public fun lp_lock_ms(config: &Config): u64 { config.lp_lock_ms }
 public fun paused(config: &Config): bool { config.paused }
 public fun treasury_value(config: &Config): u64 { config.treasury.value() }
 
@@ -105,14 +190,35 @@ public fun set_launch_fee_sui(config: &mut Config, _: &AdminCap, v: u64) {
     config.launch_fee_sui = v;
 }
 
-public fun set_pit_bps(config: &mut Config, _: &AdminCap, v: u64) {
+public fun set_swap_fee_bps(config: &mut Config, _: &AdminCap, v: u64) {
     assert!(v <= BPS, errors::invalid_fee());
-    config.pit_bps = v;
+    config.swap_fee_bps = v;
 }
 
-public fun set_reflection_bps(config: &mut Config, _: &AdminCap, v: u64) {
-    assert!(v <= BPS, errors::invalid_fee());
-    config.reflection_bps = v;
+public fun set_std_split(
+    config: &mut Config,
+    _: &AdminCap,
+    creator_bps: u64,
+    platform_bps: u64,
+    pit_bps: u64,
+) {
+    assert!(creator_bps + platform_bps + pit_bps == BPS, errors::invalid_fee());
+    config.std_creator_bps = creator_bps;
+    config.std_platform_bps = platform_bps;
+    config.std_pit_bps = pit_bps;
+}
+
+public fun set_refl_split(
+    config: &mut Config,
+    _: &AdminCap,
+    reflection_bps: u64,
+    creator_bps: u64,
+    platform_bps: u64,
+) {
+    assert!(reflection_bps + creator_bps + platform_bps == BPS, errors::invalid_fee());
+    config.refl_reflection_bps = reflection_bps;
+    config.refl_creator_bps = creator_bps;
+    config.refl_platform_bps = platform_bps;
 }
 
 public fun set_graduation_sui(config: &mut Config, _: &AdminCap, v: u64) {
@@ -139,6 +245,10 @@ public fun set_round_ms(config: &mut Config, _: &AdminCap, v: u64) {
     config.round_ms = v;
 }
 
+public fun set_lp_lock_ms(config: &mut Config, _: &AdminCap, v: u64) {
+    config.lp_lock_ms = v;
+}
+
 public fun withdraw_treasury(
     config: &mut Config,
     _: &AdminCap,
@@ -153,13 +263,12 @@ public fun init_for_testing(ctx: &mut TxContext) {
     init(ctx)
 }
 
-/// Tiny defaults used by unit tests (fee 1_000, graduation 50_000, …).
+/// Tiny defaults used by unit tests (fee 1_000, swap 100 bps, graduation 50_000, …).
 #[test_only]
 public fun set_for_testing(
     config: &mut Config,
     launch_fee_sui: u64,
-    pit_bps: u64,
-    reflection_bps: u64,
+    swap_fee_bps: u64,
     graduation_sui: u64,
     graduation_xaum: u64,
     virtual_quote_sui: u64,
@@ -168,8 +277,7 @@ public fun set_for_testing(
     round_ms: u64,
 ) {
     config.launch_fee_sui = launch_fee_sui;
-    config.pit_bps = pit_bps;
-    config.reflection_bps = reflection_bps;
+    config.swap_fee_bps = swap_fee_bps;
     config.graduation_sui = graduation_sui;
     config.graduation_xaum = graduation_xaum;
     config.virtual_quote_sui = virtual_quote_sui;

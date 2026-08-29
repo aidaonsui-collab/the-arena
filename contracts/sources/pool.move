@@ -25,13 +25,13 @@ use sui::transfer;
 use sui::tx_context::TxContext;
 use sui::table::{Self, Table};
 
-const BPS: u64 = 10_000;
 /// Magnified-dividend scalar (1e12). Accumulators use u256 so amount * mps cannot wrap u128.
 const MAG: u256 = 1_000_000_000_000;
 const PIT_HOLDERS: u8 = 0;
 const PIT_BUY_AND_BURN: u8 = 1;
 const CLAIM_REFLECTION: u8 = 0;
 const CLAIM_PIT: u8 = 1;
+const CLAIM_CREATOR: u8 = 2;
 
 public struct Holder has store, drop {
     amount: u64,
@@ -54,6 +54,7 @@ public struct Pool<phantom T, phantom Q> has key {
     reflection: bool,
     pit_mode: u8,
     graduated: bool,
+    lp_locked: bool,
     graduation_threshold: u64,
     name: String,
     symbol: AsciiString,
@@ -65,6 +66,7 @@ public struct Pool<phantom T, phantom Q> has key {
     refl_mps: u256,
     pit_claim_pot: Balance<Q>,
     pit_mps: u256,
+    creator_pot: Balance<Q>,
 }
 
 public(package) fun new<T, Q>(
@@ -93,6 +95,7 @@ public(package) fun new<T, Q>(
         reflection,
         pit_mode,
         graduated: false,
+        lp_locked: false,
         graduation_threshold,
         name: metadata.get_name(),
         symbol: metadata.get_symbol(),
@@ -104,6 +107,7 @@ public(package) fun new<T, Q>(
         refl_mps: 0,
         pit_claim_pot: balance::zero<Q>(),
         pit_mps: 0,
+        creator_pot: balance::zero<Q>(),
     }
 }
 
@@ -122,7 +126,7 @@ public fun market_cap_metric<T, Q>(pool: &Pool<T, Q>): u64 {
 
 public fun buy<T, Q>(
     pool: &mut Pool<T, Q>,
-    config: &Config,
+    config: &mut Config,
     pit: &mut Pit<Q>,
     mut quote: Coin<Q>,
     min_out: u64,
@@ -134,14 +138,9 @@ public fun buy<T, Q>(
     let quote_in = quote.value();
     assert!(quote_in > 0, errors::zero_amount());
 
-    let pit_fee = math::mul_div(quote_in, config.pit_bps(), BPS);
-    let after_pit = quote_in - pit_fee;
-    let refl_fee = if (pool.reflection) {
-        math::mul_div(after_pit, config.reflection_bps(), BPS)
-    } else {
-        0
-    };
-    let curve_in = after_pit - refl_fee;
+    let (creator_fee, platform_fee, pit_fee, refl_fee) =
+        config::fee_split(config, pool.reflection, quote_in);
+    let curve_in = quote_in - creator_fee - platform_fee - pit_fee - refl_fee;
     assert!(curve_in > 0, errors::zero_amount());
 
     let quote_amm = pool.virtual_quote + pool.quote_reserve.value();
@@ -149,14 +148,7 @@ public fun buy<T, Q>(
     assert!(tokens_out >= min_out, errors::slippage());
     assert!(tokens_out > 0, errors::zero_amount());
 
-    if (pit_fee > 0) {
-        let fee_coin = quote.split(pit_fee, ctx);
-        pit::take_fee(pit, fee_coin.into_balance());
-    };
-    if (refl_fee > 0) {
-        let rcoin = quote.split(refl_fee, ctx);
-        pool.reflection_pot.join(rcoin.into_balance());
-    };
+    pipe_fees(pool, config, pit, &mut quote, creator_fee, platform_fee, pit_fee, refl_fee, ctx);
     pool.quote_reserve.join(quote.into_balance());
     let out = pool.token_reserve.split(tokens_out);
     pool.raised = pool.raised + curve_in;
@@ -185,6 +177,8 @@ public fun buy<T, Q>(
         tokens_out,
         pit_fee,
         refl_fee,
+        creator_fee,
+        platform_fee,
         pool.raised,
         pool.token_reserve.value(),
         pool.quote_reserve.value(),
@@ -195,7 +189,7 @@ public fun buy<T, Q>(
 
 public fun sell<T, Q>(
     pool: &mut Pool<T, Q>,
-    config: &Config,
+    config: &mut Config,
     pit: &mut Pit<Q>,
     tokens: Coin<T>,
     min_out: u64,
@@ -215,20 +209,21 @@ public fun sell<T, Q>(
     };
     assert!(quote_out > 0, errors::zero_amount());
 
-    let pit_fee = math::mul_div(quote_out, config.pit_bps(), BPS);
-    let after_pit = quote_out - pit_fee;
-    let refl_fee = if (pool.reflection) {
-        math::mul_div(after_pit, config.reflection_bps(), BPS)
-    } else {
-        0
-    };
-    let user_out = after_pit - refl_fee;
+    let (creator_fee, platform_fee, pit_fee, refl_fee) =
+        config::fee_split(config, pool.reflection, quote_out);
+    let user_out = quote_out - creator_fee - platform_fee - pit_fee - refl_fee;
     assert!(user_out >= min_out, errors::slippage());
 
     pool.token_reserve.join(tokens.into_balance());
     let mut quote_bal = pool.quote_reserve.split(quote_out);
     if (pit_fee > 0) {
         pit::take_fee(pit, quote_bal.split(pit_fee));
+    };
+    if (creator_fee > 0) {
+        pool.creator_pot.join(quote_bal.split(creator_fee));
+    };
+    if (platform_fee > 0) {
+        config::take_platform(config, quote_bal.split(platform_fee));
     };
     if (refl_fee > 0) {
         pool.reflection_pot.join(quote_bal.split(refl_fee));
@@ -256,12 +251,43 @@ public fun sell<T, Q>(
         tokens_in,
         pit_fee,
         refl_fee,
+        creator_fee,
+        platform_fee,
         pool.raised,
         pool.token_reserve.value(),
         pool.quote_reserve.value(),
     );
 
     coin::from_balance(quote_bal, ctx)
+}
+
+fun pipe_fees<T, Q>(
+    pool: &mut Pool<T, Q>,
+    config: &mut Config,
+    pit: &mut Pit<Q>,
+    quote: &mut Coin<Q>,
+    creator_fee: u64,
+    platform_fee: u64,
+    pit_fee: u64,
+    refl_fee: u64,
+    ctx: &mut TxContext,
+) {
+    if (pit_fee > 0) {
+        let fee_coin = quote.split(pit_fee, ctx);
+        pit::take_fee(pit, fee_coin.into_balance());
+    };
+    if (creator_fee > 0) {
+        let ccoin = quote.split(creator_fee, ctx);
+        pool.creator_pot.join(ccoin.into_balance());
+    };
+    if (platform_fee > 0) {
+        let pcoin = quote.split(platform_fee, ctx);
+        config::take_platform(config, pcoin.into_balance());
+    };
+    if (refl_fee > 0) {
+        let rcoin = quote.split(refl_fee, ctx);
+        pool.reflection_pot.join(rcoin.into_balance());
+    };
 }
 
 public fun claim_reflection<T, Q>(pool: &mut Pool<T, Q>, ctx: &mut TxContext): Coin<Q> {
@@ -274,6 +300,14 @@ public fun claim_pit<T, Q>(pool: &mut Pool<T, Q>, ctx: &mut TxContext): Coin<Q> 
     let amt = take_unpaid(pool, ctx.sender(), CLAIM_PIT);
     events::emit_claim(object::id(pool), ctx.sender(), amt, CLAIM_PIT);
     coin::from_balance(pool.pit_claim_pot.split(amt), ctx)
+}
+
+public fun claim_creator<T, Q>(pool: &mut Pool<T, Q>, ctx: &mut TxContext): Coin<Q> {
+    assert!(ctx.sender() == pool.creator, errors::not_creator());
+    let amt = pool.creator_pot.value();
+    assert!(amt > 0, errors::nothing_to_claim());
+    events::emit_claim(object::id(pool), ctx.sender(), amt, CLAIM_CREATOR);
+    coin::from_balance(pool.creator_pot.split(amt), ctx)
 }
 
 /// Permissionless freeze once `raised` has crossed the pair threshold.
@@ -329,6 +363,26 @@ fun do_graduate<T, Q>(pool: &mut Pool<T, Q>) {
         pool.token_reserve.value(),
         pool.quote_reserve.value(),
     );
+}
+
+/// Drain remaining curve balances into the LP time vault. Once only.
+public(package) fun take_reserves_for_lock<T, Q>(pool: &mut Pool<T, Q>): (Balance<T>, Balance<Q>) {
+    assert!(pool.graduated, errors::not_graduated());
+    assert!(!pool.lp_locked, errors::already_locked());
+    let t_amt = pool.token_reserve.value();
+    let q_amt = pool.quote_reserve.value();
+    assert!(t_amt > 0 && q_amt > 0, errors::insufficient_liquidity());
+    pool.lp_locked = true;
+    (pool.token_reserve.split(t_amt), pool.quote_reserve.split(q_amt))
+}
+
+public(package) fun extract_for_lock<T, Q>(
+    pool: &mut Pool<T, Q>,
+): (Balance<T>, Balance<Q>, ID, address) {
+    let id = object::id(pool);
+    let creator = pool.creator;
+    let (token, quote) = take_reserves_for_lock(pool);
+    (token, quote, id, creator)
 }
 
 fun distribute_reflection<T, Q>(pool: &mut Pool<T, Q>, amount: u64) {
@@ -421,7 +475,7 @@ fun take_unpaid<T, Q>(pool: &mut Pool<T, Q>, who: address, kind: u8): u64 {
 }
 
 fun u256_to_u64(x: u256): u64 {
-    assert!(x <= (18446744073709551615 as u256), errors::overflow());
+    assert!(x <= 18446744073709551615u256, errors::overflow());
     x as u64
 }
 
@@ -429,6 +483,8 @@ public fun raised<T, Q>(pool: &Pool<T, Q>): u64 { pool.raised }
 public fun token_reserves<T, Q>(pool: &Pool<T, Q>): u64 { pool.token_reserve.value() }
 public fun quote_reserves<T, Q>(pool: &Pool<T, Q>): u64 { pool.quote_reserve.value() }
 public fun is_graduated<T, Q>(pool: &Pool<T, Q>): bool { pool.graduated }
+public fun is_lp_locked<T, Q>(pool: &Pool<T, Q>): bool { pool.lp_locked }
+public fun lp_locked<T, Q>(pool: &Pool<T, Q>): bool { pool.lp_locked }
 public fun pit_mode<T, Q>(pool: &Pool<T, Q>): u8 { pool.pit_mode }
 public fun is_reflection<T, Q>(pool: &Pool<T, Q>): bool { pool.reflection }
 public fun total_registered<T, Q>(pool: &Pool<T, Q>): u64 { pool.total_registered }
@@ -438,6 +494,7 @@ public fun total_supply<T, Q>(pool: &Pool<T, Q>): u64 { pool.treasury_cap.total_
 public fun creator<T, Q>(pool: &Pool<T, Q>): address { pool.creator }
 public fun name<T, Q>(pool: &Pool<T, Q>): String { pool.name }
 public fun symbol<T, Q>(pool: &Pool<T, Q>): AsciiString { pool.symbol }
+public fun creator_pot_value<T, Q>(pool: &Pool<T, Q>): u64 { pool.creator_pot.value() }
 
 public fun holder_amount<T, Q>(pool: &Pool<T, Q>, who: address): u64 {
     if (!pool.holders.contains(who)) {

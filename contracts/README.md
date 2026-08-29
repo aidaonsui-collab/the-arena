@@ -6,7 +6,7 @@ Fair launches on Sui. Bonding curve, no presale.
 
 1. **TOKEN/SUI** — curve quoted in SUI. Graduation at 2,000 SUI.
 2. **TOKEN/XAUM** — same curve, quoted in Matrixdock gold. Bluefin Spot lists this as **XAUM**, not GOLD.
-3. **Reflection** — extra 2% of quote (after the pit take) paid to holders who bought through the curve.
+3. **Reflection** — same 1% swap fee, split 50/25/25 reflections/creator/platform (`pit_fee`=0).
 
 ## Gold quote is XAUM
 
@@ -32,7 +32,9 @@ Graduation for XAUM defaults to **1 XAUM** (not 2,000 units). 2,000 SUI is only 
 ## Fees and the pit
 
 - Launch fee: 1 SUI, even for XAUM pairs.
-- 1% of every fill goes to `Pit<Q>`.
+- 1% (`swap_fee_bps=100`) of every fill (buy quote in, sell quote out).
+  - Standard: 60% creator, 10% platform, 30% pit.
+  - Reflection: 50% holders, 25% creator, 25% platform, 0 pit.
 - Highest cap still on the curve when the bell rings wins.
   - Holders: pot is claimable pro-rata via the holder registry.
   - Buy and burn: pot buys the winning token on the curve and burns it.
@@ -44,7 +46,7 @@ Graduation for XAUM defaults to **1 XAUM** (not 2,000 units). 2,000 SUI is only 
 
 ## Graduation
 
-Trading freezes when `raised` hits the quote threshold. Remaining balances stay in the pool. DeepBook seed is a follow-up (no hardcoded package IDs).
+Trading freezes when `raised` hits the quote threshold. Call `lock::lock_graduated_lp` to vault remaining reserves for `lp_lock_ms` (180 days) to the creator. Stand-in until DeepBook LP (no hardcoded package IDs).
 
 ## Holder registry
 
