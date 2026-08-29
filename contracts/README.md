@@ -68,7 +68,9 @@ The Bluefin pool is named `SYM-SUI` / `SYM-XAUM`, fee 1% (`fee_rate=100_000` in 
 
 `lock::lock_graduated_lp` remains as the raw-coin vault for tests and as a fallback.
 
-Bluefin interface functions abort(0); they only exist so bytecode CALLs the live package `0x3492c874c1e3b3e2984e8c41b589e642d4d0a5d6459e5a9cfc2d52fd7c89c267`. Unit tests never invoke `arena::bluefin`.
+Types (`GlobalConfig`, `Pool`, `Position`) stay on the original Bluefin package `0x3492c874c1e3b3e2984e8c41b589e642d4d0a5d6459e5a9cfc2d52fd7c89c267`. Functions added in later upgrades (`create_pool_and_get_object`, `get_pool_creation_fee_amount`, …) CALL published-at `0xd075338d105482f1527cbfd363d6413558f184dec36d9138a70261e87f486e9c` via `contracts/deps/bluefin_latest`. Unit tests never invoke `arena::bluefin`.
+
+Graduation emits `BluefinLockEvent` (spot pool + position ids). The original `LockEvent` is unchanged so the package stays upgrade-compatible.
 
 ## Holder registry
 

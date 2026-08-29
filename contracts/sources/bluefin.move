@@ -1,13 +1,15 @@
 /// Isolated Bluefin Spot CALL wrappers.
 ///
-/// The interface package (`bluefin_spot`) aborts(0) in every function. Those
-/// bodies exist only so our bytecode CALLs the live mainnet package
-/// `0x3492c874c1e3b3e2984e8c41b589e642d4d0a5d6459e5a9cfc2d52fd7c89c267`.
+/// Types (`GlobalConfig`, `Pool`, `Position`) come from the original Bluefin
+/// package `0x3492c874…`. Functions added after that upgrade
+/// (`create_pool_and_get_object`, `get_pool_creation_fee_amount`, …) CALL
+/// published-at `0xd075338d…` via the local `bluefin_latest` stubs.
 /// Unit tests must never invoke this module.
 module arena::bluefin;
 
+use bluefin_latest::config as bf_config_latest;
+use bluefin_latest::pool as bf_pool;
 use bluefin_spot::config::{Self as bf_config, GlobalConfig};
-use bluefin_spot::pool as bf_pool;
 use bluefin_spot::position::Position;
 use integer_mate::i32;
 use sui::balance::Balance;
@@ -23,7 +25,7 @@ public(package) fun tick_spacing(): u32 { TICK_SPACING }
 public(package) fun fee_rate(): u64 { FEE_RATE }
 
 public(package) fun creation_fee_amount<Fee>(protocol_config: &GlobalConfig): (bool, u64) {
-    bf_config::get_pool_creation_fee_amount<Fee>(protocol_config)
+    bf_config_latest::get_pool_creation_fee_amount<Fee>(protocol_config)
 }
 
 /// Full-range tick bits from GlobalConfig, snapped inward to `tick_spacing`.

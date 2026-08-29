@@ -12,7 +12,7 @@ Published from `0x92a32ac7fd525f8bd37ed359423b8d7d858cad26224854dfbff1914b75ee65
 
 ## Bluefin Spot (graduation seed)
 
-Not published in this package. Production `lock::seed_and_lock_bluefin*` CALLs the live Bluefin package. Do not publish/upgrade Arena until this path is ready.
+Linkage ready: types on `0x3492…`, CALLs on published-at `0xd075…` (`contracts/deps/bluefin_latest`). Upgrade of this Arena package is the remaining step.
 
 - Bluefin original package / named address: `0x3492c874c1e3b3e2984e8c41b589e642d4d0a5d6459e5a9cfc2d52fd7c89c267`
 - Bluefin published-at (current): `0xd075338d105482f1527cbfd363d6413558f184dec36d9138a70261e87f486e9c`
@@ -21,6 +21,7 @@ Not published in this package. Production `lock::seed_and_lock_bluefin*` CALLs t
   - `min_tick.bits` = `4294523660` (−443636)
   - `max_tick.bits` = `443636`
 - Clock: `0x6`
+- SUI CoinMetadata: `0xf256d3fb6a50eaa748d94335b34f2982fbc3b63ceec78cafaa29ebc9ebaf2bbc`
 - XAUM: `0x9d297676e7a4b771ab023291377b2adfaa4938fb9080b8d12430e4b108b836a9::xaum::XAUM`
 
 Graduate PTB objects: Pool, Config, Clock, Bluefin GlobalConfig, CoinMetadata `<T>` and `<Q>`, plus `Coin<SUI>` creation fee when Q is XAUM.

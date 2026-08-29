@@ -83,8 +83,6 @@ public fun lock_graduated_lp<T, Q>(
         unlock_ms,
         token_amount,
         quote_amount,
-        object::id_from_address(@0x0),
-        object::id_from_address(@0x0),
     );
     transfer::share_object(lock);
 }
@@ -252,7 +250,7 @@ fun seed_and_lock_internal<T, Q>(
         beneficiary: creator,
         unlock_ms,
     };
-    events::emit_lock(
+    events::emit_bluefin_lock(
         object::id(&lock),
         pool_id,
         creator,
