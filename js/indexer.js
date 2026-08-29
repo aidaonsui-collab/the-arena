@@ -465,6 +465,15 @@
     };
   }
 
+  function parseInstadexBurn(ev) {
+    var p = ev.parsedJson || {};
+    return {
+      lock_id: String(p.lock_id || ""),
+      amount: p.amount,
+      ts: num(ev.timestampMs) || Date.now()
+    };
+  }
+
   async function collect(rpc, type, parse, pages, limit) {
     var out = [];
     var cursor = null;
@@ -560,8 +569,24 @@
       if (!instadexPkgs.length) instadexPkgs.push(P);
       instadexPkgs.forEach(pullInstadex);
       refreshInstadex = function () { instadexPkgs.forEach(pullInstadex); };
+      function emitBurn(b) {
+        if (opts.onInstadexBurn) opts.onInstadexBurn(b);
+      }
+      function pullBurn(pkg) {
+        if (!pkg || pkg === "0x0") return;
+        collect(rpc, pkg + "::events::InstadexBurnEvent", parseInstadexBurn, 2, 50).then(function (rows) {
+          rows.forEach(emitBurn);
+        }).catch(function () {});
+      }
+      var burnPkgs = (opts.burnPackages || []).slice();
+      if (typeof window !== "undefined") {
+        var bp = window.ARENA_COLLECT_PACKAGE || window.ARENA_CALL_PACKAGE;
+        if (bp && burnPkgs.indexOf(bp) < 0) burnPkgs.push(bp);
+      }
+      burnPkgs.forEach(pullBurn);
       if (opts.live) {
         instaTimer = setInterval(refreshInstadex, opts.instadexMs || 12000);
+        setInterval(function () { burnPkgs.forEach(pullBurn); }, opts.instadexMs || 12000);
       }
     }
 
@@ -639,6 +664,7 @@
     parseLock: parseLock,
     parseBluefinLock: parseBluefinLock,
     parseInstadexLaunch: parseInstadexLaunch,
+    parseInstadexBurn: parseInstadexBurn,
     subscribe: subscribe,
     loadSnapshot: loadSnapshot,
     loadIndex: loadIndex,

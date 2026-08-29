@@ -680,6 +680,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   }
   const VIRTUAL_SUPPLY = 1e9;
   function burnedOf(tk){
+    if (tk && tk.instadexBurn) return fromMist(tk.instadexBurn);
     const rec = bus.index && bus.index.pools && bus.index.pools[tk.t];
     if (rec && rec.virtual_token != null && rec.total_supply != null){
       return Math.max(0, fromMist(rec.virtual_token) - fromMist(rec.total_supply));
@@ -1250,7 +1251,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
           '<div><label>Name</label><input id="l-name" placeholder="From CoinMetadata" value="'+state.lName+'"></div>'+
           '<div><label>Ticker</label><input id="l-tick" placeholder="From CoinMetadata" maxlength="12" value="'+state.lTick+'"></div>'+
           '<button type="button" class="btn-trade" id="launch-go">'+launchBtnLabel()+'</button>'+
-          '<div id="launch-note" style="font-size:12px;color:var(--muted);margin-top:8px;text-align:center">1 SUI launch fee from gas. Creation fee 0. Calls v4 launch_instadex_entry. No curve.</div>'+
+          '<div id="launch-note" style="font-size:12px;color:var(--muted);margin-top:8px;text-align:center">1 SUI launch fee from gas. Creation fee 0. Calls v6 launch_instadex_entry. No curve.</div>'+
         '</div></div>'+
       footerHTML()+'</div>';
   }
@@ -1347,9 +1348,9 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
               '<div class="about-v"><span data-usd-cap="'+tk.t+'">'+usdCapText(tk)+'</span><span class="tick">mc</span></div>'+
               '<div class="about-s">'+capSub+'</div></div>'+
             (dexBout
-              ? '<div><div class="about-k">Lock &amp; fees</div>'+
-                  '<div class="about-v">Forever<span class="tick">lock</span></div>'+
-                  '<div class="about-s">LP locked forever. collect_instadex_fees burns token fees. Quote splits 60/10/30. Bluefin keeps 20%.</div></div>'
+              ? '<div><div class="about-k">Burned</div>'+
+                  '<div class="about-v">'+fmtBig(burnedN)+'<span class="tick">'+tk.t+'</span></div>'+
+                  '<div class="about-s">Token-side LP fees burned on collect. Quote still 60/10/30. Bluefin keeps 20%.</div></div>'
               : '<div><div class="about-k">Burned</div>'+
                   '<div class="about-v">'+fmtBig(burnedN)+'<span class="tick">'+tk.t+'</span></div>'+
                   '<div class="about-s">'+burnSub+'</div></div>')+
@@ -1719,6 +1720,22 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     tk.b = "Graduated onto Bluefin. Position vaulted 180 days.";
     if (state.route === "explore" || state.route === "token" || state.route === "pit") renderScreen();
   }
+  var seenBurns = {};
+  var pendingBurns = {};
+  function applyInstadexBurn(b){
+    if (!b || !b.lock_id) return;
+    const key = b.lock_id + ":" + (b.ts || "") + ":" + (b.amount || "");
+    if (seenBurns[key]) return;
+    seenBurns[key] = 1;
+    const n = Number(b.amount) || 0;
+    const tk = T.find(function(k){ return k.lockId === b.lock_id; });
+    if (!tk){
+      pendingBurns[b.lock_id] = (Number(pendingBurns[b.lock_id]) || 0) + n;
+      return;
+    }
+    tk.instadexBurn = (Number(tk.instadexBurn) || 0) + n;
+    if (state.route === "token" || state.route === "explore") renderScreen();
+  }
   function upsertInstadex(l){
     if (!l) return;
     const sym = String(l.symbol || "").toUpperCase();
@@ -1770,6 +1787,10 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       tk.pool = "";
       tk.bluefinPool = bf || tk.bluefinPool;
       tk.lockId = l.lock_id || tk.lockId;
+      if (tk.lockId && pendingBurns[tk.lockId]){
+        tk.instadexBurn = (Number(tk.instadexBurn) || 0) + Number(pendingBurns[tk.lockId] || 0);
+        delete pendingBurns[tk.lockId];
+      }
       tk.positionId = l.position_id || tk.positionId;
       tk.unlockMs = l.unlock_ms;
       tk.lpLocked = true;
@@ -2215,6 +2236,8 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       onGraduate: function(g){ applyGraduate(g); },
       onLock: function(g){ applyLock(g); },
       onBluefinLock: function(g){ applyBluefinLock(g); },
+      onInstadexBurn: function(b){ applyInstadexBurn(b); },
+      burnPackages: [window.ARENA_COLLECT_PACKAGE].filter(Boolean),
       callPackage: window.ARENA_INSTADEX_PACKAGE,
       instadexPackages: [window.ARENA_INSTADEX_PACKAGE].filter(Boolean),
       lockPackages: [window.ARENA_INSTADEX_PACKAGE, window.ARENA_LOCK_PACKAGE, window.ARENA_BLUEFIN_EVENT_PACKAGE].filter(Boolean)
