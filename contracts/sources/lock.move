@@ -203,8 +203,8 @@ public(package) fun take_creation_fee(
     fee
 }
 
-/// Create + seed a Bluefin Spot pool and time-lock the Position NFT.
-/// `pool_id` is the Arena curve pool, or `@0x0` for Instadex (no curve).
+/// Create + seed a Bluefin Spot pool and vault the Position NFT.
+/// `pool_id` is the Arena curve pool, or `@0x0` for Instadex (no curve). unlock_ms 0 is permanent.
 public(package) fun seed_and_lock_internal<T, Q>(
     pool_id: ID,
     beneficiary: address,

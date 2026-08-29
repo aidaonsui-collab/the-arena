@@ -16,7 +16,7 @@ Published from `0x92a32ac7fd525f8bd37ed359423b8d7d858cad26224854dfbff1914b75ee65
 
 Call new functions on the latest published-at. Object types stay `0x5cfd…::pool::Pool` etc. `BluefinLockEvent` and `BluefinPositionLock` originated in v2 (`0x8e28…`).
 
-**Instadex is source-only until the next upgrade.** `launch_instadex` / `InstadexLaunchEvent` / `InstadexMintLock` are not on mainnet yet (still v3 `0x0671…`). Adding a module/function/event is Compatible; published-at stays `0x0671…` in this commit. Do not call Instadex on the live package.
+**Instadex is source-only until the next upgrade.** `launch_instadex` / `launch_instadex_entry` / `InstadexLaunchEvent` / `InstadexMintLock` / `lock::collect_bluefin_fees` are not on mainnet yet (still v3 `0x0671`). Adding a module/function/event is Compatible; published-at stays `0x0671` in this commit. Do not call Instadex on the live package. Do not publish or upgrade from this commit.
 
 ## Bluefin Spot (graduation seed)
 

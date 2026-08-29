@@ -592,3 +592,27 @@ fun test_instadex_zero_amounts_abort() {
     // Mirrors launch_instadex's check, which runs before any Bluefin CALL.
     launch::assert_instadex_amounts(0, 1_000);
 }
+
+#[test]
+#[expected_failure(abort_code = 20)]
+fun test_permanent_bluefin_lock_unclaimable() {
+    let mut scenario = ts::begin(ADMIN);
+    let mut clock = clock::create_for_testing(scenario.ctx());
+    clock.set_for_testing(1);
+    lock::share_bluefin_lock_for_testing(
+        sui::object::id_from_address(@0x0),
+        sui::object::id_from_address(@0x0),
+        ADMIN,
+        0,
+        scenario.ctx(),
+    );
+    clock.share_for_testing();
+    scenario.next_tx(ADMIN);
+    let mut bf_lock = scenario.take_shared<lock::BluefinPositionLock>();
+    let clock = scenario.take_shared<Clock>();
+    let pos = lock::claim_bluefin_position(&mut bf_lock, &clock, scenario.ctx());
+    transfer::public_transfer(pos, ADMIN);
+    ts::return_shared(bf_lock);
+    ts::return_shared(clock);
+    scenario.end();
+}
