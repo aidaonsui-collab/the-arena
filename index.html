@@ -9,14 +9,14 @@
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Instrument+Sans:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
 <style>
 :root{
-  --bg:#1C1D21; --card:#26272C; --ink:#EDECE8; --muted:#9A9BA3; --line:#33343A;
-  --lift:#2E2F35; --sui:#298DFF; --lime:#C8F135; --up:#3DDC84; --down:#FF6640;
-  --radius:32px; --shadow:0 10px 32px rgba(0,0,0,.32);
+  --bg:#141615; --card:#1C1E1C; --ink:#F4F4F2; --muted:#8B8E86; --line:#2A2C28;
+  --lift:#242624; --sui:#298DFF; --lime:#C8F135; --up:#C8F135; --down:#FF6640;
+  --radius:22px; --shadow:0 10px 28px rgba(0,0,0,.42);
 }
 *{box-sizing:border-box}
 html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);-webkit-font-smoothing:antialiased}
 html{overflow-x:hidden}
-body{font-family:"Instrument Sans",ui-sans-serif,system-ui,sans-serif;font-size:15px;line-height:1.5;min-height:100dvh;overflow-x:hidden}
+body{font-family:"Instrument Sans",ui-sans-serif,system-ui,sans-serif;font-size:15px;line-height:1.5;min-height:100dvh;overflow-x:hidden;background-image:radial-gradient(900px 480px at -10% -10%,rgba(90,110,40,.22),transparent 58%)}
 a{color:var(--sui);text-decoration:none}
 button,input,select{font:inherit;color:inherit}
 button{cursor:pointer}
@@ -24,12 +24,12 @@ button{cursor:pointer}
 .shell{width:min(1180px,calc(100% - 32px));margin:0 auto}
 .serif{font-family:"Instrument Serif",Georgia,serif}
 .mono{font-family:"IBM Plex Mono",ui-monospace,monospace;font-variant-numeric:tabular-nums}
-.topbar{position:sticky;top:0;z-index:40;background:rgba(28,29,33,.86);backdrop-filter:blur(16px);border-bottom:1px solid var(--line)}
+.topbar{position:sticky;top:0;z-index:40;background:rgba(20,22,21,.86);backdrop-filter:blur(16px);border-bottom:1px solid transparent}
 .topbar-inner{display:flex;align-items:center;gap:14px;padding:14px 0;min-height:64px}
 .brand{display:flex;align-items:center;gap:9px;flex:none;cursor:pointer}
 .brand svg{display:block}
 .brand-name{font-family:"Instrument Serif",Georgia,serif;font-size:18px;letter-spacing:.2em;line-height:1;text-transform:uppercase}
-.nav-pill{display:flex;align-items:center;gap:4px;margin:0 auto;background:#16171A;border-radius:999px;padding:4px}
+.nav-pill{display:flex;align-items:center;gap:4px;margin:0 auto;background:#101211;border-radius:999px;padding:4px}
 .nav-item{padding:8px 18px;border-radius:999px;font-size:14px;font-weight:500;color:var(--muted);cursor:pointer;transition:background .2s,color .2s;white-space:nowrap}
 .nav-item.on{background:var(--card);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.35)}
 .nav-item:hover{color:var(--ink)}
@@ -49,7 +49,7 @@ main{padding:18px 0 72px}
 .explore-head h1{font-family:"Instrument Sans",ui-sans-serif,system-ui,sans-serif;font-size:clamp(28px,4vw,40px);font-weight:700;margin:0;letter-spacing:-.03em;line-height:1.1}
 .explore-head p{margin:8px 0 0;color:var(--muted);max-width:42ch}
 .pills{display:flex;flex-wrap:wrap;gap:6px}
-.pill{border:0;background:#16171A;color:var(--muted);border-radius:999px;padding:8px 13px;font-size:13px;font-weight:500;cursor:pointer;transition:background .15s,color .15s}
+.pill{border:1px solid var(--line);background:transparent;color:var(--muted);border-radius:999px;padding:8px 13px;font-size:13px;font-weight:500;cursor:pointer;transition:background .15s,color .15s}
 .pill.on{background:var(--card);color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.35)}
 .pill:hover{color:var(--ink)}
 .sec-label{display:flex;align-items:baseline;justify-content:space-between;margin:8px 2px 12px;font-weight:600}
@@ -71,15 +71,31 @@ main{padding:18px 0 72px}
 .pit-kicker{font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
 .pit-pot{font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:clamp(28px,4vw,40px);line-height:1;margin-top:4px;font-weight:500;letter-spacing:-.04em}
 .pit-right{text-align:right}
-.launches{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px}
-.lcard{background:var(--card);border-radius:24px;padding:16px;box-shadow:var(--shadow);cursor:pointer;min-width:0;transition:transform .18s,box-shadow .18s}
+.launches{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.lcard{background:var(--card);border-radius:20px;padding:10px;box-shadow:var(--shadow);cursor:pointer;min-width:0;transition:transform .18s,box-shadow .18s;display:flex;flex-direction:column;gap:10px}
 .lcard:hover{transform:translateY(-2px);box-shadow:0 14px 34px rgba(0,0,0,.4)}
+.lcard-art{position:relative;aspect-ratio:1;border-radius:16px;overflow:hidden;display:grid;place-items:center}
+.lcard-art .art-letter{font-family:"Instrument Serif",Georgia,serif;font-size:64px;line-height:1;color:rgba(255,255,255,.92);letter-spacing:-.04em}
+.lcard-art .chip{position:absolute;top:8px;left:8px;margin:0;background:rgba(16,18,17,.55);backdrop-filter:blur(8px);color:#fff}
+.lcard.hot{background:var(--lime);color:#111}
+.lcard.hot .feat-tick,.lcard.hot .feat-meta,.lcard.hot .chip{color:#111}
+.lcard.hot .feat-mcap{color:#111}
+.lcard.hot .lcard-art .chip{background:rgba(17,17,17,.12);color:#111}
+.lcard.hot .bar{background:rgba(17,17,17,.18)}
+.lcard.hot .bar>i{background:#111}
+.lcard.hot .ago{color:#111}
+.lcard-foot{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:12px;color:var(--muted)}
+.ago{color:var(--lime);font-weight:650;font-variant-numeric:tabular-nums}
+.count-pill{display:inline-flex;align-items:center;margin-left:10px;background:#101211;border-radius:999px;padding:4px 10px;font-size:12px;font-weight:600;color:var(--muted);vertical-align:middle}
+.bar-row{display:flex;align-items:center;gap:8px;margin-top:4px}
+.bar-row .bar{flex:1;margin:0}
+.bar-pct{font-size:12px;font-weight:650;color:var(--muted);font-variant-numeric:tabular-nums}
 .lcard-top{display:flex;align-items:center;gap:10px;margin-bottom:12px}
 .chip{font-size:11px;font-weight:600;border-radius:999px;padding:3px 8px;background:#16171A;color:var(--muted);margin-left:auto;white-space:nowrap}
 .chip.live{color:#8EC5FF;background:rgba(41,141,255,.16)}
 .chip.grad{color:#111;background:var(--lime)}
-.bar{height:4px;background:#16171A;border-radius:99px;overflow:hidden;margin-top:12px}
-.bar>i{display:block;height:100%;background:linear-gradient(90deg,#9BD0FF,var(--sui));border-radius:99px}
+.bar{height:4px;background:#101211;border-radius:99px;overflow:hidden;margin-top:12px}
+.bar>i{display:block;height:100%;background:var(--lime);border-radius:99px}
 .rowlist{display:flex;flex-direction:column}
 .row{display:grid;grid-template-columns:28px 1fr 90px 72px 120px 110px;gap:12px;align-items:center;padding:14px 4px;border-top:1px solid var(--line);cursor:pointer}
 .row:first-child{border-top:0}
@@ -131,12 +147,13 @@ main{padding:18px 0 72px}
 .empty{padding:48px 16px;text-align:center;color:var(--muted)}
 html.shot,html.shot *{animation:none!important;transition:none!important}
 @media (max-width:1100px){
-  .featured{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .featured,.launches{grid-template-columns:repeat(3,minmax(0,1fr))}
 }
 @media (max-width:860px){
   .split,.grid-2,.footer,.stats{grid-template-columns:1fr}
   .split{grid-template-areas:"main" "ticket"}
   .ticket{position:static}
+  .featured,.launches{grid-template-columns:repeat(2,minmax(0,1fr))}
   .row{grid-template-columns:24px 1fr 64px auto; }
   .row .spark,.row .st-col{display:none}
 }
@@ -144,9 +161,9 @@ html.shot,html.shot *{animation:none!important;transition:none!important}
   .shell{width:calc(100% - 20px)}
   .topbar-inner{flex-wrap:wrap;padding:10px 0 12px}
   .nav-pill{order:3;width:100%;justify-content:center;margin:0}
-  .search-row{flex-direction:column;align-items:stretch}
-  .btn-create{width:100%}
-  .featured,.launches{grid-template-columns:1fr}
+  .search-row{gap:8px}
+  .btn-create{flex:none;padding:12px 14px}
+  .featured,.launches{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
   .kbd{display:none}
   .tv-host{height:280px}
   .explore-head h1{font-size:36px}
@@ -436,17 +453,18 @@ html.shot,html.shot *{animation:none!important;transition:none!important}
     const on = state[key] === val;
     return '<button type="button" class="pill'+(on?" on":"")+'" data-set="'+key+'" data-val="'+val+'">'+label+'</button>';
   }
-  function featCard(k){
-    const q = poolQuote(k);
-    return '<div class="feat" data-go="token:'+k.t+'">'+
-      '<div class="feat-top">'+avatar(k,42)+
-        '<div style="min-width:0"><div class="feat-name">'+k.n+'</div><div class="feat-tick">'+k.t+' · '+k.mode+'</div></div>'+
-        '<button type="button" class="btn-buy" data-go="token:'+k.t+'">Buy</button></div>'+
-      '<div><span class="feat-mcap" data-cap="'+k.t+'">'+money(k.cap,q)+'</span> '+
-        '<span class="chg" style="color:'+chColor(k)+'">'+chText(k)+'</span></div>'+
-      '<div class="feat-meta"><span>'+k.h+' holders</span><span>'+fmt(vol(k))+' vol</span></div>'+
-      '<div class="bar"><i data-bar="'+k.t+'" style="width:'+barPct(k)+'"></i></div></div>';
+  function lastAgo(k){
+    const row = tapeItems(1, k.t)[0];
+    if (row && row.ts) return agoOf(row.ts)+" ago";
+    return ((k.born||0)+1)+"h ago";
   }
+  function artBlock(k, hot){
+    const badge = hot ? "Pit lead" : k.st;
+    return '<div class="lcard-art" style="background:'+(hot?"#111":k.c)+'">'+
+      '<span class="chip">'+badge+'</span>'+
+      '<span class="art-letter">'+k.t.charAt(0)+'</span></div>';
+  }
+  function featCard(k){ return launchCard(k, 0); }
   function launchRow(k, i){
     const q = poolQuote(k);
     const cls = k.st === "Graduating" ? "grad" : (k.st === "Graduated" ? "" : "live");
@@ -463,16 +481,17 @@ html.shot,html.shot *{animation:none!important;transition:none!important}
   }
   function launchCard(k, i){
     const q = poolQuote(k);
-    const cls = k.st === "Graduating" ? "grad" : "live";
-    return '<div class="lcard" data-go="token:'+k.t+'">'+
-      '<div class="lcard-top">'+avatar(k,40)+
-        '<div style="min-width:0"><div class="feat-name">'+k.n+'</div><div class="feat-tick">'+k.t+'</div></div>'+
-        '<span class="chip '+cls+'">'+k.st+'</span></div>'+
-      '<div style="display:flex;align-items:baseline;justify-content:space-between;gap:8px">'+
-        '<div class="feat-mcap" data-cap="'+k.t+'" style="font-size:16px">'+money(k.cap,q)+'</div>'+
-        '<div class="chg" style="color:'+chColor(k)+'">'+chText(k)+'</div></div>'+
-      '<div class="feat-meta" style="margin-top:8px"><span>'+k.h+' holders</span><span>'+k.mode+'</span></div>'+
-      '<div class="bar"><i data-bar="'+k.t+'" style="width:'+barPct(k)+'"></i></div></div>';
+    const leader = sortedT()[0];
+    const hot = !k.graduated && leader && leader.t === k.t;
+    const pct = barPct(k);
+    const addr = ADDR[(i||0) % ADDR.length];
+    const go = k.graduated ? "explore" : ("token:"+k.t);
+    return '<div class="lcard'+(hot?" hot":"")+'" data-go="'+go+'">'+
+      artBlock(k, hot)+
+      '<div><div class="feat-name">'+k.n+'</div><div class="feat-tick">$'+k.t+'</div></div>'+
+      '<div class="feat-mcap" data-cap="'+k.t+'" style="font-size:15px">'+money(k.cap,q)+' MC</div>'+
+      (k.graduated ? '' : '<div class="bar-row"><div class="bar"><i data-bar="'+k.t+'" style="width:'+pct+'"></i></div><span class="bar-pct">'+pct+'</span></div>')+
+      '<div class="lcard-foot"><span class="mono">'+addr+'</span><span class="ago">'+lastAgo(k)+'</span></div></div>';
   }
   function footerHTML(){
     return '<footer class="footer">'+
@@ -482,35 +501,32 @@ html.shot,html.shot *{animation:none!important;transition:none!important}
       '<div><h4>Fees</h4>1% on every fill.<br>Default 60/10/30 creator/platform/pit.<br>Reflection 50/20/20/10.</div></footer>';
   }
   function exploreHTML(){
-    const top = sortPool(T.slice()).slice(0,4);
     const pool = launchPool();
     const leader = sortedT()[0];
     const sorts = ["Recent","Newest","Market cap","Volume"];
-    const times = ["All","24h"];
     const chips = ["All","Live","Graduating","Graduated"];
-    let body = pool.map(launchRow).join("");
-    if (state.filter === "Graduated" || (state.filter === "All" && false)) {}
+    let cards;
     if (state.filter === "Graduated"){
-      body = GRADS.map(function(g,i){
+      cards = GRADS.map(function(g,i){
         const k = {t:g.t,n:g.n,cap:g.cap,ch:0,h:0,st:"Graduated",mode:"LP locked",q:"SUI",c:g.c||"#298DFF",buckets:[1],graduated:true};
-        return launchRow(k,i);
+        return launchCard(k,i);
       }).join("");
+    } else {
+      cards = pool.map(function(k,i){ return launchCard(k,i); }).join("");
     }
-    if (!body) body = '<div class="empty card" style="grid-column:1/-1">No launches match.</div>';
+    if (!cards) cards = '<div class="empty card" style="grid-column:1/-1">No launches match.</div>';
+    const count = state.filter === "Graduated" ? GRADS.length : pool.length;
     return '<div data-screen-label="Explore">'+
-      '<div class="explore-head"><div><h1>Explore</h1><p>Tokens still on the curve on Sui.</p></div>'+
-        '<div><div class="pills" style="justify-content:flex-end">'+sorts.map(function(s){return pill(s,"sort",s);}).join("")+'</div>'+
-        '<div class="pills" style="justify-content:flex-end;margin-top:6px">'+times.map(function(s){return pill(s,"time",s);}).join("")+'</div></div></div>'+
-      '<div class="sec-label">Top tokens <span>Highest cap on the curve</span></div>'+
-      '<div class="featured" id="featured">'+top.map(featCard).join("")+'</div>'+
+      '<div class="explore-head"><div><h1>Explore <span class="count-pill">'+count+' on the curve</span></h1>'+
+        '<p>Fair launches still fighting on Sui. Highest cap in the pit takes the pot.</p></div></div>'+
+      '<div class="pills" style="margin-bottom:8px">'+sorts.map(function(s){return pill(s,"sort",s);}).join("")+'</div>'+
+      '<div class="pills" id="filters" style="margin-bottom:16px">'+chips.map(function(s){return pill(s,"filter",s);}).join("")+'</div>'+
       '<div class="pit-strip" data-go="pit">'+
-        '<div><div class="pit-kicker">In the pit · round <span data-round>'+roundNo+'</span></div>'+
+        '<div><div class="pit-kicker">The pit · round <span data-round>'+roundNo+'</span></div>'+
           '<div class="pit-pot" data-pot>'+money(pot)+'</div></div>'+
         '<div class="pit-right"><div class="mono" style="font-size:22px" data-clock>'+clockStr()+'</div>'+
           '<div style="color:var(--muted);margin-top:4px">'+leader.n+' leading · Watch the pit →</div></div></div>'+
-      '<div class="sec-label">All launches <span id="launch-count">'+pool.length+' live</span></div>'+
-      '<div class="pills" id="filters" style="margin-bottom:14px">'+chips.map(function(s){return pill(s,"filter",s);}).join("")+'</div>'+
-      '<div class="card" style="padding:6px 18px 10px"><div class="rowlist" id="disc-list">'+body+'</div></div>'+
+      '<div class="launches" id="disc-list">'+cards+'</div>'+
       footerHTML()+'</div>';
   }
   function pitHTML(){
