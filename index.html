@@ -303,11 +303,20 @@ html.shot,html.shot *{animation:none!important;transition:none!important}
 <main class="shell" id="screens"></main>
 <script>
 window.ARENA_PACKAGE_ID = "0x5cfddf8ba23be6835644a8ea22482ff6ebb0081e42cc1bc052b5f770ca8bbdea";
+window.ARENA_INSTADEX_PACKAGE = "0xcf7835ae4e3f8a3d4eb4bd9d14cb4a3dbdd80e70908feb6c433688a31e119de3";
+window.ARENA_CALL_PACKAGE = window.ARENA_INSTADEX_PACKAGE;
 window.ARENA_LOCK_PACKAGE = "0x067136624c5bec5221247e9b0a0a1afbd77a79aadbabdac18a95a10bc186cc74";
 window.ARENA_BLUEFIN_EVENT_PACKAGE = "0x8e28ff4116a8c9025b5d615b0b0a7bc45f4f543120f30a9d226e5b94c7277b79";
 window.ARENA_CONFIG = "0xcd527cb2389d806e5285ae708ee28df30a841ec5df7508ebfebaa0c9660b5d2c";
+window.ARENA_CLOCK = "0x6";
+window.ARENA_BLUEFIN_CONFIG = "0x03db251ba509a8d5d8777b6338836082335d93eecbdd09a11e190a1cff51c352";
+window.ARENA_SUI_METADATA = "0x9258181f5ceac8dbffb7030890243caed69a9599d2886d957a9cb7656af3bdb3";
+window.ARENA_XAUM_TYPE = "0x9d297676e7a4b771ab023291377b2adfaa4938fb9080b8d12430e4b108b836a9::xaum::XAUM";
+window.ARENA_XAUM_METADATA = "0x7c03508c00036b4a6ec1f7a4a225537992ae6fed24bafa152b70b7a414b19dbd";
 window.ARENA_PIT_SUI = "0x8ec38e9bcac0838bf474680e71d0c3f302f4ea2f757d759b7b399701f904389c";
 window.ARENA_PIT_XAUM = "0xa8a391bf380914c04be5deb478474b42754a5aa8c29c0955f267d73190a98783";
+window.SUI_RPC = window.SUI_RPC || "https://fullnode.mainnet.sui.io:443";
+window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graphql";
 </script>
 <script src="js/indexer.js"></script>
 <script>
@@ -344,7 +353,7 @@ window.ARENA_PIT_XAUM = "0xa8a391bf380914c04be5deb478474b42754a5aa8c29c0955f267d
   let bshift = 0, pot = 31.94, prevPot = "", roundNo = 128, secs = ROUND_SECONDS;
   let balance = 48.60;
   let xaumBal = 2.40;
-  const state = {route:"explore", sym:"VOLT", filter:"All", sort:"Market cap", time:"All", side:"Buy", amt:"1", connected:false, search:"", lName:"", lTick:"", lQuote:"SUI", lPath:"instadex", lMode:"Holders", lTokenAmt:"", lQuoteAmt:"", metricsWindow:"All", tapeTab:"trades", tapeOpen:"", lFile:null, lArtUrl:"", lArtPreview:"", payWith:"SUI"};
+  const state = {route:"explore", sym:"VOLT", filter:"All", sort:"Market cap", time:"All", side:"Buy", amt:"1", connected:false, search:"", lName:"", lTick:"", lQuote:"SUI", lPath:"instadex", lMode:"Holders", lTokenAmt:"", lQuoteAmt:"", lCap:"", lTokenCoin:"", lQuoteCoin:"", metricsWindow:"All", tapeTab:"trades", tapeOpen:"", lFile:null, lArtUrl:"", lArtPreview:"", payWith:"SUI"};
   let hashLock = false;
   const hop = { suiPerXaum: null, usd: null, suiUsd: null, source: "" };
 
@@ -353,6 +362,274 @@ window.ARENA_PIT_XAUM = "0xa8a391bf380914c04be5deb478474b42754a5aa8c29c0955f267d
   const Index = window.ArenaIndex || window.ArenaIndexer || null;
   const DEMO_WALLET = (Index && Index.DEMO_WALLET) || "0x8f2a00000000000000000000000000000000000000000000000000000000ab71";
   const bus = { trades: [], launches: {}, bluefinLocks: {}, index: { pools: {}, cursor: null }, sub: null };
+  var suiSession = { wallet: null, account: null, address: "" };
+  var launching = false;
+  var stdWallets = [];
+  var stdReady = false;
+  var SuiTransaction = null;
+  var SUI_TYPE = "0x2::sui::SUI";
+  var LAUNCH_FEE = 1000000000;
+  var SDK_URLS = [
+    "https://esm.sh/@mysten/sui/transactions",
+    "https://esm.sh/@mysten/sui@1.37.2/transactions"
+  ];
+
+  function gql(query, variables){
+    return fetch(window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graphql", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ query: query, variables: variables || {} })
+    }).then(function(r){ return r.json(); }).then(function(j){
+      if (j.errors && j.errors.length) throw new Error(j.errors[0].message || "graphql");
+      return j.data;
+    });
+  }
+  function ensureWalletStd(){
+    if (stdReady) return;
+    stdReady = true;
+    function register(wallet){
+      if (wallet && stdWallets.indexOf(wallet) < 0) stdWallets.push(wallet);
+    }
+    try {
+      window.addEventListener("wallet-standard:register-wallet", function(ev){
+        var cb = ev.detail;
+        if (typeof cb === "function") cb({ register: register });
+      });
+      window.dispatchEvent(new CustomEvent("wallet-standard:app-ready", {
+        detail: { register: register }
+      }));
+    } catch (e) {}
+    try {
+      import("https://esm.sh/@mysten/wallet-standard").then(function(m){
+        var list = m.getWallets ? m.getWallets().get() : [];
+        (list || []).forEach(register);
+        paintWallet();
+      }).catch(function(){});
+    } catch (e) {}
+  }
+  function walletCanSign(w){
+    if (!w) return false;
+    var f = w.features || {};
+    return !!(f["sui:signAndExecuteTransaction"] || f["sui:signAndExecuteTransactionBlock"] || f["sui:signTransaction"] || typeof w.signAndExecuteTransactionBlock === "function" || typeof w.signAndExecuteTransaction === "function");
+  }
+  function injectedWallets(){
+    var out = stdWallets.slice();
+    ["sui", "slush", "suiWallet"].forEach(function(k){
+      if (window[k] && out.indexOf(window[k]) < 0) out.push(window[k]);
+    });
+    if (window.nightly && window.nightly.sui && out.indexOf(window.nightly.sui) < 0) out.push(window.nightly.sui);
+    if (window.okxwallet && window.okxwallet.sui && out.indexOf(window.okxwallet.sui) < 0) out.push(window.okxwallet.sui);
+    return out;
+  }
+  function pickWallet(){
+    ensureWalletStd();
+    var list = injectedWallets().filter(walletCanSign);
+    var named = list.find(function(w){ return /slush|sui wallet/i.test(w.name || ""); });
+    return named || list[0] || window.slush || window.sui || null;
+  }
+  function hasSuiWallet(){ return !!pickWallet(); }
+  function launchBtnLabel(){
+    if (launching) return "Launching…";
+    if (!hasSuiWallet() && !suiSession.address) return "No Sui wallet found";
+    if (!suiSession.address) return "Connect wallet to launch";
+    return "Launch Instadex";
+  }
+  function paintLaunchBtn(){
+    var el = $("#launch-go");
+    if (!el || launching) return;
+    el.disabled = false;
+    el.textContent = launchBtnLabel();
+  }
+  function accountAddress(account){
+    if (!account) return "";
+    if (typeof account === "string") return account;
+    return account.address || account.suiAddress || "";
+  }
+  function firstAccount(wallet){
+    if (!wallet) return null;
+    var acc = wallet.accounts || wallet.account;
+    if (Array.isArray(acc) && acc.length) return acc[0];
+    return acc || null;
+  }
+  async function connectWallet(){
+    ensureWalletStd();
+    var w = pickWallet();
+    if (!w) throw new Error("No Sui wallet found");
+    var feats = w.features || {};
+    if (feats["standard:connect"] && feats["standard:connect"].connect){
+      await feats["standard:connect"].connect();
+    } else if (typeof w.requestPermissions === "function"){
+      await w.requestPermissions();
+    } else if (typeof w.connect === "function"){
+      await w.connect();
+    } else if (typeof w.request === "function"){
+      try { await w.request({ method: "connect" }); } catch (e) {}
+    }
+    var account = firstAccount(w);
+    if (!account && typeof w.getAccounts === "function"){
+      var got = await w.getAccounts();
+      account = Array.isArray(got) ? got[0] : got;
+    }
+    var addr = accountAddress(account);
+    if (!addr) throw new Error("Wallet did not share an account");
+    suiSession = { wallet: w, account: account, address: addr };
+    state.connected = true;
+    paintWallet();
+    return suiSession;
+  }
+  async function loadTransaction(){
+    if (SuiTransaction) return SuiTransaction;
+    var lastErr = null;
+    for (var i = 0; i < SDK_URLS.length; i++){
+      try {
+        var mod = await import(SDK_URLS[i]);
+        SuiTransaction = mod.Transaction || mod.TransactionBlock || (mod.default && (mod.default.Transaction || mod.default.TransactionBlock));
+        if (SuiTransaction) return SuiTransaction;
+      } catch (e) { lastErr = e; }
+    }
+    throw lastErr || new Error("Could not load @mysten/sui Transaction");
+  }
+  async function walletExec(tx){
+    var w = suiSession.wallet;
+    var account = suiSession.account;
+    if (!w) throw new Error("No Sui wallet found");
+    if (typeof tx.setSender === "function") tx.setSender(suiSession.address);
+    var feats = w.features || {};
+    var opts = { showEffects: true, showEvents: true, showObjectChanges: true };
+    if (feats["sui:signAndExecuteTransaction"] && feats["sui:signAndExecuteTransaction"].signAndExecuteTransaction){
+      return feats["sui:signAndExecuteTransaction"].signAndExecuteTransaction({
+        transaction: tx, account: account, chain: "sui:mainnet", options: opts
+      });
+    }
+    if (feats["sui:signAndExecuteTransactionBlock"] && feats["sui:signAndExecuteTransactionBlock"].signAndExecuteTransactionBlock){
+      return feats["sui:signAndExecuteTransactionBlock"].signAndExecuteTransactionBlock({
+        transactionBlock: tx, account: account, chain: "sui:mainnet", options: opts
+      });
+    }
+    if (typeof w.signAndExecuteTransaction === "function"){
+      return w.signAndExecuteTransaction({ transaction: tx, options: opts });
+    }
+    if (typeof w.signAndExecuteTransactionBlock === "function"){
+      return w.signAndExecuteTransactionBlock({ transactionBlock: tx, options: opts });
+    }
+    throw new Error("Wallet cannot sign and execute");
+  }
+  function normType(t){
+    if (t == null || t === "") return "";
+    if (typeof t === "object"){
+      if (t.name && t.module) return normType((t.address || "") + "::" + t.module + "::" + t.name);
+      if (t.name) return normType(t.name);
+    }
+    var s = String(t);
+    var parts = s.split("::");
+    if (!parts.length) return s;
+    var addr = parts[0].replace(/^0x/i, "").replace(/^0+/, "") || "0";
+    parts[0] = "0x" + addr;
+    return parts.join("::");
+  }
+  function innerType(repr){
+    var s = String(repr || "");
+    var i = s.indexOf("<");
+    var j = s.lastIndexOf(">");
+    if (i < 0 || j < 0) return "";
+    return normType(s.slice(i + 1, j).trim());
+  }
+  function coinValue(json){
+    if (!json) return 0;
+    var b = json.balance;
+    if (b && typeof b === "object") b = b.value;
+    var n = Number(b);
+    return isFinite(n) ? n : 0;
+  }
+  function toSmallest(human, decimals){
+    var d = decimals == null ? 9 : Number(decimals);
+    var n = Number(human);
+    if (!(n > 0)) return 0;
+    return Math.round(n * Math.pow(10, d));
+  }
+  async function moveObject(id){
+    var data = await gql(
+      "query($id:SuiAddress!){ object(address:$id){ address asMoveObject { contents { type { repr } json } } } }",
+      { id: id }
+    );
+    var obj = data && data.object;
+    if (!obj || !obj.asMoveObject) throw new Error("Object not found");
+    return {
+      address: obj.address,
+      type: obj.asMoveObject.contents && obj.asMoveObject.contents.type && obj.asMoveObject.contents.type.repr,
+      json: obj.asMoveObject.contents && obj.asMoveObject.contents.json
+    };
+  }
+  async function metadataFor(coinType){
+    var t = normType(coinType);
+    if (t === SUI_TYPE){
+      return { id: window.ARENA_SUI_METADATA, name: "Sui", symbol: "SUI", decimals: 9, type: t };
+    }
+    if (t === window.ARENA_XAUM_TYPE){
+      return { id: window.ARENA_XAUM_METADATA, name: "Matrixdock Gold", symbol: "XAUM", decimals: 9, type: t };
+    }
+    var data = await gql(
+      "query($t:String!){ objects(first:5, filter:{ type:$t }){ nodes { address asMoveObject { contents { json } } } } }",
+      { t: "0x2::coin::CoinMetadata<" + t + ">" }
+    );
+    var node = data && data.objects && data.objects.nodes && data.objects.nodes[0];
+    if (!node) throw new Error("CoinMetadata not found for " + t);
+    var json = (node.asMoveObject && node.asMoveObject.contents && node.asMoveObject.contents.json) || {};
+    return { id: node.address, name: json.name || "", symbol: json.symbol || "", decimals: json.decimals != null ? json.decimals : 9, type: t };
+  }
+  async function coinsOf(owner, coinType){
+    var t = "0x2::coin::Coin<" + normType(coinType) + ">";
+    var data = await gql(
+      "query($o:SuiAddress!,$t:String){ address(address:$o){ objects(first:50, filter:{ type:$t }){ nodes { address contents { json } } } } }",
+      { o: owner, t: t }
+    );
+    var nodes = (data && data.address && data.address.objects && data.address.objects.nodes) || [];
+    return nodes.map(function(n){
+      return { id: n.address, value: coinValue(n.contents && n.contents.json) };
+    }).filter(function(c){ return c.value > 0; }).sort(function(a,b){ return b.value - a.value; });
+  }
+  function takeCoin(tx, coins, amount){
+    if (!coins || !coins.length) throw new Error("No coins to spend");
+    var need = Number(amount);
+    if (!(need > 0)) throw new Error("Amount must be > 0");
+    var exact = coins.find(function(c){ return c.value === need; });
+    if (exact) return tx.object(exact.id);
+    var one = coins.find(function(c){ return c.value > need; });
+    if (one){
+      var split = tx.splitCoins(tx.object(one.id), [need]);
+      return Array.isArray(split) ? split[0] : split;
+    }
+    var total = 0;
+    var ids = [];
+    for (var i = 0; i < coins.length && total < need; i++){
+      ids.push(coins[i].id);
+      total += coins[i].value;
+    }
+    if (total < need) throw new Error("Not enough coin balance");
+    var primary = tx.object(ids[0]);
+    if (ids.length > 1) tx.mergeCoins(primary, ids.slice(1).map(function(id){ return tx.object(id); }));
+    if (total === need) return primary;
+    var parts = tx.splitCoins(primary, [need]);
+    return Array.isArray(parts) ? parts[0] : parts;
+  }
+  async function lookupCapMeta(capId){
+    if (!capId) return;
+    try {
+      var obj = await moveObject(capId);
+      var t = innerType(obj.type);
+      if (!t) return;
+      var meta = await metadataFor(t);
+      if (meta.name) { state.lName = meta.name; var n = $("#l-name"); if (n) n.value = meta.name; }
+      if (meta.symbol) { state.lTick = String(meta.symbol).toUpperCase(); var k = $("#l-tick"); if (k) k.value = state.lTick; }
+    } catch (e) {}
+  }
+  function setLaunchNote(text, err){
+    var note = $("#launch-note");
+    if (!note) return;
+    note.textContent = text;
+    note.style.color = err ? "#FF6640" : "";
+  }
+
   let tvWidget = null;
   let tvSeq = 0;
   let hydrating = true;
@@ -726,7 +1003,9 @@ window.ARENA_PIT_XAUM = "0xa8a391bf380914c04be5deb478474b42754a5aa8c29c0955f267d
     else if (s === "Volume") out.sort(function(a,b){ return vol(b)-vol(a); });
     else if (s === "Recent") out.sort(function(a,b){
       const la = tapeItems(1, a.t)[0]; const lb = tapeItems(1, b.t)[0];
-      return ((lb && lb.ts)||0) - ((la && la.ts)||0);
+      const ta = (la && la.ts) || a.ts || 0;
+      const tb = (lb && lb.ts) || b.ts || 0;
+      return tb - ta;
     });
     else out.sort(function(a,b){ return b.cap-a.cap; });
     return out;
@@ -753,6 +1032,7 @@ window.ARENA_PIT_XAUM = "0xa8a391bf380914c04be5deb478474b42754a5aa8c29c0955f267d
   function lastAgo(k){
     const row = tapeItems(1, k.t)[0];
     if (row && row.ts) return agoOf(row.ts)+" ago";
+    if (k.ts) return agoOf(k.ts)+" ago";
     return ((k.born||0)+1)+"h ago";
   }
   function artBlock(k, hot){
@@ -825,7 +1105,7 @@ window.ARENA_PIT_XAUM = "0xa8a391bf380914c04be5deb478474b42754a5aa8c29c0955f267d
         '<div><div class="pit-kicker">The pit · round <span data-round>'+roundNo+'</span></div>'+
           '<div class="pit-pot" data-pot>'+money(pot)+'</div></div>'+
         '<div class="pit-right"><div class="mono" style="font-size:22px" data-clock>'+clockStr()+'</div>'+
-          '<div style="color:var(--muted);margin-top:4px">'+leader.n+' leading · Watch the pit →</div></div></div>'+
+          '<div style="color:var(--muted);margin-top:4px">'+(leader ? leader.n+' leading · ' : '')+'Watch the pit →</div></div></div>'+
       '<div class="launches" id="disc-list">'+cards+'</div>'+
       footerHTML()+'</div>';
   }
@@ -963,14 +1243,17 @@ window.ARENA_PIT_XAUM = "0xa8a391bf380914c04be5deb478474b42754a5aa8c29c0955f267d
             '<div class="art-preview" id="l-art-preview">'+(state.lArtPreview?'<img src="'+escUrl(state.lArtPreview)+'" alt="">':(state.lTick?state.lTick.charAt(0):"?"))+'</div>'+
             '<div><input id="l-art" type="file" accept="image/png,image/jpeg,image/webp,image/gif">'+
             '<div class="art-note" id="l-art-note">'+(state.lArtUrl?"Ready · Blob URL set":"png, jpeg, webp, or gif · 2MB")+'</div></div></div></div>'+
-          '<div><label>Name</label><input id="l-name" placeholder="Voltcats" value="'+state.lName+'"></div>'+
-          '<div><label>Ticker</label><input id="l-tick" placeholder="VOLT" maxlength="8" value="'+state.lTick+'"></div>'+
+          '<div><label>TreasuryCap object</label><input id="l-cap" spellcheck="false" placeholder="0x… TreasuryCap" value="'+state.lCap+'"></div>'+
+          '<div><label>Token coin object</label><input id="l-token-coin" spellcheck="false" placeholder="0x… Coin&lt;T&gt;" value="'+state.lTokenCoin+'"></div>'+
+          '<div><label>Token seed</label><input id="l-token-amt" inputmode="decimal" placeholder="Amount to split · blank uses the whole coin" value="'+state.lTokenAmt+'"></div>'+
           '<div><label>Quote</label><div class="toggle">'+tog("lQuote","SUI","SUI")+tog("lQuote","XAUM","XAUM")+'</div>'+
             '<div style="font-size:12px;color:var(--muted);margin-top:6px">Both sides seed the Bluefin pair. '+state.lQuote+' is coin B. No bonding-curve Create.</div></div>'+
-          '<div><label>Token seed</label><input id="l-token-amt" inputmode="decimal" placeholder="Token amount" value="'+state.lTokenAmt+'"></div>'+
           '<div><label>Quote seed · '+state.lQuote+'</label><input id="l-quote-amt" inputmode="decimal" placeholder="'+(state.lQuote==="XAUM"?"XAUM amount":"SUI amount")+'" value="'+state.lQuoteAmt+'"></div>'+
-          '<button type="button" class="btn-trade" id="launch-go" disabled>Instadex waits on the next package upgrade</button>'+
-          '<div style="font-size:12px;color:var(--muted);margin-top:8px;text-align:center">No PTB until the upgrade. Curve launch stays in Move; this pad does not call it.</div>'+
+          (state.lQuote==="XAUM" ? '<div><label>Quote coin object · optional</label><input id="l-quote-coin" spellcheck="false" placeholder="0x… Coin&lt;XAUM&gt; or pick from wallet" value="'+state.lQuoteCoin+'"></div>' : '')+
+          '<div><label>Name</label><input id="l-name" placeholder="From CoinMetadata" value="'+state.lName+'"></div>'+
+          '<div><label>Ticker</label><input id="l-tick" placeholder="From CoinMetadata" maxlength="12" value="'+state.lTick+'"></div>'+
+          '<button type="button" class="btn-trade" id="launch-go">'+launchBtnLabel()+'</button>'+
+          '<div id="launch-note" style="font-size:12px;color:var(--muted);margin-top:8px;text-align:center">1 SUI launch fee from gas. Creation fee 0. Calls v4 launch_instadex_entry. No curve.</div>'+
         '</div></div>'+
       footerHTML()+'</div>';
   }
@@ -1082,9 +1365,8 @@ window.ARENA_PIT_XAUM = "0xa8a391bf380914c04be5deb478474b42754a5aa8c29c0955f267d
     const parts = h.split("/").filter(Boolean);
     if (!parts.length) return {route:"explore", sym:state.sym};
     if (parts[0] === "token"){
-      const raw = (parts[1]||"VOLT").toUpperCase();
-      const tk = T.find(function(k){return k.t === raw;});
-      return {route:"token", sym: tk ? tk.t : "VOLT"};
+      const raw = (parts[1]||"").toUpperCase();
+      return {route:"token", sym: raw || state.sym};
     }
     const r = parts[0];
     if (r === "discover" || r === "floor" || r === "home" || r === "explore") return {route:"explore", sym:state.sym};
@@ -1100,7 +1382,18 @@ window.ARENA_PIT_XAUM = "0xa8a391bf380914c04be5deb478474b42754a5aa8c29c0955f267d
   }
   function paintWallet(){
     const el = $("#wallet-btn");
-    if (el) el.textContent = state.connected ? balance.toFixed(2)+" SUI" : "Connect";
+    if (!el) return;
+    if (suiSession.address){
+      el.textContent = shortAddr(suiSession.address);
+      state.connected = true;
+    } else if (!hasSuiWallet()){
+      el.textContent = "No wallet";
+      state.connected = false;
+    } else {
+      el.textContent = "Connect";
+      state.connected = false;
+    }
+    paintLaunchBtn();
   }
   function paintClocks(){
     const c = clockStr();
@@ -1451,7 +1744,8 @@ window.ARENA_PIT_XAUM = "0xa8a391bf380914c04be5deb478474b42754a5aa8c29c0955f267d
         positionId: l.position_id,
         unlockMs: l.unlock_ms,
         token: l.token,
-        creator: l.creator
+        creator: l.creator,
+        ts: l.ts
       };
       const base = Math.max(2.4, (tk.cap || 1) / 34);
       tk.buckets = Array.from({length:12}, function(){ return +base.toFixed(2); });
@@ -1475,6 +1769,7 @@ window.ARENA_PIT_XAUM = "0xa8a391bf380914c04be5deb478474b42754a5aa8c29c0955f267d
       if (cap > 0) tk.cap = cap;
       if (l.token) tk.token = l.token;
       if (l.creator) tk.creator = l.creator;
+      if (l.ts) tk.ts = l.ts;
     }
     if (LIVE && state.sym && !T.some(function(k){ return k.t === state.sym; })) state.sym = tk.t;
     if (state.route === "explore" || state.route === "token" || state.route === "pit") renderScreen();
@@ -1552,9 +1847,121 @@ window.ARENA_PIT_XAUM = "0xa8a391bf380914c04be5deb478474b42754a5aa8c29c0955f267d
       });
     });
   }
-  function doLaunch(){
-    const wait = $("#launch-go");
-    if (wait){ wait.disabled = true; wait.textContent = "Instadex waits on the next package upgrade"; }
+  async function doLaunch(){
+    var btn = $("#launch-go");
+    if (launching) return;
+    var launchedOk = false;
+    try {
+      if (!hasSuiWallet() && !suiSession.address){
+        if (btn){ btn.disabled = false; btn.textContent = "No Sui wallet found"; }
+        setLaunchNote("Install Slush or another Sui wallet. Launch was not sent.", true);
+        return;
+      }
+      launching = true;
+      if (btn){ btn.disabled = true; btn.textContent = "Connecting…"; }
+      if (!suiSession.address) await connectWallet();
+      var capId = (state.lCap || "").trim();
+      var tokenCoinId = (state.lTokenCoin || "").trim();
+      var quoteHuman = state.lQuoteAmt;
+      var tokenHuman = state.lTokenAmt;
+      var quoteIsXaum = state.lQuote === "XAUM";
+      if (!capId) throw new Error("TreasuryCap object id required");
+      if (!tokenCoinId) throw new Error("Token coin object id required");
+      if (!(Number(quoteHuman) > 0)) throw new Error("Quote seed amount required");
+      if (btn) btn.textContent = "Building PTB…";
+      if (state.lFile && !state.lArtUrl){
+        try { state.lArtUrl = await uploadArt(state.lFile); } catch (e) {}
+      }
+      var capObj = await moveObject(capId);
+      var Ttype = innerType(capObj.type);
+      if (!Ttype || String(capObj.type).indexOf("TreasuryCap") < 0) throw new Error("That object is not a TreasuryCap");
+      var tokenObj = await moveObject(tokenCoinId);
+      var tokenInner = innerType(tokenObj.type);
+      if (normType(tokenInner) !== normType(Ttype)) throw new Error("Token coin type does not match TreasuryCap");
+      var Qtype = quoteIsXaum ? window.ARENA_XAUM_TYPE : SUI_TYPE;
+      var metaT = await metadataFor(Ttype);
+      var metaQ = await metadataFor(Qtype);
+      if (metaT.name) { state.lName = metaT.name; var nEl = $("#l-name"); if (nEl) nEl.value = metaT.name; }
+      if (metaT.symbol) { state.lTick = String(metaT.symbol).toUpperCase(); var tEl = $("#l-tick"); if (tEl) tEl.value = state.lTick; }
+      var tokenDecimals = metaT.decimals != null ? metaT.decimals : 9;
+      var quoteDecimals = metaQ.decimals != null ? metaQ.decimals : 9;
+      var quoteAmt = toSmallest(quoteHuman, quoteDecimals);
+      if (!(quoteAmt > 0)) throw new Error("Quote seed must be > 0");
+      var tokenWhole = coinValue(tokenObj.json);
+      var tokenAmt = tokenHuman ? toSmallest(tokenHuman, tokenDecimals) : tokenWhole;
+      if (!(tokenAmt > 0)) throw new Error("Token seed must be > 0");
+      if (tokenAmt > tokenWhole) throw new Error("Token seed exceeds the coin balance");
+      var Transaction = await loadTransaction();
+      var CALL = window.ARENA_INSTADEX_PACKAGE || window.ARENA_CALL_PACKAGE;
+      if (!CALL) throw new Error("ARENA_INSTADEX_PACKAGE missing");
+      if (CALL.indexOf("067136624c5bec5221247e9b0a0a1afbd77a79aadbabdac18a95a10bc186cc74") >= 0){
+        throw new Error("Refusing v3 package for launch_instadex");
+      }
+      var tx = new Transaction();
+      tx.setSender(suiSession.address);
+      var tokenArg;
+      if (tokenAmt === tokenWhole) tokenArg = tx.object(tokenCoinId);
+      else {
+        var sp = tx.splitCoins(tx.object(tokenCoinId), [tokenAmt]);
+        tokenArg = Array.isArray(sp) ? sp[0] : sp;
+      }
+      var quoteArg;
+      if (quoteIsXaum){
+        var xaumCoins;
+        var qid = (state.lQuoteCoin || "").trim();
+        if (qid){
+          var qObj = await moveObject(qid);
+          xaumCoins = [{ id: qid, value: coinValue(qObj.json) }];
+        } else {
+          xaumCoins = await coinsOf(suiSession.address, Qtype);
+        }
+        quoteArg = takeCoin(tx, xaumCoins, quoteAmt);
+      } else {
+        var qSplit = tx.splitCoins(tx.gas, [quoteAmt]);
+        quoteArg = Array.isArray(qSplit) ? qSplit[0] : qSplit;
+      }
+      var feeSplit = tx.splitCoins(tx.gas, [LAUNCH_FEE]);
+      var feeArg = Array.isArray(feeSplit) ? feeSplit[0] : feeSplit;
+      var creationArg = tx.moveCall({
+        target: "0x2::coin::zero",
+        typeArguments: [SUI_TYPE],
+        arguments: []
+      });
+      // v4 published-at only. Never curve launch. Never 0x0671::launch::launch_instadex_entry.
+      tx.moveCall({
+        target: CALL + "::launch::launch_instadex_entry",
+        typeArguments: [Ttype, Qtype],
+        arguments: [
+          tx.object(window.ARENA_CONFIG),
+          tx.object(window.ARENA_CLOCK || "0x6"),
+          tx.object(window.ARENA_BLUEFIN_CONFIG),
+          tx.object(capId),
+          tx.object(metaT.id),
+          tx.object(metaQ.id),
+          tokenArg,
+          quoteArg,
+          feeArg,
+          creationArg
+        ]
+      });
+      if (btn) btn.textContent = "Sign in wallet…";
+      var result = await walletExec(tx);
+      var digest = result && (result.digest || (result.effects && result.effects.transactionDigest) || result.transactionDigest);
+      launchedOk = true;
+      if (btn){ btn.disabled = true; btn.textContent = digest ? ("Launched · " + String(digest).slice(0, 8)) : "Launched"; }
+      setLaunchNote("Waiting on InstadexLaunchEvent to paint the card.", false);
+      if (bus.sub && typeof bus.sub.refreshInstadex === "function"){
+        setTimeout(function(){ bus.sub.refreshInstadex(); }, 1500);
+        setTimeout(function(){ bus.sub.refreshInstadex(); }, 5000);
+      }
+    } catch (err){
+      var msg = (err && err.message) ? err.message : String(err || "Launch failed");
+      if (btn){ btn.disabled = false; btn.textContent = launchBtnLabel(); }
+      setLaunchNote(msg, true);
+    } finally {
+      launching = false;
+      if (!launchedOk && btn){ btn.disabled = false; paintLaunchBtn(); }
+    }
   }
   document.addEventListener("click", function(e){
     const launch = e.target.closest("#launch-go");
@@ -1566,7 +1973,14 @@ window.ARENA_PIT_XAUM = "0xa8a391bf380914c04be5deb478474b42754a5aa8c29c0955f267d
       return;
     }
     const wal = e.target.closest("[data-wallet]");
-    if (wal){ state.connected = !state.connected; paintWallet(); paintTicket(); return; }
+    if (wal){
+      connectWallet().catch(function(err){
+        var el = $("#wallet-btn");
+        if (el) el.textContent = (err && err.message) ? err.message : "No Sui wallet found";
+        state.connected = false;
+      });
+      return;
+    }
     const side = e.target.closest("[data-side]");
     if (side){ state.side = side.getAttribute("data-side"); paintTicket(); return; }
     const copyBtn = e.target.closest("[data-copy]");
@@ -1647,8 +2061,16 @@ window.ARENA_PIT_XAUM = "0xa8a391bf380914c04be5deb478474b42754a5aa8c29c0955f267d
     if (e.target && e.target.id === "l-tick") state.lTick = e.target.value.toUpperCase();
     if (e.target && e.target.id === "l-token-amt") state.lTokenAmt = e.target.value;
     if (e.target && e.target.id === "l-quote-amt") state.lQuoteAmt = e.target.value;
+    if (e.target && e.target.id === "l-cap") state.lCap = e.target.value.trim();
+    if (e.target && e.target.id === "l-token-coin") state.lTokenCoin = e.target.value.trim();
+    if (e.target && e.target.id === "l-quote-coin") state.lQuoteCoin = e.target.value.trim();
   });
   document.addEventListener("change", function(e){
+    if (e.target && e.target.id === "l-cap"){
+      state.lCap = e.target.value.trim();
+      lookupCapMeta(state.lCap);
+      return;
+    }
     if (!(e.target && e.target.id === "l-art")) return;
     const file = e.target.files && e.target.files[0];
     const note = $("#l-art-note");
@@ -1717,7 +2139,9 @@ window.ARENA_PIT_XAUM = "0xa8a391bf380914c04be5deb478474b42754a5aa8c29c0955f267d
       onGraduate: function(g){ applyGraduate(g); },
       onLock: function(g){ applyLock(g); },
       onBluefinLock: function(g){ applyBluefinLock(g); },
-      lockPackages: [window.ARENA_LOCK_PACKAGE, window.ARENA_BLUEFIN_EVENT_PACKAGE].filter(Boolean)
+      callPackage: window.ARENA_INSTADEX_PACKAGE,
+      instadexPackages: [window.ARENA_INSTADEX_PACKAGE].filter(Boolean),
+      lockPackages: [window.ARENA_INSTADEX_PACKAGE, window.ARENA_LOCK_PACKAGE, window.ARENA_BLUEFIN_EVENT_PACKAGE].filter(Boolean)
     });
     bus.trades = bus.sub.trades;
     hydrating = false;
@@ -1754,6 +2178,7 @@ window.ARENA_PIT_XAUM = "0xa8a391bf380914c04be5deb478474b42754a5aa8c29c0955f267d
     });
   }
   loadHop();
+  ensureWalletStd();
   const parsed = parseHash();
   state.route = parsed.route;
   state.sym = parsed.sym;

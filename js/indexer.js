@@ -480,16 +480,20 @@
   }
 
   /**
-   * subscribe({ packageId, rpc, tokens, live, demoMs, onTrade, onLaunch, onInstadex })
-   * InstadexLaunchEvent fires onInstadex, or onLaunch with instadex:true if that callback is omitted.
-   * Missing event types (pre-upgrade) are ignored.
-   * Returns { trades, claims, push, stop }. trades is a live array.
+   * subscribe({ packageId, callPackage, instadexPackages, lockPackages, rpc, tokens, live, demoMs, onTrade, onLaunch, onInstadex })
+   * InstadexLaunchEvent originated on v4 (callPackage / ARENA_INSTADEX_PACKAGE). Query that package.
+   * Do not only query the original types package (0x5cfd) — the type does not exist there.
+   * Fires onInstadex, or onLaunch with instadex:true if that callback is omitted.
+   * Missing event types are ignored.
+   * Returns { trades, claims, push, refreshInstadex, stop }. trades is a live array.
    */
   function subscribe(opts) {
     opts = opts || {};
     var trades = [];
     var claims = [];
     var timer = null;
+    var instaTimer = null;
+    var refreshInstadex = function () {};
 
     function push(ev) {
       if (!ev) return ev;
@@ -529,6 +533,11 @@
       }).catch(function () {});
       var lockPkgs = (opts.lockPackages || []).slice();
       if (lockPkgs.indexOf(P) < 0) lockPkgs.push(P);
+      var callPkg = opts.callPackage || opts.instadexPackage;
+      if (typeof window !== "undefined") {
+        callPkg = callPkg || window.ARENA_INSTADEX_PACKAGE || window.ARENA_CALL_PACKAGE;
+      }
+      if (callPkg && lockPkgs.indexOf(callPkg) < 0) lockPkgs.push(callPkg);
       lockPkgs.forEach(function (LP) {
         if (!LP || LP === "0x0") return;
         collect(rpc, LP + "::events::BluefinLockEvent", parseBluefinLock, 2, 50).then(function (rows) {
@@ -545,15 +554,26 @@
           rows.forEach(emitInstadex);
         }).catch(function () {});
       }
-      pullInstadex(P);
-      lockPkgs.forEach(pullInstadex);
+      var instadexPkgs = (opts.instadexPackages || []).slice();
+      if (callPkg && instadexPkgs.indexOf(callPkg) < 0) instadexPkgs.push(callPkg);
+      // InstadexLaunchEvent type origin is v4. Do not rely on original package P (0x5cfd).
+      if (!instadexPkgs.length) instadexPkgs.push(P);
+      instadexPkgs.forEach(pullInstadex);
+      refreshInstadex = function () { instadexPkgs.forEach(pullInstadex); };
+      if (opts.live) {
+        instaTimer = setInterval(refreshInstadex, opts.instadexMs || 12000);
+      }
     }
 
     return {
       trades: trades,
       claims: claims,
       push: push,
-      stop: function () { if (timer) { clearInterval(timer); timer = null; } },
+      refreshInstadex: refreshInstadex,
+      stop: function () {
+        if (timer) { clearInterval(timer); timer = null; }
+        if (instaTimer) { clearInterval(instaTimer); instaTimer = null; }
+      },
     };
   }
 
