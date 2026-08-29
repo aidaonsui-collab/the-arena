@@ -3,20 +3,20 @@
 Published from `0x92a32ac7fd525f8bd37ed359423b8d7d858cad26224854dfbff1914b75ee658b`.
 
 - Type origin / original package: `0x5cfddf8ba23be6835644a8ea22482ff6ebb0081e42cc1bc052b5f770ca8bbdea`
-- Latest published-at (v3): `0x067136624c5bec5221247e9b0a0a1afbd77a79aadbabdac18a95a10bc186cc74`
+- Latest published-at (v4): `0xcf7835ae4e3f8a3d4eb4bd9d14cb4a3dbdd80e70908feb6c433688a31e119de3`
+- v3 published-at: `0x067136624c5bec5221247e9b0a0a1afbd77a79aadbabdac18a95a10bc186cc74`
 - v2 published-at (BluefinLockEvent / BluefinPositionLock type origin): `0x8e28ff4116a8c9025b5d615b0b0a7bc45f4f543120f30a9d226e5b94c7277b79`
 - Config: `0xcd527cb2389d806e5285ae708ee28df30a841ec5df7508ebfebaa0c9660b5d2c`
 - Pit SUI: `0x8ec38e9bcac0838bf474680e71d0c3f302f4ea2f757d759b7b399701f904389c`
 - Pit XAUM: `0xa8a391bf380914c04be5deb478474b42754a5aa8c29c0955f267d73190a98783`
 - AdminCap: `0x79e041a4444971bfbf8000925ac3386d8351a3e997eb7d838d84eb6c3e507acf` (held by the platform wallet)
-- UpgradeCap: `0x8db3965ac77247107c811cb79bccd9bf1daf5647136a0b2f8891351a56d73608` (held by the platform wallet, version 3, policy Compatible)
+- UpgradeCap: `0x8db3965ac77247107c811cb79bccd9bf1daf5647136a0b2f8891351a56d73608` (held by the platform wallet, version 4, policy Compatible)
 - Publish tx: `4zVLuMuPGG62WrkNCeodwpYs1athobrYymqi3fPULQWt`
 - Upgrade v2 tx: `9XJ5cvahK2Un4BBDGBTk3FPREiDodwxVhUACb75YwYX1` (2026-08-29 15:42 CT)
 - Upgrade v3 tx: `AtVquqVh1G1FCvQTZyYQ3ZizNYfceDJA36d66gWsWjPW` (fee_rate 100000 → 10000)
+- Upgrade v4 tx: `7TSwzJG6nXTQE47vssGFBao4QzkfKWJXZUgGfTmSos6H` (2026-08-29 16:31 CT; Instadex + permanent lock + collect_bluefin_fees)
 
-Call new functions on the latest published-at. Object types stay `0x5cfd…::pool::Pool` etc. `BluefinLockEvent` and `BluefinPositionLock` originated in v2 (`0x8e28…`).
-
-**Instadex is source-only until the next upgrade.** `launch_instadex` / `launch_instadex_entry` / `InstadexLaunchEvent` / `InstadexMintLock` / `lock::collect_bluefin_fees` are not on mainnet yet (still v3 `0x0671`). Adding a module/function/event is Compatible; published-at stays `0x0671` in this commit. Do not call Instadex on the live package. Do not publish or upgrade from this commit.
+Call new functions on the latest published-at (`0xcf78…`). Object types stay `0x5cfd…::pool::Pool` etc. `BluefinLockEvent` and `BluefinPositionLock` originated in v2 (`0x8e28…`). `InstadexLaunchEvent` and `InstadexMintLock` originated in v4 (`0xcf78…`).
 
 ## Bluefin Spot (graduation seed)
 
@@ -49,3 +49,18 @@ Graduate PTB objects: Pool, Config, Clock, Bluefin GlobalConfig, CoinMetadata `<
 - BluefinPositionLock: `0xaf610d12829d83780c31c0a5064003a0a8e1159037bf664bc2411faf24a293c0` (shared, Position NFT inside)
 - Position: `0x274d7158d79d5cc9d9c0b1f5d3b946c0421d76a15a2cc2e655002898faf59304`
 - unlock_ms: `1803588372330` (2027-02-25 15:46 CT)
+
+## IDEX Instadex smoke (2026-08-29 16:34 CT)
+
+- Coin: `0xa06b0c015502497b2e2c8401ffe6cc8decac72b95e7d3f5e78352329ed95a852::idex::IDEX` (name INSTA, symbol IDEX)
+- Coin publish: `E76A32TSCZbM2n12GuAyHcoxFGBCZ7ZV55a3iJUGVs4q`
+- InstadexLaunchEvent: `HkderDNkd3pHD4HPkCLJXEcp76whx2P4rFYSrPfh3AeU`
+- unlock_ms: `0` (permanent)
+- token_amount: `1000000000` (1 IDEX, 9 decimals)
+- quote_amount: `100000000` (0.1 SUI)
+- Bluefin pool: `0xeef555117da1f681894e4d6c107be5a894eb1712884ff81199a5b51fe4d88464` (`0x3492…::pool::Pool<IDEX,SUI>`, shared)
+- BluefinPositionLock: `0x529aacc564799b7d2623b21d5fe0e2b9337a8d5db797d84eb2266746bb67e2de` (shared, Position NFT inside, type origin v2 `0x8e28…`)
+- Position: `0x0d1ee920b41ccbcffe6575eafcdcc5c4899b83065fb1e68e274332252d659f1d`
+- InstadexMintLock: `0x38c1667f65f085677a577a48338dd86f6cb8ec1ea4aa0351bbcfb3cb39336e54` (shared, type origin v4 `0xcf78…`; TreasuryCap consumed)
+- `claim_bluefin_position` dry-run aborts `still_locked` (20). Did not execute on-chain. Did not remove liquidity.
+- `graduation_sui` left at `2000000000000` (2000 SUI).
