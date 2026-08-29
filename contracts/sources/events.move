@@ -88,6 +88,21 @@ public struct BluefinLockEvent has copy, drop {
     position_id: ID,
 }
 
+/// Direct Bluefin seed (no Arena curve). Frontend Create + bout wires off this event.
+public struct InstadexLaunchEvent has copy, drop {
+    lock_id: ID,
+    bluefin_pool_id: ID,
+    position_id: ID,
+    token: TypeName,
+    quote: TypeName,
+    creator: address,
+    token_amount: u64,
+    quote_amount: u64,
+    unlock_ms: u64,
+    name: String,
+    symbol: AsciiString,
+}
+
 public struct LpClaimEvent has copy, drop {
     lock_id: ID,
     pool_id: ID,
@@ -209,6 +224,34 @@ public fun emit_bluefin_lock(
         quote_amount,
         bluefin_pool_id,
         position_id,
+    })
+}
+
+public fun emit_instadex_launch(
+    lock_id: ID,
+    bluefin_pool_id: ID,
+    position_id: ID,
+    token: TypeName,
+    quote: TypeName,
+    creator: address,
+    token_amount: u64,
+    quote_amount: u64,
+    unlock_ms: u64,
+    name: String,
+    symbol: AsciiString,
+) {
+    sui::event::emit(InstadexLaunchEvent {
+        lock_id,
+        bluefin_pool_id,
+        position_id,
+        token,
+        quote,
+        creator,
+        token_amount,
+        quote_amount,
+        unlock_ms,
+        name,
+        symbol,
     })
 }
 

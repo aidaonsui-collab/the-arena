@@ -2,11 +2,12 @@
 
 Fair launches on Sui. Bonding curve, no presale.
 
-## Three launch modes
+## Launch modes
 
 1. **TOKEN/SUI** — curve quoted in SUI. Graduation at 2,000 SUI.
 2. **TOKEN/XAUM** — same curve, quoted in Matrixdock gold. Bluefin Spot lists this as **XAUM**, not GOLD.
 3. **Reflection** — same 1% swap fee, split 50/20/20/10 reflections/creator/pit/platform.
+4. **Instadex** — skip the curve. Creator brings both LP sides and seeds Bluefin in one call.
 
 ## Gold quote is XAUM
 
@@ -44,6 +45,38 @@ Graduation for XAUM defaults to **1 XAUM** (not 2,000 units). 2,000 SUI is only 
 
 1. Publish a coin module so you have `TreasuryCap<T>` + `CoinMetadata<T>`.
 2. Call `launch::launch<T, Q>` with 1 SUI, pit mode (`0` holders / `1` buy-and-burn), and the reflection flag.
+
+## Instadex (no curve)
+
+Creator already published `Coin<T>` and brings both sides of LP (`Coin<T>` + `Coin<Q>` where Q is SUI or XAUM). One call seeds a Bluefin Spot pool at those amounts, shares it, time-locks the Position NFT in `BluefinPositionLock` for `Config.lp_lock_ms` (180 days), and permanently locks `TreasuryCap<T>` in shared `InstadexMintLock<T>` (no extract, no mint).
+
+**PTB** — `launch::launch_instadex<T, Q>` / `launch_instadex_entry` (returns `lock_id`):
+
+| Arg | Object |
+| --- | --- |
+| `config` | Arena `Config` `0xcd527cb2389d806e5285ae708ee28df30a841ec5df7508ebfebaa0c9660b5d2c` |
+| `clock` | `0x6` |
+| `bf_config` | Bluefin `GlobalConfig` `0x03db251ba509a8d5d8777b6338836082335d93eecbdd09a11e190a1cff51c352` |
+| `treasury_cap` | `TreasuryCap<T>` (consumed into `InstadexMintLock`) |
+| `meta_t` | `CoinMetadata<T>` |
+| `meta_q` | `CoinMetadata<Q>` (SUI: `0x9258181f5ceac8dbffb7030890243caed69a9599d2886d957a9cb7656af3bdb3`) |
+| `token` | `Coin<T>` (Bluefin A), amount > 0 |
+| `quote` | `Coin<Q>` (Bluefin B), amount > 0 |
+| `fee_sui` | 1 SUI launch fee (`Config.take_launch_fee`) |
+| `creation_fee` | `Coin<SUI>` Bluefin pool-creation fee (mainnet currently 0; leftover returned to sender) |
+
+No Pit, no `pit_mode`, no reflection, no Arena `Pool`, no `GraduationEvent`. Same Bluefin params as graduation: tick spacing 60, `fee_rate` 10_000 (1%), full-range ticks, `sqrtPriceX64(token_amount, quote_amount)`. `BluefinPositionLock.pool_id` is `@0x0` (no curve pool); `bluefin_pool_id` is the spot pool; beneficiary is the sender. Residuals from the seed go to the creator.
+
+Emits `InstadexLaunchEvent`:
+
+```
+lock_id, bluefin_pool_id, position_id, token, quote, creator,
+token_amount, quote_amount, unlock_ms, name, symbol
+```
+
+`token` / `quote` are `TypeName` via `type_name::with_defining_ids`. Also emits `BluefinLockEvent` with `pool_id = @0x0`.
+
+Call target after a future Compatible upgrade will be the new published-at. This function is source-only until that upgrade; do not call it on `0x0671…`.
 
 ## Graduation
 

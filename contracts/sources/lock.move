@@ -8,6 +8,8 @@
 ///    pool, seed full-range liquidity at the curve spot, share the pool, and
 ///    time-lock the Bluefin Position NFT to the Arena creator for `Config.lp_lock_ms`
 ///    (default 180 days).
+/// 3. Instadex (`launch::launch_instadex`) reuses `seed_and_lock_internal` with no
+///    Arena `Pool`. `BluefinPositionLock.pool_id` is `@0x0`; beneficiary is the sender.
 ///
 /// Graduate PTB (SUI quote):
 ///   Pool<T, SUI>, Config, Clock, Bluefin GlobalConfig,
@@ -132,7 +134,8 @@ public fun seed_and_lock_bluefin<T>(
     let (token, mut quote) = pool::take_reserves_for_lock(pool);
     let fee = quote.split(fee_amt);
     seed_and_lock_internal(
-        pool,
+        object::id(pool),
+        pool.creator(),
         config,
         clock,
         bf_config,
@@ -143,7 +146,7 @@ public fun seed_and_lock_bluefin<T>(
         quote,
         sqrt_p,
         ctx,
-    )
+    );
 }
 
 /// Production path when Q is not SUI (XAUM). `creation_fee` is extra SUI paid
@@ -158,23 +161,15 @@ public fun seed_and_lock_bluefin_with_fee<T, Q>(
     creation_fee: Coin<SUI>,
     ctx: &mut TxContext,
 ) {
-    let (supported, fee_amt) = bluefin::creation_fee_amount<SUI>(bf_config);
-    assert!(supported, errors::invalid_fee());
-    assert!(creation_fee.value() >= fee_amt, errors::invalid_fee());
+    let fee = take_creation_fee(bf_config, creation_fee, ctx.sender(), ctx);
     let virtual_quote = pool.virtual_quote();
     let token_res = pool.token_reserves();
     let quote_res = pool.quote_reserves();
     let sqrt_p = math::sqrt_price_x64(token_res, virtual_quote + quote_res);
     let (token, quote) = pool::take_reserves_for_lock(pool);
-    let mut fee_coin = creation_fee;
-    let fee = if (fee_amt == 0) {
-        sui::balance::zero<SUI>()
-    } else {
-        fee_coin.split(fee_amt, ctx).into_balance()
-    };
-    send_residual_coin(fee_coin, ctx.sender());
     seed_and_lock_internal(
-        pool,
+        object::id(pool),
+        pool.creator(),
         config,
         clock,
         bf_config,
@@ -185,11 +180,34 @@ public fun seed_and_lock_bluefin_with_fee<T, Q>(
         quote,
         sqrt_p,
         ctx,
-    )
+    );
 }
 
-fun seed_and_lock_internal<T, Q>(
-    pool: &Pool<T, Q>,
+/// Split Bluefin's pool-creation fee from `creation_fee`. Leftover coin goes to `sender`.
+public(package) fun take_creation_fee(
+    bf_config: &GlobalConfig,
+    creation_fee: Coin<SUI>,
+    sender: address,
+    ctx: &mut TxContext,
+): Balance<SUI> {
+    let (supported, fee_amt) = bluefin::creation_fee_amount<SUI>(bf_config);
+    assert!(supported, errors::invalid_fee());
+    assert!(creation_fee.value() >= fee_amt, errors::invalid_fee());
+    let mut fee_coin = creation_fee;
+    let fee = if (fee_amt == 0) {
+        sui::balance::zero<SUI>()
+    } else {
+        fee_coin.split(fee_amt, ctx).into_balance()
+    };
+    send_residual_coin(fee_coin, sender);
+    fee
+}
+
+/// Create + seed a Bluefin Spot pool and time-lock the Position NFT.
+/// `pool_id` is the Arena curve pool, or `@0x0` for Instadex (no curve).
+public(package) fun seed_and_lock_internal<T, Q>(
+    pool_id: ID,
+    beneficiary: address,
     config: &Config,
     clock: &Clock,
     bf_config: &mut GlobalConfig,
@@ -200,9 +218,7 @@ fun seed_and_lock_internal<T, Q>(
     quote: Balance<Q>,
     sqrt_price: u128,
     ctx: &mut TxContext,
-) {
-    let pool_id = object::id(pool);
-    let creator = pool.creator();
+): (ID, ID, ID, u64) {
     let token_amount = token.value();
     let quote_amount = quote.value();
     assert!(token_amount > 0 && quote_amount > 0, errors::insufficient_liquidity());
@@ -237,8 +253,8 @@ fun seed_and_lock_internal<T, Q>(
             ctx,
         );
 
-    send_residual(rem_a, creator, ctx);
-    send_residual(rem_b, creator, ctx);
+    send_residual(rem_a, beneficiary, ctx);
+    send_residual(rem_b, beneficiary, ctx);
 
     let position_id = object::id(&position);
     let unlock_ms = clock.timestamp_ms() + config.lp_lock_ms();
@@ -247,13 +263,14 @@ fun seed_and_lock_internal<T, Q>(
         pool_id,
         bluefin_pool_id: bf_pool_id,
         position: option::some(position),
-        beneficiary: creator,
+        beneficiary,
         unlock_ms,
     };
+    let lock_id = object::id(&lock);
     events::emit_bluefin_lock(
-        object::id(&lock),
+        lock_id,
         pool_id,
-        creator,
+        beneficiary,
         unlock_ms,
         token_amount,
         quote_amount,
@@ -261,6 +278,7 @@ fun seed_and_lock_internal<T, Q>(
         position_id,
     );
     transfer::share_object(lock);
+    (lock_id, bf_pool_id, position_id, unlock_ms)
 }
 
 /// Creator claims the Bluefin Position NFT after `unlock_ms`.

@@ -3,7 +3,7 @@ module arena::arena_tests;
 
 use arena::config::{Self, Config, AdminCap};
 use arena::qcoin::QCOIN;
-use arena::launch;
+use arena::launch::{Self, InstadexMintLock};
 use arena::lock::{Self, LpLock};
 use arena::pit::{Self, Pit};
 use arena::pool::{Self, Pool};
@@ -572,4 +572,23 @@ fun test_sqrt_and_tick_align() {
     assert!(math::align_tick_bits(443636, 60) == 443580, 7);
     assert!(math::align_tick_bits(4294523660, 60) == 4294523716, 8);
     assert!(math::align_tick_bits(443636, 1) == 443636, 9);
+}
+
+#[test]
+fun test_instadex_mint_lock() {
+    let mut scenario = ts::begin(ADMIN);
+    let (cap, metadata) = tcoin::create_for_testing(scenario.ctx());
+    transfer::public_freeze_object(metadata);
+    launch::share_mint_lock_for_testing(cap, scenario.ctx());
+    scenario.next_tx(ADMIN);
+    let mint_lock = scenario.take_shared<InstadexMintLock<TCOIN>>();
+    ts::return_shared(mint_lock);
+    scenario.end();
+}
+
+#[test]
+#[expected_failure(abort_code = 3)]
+fun test_instadex_zero_amounts_abort() {
+    // Mirrors launch_instadex's check, which runs before any Bluefin CALL.
+    launch::assert_instadex_amounts(0, 1_000);
 }
