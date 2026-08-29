@@ -34,8 +34,8 @@ const DEFAULT_ROUND_MS: u64 = 86_400_000;
 /// 180 days.
 const DEFAULT_LP_LOCK_MS: u64 = 15_552_000_000;
 const BPS: u64 = 10_000;
-/// Same address as The Odyssey on Sui launchpad (`ADMIN_WALLET` in theodyssey-backend).
-const PLATFORM_WALLET: address = @0x2957f0f19ee92eb5283bf1aa6ce7a3742ea7bc79bc9d1dc907fbbf7a11567409;
+/// Same platform wallet as The Odyssey on Sui launchpad.
+const PLATFORM_WALLET: address = @0x92a32ac7fd525f8bd37ed359423b8d7d858cad26224854dfbff1914b75ee658b;
 
 public struct AdminCap has key, store {
     id: UID,

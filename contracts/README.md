@@ -32,7 +32,7 @@ Graduation for XAUM defaults to **1 XAUM** (not 2,000 units). 2,000 SUI is only 
 ## Fees and the pit
 
 - Launch fee: 1 SUI, even for XAUM pairs. Accrues in `Config.treasury`.
-- Platform cut (10% of the 1% swap fee) accrues in `Config.platform`. Both that bag and the launch treasury are withdrawn with `AdminCap`, which init sends to Odyssey's platform wallet `0x2957f0f19ee92eb5283bf1aa6ce7a3742ea7bc79bc9d1dc907fbbf7a11567409`.
+- Platform cut (10% of the 1% swap fee) accrues in `Config.platform`. Both that bag and the launch treasury are withdrawn with `AdminCap`, which init sends to Odyssey's platform wallet `0x92a32ac7fd525f8bd37ed359423b8d7d858cad26224854dfbff1914b75ee658b`.
 - 1% (`swap_fee_bps=100`) of every fill (buy quote in, sell quote out).
   - Standard: 60% creator, 10% platform, 30% pit.
   - Reflection: 50% holders, 25% creator, 25% platform, 0 pit.
