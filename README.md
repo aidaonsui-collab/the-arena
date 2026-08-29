@@ -8,6 +8,8 @@ Vanilla HTML/CSS/JS SPA (`index.html`). Hash routes: `#/` Explore, `#/pit`, `#/l
 
 Sui Move package for the launchpad lives in [`contracts/`](contracts/). TOKEN/SUI, TOKEN/XAUM (Bluefin gold ticker), and reflection launches.
 
+Platform treasury (1 SUI launch fee + the 10% platform cut of swap fees) withdraws with `AdminCap`. That cap is sent at publish to the same wallet The Odyssey on Sui uses: `0x2957f0f19ee92eb5283bf1aa6ce7a3742ea7bc79bc9d1dc907fbbf7a11567409`.
+
 ## Keepers
 
 Cron jobs (pit bell, pit settle, reflection index) live in [`keepers/`](keepers/).

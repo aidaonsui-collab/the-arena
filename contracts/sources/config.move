@@ -1,5 +1,7 @@
 /// Shared protocol parameters, SUI treasury, platform quote bag, and AdminCap.
 /// Init shares Config plus Pit<SUI>. Create Pit<XAUM> after publish via pit::create_pit.
+/// AdminCap (launch + platform fee withdraws, param sets) is sent to the Odyssey
+/// launchpad platform wallet so Arena and Odyssey share one treasury.
 module arena::config;
 
 use arena::errors;
@@ -32,6 +34,8 @@ const DEFAULT_ROUND_MS: u64 = 86_400_000;
 /// 180 days.
 const DEFAULT_LP_LOCK_MS: u64 = 15_552_000_000;
 const BPS: u64 = 10_000;
+/// Same address as The Odyssey on Sui launchpad (`ADMIN_WALLET` in theodyssey-backend).
+const PLATFORM_WALLET: address = @0x2957f0f19ee92eb5283bf1aa6ce7a3742ea7bc79bc9d1dc907fbbf7a11567409;
 
 public struct AdminCap has key, store {
     id: UID,
@@ -66,7 +70,7 @@ public struct Config has key {
 
 fun init(ctx: &mut TxContext) {
     let admin = AdminCap { id: object::new(ctx) };
-    transfer::transfer(admin, ctx.sender());
+    transfer::transfer(admin, PLATFORM_WALLET);
 
     transfer::share_object(Config {
         id: object::new(ctx),
@@ -167,6 +171,8 @@ public fun quote_params<Q>(config: &Config): (u64, u64) {
 public fun assert_not_paused(config: &Config) {
     assert!(!config.paused, errors::paused());
 }
+
+public fun platform_wallet(): address { PLATFORM_WALLET }
 
 public fun launch_fee_sui(config: &Config): u64 { config.launch_fee_sui }
 public fun swap_fee_bps(config: &Config): u64 { config.swap_fee_bps }

@@ -1,7 +1,7 @@
 #[test_only]
 module arena::arena_tests;
 
-use arena::config::{Self, Config};
+use arena::config::{Self, Config, AdminCap};
 use arena::qcoin::QCOIN;
 use arena::launch;
 use arena::lock::{Self, LpLock};
@@ -399,6 +399,20 @@ fun test_creator_claim() {
         ts::return_shared(pool);
     };
 
+    scenario.end();
+}
+
+#[test]
+fun test_admin_cap_to_odyssey_wallet() {
+    let mut scenario = ts::begin(ADMIN);
+    config::init_for_testing(scenario.ctx());
+    scenario.next_tx(config::platform_wallet());
+    let cap = scenario.take_from_sender<AdminCap>();
+    assert!(
+        config::platform_wallet() == @0x2957f0f19ee92eb5283bf1aa6ce7a3742ea7bc79bc9d1dc907fbbf7a11567409,
+        0,
+    );
+    ts::return_to_sender(&scenario, cap);
     scenario.end();
 }
 

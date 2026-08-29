@@ -36,5 +36,6 @@ Snapshot file (default `./data/reflections.json`) is the shape the token page ca
 - `ARENA_PACKAGE_ID`
 - `SUI_RPC`
 - `ARENA_PIT_SUI` / `ARENA_PIT_XAUM` (shared object ids after publish)
-- `ARENA_KEEPER_PHRASE` (signing key for ring/settle, later)
+- `ARENA_KEEPER_PHRASE` (signing key for ring/settle, later — not the platform wallet)
+- Platform launch + swap-fee withdraws: Odyssey admin `0x2957f0f19ee92eb5283bf1aa6ce7a3742ea7bc79bc9d1dc907fbbf7a11567409` holds `AdminCap`
 - `KEEPERS_CURSOR_PATH`
