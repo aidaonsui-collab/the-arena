@@ -25,6 +25,7 @@ const E_STILL_LOCKED: u64 = 20;
 const E_ALREADY_LOCKED: u64 = 21;
 const E_NOT_BENEFICIARY: u64 = 22;
 const E_USE_SPLIT_COLLECT: u64 = 23;
+const E_USE_INSTADEX_COLLECT: u64 = 24;
 
 public fun paused(): u64 { E_PAUSED }
 public fun invalid_fee(): u64 { E_INVALID_FEE }
@@ -49,3 +50,4 @@ public fun still_locked(): u64 { E_STILL_LOCKED }
 public fun already_locked(): u64 { E_ALREADY_LOCKED }
 public fun not_beneficiary(): u64 { E_NOT_BENEFICIARY }
 public fun use_split_collect(): u64 { E_USE_SPLIT_COLLECT }
+public fun use_instadex_collect(): u64 { E_USE_INSTADEX_COLLECT }

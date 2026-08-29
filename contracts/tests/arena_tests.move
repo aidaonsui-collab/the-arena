@@ -587,6 +587,27 @@ fun test_instadex_mint_lock() {
 }
 
 #[test]
+fun test_instadex_mint_lock_burn() {
+    let mut scenario = ts::begin(ADMIN);
+    let (mut cap, metadata) = tcoin::create_for_testing(scenario.ctx());
+    let minted = tcoin::mint(&mut cap, 1_000, scenario.ctx());
+    assert!(coin::total_supply(&cap) == 1_000, 0);
+    transfer::public_freeze_object(metadata);
+    launch::share_mint_lock_for_testing(cap, scenario.ctx());
+    scenario.next_tx(ADMIN);
+    let mut mint_lock = scenario.take_shared<InstadexMintLock<TCOIN>>();
+    assert!(launch::mint_lock_supply(&mint_lock) == 1_000, 1);
+    launch::burn_from_mint_lock(&mut mint_lock, minted);
+    assert!(launch::mint_lock_supply(&mint_lock) == 0, 2);
+    // zero coin is destroyed, not burned
+    let zero = coin::zero<TCOIN>(scenario.ctx());
+    launch::burn_from_mint_lock(&mut mint_lock, zero);
+    assert!(launch::mint_lock_supply(&mint_lock) == 0, 3);
+    ts::return_shared(mint_lock);
+    scenario.end();
+}
+
+#[test]
 #[expected_failure(abort_code = 3)]
 fun test_instadex_zero_amounts_abort() {
     // Mirrors launch_instadex's check, which runs before any Bluefin CALL.
@@ -650,5 +671,11 @@ fun test_split_std_lp_quote() {
 #[expected_failure(abort_code = 23)]
 fun test_legacy_collect_bluefin_fees_aborts() {
     lock::abort_legacy_collect();
+}
+
+#[test]
+#[expected_failure(abort_code = 24)]
+fun test_collect_lp_fees_aborts() {
+    lock::abort_instadex_collect();
 }
 

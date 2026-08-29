@@ -11,14 +11,14 @@ module arena::launch;
 use arena::config::Config;
 use arena::errors;
 use arena::events;
-use arena::lock;
+use arena::lock::{Self, BluefinPositionLock};
 use arena::math;
 use arena::pit::Pit;
 use arena::pool;
 use bluefin_spot::config::GlobalConfig;
 use std::type_name;
 use sui::clock::Clock;
-use sui::coin::{Coin, CoinMetadata, TreasuryCap};
+use sui::coin::{Self, Coin, CoinMetadata, TreasuryCap};
 use sui::object::{Self, ID, UID};
 use sui::sui::SUI;
 use sui::transfer;
@@ -179,6 +179,29 @@ public entry fun launch_instadex_entry<T, Q>(
     );
 }
 
+/// Permissionless. Collect vaulted Instadex LP fees: burn token A via the
+/// locked TreasuryCap, split quote B 60/10/30 creator/platform/pit.
+/// NFT stays in the vault.
+public fun collect_instadex_fees<A, B>(
+    lock: &mut BluefinPositionLock,
+    mint: &mut InstadexMintLock<A>,
+    clock: &Clock,
+    bf_config: &GlobalConfig,
+    bf_pool: &mut bluefin_spot::pool::Pool<A, B>,
+    config: &mut Config,
+    pit: &mut Pit<B>,
+    ctx: &mut TxContext,
+) {
+    let bal_a = lock::collect_lp_fees_return_token(lock, clock, bf_config, bf_pool, config, pit, ctx);
+    let amount = bal_a.value();
+    if (amount == 0) {
+        bal_a.destroy_zero();
+    } else {
+        coin::burn(&mut mint.cap, coin::from_balance(bal_a, ctx));
+    };
+    events::emit_instadex_burn(object::id(lock), amount);
+}
+
 public(package) fun assert_instadex_amounts(token_amount: u64, quote_amount: u64) {
     assert!(token_amount > 0 && quote_amount > 0, errors::zero_amount());
 }
@@ -189,4 +212,19 @@ public fun share_mint_lock_for_testing<T>(cap: TreasuryCap<T>, ctx: &mut TxConte
         id: object::new(ctx),
         cap,
     });
+}
+
+#[test_only]
+public fun mint_lock_supply<T>(mint: &InstadexMintLock<T>): u64 {
+    coin::total_supply(&mint.cap)
+}
+
+/// Burn through the vaulted cap (same path collect_instadex_fees uses).
+#[test_only]
+public fun burn_from_mint_lock<T>(mint: &mut InstadexMintLock<T>, c: Coin<T>) {
+    if (c.value() == 0) {
+        c.destroy_zero();
+    } else {
+        coin::burn(&mut mint.cap, c);
+    }
 }

@@ -9,7 +9,7 @@
 ///    time-lock the Bluefin Position NFT to the Arena creator for `Config.lp_lock_ms`
 ///    (default 180 days).
 /// 3. Instadex (`launch::launch_instadex`) reuses `seed_and_lock_internal` with no
-///    Arena `Pool`. `unlock_ms = 0` (permanent; claim aborts). Fees via `collect_lp_fees`.
+///    Arena `Pool`. `unlock_ms = 0` (permanent; claim aborts). Fees via `launch::collect_instadex_fees`.
 ///
 /// Graduate PTB (SUI quote):
 ///   Pool<T, SUI>, Config, Clock, Bluefin GlobalConfig,
@@ -317,11 +317,10 @@ public(package) fun split_std_lp_quote(
     (creator, platform, pit)
 }
 
-/// Permissionless. Collects accrued Bluefin LP fees from the vaulted Position NFT.
-/// Coin A (token) goes 100% to `lock.beneficiary`. Coin B (quote) splits
-/// Config.std_* bps (default 60/10/30 creator/platform/pit). NFT stays in the vault.
-/// Aborts if the position has already been claimed (position is none).
-public fun collect_lp_fees<A, B>(
+/// Collect Bluefin LP fees, split quote B 60/10/30 (creator/platform/pit),
+/// send quote remainder to the beneficiary, and return token A for the caller
+/// to burn (Instadex) instead of paying it to the creator. NFT stays vaulted.
+public(package) fun collect_lp_fees_return_token<A, B>(
     lock: &mut BluefinPositionLock,
     clock: &Clock,
     bf_config: &GlobalConfig,
@@ -329,7 +328,7 @@ public fun collect_lp_fees<A, B>(
     config: &mut Config,
     pit: &mut Pit<B>,
     ctx: &mut TxContext,
-) {
+): Balance<A> {
     assert!(lock.position.is_some(), errors::nothing_to_claim());
     let beneficiary = lock.beneficiary;
     let position = option::borrow_mut(&mut lock.position);
@@ -350,11 +349,30 @@ public fun collect_lp_fees<A, B>(
         platform_amt,
         pit_amt,
     );
-    send_residual(bal_a, beneficiary, ctx);
     send_residual(bal_b, beneficiary, ctx);
+    bal_a
 }
 
-/// Disabled. Same signature as v4 for Compatible upgrades. Use `collect_lp_fees`.
+/// Disabled. Same signature as v5 for Compatible upgrades. Use `launch::collect_instadex_fees`.
+public fun collect_lp_fees<A, B>(
+    _lock: &mut BluefinPositionLock,
+    _clock: &Clock,
+    _bf_config: &GlobalConfig,
+    _bf_pool: &mut bluefin_spot::pool::Pool<A, B>,
+    _config: &mut Config,
+    _pit: &mut Pit<B>,
+    _ctx: &mut TxContext,
+) {
+    abort_instadex_collect()
+}
+
+/// Body of the disabled `collect_lp_fees`. Extracted so unit tests can
+/// hit abort 24 without constructing Bluefin `GlobalConfig` / `Pool`.
+public(package) fun abort_instadex_collect() {
+    abort errors::use_instadex_collect()
+}
+
+/// Disabled. Same signature as v4 for Compatible upgrades. Use `launch::collect_instadex_fees`.
 public fun collect_bluefin_fees<A, B>(
     _lock: &mut BluefinPositionLock,
     _clock: &Clock,

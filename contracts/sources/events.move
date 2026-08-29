@@ -122,6 +122,12 @@ public struct CollectLpFeesEvent has copy, drop {
     pit_amount: u64,
 }
 
+/// Token-side (coin A) LP fees burned via InstadexMintLock TreasuryCap.
+public struct InstadexBurnEvent has copy, drop {
+    lock_id: ID,
+    amount: u64,
+}
+
 public fun emit_launch(
     pool_id: ID,
     token: TypeName,
@@ -298,4 +304,8 @@ public fun emit_collect_lp_fees(
         platform_amount,
         pit_amount,
     })
+}
+
+public fun emit_instadex_burn(lock_id: ID, amount: u64) {
+    sui::event::emit(InstadexBurnEvent { lock_id, amount })
 }

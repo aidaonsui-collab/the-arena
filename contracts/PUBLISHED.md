@@ -3,7 +3,8 @@
 Published from `0x92a32ac7fd525f8bd37ed359423b8d7d858cad26224854dfbff1914b75ee658b`.
 
 - Type origin / original package: `0x5cfddf8ba23be6835644a8ea22482ff6ebb0081e42cc1bc052b5f770ca8bbdea`
-- Latest published-at (v5): `0x68e178d50276b3bcbce11a136df48909aceff1f2a8ee8a45483e9f128e989972`
+- Latest published-at (v6): `0x47ea732e44f21470aa3dd449a7b26731ed2c377e2c02e650f3ede6ea581bf000`
+- v5 published-at: `0x68e178d50276b3bcbce11a136df48909aceff1f2a8ee8a45483e9f128e989972`
 - v4 published-at: `0xcf7835ae4e3f8a3d4eb4bd9d14cb4a3dbdd80e70908feb6c433688a31e119de3`
 - v3 published-at: `0x067136624c5bec5221247e9b0a0a1afbd77a79aadbabdac18a95a10bc186cc74`
 - v2 published-at (BluefinLockEvent / BluefinPositionLock type origin): `0x8e28ff4116a8c9025b5d615b0b0a7bc45f4f543120f30a9d226e5b94c7277b79`
@@ -11,14 +12,15 @@ Published from `0x92a32ac7fd525f8bd37ed359423b8d7d858cad26224854dfbff1914b75ee65
 - Pit SUI: `0x8ec38e9bcac0838bf474680e71d0c3f302f4ea2f757d759b7b399701f904389c`
 - Pit XAUM: `0xa8a391bf380914c04be5deb478474b42754a5aa8c29c0955f267d73190a98783`
 - AdminCap: `0x79e041a4444971bfbf8000925ac3386d8351a3e997eb7d838d84eb6c3e507acf` (held by the platform wallet)
-- UpgradeCap: `0x8db3965ac77247107c811cb79bccd9bf1daf5647136a0b2f8891351a56d73608` (held by the platform wallet, version 5, policy Compatible)
+- UpgradeCap: `0x8db3965ac77247107c811cb79bccd9bf1daf5647136a0b2f8891351a56d73608` (held by the platform wallet, version 6, policy Compatible)
 - Publish tx: `4zVLuMuPGG62WrkNCeodwpYs1athobrYymqi3fPULQWt`
 - Upgrade v2 tx: `9XJ5cvahK2Un4BBDGBTk3FPREiDodwxVhUACb75YwYX1` (2026-08-29 15:42 CT)
 - Upgrade v3 tx: `AtVquqVh1G1FCvQTZyYQ3ZizNYfceDJA36d66gWsWjPW` (fee_rate 100000 → 10000)
 - Upgrade v4 tx: `7TSwzJG6nXTQE47vssGFBao4QzkfKWJXZUgGfTmSos6H` (2026-08-29 16:31 CT; Instadex + permanent lock + collect_bluefin_fees)
 - Upgrade v5 tx: `ETJ8WZpGFo6JDRVv7UtNiLuXbJBJ4zwCF9gYwL3ciQme` (2026-08-29 17:53 CT; collect_lp_fees 60/10/30 LP quote split)
+- Upgrade v6 tx: `GUsTHo7VgYQZYYLaScxgjA6F8GfCY1Yx9hgaoKBLhGab` (2026-08-29 18:07 CT; burn Instadex token-side LP fees via InstadexMintLock)
 
-Call new functions on the latest published-at (`0x68e1…`). Object types stay `0x5cfd…::pool::Pool` etc. `BluefinLockEvent` and `BluefinPositionLock` originated in v2 (`0x8e28…`). `InstadexLaunchEvent` and `InstadexMintLock` originated in v4 (`0xcf78…`). `CollectLpFeesEvent` originated in v5 (`0x68e1…`).
+Call new functions on the latest published-at (`0x47ea…`). Object types stay `0x5cfd…::pool::Pool` etc. `BluefinLockEvent` and `BluefinPositionLock` originated in v2 (`0x8e28…`). `InstadexLaunchEvent` and `InstadexMintLock` originated in v4 (`0xcf78…`). `CollectLpFeesEvent` originated in v5 (`0x68e1…`). `InstadexBurnEvent` originated in v6 (`0x47ea…`).
 
 ## Bluefin Spot (graduation seed)
 
@@ -77,4 +79,21 @@ Graduate PTB objects: Pool, Config, Clock, Bluefin GlobalConfig, CoinMetadata `<
 - Pit SUI pot 1108499 → 1132498 (+23999)
 - Config.platform bag received 7999 MIST SUI
 - `collect_bluefin_fees` on v5 dry-run aborts `use_split_collect` (23)
+- Position NFT still in lock `0x529a…`, liquidity 316227766, `unlock_ms` 0. `graduation_sui` left at 2000 SUI.
+
+## IDEX collect_instadex_fees smoke (2026-08-29 18:11 CT)
+
+- Buy: `AKh7WZwgz1P9mXMLwmGY77Ciz2JpGYknbfBALSJJvuUB` (0.01 SUI → 74976859 IDEX; swap fee 100000 MIST)
+- Collect 1: `Dc6oUzUdoT47DRHzwh5zpyu2kXBLh78SYDnVBHXfcS7x` (`0x47ea…::launch::collect_instadex_fees<IDEX,SUI>`)
+  - Bluefin `UserFeeCollected`: coin_a 0, coin_b 79999 (LP quote share; protocol kept ~20%)
+  - `CollectLpFeesEvent`: token 0, creator 48001, platform 7999, pit 23999 (60/10/30 + 2 dust to creator)
+  - `InstadexBurnEvent`: amount 0 (SUI→IDEX accrues quote fees; zero A is destroy_zero)
+- Sell: `2Rh4TXDycxf8F53hwqmszYzF5M7DhNU5Mnz3pgkX1kfz` (10000000 IDEX → 1408058 MIST SUI; swap fee 100000 IDEX)
+- Collect 2: `23EBX1hsiicpcGPt8ZNZjC9wXnGS9nLcB4WaAUKfDyYb`
+  - Bluefin `UserFeeCollected`: coin_a 79999, coin_b 0
+  - `CollectLpFeesEvent`: token 79999, creator/platform/pit 0
+  - `InstadexBurnEvent`: amount 79999
+- IDEX supply 1000000000 → 999920001 (−79999)
+- Pit SUI pot 1132498 → 1156497 (+23999)
+- `collect_lp_fees` on v6 dry-run aborts `use_instadex_collect` (24)
 - Position NFT still in lock `0x529a…`, liquidity 316227766, `unlock_ms` 0. `graduation_sui` left at 2000 SUI.
