@@ -320,7 +320,7 @@ html.shot,html.shot *{animation:none!important;transition:none!important}
   let xaumBal = 2.40;
   const state = {route:"explore", sym:"VOLT", filter:"All", sort:"Market cap", time:"All", side:"Buy", amt:"1", connected:false, search:"", lName:"", lTick:"", lQuote:"SUI", lMode:"Holders", metricsWindow:"All", tapeTab:"trades", tapeOpen:"", lFile:null, lArtUrl:"", lArtPreview:"", payWith:"SUI"};
   let hashLock = false;
-  const hop = { suiPerXaum: null, usd: null, source: "" };
+  const hop = { suiPerXaum: null, usd: null, suiUsd: null, source: "" };
 
   const SHOT = /Headless/i.test(String(navigator.userAgent||"")) || /(?:^|[?&])shot=1(?:&|$)/.test(location.search);
   if (SHOT) document.documentElement.classList.add("shot");
@@ -342,6 +342,27 @@ html.shot,html.shot *{animation:none!important;transition:none!important}
     if (a >= 1e3) return (n/1e3).toFixed(2)+"k";
     if (a >= 1) return n.toFixed(2);
     return n.toFixed(4);
+  }
+  function fmtUsd(n){
+    n = Number(n)||0;
+    if (!(n > 0)) return "—";
+    const a = Math.abs(n);
+    if (a >= 1e6) return "$"+(n/1e6).toFixed(2)+"M";
+    if (a >= 1e3) return "$"+(n/1e3).toFixed(1)+"k";
+    if (a >= 1) return "$"+n.toFixed(2);
+    return "$"+n.toFixed(3);
+  }
+  function quoteUsd(q){
+    return q === "XAUM" ? hop.usd : hop.suiUsd;
+  }
+  function usdCap(tk){
+    const px = quoteUsd(poolQuote(tk));
+    if (!(px > 0)) return 0;
+    return curveCap(tk) * px;
+  }
+  function usdCapText(tk){
+    const n = usdCap(tk);
+    return n > 0 ? fmtUsd(n) : "—";
   }
   const VIRTUAL_SUPPLY = 1e9;
   function burnedOf(tk){
@@ -649,7 +670,7 @@ html.shot,html.shot *{animation:none!important;transition:none!important}
         '<div style="min-width:0"><div class="feat-name">'+k.n+' <span class="feat-tick">'+k.t+'</span></div></div></div>'+
       sparkSVG(k)+
       '<span class="chg" style="color:'+chColor(k)+';text-align:right">'+chText(k)+'</span>'+
-      '<div data-cap="'+k.t+'" class="mono" style="text-align:right;font-weight:650">'+money(k.cap,q)+'</div>'+
+      '<div data-usd-cap="'+k.t+'" class="mono" style="text-align:right;font-weight:650">'+usdCapText(k)+'</div>'+
       '<span class="chip '+cls+' st-col">'+k.st+'</span></div>';
   }
   function launchCard(k, i){
@@ -662,7 +683,7 @@ html.shot,html.shot *{animation:none!important;transition:none!important}
     return '<div class="lcard'+(hot?" hot":"")+'" data-go="'+go+'">'+
       artBlock(k, hot)+
       '<div><div class="feat-name">'+k.n+'</div><div class="feat-tick">$'+k.t+'</div></div>'+
-      '<div class="feat-mcap" data-cap="'+k.t+'" style="font-size:15px">'+money(k.cap,q)+' MC</div>'+
+      '<div class="feat-mcap" data-usd-cap="'+k.t+'" style="font-size:15px">'+usdCapText(k)+' MC</div>'+
       (k.graduated ? '' : '<div class="bar-row"><div class="bar"><i data-bar="'+k.t+'" style="width:'+pct+'"></i></div><span class="bar-pct">'+pct+'</span></div>')+
       '<div class="lcard-foot"><span class="mono">'+addr+'</span><span class="ago">'+lastAgo(k)+'</span></div></div>';
   }
@@ -871,7 +892,7 @@ html.shot,html.shot *{animation:none!important;transition:none!important}
     const burnedN = burnedOf(tk);
     const burnedQ = burnedN * lastPx(tk.t);
     const burnedPct = VIRTUAL_SUPPLY > 0 ? (burnedN / VIRTUAL_SUPPLY * 100) : 0;
-    const capSub = chText(tk)+' · '+tk.h+' holders · '+pct.toFixed(0)+'% to grad';
+    const capSub = fmtBig(capN)+' '+q+' · '+chText(tk)+' · '+tk.h+' holders';
     const burnSub = burnedN > 0
       ? money(burnedQ, q)+' · '+burnedPct.toFixed(2)+'% of supply'
       : (tk.mode === "Buy & burn" ? "No pit burns yet" : "Holders mode · no burn");
@@ -899,7 +920,7 @@ html.shot,html.shot *{animation:none!important;transition:none!important}
           '<div class="about-desc">'+(tk.b || "No description yet.")+'</div>'+
           '<div class="about-metrics">'+
             '<div><div class="about-k">Market cap</div>'+
-              '<div class="about-v"><span data-cap="'+tk.t+'">'+fmtBig(capN)+'</span><span class="tick">'+q+'</span></div>'+
+              '<div class="about-v"><span data-usd-cap="'+tk.t+'">'+usdCapText(tk)+'</span><span class="tick">mc</span></div>'+
               '<div class="about-s">'+capSub+'</div></div>'+
             '<div><div class="about-k">Burned</div>'+
               '<div class="about-v">'+fmtBig(burnedN)+'<span class="tick">'+tk.t+'</span></div>'+
@@ -979,9 +1000,12 @@ html.shot,html.shot *{animation:none!important;transition:none!important}
   }
   function paintCaps(){
     T.forEach(function(k){
+      $$('[data-usd-cap="'+k.t+'"]').forEach(function(el){
+        const txt = usdCapText(k);
+        el.textContent = el.classList.contains("feat-mcap") ? txt+" MC" : txt;
+      });
       $$('[data-cap="'+k.t+'"]').forEach(function(el){
         if (el.closest("#contenders")) el.textContent = fmt(k.cap);
-        else if (el.closest(".about-v")) el.textContent = fmtBig(curveCap(k));
         else el.textContent = money(k.cap, poolQuote(k));
       });
       $$('[data-bar="'+k.t+'"]').forEach(function(el){ el.style.width = barPct(k); });
@@ -1467,11 +1491,26 @@ html.shot,html.shot *{animation:none!important;transition:none!important}
   function loadHop(){
     function apply(d){
       const n = Number(d && (d.suiPerXaum || d.last_price));
-      if (n > 0){ hop.suiPerXaum = n; hop.usd = Number(d.usd || d.last_price_usd)||null; hop.source = d.source || "Bluefin XAUM/SUI"; paintTicket(); }
+      if (n > 0) hop.suiPerXaum = n;
+      const xaumUsd = Number(d && (d.xaumUsd || d.usd || d.last_price_usd));
+      if (xaumUsd > 0) hop.usd = xaumUsd;
+      let suiUsd = Number(d && d.suiUsd);
+      if (!(suiUsd > 0) && hop.usd > 0 && hop.suiPerXaum > 0) suiUsd = hop.usd / hop.suiPerXaum;
+      if (suiUsd > 0) hop.suiUsd = suiUsd;
+      hop.source = (d && d.source) || "Bluefin XAUM/SUI";
+      paintTicket();
+      paintCaps();
     }
     fetch("/api/hop").then(function(r){ return r.ok ? r.json() : Promise.reject(); }).then(apply).catch(function(){
-      fetch("https://api.dexpaprika.com/networks/sui/pools/0xe80e81a24dc18b5ce708bea23dc151385df291767db4b1cccb4517105f35aa17")
-        .then(function(r){ return r.json(); }).then(apply).catch(function(){});
+      Promise.all([
+        fetch("https://api.dexpaprika.com/networks/sui/pools/0xe80e81a24dc18b5ce708bea23dc151385df291767db4b1cccb4517105f35aa17").then(function(r){ return r.json(); }),
+        fetch("https://api.coingecko.com/api/v3/simple/price?ids=sui&vs_currencies=usd").then(function(r){ return r.json(); }).catch(function(){ return {}; })
+      ]).then(function(pair){
+        const d = pair[0] || {};
+        const g = pair[1] || {};
+        d.suiUsd = g.sui && g.sui.usd;
+        apply(d);
+      }).catch(function(){});
     });
   }
   loadHop();
