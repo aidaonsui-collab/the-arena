@@ -389,6 +389,30 @@
     };
   }
 
+  function parseGraduation(ev) {
+    var p = ev.parsedJson || {};
+    return {
+      pool_id: String(p.pool_id || ""),
+      raised: p.raised,
+      token_reserve: p.token_reserve,
+      quote_real: p.quote_real,
+      ts: num(ev.timestampMs) || Date.now()
+    };
+  }
+
+  function parseLock(ev) {
+    var p = ev.parsedJson || {};
+    return {
+      lock_id: String(p.lock_id || ""),
+      pool_id: String(p.pool_id || ""),
+      beneficiary: String(p.beneficiary || ""),
+      unlock_ms: num(p.unlock_ms),
+      token_amount: p.token_amount,
+      quote_amount: p.quote_amount,
+      ts: num(ev.timestampMs) || Date.now()
+    };
+  }
+
   async function collect(rpc, type, parse, pages, limit) {
     var out = [];
     var cursor = null;
@@ -442,6 +466,12 @@
       }).catch(function () {});
       collect(rpc, P + "::events::LaunchEvent", parseLaunch, 2, 50).then(function (rows) {
         rows.forEach(function (l) { if (opts.onLaunch) opts.onLaunch(l); });
+      }).catch(function () {});
+      collect(rpc, P + "::events::GraduationEvent", parseGraduation, 2, 50).then(function (rows) {
+        rows.forEach(function (g) { if (opts.onGraduate) opts.onGraduate(g); });
+      }).catch(function () {});
+      collect(rpc, P + "::events::LockEvent", parseLock, 2, 50).then(function (rows) {
+        rows.forEach(function (g) { if (opts.onLock) opts.onLock(g); });
       }).catch(function () {});
     }
 
@@ -511,6 +541,8 @@
       return generateDemoHistory([tk]).trades;
     },
     demoSnapshot: demoSnapshot,
+    parseGraduation: parseGraduation,
+    parseLock: parseLock,
     subscribe: subscribe,
     loadSnapshot: loadSnapshot,
     loadIndex: loadIndex,

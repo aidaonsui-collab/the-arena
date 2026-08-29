@@ -418,7 +418,7 @@ window.ARENA_PIT_XAUM = "0xa8a391bf380914c04be5deb478474b42754a5aa8c29c0955f267d
   function chText(k){ return (k.ch>=0?"+":"")+k.ch.toFixed(1)+"%"; }
   function chColor(k){ return k.ch>=0 ? "#298DFF" : "#FF6640"; }
   function rank(i){ return String(i+1).padStart(2,"0"); }
-  function sortedT(){ return T.slice().sort(function(a,b){return b.cap-a.cap;}); }
+  function sortedT(){ return T.filter(function(k){ return !k.graduated && k.st !== "Graduated"; }).sort(function(a,b){return b.cap-a.cap;}); }
   function vol(k){ return k.buckets.reduce(function(a,b){return a+b;},0); }
   function findT(sym){
     const raw = (sym && sym.t) ? sym.t : String(sym || "");
@@ -665,7 +665,9 @@ window.ARENA_PIT_XAUM = "0xa8a391bf380914c04be5deb478474b42754a5aa8c29c0955f267d
     else if (f === "Near graduation") list = list.filter(function(k){ return k.st === "Graduating"; });
     else if (f === "Live") list = list.filter(function(k){ return k.st === "Live"; });
     else if (f === "Graduating") list = list.filter(function(k){ return k.st === "Graduating"; });
-    else if (f === "Graduated") list = [];
+    else if (f === "Graduated") list = list.filter(function(k){ return k.graduated || k.st === "Graduated"; });
+    else if (f === "All") list = list;
+    else list = list.filter(function(k){ return !k.graduated && k.st !== "Graduated"; });
     return sortPool(list);
   }
   function pill(label, key, val){
@@ -690,7 +692,7 @@ window.ARENA_PIT_XAUM = "0xa8a391bf380914c04be5deb478474b42754a5aa8c29c0955f267d
   function launchRow(k, i){
     const q = poolQuote(k);
     const cls = k.st === "Graduating" ? "grad" : (k.st === "Graduated" ? "" : "live");
-    const go = k.graduated ? "explore" : ("token:"+k.t);
+    const go = "token:"+k.t;
     return '<div class="row" data-go="'+go+'">'+
       '<span class="mono" style="color:#9CA3AF">'+rank(i)+'</span>'+
       '<div style="display:flex;align-items:center;gap:10px;min-width:0">'+
@@ -707,7 +709,7 @@ window.ARENA_PIT_XAUM = "0xa8a391bf380914c04be5deb478474b42754a5aa8c29c0955f267d
     const hot = !k.graduated && leader && leader.t === k.t;
     const pct = barPct(k);
     const addr = ADDR[(i||0) % ADDR.length];
-    const go = k.graduated ? "explore" : ("token:"+k.t);
+    const go = "token:"+k.t;
     return '<div class="lcard'+(hot?" hot":"")+'" data-go="'+go+'">'+
       artBlock(k, hot)+
       '<div><div class="feat-name">'+k.n+'</div><div class="feat-tick">$'+k.t+'</div></div>'+
@@ -729,15 +731,18 @@ window.ARENA_PIT_XAUM = "0xa8a391bf380914c04be5deb478474b42754a5aa8c29c0955f267d
     const chips = ["All","Live","Graduating","Graduated"];
     let cards;
     if (state.filter === "Graduated"){
-      cards = GRADS.map(function(g,i){
-        const k = {t:g.t,n:g.n,cap:g.cap,ch:0,h:0,st:"Graduated",mode:"LP locked",q:"SUI",c:g.c||"#298DFF",buckets:[1],graduated:true};
-        return launchCard(k,i);
-      }).join("");
+      const liveG = T.filter(function(k){ return k.graduated || k.st === "Graduated"; });
+      const extra = LIVE ? [] : GRADS.map(function(g){
+        return {t:g.t,n:g.n,cap:g.cap,ch:0,h:0,st:"Graduated",mode:"LP locked",q:"SUI",c:g.c||"#298DFF",buckets:[1],graduated:true};
+      });
+      cards = liveG.concat(extra).map(function(k,i){ return launchCard(k,i); }).join("");
     } else {
       cards = pool.map(function(k,i){ return launchCard(k,i); }).join("");
     }
     if (!cards) cards = '<div class="empty card" style="grid-column:1/-1">No launches match.</div>';
-    const count = state.filter === "Graduated" ? GRADS.length : pool.length;
+    const count = state.filter === "Graduated"
+      ? T.filter(function(k){ return k.graduated || k.st === "Graduated"; }).length + (LIVE ? 0 : GRADS.length)
+      : pool.length;
     return '<div data-screen-label="Explore">'+
       '<div class="explore-head"><div><h1>Explore <span class="count-pill">'+count+' on the curve</span></h1>'+
         '<p>Fair launches still fighting on Sui. Highest cap in the pit takes the pot.</p></div></div>'+
@@ -940,6 +945,7 @@ window.ARENA_PIT_XAUM = "0xa8a391bf380914c04be5deb478474b42754a5aa8c29c0955f267d
         '<div class="badges">'+
           '<span class="badge">'+tk.st+'</span>'+
           '<span class="badge">Pit · '+tk.mode+'</span>'+
+          (tk.lpLocked ? '<span class="badge">Vault · '+ (tk.unlockMs ? new Date(tk.unlockMs).toLocaleDateString() : "180d") +'</span>' : '')+
           '<span class="badge">'+q+'</span></div></div>'+
       '<div class="split">'+
         '<div class="split-main">'+
@@ -1284,6 +1290,29 @@ window.ARENA_PIT_XAUM = "0xa8a391bf380914c04be5deb478474b42754a5aa8c29c0955f267d
     if (LIVE && state.sym && !T.some(function(k){ return k.t === state.sym; })) state.sym = tk.t;
     if (state.route === "explore" || state.route === "token" || state.route === "pit") renderScreen();
   }
+  function applyGraduate(g){
+    if (!g) return;
+    const tk = T.find(function(k){ return matchesPool({pool_id:g.pool_id}, k); });
+    if (!tk) return;
+    tk.graduated = true;
+    tk.st = "Graduated";
+    tk.b = "Curve frozen. LP vault next.";
+    if (g.raised != null) tk.cap = fromMist(g.raised);
+    if (state.route === "explore" || state.route === "token" || state.route === "pit") renderScreen();
+  }
+  function applyLock(g){
+    if (!g) return;
+    const tk = T.find(function(k){ return matchesPool({pool_id:g.pool_id}, k); });
+    if (!tk) return;
+    tk.graduated = true;
+    tk.st = "Graduated";
+    tk.lpLocked = true;
+    tk.lockId = g.lock_id;
+    tk.unlockMs = g.unlock_ms;
+    tk.mode = "LP locked";
+    tk.b = "Graduated. Reserves in a 180-day vault.";
+    if (state.route === "explore" || state.route === "token" || state.route === "pit") renderScreen();
+  }
   function renderScreen(){
     dropTv();
     const host = $("#screens");
@@ -1538,7 +1567,9 @@ window.ARENA_PIT_XAUM = "0xa8a391bf380914c04be5deb478474b42754a5aa8c29c0955f267d
       },
       onLaunch: function(l){
         upsertLaunch(l);
-      }
+      },
+      onGraduate: function(g){ applyGraduate(g); },
+      onLock: function(g){ applyLock(g); }
     });
     bus.trades = bus.sub.trades;
     hydrating = false;
