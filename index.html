@@ -10,7 +10,7 @@
 <style>
 :root{
   --bg:#141615; --card:#1C1E1C; --ink:#F4F4F2; --muted:#8B8E86; --line:#2A2C28;
-  --lift:#242624; --sui:#298DFF; --lime:#298DFF; --up:#298DFF; --down:#FF6640;
+  --lift:#242624; --sui:#298DFF; --up:#298DFF; --down:#FF6640;
   --radius:22px; --shadow:0 10px 28px rgba(0,0,0,.42);
 }
 *{box-sizing:border-box}
@@ -92,7 +92,7 @@ main{padding:18px 0 72px}
 .lcard.hot .bar>i{background:#fff}
 .lcard.hot .ago{color:#fff}
 .lcard-foot{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:12px;color:var(--muted)}
-.ago{color:var(--lime);font-weight:650;font-variant-numeric:tabular-nums}
+.ago{color:var(--sui);font-weight:650;font-variant-numeric:tabular-nums}
 .count-pill{display:inline-flex;align-items:center;margin-left:10px;background:#101211;border-radius:999px;padding:4px 10px;font-size:12px;font-weight:600;color:var(--muted);vertical-align:middle}
 .bar-row{display:flex;align-items:center;gap:8px;margin-top:4px}
 .bar-row .bar{flex:1;margin:0}
@@ -102,7 +102,7 @@ main{padding:18px 0 72px}
 .chip.live{color:#8EC5FF;background:rgba(41,141,255,.16)}
 .chip.grad{color:#fff;background:var(--sui)}
 .bar{height:4px;background:#101211;border-radius:99px;overflow:hidden;margin-top:12px}
-.bar>i{display:block;height:100%;background:var(--lime);border-radius:99px}
+.bar>i{display:block;height:100%;background:var(--sui);border-radius:99px}
 .rowlist{display:flex;flex-direction:column}
 .row{display:grid;grid-template-columns:28px 1fr 90px 72px 120px 110px;gap:12px;align-items:center;padding:14px 4px;border-top:1px solid var(--line);cursor:pointer}
 .row:first-child{border-top:0}
@@ -229,7 +229,7 @@ html[data-route="pit"] .search-row,html[data-route="launch"] .search-row,html[da
 .mstat .v{font-size:clamp(22px,3vw,32px);font-weight:650;margin-top:8px;font-variant-numeric:tabular-nums;letter-spacing:-.03em;font-family:"IBM Plex Mono",ui-monospace,monospace}
 .mstat .s{margin-top:4px;font-size:12px;color:var(--muted)}
 .vol-bars{display:flex;align-items:flex-end;gap:4px;height:120px;padding:8px 0 0}
-.vol-bars i{flex:1;background:var(--lime);border-radius:4px 4px 0 0;min-height:2px;opacity:.85}
+.vol-bars i{flex:1;background:var(--sui);border-radius:4px 4px 0 0;min-height:2px;opacity:.85}
 .fee-rows{display:grid;gap:10px}
 .fee-row{display:grid;grid-template-columns:88px 1fr 90px;gap:10px;align-items:center;font-size:13px}
 .fee-row b{height:6px;border-radius:99px;background:#101211;overflow:hidden;display:block}
@@ -344,7 +344,7 @@ window.ARENA_PIT_XAUM = "0xa8a391bf380914c04be5deb478474b42754a5aa8c29c0955f267d
   let bshift = 0, pot = 31.94, prevPot = "", roundNo = 128, secs = ROUND_SECONDS;
   let balance = 48.60;
   let xaumBal = 2.40;
-  const state = {route:"explore", sym:"VOLT", filter:"All", sort:"Market cap", time:"All", side:"Buy", amt:"1", connected:false, search:"", lName:"", lTick:"", lQuote:"SUI", lPath:"sui", lMode:"Holders", lTokenAmt:"", lQuoteAmt:"", metricsWindow:"All", tapeTab:"trades", tapeOpen:"", lFile:null, lArtUrl:"", lArtPreview:"", payWith:"SUI"};
+  const state = {route:"explore", sym:"VOLT", filter:"All", sort:"Market cap", time:"All", side:"Buy", amt:"1", connected:false, search:"", lName:"", lTick:"", lQuote:"SUI", lPath:"instadex", lMode:"Holders", lTokenAmt:"", lQuoteAmt:"", metricsWindow:"All", tapeTab:"trades", tapeOpen:"", lFile:null, lArtUrl:"", lArtPreview:"", payWith:"SUI"};
   let hashLock = false;
   const hop = { suiPerXaum: null, usd: null, suiUsd: null, source: "" };
 
@@ -780,23 +780,20 @@ window.ARENA_PIT_XAUM = "0xa8a391bf380914c04be5deb478474b42754a5aa8c29c0955f267d
       '<span class="chip '+cls+' st-col">'+k.st+'</span></div>';
   }
   function launchCard(k, i){
-    const q = poolQuote(k);
     const leader = sortedT()[0];
     const hot = !k.graduated && leader && leader.t === k.t;
-    const pct = barPct(k);
     const addr = ADDR[(i||0) % ADDR.length];
     const go = "token:"+k.t;
     return '<div class="lcard'+(hot?" hot":"")+'" data-go="'+go+'">'+
       artBlock(k, hot)+
       '<div><div class="feat-name">'+k.n+'</div><div class="feat-tick">$'+k.t+'</div></div>'+
       '<div class="feat-mcap" data-usd-cap="'+k.t+'" style="font-size:15px">'+usdCapText(k)+' MC</div>'+
-      (k.graduated || k.instadex ? '' : '<div class="bar-row"><div class="bar"><i data-bar="'+k.t+'" style="width:'+pct+'"></i></div><span class="bar-pct">'+pct+'</span></div>')+
       '<div class="lcard-foot"><span class="mono">'+addr+'</span><span class="ago">'+lastAgo(k)+'</span></div></div>';
   }
   function footerHTML(){
     return '<footer class="footer">'+
       '<div><div class="brand-name" style="color:var(--ink);margin-bottom:8px">ARENA</div>'+
-        '<p style="margin:0;max-width:36ch">Fair launches on Sui. Bonding curves, no presale. Graduation at 2,000 SUI or 1 XAUM. The pit is fed by every fill.</p></div>'+
+        '<p style="margin:0;max-width:36ch">Fair launches on Sui. Instadex seeds Bluefin in block one. Quote is SUI or XAUM. LP locked forever.</p></div>'+
       '<div><h4>Product</h4><div data-go="explore">Explore</div><div data-go="pit">Pit</div><div data-go="metrics">Metrics</div><div data-go="launch">Create</div></div>'+
       '<div><h4>Fees</h4>1% on every fill.<br>Default 60/10/30 creator/platform/pit.<br>Reflection 50/20/20/10.</div></footer>';
   }
@@ -820,8 +817,8 @@ window.ARENA_PIT_XAUM = "0xa8a391bf380914c04be5deb478474b42754a5aa8c29c0955f267d
       ? T.filter(function(k){ return k.graduated || k.st === "Graduated"; }).length + (LIVE ? 0 : GRADS.length)
       : pool.length;
     return '<div data-screen-label="Explore">'+
-      '<div class="explore-head"><div><h1>Explore <span class="count-pill">'+count+' on the curve</span></h1>'+
-        '<p>Fair launches still fighting on Sui. Highest cap in the pit takes the pot.</p></div></div>'+
+      '<div class="explore-head"><div><h1>Explore <span class="count-pill">'+count+'</span></h1>'+
+        '<p>Instadex on Bluefin. Quote SUI or XAUM. Legacy curve cards may still list.</p></div></div>'+
       '<div class="pills" style="margin-bottom:8px">'+sorts.map(function(s){return pill(s,"sort",s);}).join("")+'</div>'+
       '<div class="pills" id="filters" style="margin-bottom:16px">'+chips.map(function(s){return pill(s,"filter",s);}).join("")+'</div>'+
       '<div class="pit-strip" data-go="pit">'+
@@ -852,7 +849,7 @@ window.ARENA_PIT_XAUM = "0xa8a391bf380914c04be5deb478474b42754a5aa8c29c0955f267d
     }).join("");
     return '<div data-screen-label="Pit">'+
       '<div class="pit-hero">'+
-        '<div style="grid-area:pot"><div class="pit-kicker"><span style="display:inline-block;width:7px;height:7px;border-radius:99px;background:var(--lime);margin-right:8px"></span>Round <span data-round>'+roundNo+'</span> · live</div>'+
+        '<div style="grid-area:pot"><div class="pit-kicker"><span style="display:inline-block;width:7px;height:7px;border-radius:99px;background:var(--sui);margin-right:8px"></span>Round <span data-round>'+roundNo+'</span> · live</div>'+
           '<div class="pit-pot" data-pot>'+money(pot)+'</div></div>'+
         '<div class="pit-clock" style="grid-area:clock"><span data-clock>'+clockStr()+'</span><span>until the bell</span></div>'+
         '<p>One percent of every fill feeds this pot. Highest cap still on the curve when the clock hits zero takes it — split to holders, or buy and burn.</p>'+
@@ -951,32 +948,16 @@ window.ARENA_PIT_XAUM = "0xa8a391bf380914c04be5deb478474b42754a5aa8c29c0955f267d
       footerHTML()+'</div>';
   }
   function launchHTML(){
+    state.lPath = "instadex";
     function tog(key, val, label){
       const on = state[key] === val;
       return '<button type="button" class="pill'+(on?" on":"")+'" data-set="'+key+'" data-val="'+val+'">'+label+'</button>';
     }
-    const insta = state.lPath === "instadex";
-    const pathNote = insta
-      ? "Skips the bonding curve. Seeds Bluefin in block one. LP locked forever. No Arena pool."
-      : (state.lQuote==="XAUM" ? "Graduation at 1 XAUM · SILK is the gold bout." : "Graduation at 2,000 SUI · SILK is the gold bout.");
-    const quoteBlock = insta
-      ? ('<div><label>Quote</label><div class="toggle">'+tog("lQuote","SUI","SUI")+tog("lQuote","XAUM","XAUM")+'</div>'+
-         '<div style="font-size:12px;color:var(--muted);margin-top:6px">Both sides seed the Bluefin pair. '+state.lQuote+' is coin B.</div></div>'+
-         '<div><label>Token seed</label><input id="l-token-amt" inputmode="decimal" placeholder="Token amount" value="'+state.lTokenAmt+'"></div>'+
-         '<div><label>Quote seed · '+state.lQuote+'</label><input id="l-quote-amt" inputmode="decimal" placeholder="'+(state.lQuote==="XAUM"?"XAUM amount":"SUI amount")+'" value="'+state.lQuoteAmt+'"></div>')
-      : ('<div><label>Pit outcome</label><div class="toggle">'+tog("lMode","Holders","Holders")+tog("lMode","Buy & burn","Buy & burn")+'</div>'+
-         '<div style="font-size:12px;color:var(--muted);margin-top:6px">'+(state.lMode==="Holders"?"Reflection 50/20/20/10. Unpaid quote streams to holders.":"Default 60/10/30. Winning pot buys and burns.")+'</div></div>');
-    const goBtn = insta
-      ? '<button type="button" class="btn-trade" id="launch-go" disabled>Instadex waits on the next package upgrade</button>'+
-        '<div style="font-size:12px;color:var(--muted);margin-top:8px;text-align:center">No PTB until the upgrade. Curve launch is unchanged.</div>'
-      : '<button type="button" class="btn-trade" id="launch-go">Launch token · 1 SUI</button>';
     return '<div data-screen-label="Launch">'+
       '<div class="hero-card" style="text-align:left">'+
         '<div class="pit-kicker">Launch</div>'+
         '<h1 style="font-size:clamp(32px,6vw,56px)">Enter the arena.</h1>'+
-        '<p style="color:var(--muted);max-width:48ch">'+(insta
-          ? "Skip the curve. Bring both LP sides and seed Bluefin in the first block. The Position NFT is locked forever."
-          : "One SUI opens a bout. No presale. If you lead the pit when the bell rings, the pot either buys and burns your token, or splits to holders.")+'</p>'+
+        '<p style="color:var(--muted);max-width:48ch">Skip the curve. Bring both LP sides and seed Bluefin in the first block. The Position NFT is locked forever.</p>'+
         '<div class="form-grid">'+
           '<div><label>Art</label><div class="art-field">'+
             '<div class="art-preview" id="l-art-preview">'+(state.lArtPreview?'<img src="'+escUrl(state.lArtPreview)+'" alt="">':(state.lTick?state.lTick.charAt(0):"?"))+'</div>'+
@@ -984,36 +965,51 @@ window.ARENA_PIT_XAUM = "0xa8a391bf380914c04be5deb478474b42754a5aa8c29c0955f267d
             '<div class="art-note" id="l-art-note">'+(state.lArtUrl?"Ready · Blob URL set":"png, jpeg, webp, or gif · 2MB")+'</div></div></div></div>'+
           '<div><label>Name</label><input id="l-name" placeholder="Voltcats" value="'+state.lName+'"></div>'+
           '<div><label>Ticker</label><input id="l-tick" placeholder="VOLT" maxlength="8" value="'+state.lTick+'"></div>'+
-          '<div><label>Launch</label><div class="toggle">'+tog("lPath","sui","Curve SUI")+tog("lPath","xaum","Curve XAUM")+tog("lPath","instadex","Instadex")+'</div>'+
-            '<div style="font-size:12px;color:var(--muted);margin-top:6px">'+pathNote+'</div></div>'+
-          quoteBlock+
-          goBtn+
+          '<div><label>Quote</label><div class="toggle">'+tog("lQuote","SUI","SUI")+tog("lQuote","XAUM","XAUM")+'</div>'+
+            '<div style="font-size:12px;color:var(--muted);margin-top:6px">Both sides seed the Bluefin pair. '+state.lQuote+' is coin B. No bonding-curve Create.</div></div>'+
+          '<div><label>Token seed</label><input id="l-token-amt" inputmode="decimal" placeholder="Token amount" value="'+state.lTokenAmt+'"></div>'+
+          '<div><label>Quote seed · '+state.lQuote+'</label><input id="l-quote-amt" inputmode="decimal" placeholder="'+(state.lQuote==="XAUM"?"XAUM amount":"SUI amount")+'" value="'+state.lQuoteAmt+'"></div>'+
+          '<button type="button" class="btn-trade" id="launch-go" disabled>Instadex waits on the next package upgrade</button>'+
+          '<div style="font-size:12px;color:var(--muted);margin-top:8px;text-align:center">No PTB until the upgrade. Curve launch stays in Move; this pad does not call it.</div>'+
         '</div></div>'+
       footerHTML()+'</div>';
+  }
+  function pairTicket(tk, q, insta){
+    const permanent = insta || Number(tk.unlockMs)===0;
+    const lockLabel = permanent ? "Permanent" : (tk.unlockMs ? new Date(tk.unlockMs).toLocaleDateString() : "—");
+    const kicker = insta ? "Instadex" : (tk.bluefinPool ? "Bluefin" : "Legacy");
+    const title = (insta || tk.bluefinPool) ? "Trade on Bluefin" : "No curve ticket";
+    const copy = insta
+      ? "Not a curve buy or sell. The pair is live on Bluefin Spot. LP is locked forever."
+      : (tk.bluefinPool
+        ? "Not a curve buy or sell. The pair is on Bluefin. The pad does not offer a curve ticket."
+        : "This bout launched on the bonding curve. The pad no longer offers curve buy or sell.");
+    const cta = tk.bluefinPool
+      ? '<a class="btn-trade" href="https://trade.bluefin.io/swap?pool='+tk.bluefinPool+'" target="_blank" rel="noopener">Open Bluefin</a>'
+      : (insta
+        ? '<button type="button" class="btn-trade" disabled>Bluefin pool pending</button>'
+        : '<button type="button" class="btn-trade" disabled>Curve ticket retired</button>');
+    const lockRow = (insta || tk.lpLocked)
+      ? '<div class="kv"><span style="color:var(--muted)">Lock</span><span>'+lockLabel+'</span></div>'
+      : '';
+    const note = (insta || tk.bluefinPool)
+      ? "Swap fees on Bluefin go to the position. Anyone can poke collect."
+      : "Create is Instadex only. Live curve tokens stay listed.";
+    return '<div class="ticket">'+
+      '<div class="pit-kicker">'+kicker+'</div>'+
+      '<div style="font-size:22px;font-weight:700;letter-spacing:-.03em;margin:8px 0 10px">'+title+'</div>'+
+      '<p style="color:var(--muted);margin:0 0 14px">'+copy+'</p>'+
+      '<div class="kv"><span style="color:var(--muted)">Pair</span><span class="mono">'+tk.t+' / '+q+'</span></div>'+
+      '<div class="kv"><span style="color:var(--muted)">Pool</span><span class="mono">'+(tk.bluefinPool ? shortAddr(tk.bluefinPool) : "—")+'</span></div>'+
+      lockRow+
+      cta+
+      '<div style="margin-top:10px;text-align:center;font-size:11px;color:var(--muted)">'+note+'</div>'+
+    '</div>';
   }
   function tokenHTML(){
     const tk = findT(state.sym);
     const q = poolQuote(tk);
     const insta = isInstadex(tk);
-    const gTarget = gradTarget(tk);
-    const pct = Math.min(100, tk.cap/gTarget*100);
-    const gLabel = q === "XAUM" ? "1 XAUM" : "2,000 SUI";
-    const meta = ticketMeta();
-    const buyOn = state.side === "Buy";
-    const px = fmtPx(lastPx(tk.t))+" "+q;
-    const suiPay = q === "XAUM" && buyOn && state.payWith === "SUI";
-    const chipVals = suiPay ? ["1","5","10","50","Max"] : (q === "XAUM" ? ["0.01","0.05","0.1","0.25","Max"] : ["0.1","0.5","1","5","Max"]);
-    const chips = chipVals.map(function(c){
-      return '<div data-chip="'+c+'">'+c+'</div>';
-    }).join("");
-    const payRoute = (q === "XAUM" && buyOn)
-      ? '<div class="toggle" id="pay-route" style="margin:12px 0 0">'+
-          '<button type="button" class="pill'+(state.payWith==="SUI"?" on":"")+'" data-pay="SUI">Pay SUI</button>'+
-          '<button type="button" class="pill'+(state.payWith!=="SUI"?" on":"")+'" data-pay="XAUM">Pay XAUM</button></div>'
-      : "";
-    const hopRow = (q === "XAUM")
-      ? '<div class="kv" id="hop-row"><span style="color:var(--muted)">Hop</span><span id="hop-text" class="mono" style="text-align:right;max-width:28ch">'+meta.hopLine+'</span></div>'
-      : "";
     const capN = curveCap(tk);
     const burnedN = burnedOf(tk);
     const burnedQ = burnedN * lastPx(tk.t);
@@ -1038,6 +1034,12 @@ window.ARENA_PIT_XAUM = "0xa8a391bf380914c04be5deb478474b42754a5aa8c29c0955f267d
       '<button type="button" class="about-link" data-copy="'+(tk.bluefinPool||tk.pool||tk.t)+'">Pool</button>'+
       (tk.bluefinPool ? '<a class="about-link" href="https://trade.bluefin.io/swap?pool='+tk.bluefinPool+'" target="_blank" rel="noopener">Bluefin</a>' : '')+
       (tk.lockId ? '<button type="button" class="about-link" data-copy="'+tk.lockId+'">Vault</button>' : '');
+    const tapeBody = (insta || tk.bluefinPool)
+      ? '<div id="tape"><div class="empty">Live on Bluefin.</div></div>'
+      : '<div class="tape-tabs">'+
+          '<button type="button" class="pill on" data-set="tapeTab" data-val="holders">Holders</button>'+
+          '<span class="count-pill tape-count">'+holdersOf(tk).list.length+'</span></div>'+
+        '<div id="tape">'+(holderHTML(tk)||'<div class="empty">No holder snapshot.</div>')+'</div>';
     return '<div data-screen-label="Token">'+
       '<div class="back" data-go="explore">← Explore</div>'+
       '<div class="token-head">'+
@@ -1065,49 +1067,9 @@ window.ARENA_PIT_XAUM = "0xa8a391bf380914c04be5deb478474b42754a5aa8c29c0955f267d
           '<div class="about-links">'+aboutLinks+'</div></div>'+
           '<div class="card" style="padding:18px;margin-top:12px">'+
             '<div style="display:flex;justify-content:space-between;margin-bottom:8px"><span class="stat k">Chart</span><span class="feat-tick">'+tk.t+' / '+q+'</span></div>'+
-            '<div id="tv-host" class="tv-host"></div>'+
-            (insta ? '' : '<div class="bar" style="margin-top:14px"><i data-bar="'+tk.t+'" style="width:'+barPct(tk)+'"></i></div>'+
-            '<div style="display:flex;justify-content:space-between;margin-top:8px;font-size:12px;color:var(--muted)">'+
-              '<span>'+pct.toFixed(0)+'% to graduation</span>'+
-              '<span><span data-cap="'+tk.t+'">'+money(tk.cap,q)+'</span> / '+gLabel+'</span></div>')+'</div>'+
-          '<div class="card" style="padding:18px;margin-top:12px">'+
-            '<div class="tape-tabs">'+
-              '<button type="button" class="pill'+(state.tapeTab!=="holders"?" on":"")+'" data-set="tapeTab" data-val="trades">Recent trades</button>'+
-              '<button type="button" class="pill'+(state.tapeTab==="holders"?" on":"")+'" data-set="tapeTab" data-val="holders">Holders</button>'+
-              '<span class="count-pill tape-count">'+(state.tapeTab==="holders" ? holdersOf(tk).list.length : tapeItems(50, tk.t).length)+'</span></div>'+
-            '<div id="tape">'+(insta
-              ? '<div class="empty">Live on Bluefin.</div>'
-              : (state.tapeTab==="holders" ? (holderHTML(tk)||'<div class="empty">No holder snapshot.</div>') : tapeHTML(tk.t)))+'</div></div></div>'+
-        (insta
-          ? '<div class="ticket">'+
-              '<div class="pit-kicker">Instadex</div>'+
-              '<div style="font-size:22px;font-weight:700;letter-spacing:-.03em;margin:8px 0 10px">Trade on Bluefin</div>'+
-              '<p style="color:var(--muted);margin:0 0 14px">Not a curve buy or sell. The pair is live on Bluefin Spot. LP is locked forever.</p>'+
-              '<div class="kv"><span style="color:var(--muted)">Pair</span><span class="mono">'+tk.t+' / '+q+'</span></div>'+
-              '<div class="kv"><span style="color:var(--muted)">Pool</span><span class="mono">'+(tk.bluefinPool ? shortAddr(tk.bluefinPool) : "—")+'</span></div>'+
-              '<div class="kv"><span style="color:var(--muted)">Lock</span><span>Permanent</span></div>'+
-              (tk.bluefinPool
-                ? '<a class="btn-trade" href="https://trade.bluefin.io/swap?pool='+tk.bluefinPool+'" target="_blank" rel="noopener">Open Bluefin</a>'
-                : '<button type="button" class="btn-trade" disabled>Bluefin pool pending</button>')+
-              '<div style="margin-top:10px;text-align:center;font-size:11px;color:var(--muted)">Swap fees on Bluefin go to the position. Anyone can poke collect.</div>'+
-            '</div>'
-          : '<div class="ticket">'+
-          '<div class="sides">'+
-            '<div data-side="Buy" id="btn-buy" class="'+(buyOn?"on-buy":"")+'">Buy</div>'+
-            '<div data-side="Sell" id="btn-sell" class="'+(buyOn?"":"on-sell")+'">Sell</div></div>'+
-          payRoute+
-          '<div style="display:flex;justify-content:space-between;margin:16px 0 8px;font-size:13px;color:var(--muted)"><span id="pay-label">'+meta.payLabel+'</span><span id="bal-text" class="mono">'+(suiPay?balance:walletBal(q)).toFixed(2)+' '+(suiPay?"SUI":q)+'</span></div>'+
-          '<input id="amt" class="amt" value="'+state.amt+'">'+
-          '<div class="chips" id="amt-chips">'+chips+'</div>'+
-          '<div style="margin-top:16px">'+
-            '<div class="kv"><span style="color:var(--muted)">You receive</span><span id="receive" class="mono">'+meta.receive+'</span></div>'+
-            hopRow+
-            '<div class="kv"><span style="color:var(--muted)">Swap fee · 1%</span><span id="fee" class="mono" style="color:#298DFF">'+meta.fee+'</span></div>'+
-            '<div id="fee-chips" class="fee-chips">'+meta.chips+'</div>'+
-            '<div class="kv"><span style="color:var(--muted)">Venue</span><span id="venue-text">'+(suiPay?"Bluefin Spot → curve":"Bonding curve")+'</span></div></div>'+
-          '<button type="button" class="btn-trade'+(buyOn?"":" sell")+'" id="trade-btn" data-trade>'+meta.tradeLabel+'</button>'+
-          '<div id="fee-note" style="margin-top:10px;text-align:center;font-size:11px;color:var(--muted)">'+meta.note+'</div>'+
-        '</div>')+'</div>'+
+            '<div id="tv-host" class="tv-host"></div></div>'+
+          '<div class="card" style="padding:18px;margin-top:12px">'+tapeBody+'</div></div>'+
+        pairTicket(tk, q, insta)+'</div>'+
       footerHTML()+'</div>';
   }
   function hashFor(route, sym){
@@ -1221,14 +1183,16 @@ window.ARENA_PIT_XAUM = "0xa8a391bf380914c04be5deb478474b42754a5aa8c29c0955f267d
     const tapeEl = $("#tape");
     if (!tapeEl) return;
     const tk = findT(state.sym);
-    const n = state.tapeTab === "holders" ? holdersOf(tk).list.length : tapeItems(50, tk.t).length;
-    const count = document.querySelector(".tape-count");
-    if (count) count.textContent = n;
-    if (state.tapeTab === "holders"){
-      tapeEl.innerHTML = holderHTML(tk) || '<div class="empty">No holders yet.</div>';
+    if (isInstadex(tk) || tk.bluefinPool){
+      tapeEl.innerHTML = '<div class="empty">Live on Bluefin.</div>';
+      const count = document.querySelector(".tape-count");
+      if (count) count.textContent = "";
       return;
     }
-    tapeEl.innerHTML = tapeHTML(state.route === "token" ? state.sym : null);
+    const n = holdersOf(tk).list.length;
+    const count = document.querySelector(".tape-count");
+    if (count) count.textContent = n;
+    tapeEl.innerHTML = holderHTML(tk) || '<div class="empty">No holders yet.</div>';
   }
   function paintLive(){
     paintClocks();
@@ -1589,42 +1553,8 @@ window.ARENA_PIT_XAUM = "0xa8a391bf380914c04be5deb478474b42754a5aa8c29c0955f267d
     });
   }
   function doLaunch(){
-    if (state.lPath === "instadex"){
-      const wait = $("#launch-go");
-      if (wait){ wait.disabled = true; wait.textContent = "Instadex waits on the next package upgrade"; }
-      return;
-    }
-    if (state.lPath === "sui") state.lQuote = "SUI";
-    if (state.lPath === "xaum") state.lQuote = "XAUM";
-    const name = (state.lName || ($("#l-name") && $("#l-name").value) || "").trim();
-    const tick = (state.lTick || ($("#l-tick") && $("#l-tick").value) || "").trim().toUpperCase().replace(/[^A-Z0-9]/g,"").slice(0,8);
-    if (!name || !tick) return;
-    if (T.some(function(k){ return k.t === tick; })) { go("token", tick); return; }
-    const btn = $("#launch-go");
-    const note = $("#l-art-note");
-    const file = state.lFile;
-    function finish(img){
-      const k = {t:tick,n:name,b:"Just entered the arena.",cap:state.lQuote==="XAUM"?0.04:48,ch:0,h:1,st:"Live",mode:state.lMode,q:state.lQuote,c:"#298DFF",born:T.length,img:img||""};
-      const base = Math.max(2.4, k.cap/34);
-      k.buckets = Array.from({length:12},function(){return +base.toFixed(2);});
-      k.fbuckets = k.buckets.map(function(){return 1;});
-      T.push(k);
-      if (!state.connected) state.connected = true;
-      state.lFile = null; state.lArtUrl = ""; state.lArtPreview = "";
-      go("token", tick);
-    }
-    if (file && !state.lArtUrl){
-      if (btn){ btn.disabled = true; btn.textContent = "Uploading art…"; }
-      uploadArt(file).then(function(url){
-        state.lArtUrl = url;
-        finish(url);
-      }).catch(function(err){
-        if (btn){ btn.disabled = false; btn.textContent = "Launch token · 1 SUI"; }
-        if (note) note.textContent = (err && err.message) || "Upload failed";
-      });
-      return;
-    }
-    finish(state.lArtUrl);
+    const wait = $("#launch-go");
+    if (wait){ wait.disabled = true; wait.textContent = "Instadex waits on the next package upgrade"; }
   }
   document.addEventListener("click", function(e){
     const launch = e.target.closest("#launch-go");
@@ -1677,8 +1607,7 @@ window.ARENA_PIT_XAUM = "0xa8a391bf380914c04be5deb478474b42754a5aa8c29c0955f267d
       const val = set.getAttribute("data-val");
       state[key] = val;
       if (key === "lPath"){
-        if (val === "sui") state.lQuote = "SUI";
-        else if (val === "xaum") state.lQuote = "XAUM";
+        state.lPath = "instadex";
       }
       if (key === "tapeTab"){ paintTape();
         $$("[data-set=\"tapeTab\"]").forEach(function(el){
