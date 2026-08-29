@@ -1,0 +1,490 @@
+/**
+ * Arena client indexer (window.ArenaIndex).
+ *
+ * Subscribe: P::events::TradeEvent + P::events::ClaimEvent (kind=0 reflection, kind=1 pit).
+ * LaunchEvent.quote / index.pools[id].quote → SUI or XAUM (gold quote type is XAUM).
+ * toCandles(trades, intervalMs) → TVBar { time: unix ms, open, high, low, close, volume }.
+ * volume on candles is mist (1e9); the token page converts with fromMist for TV.
+ *
+ * packageId unset → demo TradeEvents so the chart still has candles.
+ *
+ * Quote fee is 1% (100 bps). Reflection 50/20/20/10 reflections/creator/pit/platform.
+ * Non-reflection 60/10/30 creator/platform/pit (reflection_fee 0). pit_fee is always
+ * non-zero on fills. Gold quote type is XAUM.
+ */
+(function (root) {
+  "use strict";
+
+  var XAUM_TYPE =
+    "0x9d297676e7a4b771ab023291377b2adfaa4938fb9080b8d12430e4b108b836a9::xaum::XAUM";
+  var SUI_TYPE = "0x2::sui::SUI";
+  var CLAIM_REFLECTION = 0;
+  var CLAIM_PIT = 1;
+  var MIST = 1e9;
+  var DEFAULT_RPC = "https://fullnode.mainnet.sui.io:443";
+  var DEMO_WALLET = "0x8f2a00000000000000000000000000000000000000000000000000000000ab71";
+  var ADDRS = [
+    DEMO_WALLET,
+    "0xa91c00000000000000000000000000000000000000000000000000000000d012",
+    "0x11c000000000000000000000000000000000000000000000000000000000012f",
+    "0x70bb000000000000000000000000000000000000000000000000000000004410",
+    "0xcc8100000000000000000000000000000000000000000000000000000000e203",
+    "0x5d0e00000000000000000000000000000000000000000000000000000000c801",
+    "0x09ae000000000000000000000000000000000000000000000000000000003290",
+    "0xbb2100000000000000000000000000000000000000000000000000000000aa13",
+  ];
+
+  function quoteLabel(quote) {
+    if (!quote) return "SUI";
+    var s = String(quote);
+    if (s === "XAUM" || s === XAUM_TYPE || /xaum/i.test(s)) return "XAUM";
+    return "SUI";
+  }
+
+  function fromMist(s) {
+    var n = Number(s);
+    return isFinite(n) ? n / MIST : 0;
+  }
+
+  function toMist(n) {
+    return Math.max(0, Math.round(Number(n) * MIST));
+  }
+
+  function num(v) {
+    var n = Number(v);
+    return isFinite(n) ? n : 0;
+  }
+
+  /** Bonding-curve price in quote/token (same 9-dec units cancel). */
+  function tradePrice(t) {
+    if (!t) return 0;
+    if (t.price != null && isFinite(t.price) && t.price > 0) return Number(t.price);
+    var qr = num(t.quote_real);
+    var tr = num(t.token_reserve);
+    if (qr > 0 && tr > 0) return qr / tr;
+    var q = num(t.quote_amount);
+    var tok = num(t.token_amount);
+    if (q > 0 && tok > 0) return q / tok;
+    return 0;
+  }
+
+  /**
+   * Aggregate TradeEvents into TVBar candles.
+   * time = unix ms bucket start. volume = mist (quote_amount).
+   */
+  function toCandles(trades, intervalMs) {
+    var bucket = intervalMs > 0 ? intervalMs : 60 * 1000;
+    var map = {};
+    var list = (trades || []).slice().sort(function (a, b) {
+      return num(a.ts || a.timestampMs) - num(b.ts || b.timestampMs);
+    });
+    for (var i = 0; i < list.length; i++) {
+      var t = list[i];
+      var ts = num(t.ts || t.timestampMs || t.time);
+      if (ts > 0 && ts < 1e12) ts = ts * 1000;
+      var px = tradePrice(t);
+      var vol = num(t.quote_amount);
+      if (!ts || !(px > 0)) continue;
+      var bt = Math.floor(ts / bucket) * bucket;
+      var b = map[bt];
+      if (!b) {
+        map[bt] = { time: bt, open: px, high: px, low: px, close: px, volume: vol };
+      } else {
+        b.high = Math.max(b.high, px);
+        b.low = Math.min(b.low, px);
+        b.close = px;
+        b.volume += vol;
+      }
+    }
+    return Object.keys(map)
+      .map(function (k) { return map[k]; })
+      .sort(function (a, b) { return a.time - b.time; });
+  }
+
+  function seedOf(s) {
+    var n = 0;
+    s = String(s || "");
+    for (var i = 0; i < s.length; i++) n = (n * 33 + s.charCodeAt(i)) >>> 0;
+    return n;
+  }
+
+  var FEE_BPS = 100;
+  var REFL_BPS = { reflection: 50, creator: 20, pit: 20, platform: 10 };
+  var NON_REFL_BPS = { reflection: 0, creator: 60, pit: 30, platform: 10 };
+
+  function mistStr(v) {
+    if (v == null || v === "") return "0";
+    return String(v);
+  }
+
+  function asTrade(raw) {
+    raw = raw || {};
+    var ts = num(raw.ts || raw.timestampMs || raw.time) || Date.now();
+    if (ts > 0 && ts < 1e12) ts = ts * 1000;
+    var out = {
+      pool_id: String(raw.pool_id || raw.poolId || raw.symbol || raw.token || ""),
+      trader: String(raw.trader || DEMO_WALLET),
+      is_buy: !!(raw.is_buy || raw.isBuy),
+      quote_amount: mistStr(raw.quote_amount),
+      token_amount: mistStr(raw.token_amount),
+      pit_fee: mistStr(raw.pit_fee),
+      reflection_fee: mistStr(raw.reflection_fee),
+      creator_fee: mistStr(raw.creator_fee),
+      platform_fee: mistStr(raw.platform_fee),
+      raised: mistStr(raw.raised),
+      token_reserve: mistStr(raw.token_reserve),
+      quote_real: mistStr(raw.quote_real),
+      ts: ts,
+      timestampMs: ts
+    };
+    if (raw.price != null && isFinite(Number(raw.price))) out.price = Number(raw.price);
+    return out;
+  }
+
+  function makeTrade(opts) {
+    opts = opts || {};
+    var ts = opts.ts || Date.now();
+    var price = opts.price > 0 ? opts.price : 4.65e-6;
+    var quoteHuman = opts.quote != null ? Number(opts.quote) : 1;
+    var quote_amount = toMist(quoteHuman);
+    var token_amount = Math.max(1, Math.round(quote_amount / price));
+    var reflOn = !!opts.reflection;
+    var split = reflOn ? REFL_BPS : NON_REFL_BPS;
+    var pit_fee = Math.round(quote_amount * split.pit / 10000);
+    var reflection_fee = Math.round(quote_amount * split.reflection / 10000);
+    var creator_fee = Math.round(quote_amount * split.creator / 10000);
+    var platform_fee = Math.round(quote_amount * split.platform / 10000);
+    var quote_real = opts.quote_real != null ? toMist(opts.quote_real) : quote_amount;
+    var token_reserve = opts.token_reserve != null
+      ? (typeof opts.token_reserve === "string" ? num(opts.token_reserve) : toMist(opts.token_reserve))
+      : Math.max(1, Math.round(quote_real / price));
+    var raised = opts.raised != null ? toMist(opts.raised) : quote_real;
+    return asTrade({
+      pool_id: opts.pool_id,
+      trader: opts.trader,
+      is_buy: opts.is_buy,
+      quote_amount: String(quote_amount),
+      token_amount: String(token_amount),
+      pit_fee: String(pit_fee),
+      reflection_fee: String(reflection_fee),
+      creator_fee: String(creator_fee),
+      platform_fee: String(platform_fee),
+      raised: String(raised),
+      token_reserve: String(token_reserve),
+      quote_real: String(quote_real),
+      price: price,
+      ts: ts
+    });
+  }
+
+  function tokenQuote(tk) {
+    if (!tk) return "SUI";
+    return quoteLabel(tk.q || tk.quote || "SUI");
+  }
+
+  function isHolders(tk) {
+    return !!(tk && tk.mode === "Holders");
+  }
+
+  function basePrice(tk) {
+    if (!tk) return 4.65e-6;
+    if (tokenQuote(tk) === "XAUM") return 6.2e-10 * (1 + (seedOf(tk.t) % 9) * 0.08);
+    return 4.65e-6 * (1 + (seedOf(tk.t) % 17) * 0.035);
+  }
+
+  /**
+   * Historical TradeEvents for demo tokens. pool_id = ticker so the page can filter.
+   */
+  function generateDemoHistory(tokens) {
+    var now = Date.now();
+    var trades = [];
+    var launches = [];
+    (tokens || []).forEach(function (tk, ti) {
+      var seed = seedOf(tk.t);
+      var price = basePrice(tk);
+      var count = 280 + (seed % 40);
+      var raisedHuman = Math.max(8, (tk.cap || 100) * 0.36);
+      var gold = tokenQuote(tk) === "XAUM";
+      launches.push({
+        pool_id: tk.t,
+        token: tk.t,
+        quote: gold ? XAUM_TYPE : SUI_TYPE,
+        creator: ADDRS[ti % ADDRS.length],
+        pit_mode: isHolders(tk) ? 0 : 1,
+        reflection: isHolders(tk),
+        name: tk.n,
+        symbol: tk.t,
+      });
+      for (var i = count; i >= 0; i--) {
+        var ts = now - i * 22 * 1000 - (seed % 17) * 1000;
+        var wave = Math.sin((count - i + seed) * 0.19) * 0.011;
+        var isBuy = ((seed + i * 3) % 10) > 2;
+        price = Math.max(price * 0.15, price * (1 + (isBuy ? 1 : -1) * (0.003 + Math.abs(wave)) + wave * 0.15));
+        var quoteHuman = gold
+          ? 0.008 + ((seed * 11 + i * 19) % 180) / 10000
+          : 0.35 + ((seed * 13 + i * 17) % 1800) / 100;
+        raisedHuman += isBuy ? quoteHuman : 0;
+        trades.push(makeTrade({
+          pool_id: tk.t,
+          trader: ADDRS[(seed + i) % ADDRS.length],
+          is_buy: isBuy,
+          quote: quoteHuman,
+          price: price,
+          reflection: isHolders(tk),
+          raised: raisedHuman,
+          quote_real: raisedHuman,
+          ts: ts,
+        }));
+      }
+    });
+    trades.sort(function (a, b) { return a.ts - b.ts; });
+    return { trades: trades, launches: launches };
+  }
+
+  function generateDemoLive(tokens, now) {
+    tokens = tokens || [];
+    if (!tokens.length) return null;
+    var tk = tokens[Math.floor(Math.random() * tokens.length)];
+    var gold = tokenQuote(tk) === "XAUM";
+    var isBuy = Math.random() > 0.32;
+    var quoteHuman = gold ? 0.01 + Math.random() * 0.08 : 0.4 + Math.random() * 18;
+    var px = basePrice(tk) * (1 + (Math.random() - 0.4) * 0.08);
+    return makeTrade({
+      pool_id: tk.t,
+      trader: ADDRS[Math.floor(Math.random() * ADDRS.length)],
+      is_buy: isBuy,
+      quote: quoteHuman,
+      price: px,
+      reflection: isHolders(tk),
+      raised: Math.max(8, (tk.cap || 100) * 0.42),
+      quote_real: Math.max(8, (tk.cap || 100) * 0.36),
+      ts: now || Date.now(),
+    });
+  }
+
+  function demoSnapshot(tokens, wallet) {
+    wallet = wallet || DEMO_WALLET;
+    var pools = {};
+    (tokens || []).forEach(function (tk) {
+      if (!isHolders(tk)) return;
+      var q = tokenQuote(tk);
+      var unpaid = q === "XAUM" ? "420000000" : "1250000000";
+      var claimed = q === "XAUM" ? "80000000" : "400000000";
+      var holders = {};
+      holders[wallet] = {
+        poolId: tk.t,
+        address: wallet,
+        registered: "1000000000000",
+        unpaidReflection: unpaid,
+        claimedReflection: claimed,
+        updatedMs: Date.now(),
+      };
+      pools[tk.t] = {
+        quote: q,
+        reflection: true,
+        holders: holders,
+        totalReflectionFees: "5000000000",
+        totalClaimed: claimed,
+      };
+    });
+    return { pools: pools, cursor: null };
+  }
+
+  function rpcCall(rpc, method, params) {
+    return fetch(rpc, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: method, params: params }),
+    }).then(function (r) { return r.json(); }).then(function (j) {
+      if (j.error) throw new Error(j.error.message || "rpc error");
+      return j.result;
+    });
+  }
+
+  function queryEvents(rpc, type, cursor, limit) {
+    return rpcCall(rpc, "suix_queryEvents", [
+      { MoveEventType: type },
+      cursor || null,
+      limit || 50,
+      false,
+    ]).then(function (res) {
+      return res || { data: [], hasNextPage: false, nextCursor: null };
+    });
+  }
+
+  function parseTrade(ev) {
+    var p = ev.parsedJson || {};
+    return asTrade({
+      pool_id: p.pool_id,
+      trader: p.trader || ev.sender,
+      is_buy: p.is_buy,
+      quote_amount: p.quote_amount,
+      token_amount: p.token_amount,
+      pit_fee: p.pit_fee,
+      reflection_fee: p.reflection_fee,
+      creator_fee: p.creator_fee,
+      platform_fee: p.platform_fee,
+      raised: p.raised,
+      token_reserve: p.token_reserve,
+      quote_real: p.quote_real,
+      ts: num(ev.timestampMs) || Date.now()
+    });
+  }
+
+  function parseClaim(ev) {
+    var p = ev.parsedJson || {};
+    return {
+      pool_id: String(p.pool_id || ""),
+      who: String(p.who || ""),
+      amount: String(p.amount || "0"),
+      kind: num(p.kind),
+      ts: num(ev.timestampMs),
+    };
+  }
+
+  function parseLaunch(ev) {
+    var p = ev.parsedJson || {};
+    return {
+      pool_id: String(p.pool_id || ""),
+      token: p.token,
+      quote: p.quote,
+      creator: String(p.creator || ""),
+      pit_mode: num(p.pit_mode),
+      reflection: !!p.reflection,
+      name: p.name,
+      symbol: p.symbol || "",
+    };
+  }
+
+  async function collect(rpc, type, parse, pages, limit) {
+    var out = [];
+    var cursor = null;
+    for (var i = 0; i < (pages || 8); i++) {
+      var page = await queryEvents(rpc, type, cursor, limit || 50);
+      var data = page.data || [];
+      if (!data.length) break;
+      for (var j = 0; j < data.length; j++) out.push(parse(data[j]));
+      if (!page.hasNextPage || !page.nextCursor) break;
+      cursor = page.nextCursor;
+    }
+    return out;
+  }
+
+  /**
+   * subscribe({ packageId, rpc, tokens, live, demoMs, onTrade, onLaunch })
+   * Returns { trades, claims, push, stop }. trades is a live array.
+   */
+  function subscribe(opts) {
+    opts = opts || {};
+    var trades = [];
+    var claims = [];
+    var timer = null;
+
+    function push(ev) {
+      if (!ev) return ev;
+      trades.push(ev);
+      if (opts.onTrade) opts.onTrade(ev);
+      return ev;
+    }
+
+    if (!opts.packageId) {
+      var hist = generateDemoHistory(opts.tokens || []);
+      hist.trades.forEach(function (t) { trades.push(t); });
+      (hist.launches || []).forEach(function (l) {
+        if (opts.onLaunch) opts.onLaunch(l);
+      });
+      if (opts.live) {
+        timer = setInterval(function () {
+          push(generateDemoLive(opts.tokens, Date.now()));
+        }, opts.demoMs || 1000);
+      }
+    } else {
+      var rpc = opts.rpc || DEFAULT_RPC;
+      var P = opts.packageId;
+      collect(rpc, P + "::events::TradeEvent", parseTrade, 8, 50).then(function (rows) {
+        rows.forEach(function (t) { push(t); });
+      }).catch(function () {});
+      collect(rpc, P + "::events::ClaimEvent", parseClaim, 4, 50).then(function (rows) {
+        rows.forEach(function (c) { claims.push(c); });
+      }).catch(function () {});
+      collect(rpc, P + "::events::LaunchEvent", parseLaunch, 2, 50).then(function (rows) {
+        rows.forEach(function (l) { if (opts.onLaunch) opts.onLaunch(l); });
+      }).catch(function () {});
+    }
+
+    return {
+      trades: trades,
+      claims: claims,
+      push: push,
+      stop: function () { if (timer) { clearInterval(timer); timer = null; } },
+    };
+  }
+
+  async function loadSnapshot(url) {
+    if (!url) return null;
+    var res = await fetch(url, { cache: "no-store" });
+    if (!res.ok) throw new Error("snapshot " + res.status);
+    return res.json();
+  }
+
+  async function loadIndex(url) {
+    if (!url) return { index: null };
+    var index = await loadSnapshot(url);
+    return { index: index };
+  }
+
+  function holderQuote(index, poolId, address) {
+    if (!index || !index.pools) return null;
+    var rec = index.pools[poolId];
+    if (!rec) return null;
+    var holders = rec.holders || {};
+    var h = address ? (holders[address] || holders[String(address).toLowerCase()]) : null;
+    if (!h) {
+      var keys = Object.keys(holders);
+      h = keys.length ? holders[keys[0]] : null;
+    }
+    return {
+      quote: quoteLabel(rec.quote),
+      reflection: !!rec.reflection,
+      unpaid: h ? h.unpaidReflection : "0",
+      claimed: h ? h.claimedReflection : "0",
+      unpaidHuman: fromMist(h && h.unpaidReflection),
+      claimedHuman: fromMist(h && h.claimedReflection),
+      holder: h || null,
+    };
+  }
+
+  var api = {
+    XAUM_TYPE: XAUM_TYPE,
+    SUI_TYPE: SUI_TYPE,
+    CLAIM_REFLECTION: CLAIM_REFLECTION,
+    CLAIM_PIT: CLAIM_PIT,
+    DEMO_WALLET: DEMO_WALLET,
+    quoteLabel: quoteLabel,
+    fromMist: fromMist,
+    toMist: toMist,
+    tradePrice: tradePrice,
+    toCandles: toCandles,
+    asTrade: asTrade,
+    makeTrade: makeTrade,
+    FEE_BPS: FEE_BPS,
+    REFL_BPS: REFL_BPS,
+    NON_REFL_BPS: NON_REFL_BPS,
+    generateDemoHistory: generateDemoHistory,
+    generateDemoLive: generateDemoLive,
+    demoTrades: function (opts) {
+      opts = opts || {};
+      var tk = { t: opts.ticker || "VOLT", n: opts.ticker || "VOLT", cap: 465, mode: "Holders", q: "SUI" };
+      return generateDemoHistory([tk]).trades;
+    },
+    demoSnapshot: demoSnapshot,
+    subscribe: subscribe,
+    loadSnapshot: loadSnapshot,
+    loadIndex: loadIndex,
+    holderQuote: holderQuote,
+    queryEvents: queryEvents,
+  };
+
+  root.ArenaIndex = api;
+  root.ArenaIndexer = api;
+})(typeof window !== "undefined" ? window : globalThis);
