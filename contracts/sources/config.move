@@ -20,8 +20,9 @@ const DEFAULT_STD_CREATOR_BPS: u64 = 6_000;
 const DEFAULT_STD_PLATFORM_BPS: u64 = 1_000;
 const DEFAULT_STD_PIT_BPS: u64 = 3_000;
 const DEFAULT_REFL_REFLECTION_BPS: u64 = 5_000;
-const DEFAULT_REFL_CREATOR_BPS: u64 = 2_500;
-const DEFAULT_REFL_PLATFORM_BPS: u64 = 2_500;
+const DEFAULT_REFL_CREATOR_BPS: u64 = 2_000;
+const DEFAULT_REFL_PIT_BPS: u64 = 2_000;
+const DEFAULT_REFL_PLATFORM_BPS: u64 = 1_000;
 const DEFAULT_GRADUATION_SUI: u64 = 2_000 * 1_000_000_000;
 const DEFAULT_GRADUATION_XAUM: u64 = 1_000_000_000; // 1 XAUM
 const DEFAULT_VIRTUAL_QUOTE_SUI: u64 = 30_000_000_000;
@@ -49,6 +50,7 @@ public struct Config has key {
     std_pit_bps: u64,
     refl_reflection_bps: u64,
     refl_creator_bps: u64,
+    refl_pit_bps: u64,
     refl_platform_bps: u64,
     graduation_sui: u64,
     graduation_xaum: u64,
@@ -75,6 +77,7 @@ fun init(ctx: &mut TxContext) {
         std_pit_bps: DEFAULT_STD_PIT_BPS,
         refl_reflection_bps: DEFAULT_REFL_REFLECTION_BPS,
         refl_creator_bps: DEFAULT_REFL_CREATOR_BPS,
+        refl_pit_bps: DEFAULT_REFL_PIT_BPS,
         refl_platform_bps: DEFAULT_REFL_PLATFORM_BPS,
         graduation_sui: DEFAULT_GRADUATION_SUI,
         graduation_xaum: DEFAULT_GRADUATION_XAUM,
@@ -99,14 +102,15 @@ public fun take_launch_fee(config: &mut Config, fee: Coin<SUI>) {
 }
 
 /// `(creator, platform, pit, refl)` split of `swap_fee_bps` on `quote_amount`.
-/// Standard: 60/10/30 creator/platform/pit. Reflection: 50/25/25 refl/creator/platform, pit=0.
+/// Standard: 60/10/30 creator/platform/pit. Reflection: 50/20/20/10 refl/creator/pit/platform.
 public fun fee_split(config: &Config, reflection: bool, quote_amount: u64): (u64, u64, u64, u64) {
     let fee = math::mul_div(quote_amount, config.swap_fee_bps, BPS);
     if (reflection) {
         let creator = math::mul_div(fee, config.refl_creator_bps, BPS);
         let platform = math::mul_div(fee, config.refl_platform_bps, BPS);
+        let pit = math::mul_div(fee, config.refl_pit_bps, BPS);
         let refl = math::mul_div(fee, config.refl_reflection_bps, BPS);
-        (creator, platform, 0, refl)
+        (creator, platform, pit, refl)
     } else {
         let creator = math::mul_div(fee, config.std_creator_bps, BPS);
         let platform = math::mul_div(fee, config.std_platform_bps, BPS);
@@ -171,6 +175,7 @@ public fun std_platform_bps(config: &Config): u64 { config.std_platform_bps }
 public fun std_pit_bps(config: &Config): u64 { config.std_pit_bps }
 public fun refl_reflection_bps(config: &Config): u64 { config.refl_reflection_bps }
 public fun refl_creator_bps(config: &Config): u64 { config.refl_creator_bps }
+public fun refl_pit_bps(config: &Config): u64 { config.refl_pit_bps }
 public fun refl_platform_bps(config: &Config): u64 { config.refl_platform_bps }
 public fun graduation_sui(config: &Config): u64 { config.graduation_sui }
 public fun graduation_xaum(config: &Config): u64 { config.graduation_xaum }
@@ -213,11 +218,13 @@ public fun set_refl_split(
     _: &AdminCap,
     reflection_bps: u64,
     creator_bps: u64,
+    pit_bps: u64,
     platform_bps: u64,
 ) {
-    assert!(reflection_bps + creator_bps + platform_bps == BPS, errors::invalid_fee());
+    assert!(reflection_bps + creator_bps + pit_bps + platform_bps == BPS, errors::invalid_fee());
     config.refl_reflection_bps = reflection_bps;
     config.refl_creator_bps = creator_bps;
+    config.refl_pit_bps = pit_bps;
     config.refl_platform_bps = platform_bps;
 }
 

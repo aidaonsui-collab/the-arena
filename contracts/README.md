@@ -6,7 +6,7 @@ Fair launches on Sui. Bonding curve, no presale.
 
 1. **TOKEN/SUI** — curve quoted in SUI. Graduation at 2,000 SUI.
 2. **TOKEN/XAUM** — same curve, quoted in Matrixdock gold. Bluefin Spot lists this as **XAUM**, not GOLD.
-3. **Reflection** — same 1% swap fee, split 50/25/25 reflections/creator/platform (`pit_fee`=0).
+3. **Reflection** — same 1% swap fee, split 50/20/20/10 reflections/creator/pit/platform.
 
 ## Gold quote is XAUM
 

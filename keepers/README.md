@@ -20,7 +20,7 @@ ARENA_PACKAGE_ID=0x... npx tsx src/cli.ts reflections
 
 Package `P`. Subscribe:
 
-- `P::events::TradeEvent` — candles, tape, `pit_fee`, `reflection_fee`, `creator_fee`, `platform_fee` (reflection fills have `pit_fee`=0)
+- `P::events::TradeEvent` — candles, tape, `pit_fee`, `reflection_fee`, `creator_fee`, `platform_fee` (reflection fills include a pit cut)
 - `P::events::ClaimEvent` — `kind=0` reflection, `kind=1` pit, `kind=2` creator
 - `P::events::LaunchEvent` — `reflection: bool`, quote type
 - `P::events::BellEvent` / `PitSettleEvent` / `PitNudgeEvent`

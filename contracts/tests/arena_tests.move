@@ -170,10 +170,11 @@ fun test_reflection_two_buyers() {
         let clock = scenario.take_shared<Clock>();
         let pay = coin::mint_for_testing<SUI>(10_000, scenario.ctx());
         let tokens = pool::buy(&mut pool, &mut config, &mut pit, pay, 0, &clock, scenario.ctx());
-        // reflection split: 50/25/25, 0 pit. raised 9900.
+        // reflection split: 50/20/20/10 refl/creator/pit/platform. raised 9900.
         assert!(pool.raised() == 9_900, 0);
-        assert!(pit.pot_value() == 0, 1);
-        assert!(pool.creator_pot_value() == 25, 2);
+        assert!(pit.pot_value() == 20, 1);
+        assert!(pool.creator_pot_value() == 20, 2);
+        assert!(config.platform_value<SUI>() == 10, 21);
         transfer::public_transfer(tokens, USER1);
         ts::return_shared(config);
         ts::return_shared(pit);
@@ -189,7 +190,7 @@ fun test_reflection_two_buyers() {
         let clock = scenario.take_shared<Clock>();
         let pay = coin::mint_for_testing<SUI>(10_000, scenario.ctx());
         let tokens = pool::buy(&mut pool, &mut config, &mut pit, pay, 0, &clock, scenario.ctx());
-        assert!(pit.pot_value() == 0, 3);
+        assert!(pit.pot_value() == 40, 3);
         let refl = pool::claim_reflection(&mut pool, scenario.ctx());
         assert!(refl.value() > 0, 4);
         coin::burn_for_testing(tokens);
