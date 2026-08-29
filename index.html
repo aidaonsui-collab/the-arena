@@ -765,6 +765,12 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     tk = tk && tk.t ? tk : (tk ? findT(tk) : null);
     return !!(tk && (isInstadex(tk) || tk.bluefinPool));
   }
+  function dexEmbed(pool){
+    if (!pool) return '<div class="tv-host" style="display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:13px">Bluefin pool pending</div>';
+    const src = "https://dexscreener.com/sui/"+pool+"?embed=1&theme=dark&info=0";
+    return '<div class="tv-host"><iframe src="'+src+'" title="Dexscreener" allow="clipboard-write" allowfullscreen></iframe></div>';
+  }
+
   function isRefl(tk){
     tk = tk && tk.t ? tk : findT(tk || state.sym);
     if (isInstadex(tk)) return false;
@@ -1346,18 +1352,9 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
                   '<div class="about-s">'+burnSub+'</div></div>')+
             '</div>'+
           '<div class="about-links">'+aboutLinks+'</div></div>'+
-          (dexBout
-            ? '<div class="card" style="padding:18px;margin-top:12px">'+
-                '<div class="stat k">Price</div>'+
-                '<p style="color:var(--muted);margin:10px 0 14px">Price and volume live on the Bluefin pool. No Arena candles.</p>'+
-                '<div class="about-links">'+
-                  (tk.bluefinPool ? '<a class="about-link" href="'+dex+'" target="_blank" rel="noopener">Dexscreener</a>' : '')+
-                  (tk.bluefinPool ? '<a class="about-link" href="'+gecko+'" target="_blank" rel="noopener">GeckoTerminal</a>' : '')+
-                  (tk.bluefinPool ? '<a class="about-link" href="https://trade.bluefin.io/swap?pool='+tk.bluefinPool+'" target="_blank" rel="noopener">Bluefin</a>' : '<span class="feat-tick">Bluefin pool pending</span>')+
-                '</div></div>'
-            : '<div class="card" style="padding:18px;margin-top:12px">'+
-                '<div style="display:flex;justify-content:space-between;margin-bottom:8px"><span class="stat k">Chart</span><span class="feat-tick">'+tk.t+' / '+q+'</span></div>'+
-                '<div id="tv-host" class="tv-host"></div></div>')+
+          '<div class="card" style="padding:18px;margin-top:12px">'+
+            '<div style="display:flex;justify-content:space-between;margin-bottom:8px"><span class="stat k">Chart</span><span class="feat-tick">'+tk.t+' / '+q+'</span></div>'+
+            dexEmbed(tk.bluefinPool)+'</div>'+
           '<div class="card" style="padding:18px;margin-top:12px">'+tapeBody+'</div></div>'+
         pairTicket(tk, q, insta)+'</div>'+
       footerHTML()+'</div>';
@@ -1579,6 +1576,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   }
   function mountTvChart(){
     dropTv();
+    return; // Dexscreener embed; no TradingView
     if (state.route !== "token") return;
     const tk = findT(state.sym);
     if (isDexBout(tk)) return;
