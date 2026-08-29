@@ -3,20 +3,22 @@
 Published from `0x92a32ac7fd525f8bd37ed359423b8d7d858cad26224854dfbff1914b75ee658b`.
 
 - Type origin / original package: `0x5cfddf8ba23be6835644a8ea22482ff6ebb0081e42cc1bc052b5f770ca8bbdea`
-- Latest published-at (v4): `0xcf7835ae4e3f8a3d4eb4bd9d14cb4a3dbdd80e70908feb6c433688a31e119de3`
+- Latest published-at (v5): `0x68e178d50276b3bcbce11a136df48909aceff1f2a8ee8a45483e9f128e989972`
+- v4 published-at: `0xcf7835ae4e3f8a3d4eb4bd9d14cb4a3dbdd80e70908feb6c433688a31e119de3`
 - v3 published-at: `0x067136624c5bec5221247e9b0a0a1afbd77a79aadbabdac18a95a10bc186cc74`
 - v2 published-at (BluefinLockEvent / BluefinPositionLock type origin): `0x8e28ff4116a8c9025b5d615b0b0a7bc45f4f543120f30a9d226e5b94c7277b79`
 - Config: `0xcd527cb2389d806e5285ae708ee28df30a841ec5df7508ebfebaa0c9660b5d2c`
 - Pit SUI: `0x8ec38e9bcac0838bf474680e71d0c3f302f4ea2f757d759b7b399701f904389c`
 - Pit XAUM: `0xa8a391bf380914c04be5deb478474b42754a5aa8c29c0955f267d73190a98783`
 - AdminCap: `0x79e041a4444971bfbf8000925ac3386d8351a3e997eb7d838d84eb6c3e507acf` (held by the platform wallet)
-- UpgradeCap: `0x8db3965ac77247107c811cb79bccd9bf1daf5647136a0b2f8891351a56d73608` (held by the platform wallet, version 4, policy Compatible)
+- UpgradeCap: `0x8db3965ac77247107c811cb79bccd9bf1daf5647136a0b2f8891351a56d73608` (held by the platform wallet, version 5, policy Compatible)
 - Publish tx: `4zVLuMuPGG62WrkNCeodwpYs1athobrYymqi3fPULQWt`
 - Upgrade v2 tx: `9XJ5cvahK2Un4BBDGBTk3FPREiDodwxVhUACb75YwYX1` (2026-08-29 15:42 CT)
 - Upgrade v3 tx: `AtVquqVh1G1FCvQTZyYQ3ZizNYfceDJA36d66gWsWjPW` (fee_rate 100000 → 10000)
 - Upgrade v4 tx: `7TSwzJG6nXTQE47vssGFBao4QzkfKWJXZUgGfTmSos6H` (2026-08-29 16:31 CT; Instadex + permanent lock + collect_bluefin_fees)
+- Upgrade v5 tx: `ETJ8WZpGFo6JDRVv7UtNiLuXbJBJ4zwCF9gYwL3ciQme` (2026-08-29 17:53 CT; collect_lp_fees 60/10/30 LP quote split)
 
-Call new functions on the latest published-at (`0xcf78…`). Object types stay `0x5cfd…::pool::Pool` etc. `BluefinLockEvent` and `BluefinPositionLock` originated in v2 (`0x8e28…`). `InstadexLaunchEvent` and `InstadexMintLock` originated in v4 (`0xcf78…`).
+Call new functions on the latest published-at (`0x68e1…`). Object types stay `0x5cfd…::pool::Pool` etc. `BluefinLockEvent` and `BluefinPositionLock` originated in v2 (`0x8e28…`). `InstadexLaunchEvent` and `InstadexMintLock` originated in v4 (`0xcf78…`). `CollectLpFeesEvent` originated in v5 (`0x68e1…`).
 
 ## Bluefin Spot (graduation seed)
 
@@ -64,3 +66,15 @@ Graduate PTB objects: Pool, Config, Clock, Bluefin GlobalConfig, CoinMetadata `<
 - InstadexMintLock: `0x38c1667f65f085677a577a48338dd86f6cb8ec1ea4aa0351bbcfb3cb39336e54` (shared, type origin v4 `0xcf78…`; TreasuryCap consumed)
 - `claim_bluefin_position` dry-run aborts `still_locked` (20). Did not execute on-chain. Did not remove liquidity.
 - `graduation_sui` left at `2000000000000` (2000 SUI).
+
+## IDEX collect_lp_fees smoke (2026-08-29 17:55 CT)
+
+- Buy: `GnvtnPJxFaTr9S3j1rvbS7p1SzdSjgmj3e1UB3Fxx2Lv` (0.01 SUI → 89797741 IDEX; swap fee 100000 MIST)
+- Collect: `3zTAALwcwWeYQf73GEVrNt12HiQ8Lf1LwC4QPLVQCTpo` (`0x68e1…::lock::collect_lp_fees<IDEX,SUI>`)
+- Bluefin `UserFeeCollected`: coin_a 0, coin_b 79999 (LP quote share; protocol kept ~20%)
+- `CollectLpFeesEvent`: token 0, creator 48001, platform 7999, pit 23999 (60/10/30 + 2 dust to creator)
+- Creator coin `0xa730d6aaac5de8146e08c8b85dab88f666a4a4a05cc457dbbe55a856eb90267a` = 48001 MIST SUI
+- Pit SUI pot 1108499 → 1132498 (+23999)
+- Config.platform bag received 7999 MIST SUI
+- `collect_bluefin_fees` on v5 dry-run aborts `use_split_collect` (23)
+- Position NFT still in lock `0x529a…`, liquidity 316227766, `unlock_ms` 0. `graduation_sui` left at 2000 SUI.
