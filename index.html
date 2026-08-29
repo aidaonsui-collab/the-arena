@@ -6,112 +6,180 @@
 <title>The Arena — Fair launches on Sui</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600;700&family=Instrument+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Instrument+Sans:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
 <style>
-html,body{margin:0;padding:0;background:#191A1F;color:#F2F0EC;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
-body{font-family:"Instrument Sans",system-ui,sans-serif;font-size:15px;line-height:1.55;overflow-x:hidden}
-a{color:#C9BBA3;text-decoration:none}
-a:hover{color:#F2F0EC}
-::selection{background:rgba(41,141,255,.34)}
-input,button{font:inherit;color:inherit}
-@keyframes ar-rise{0%{transform:translateY(30px) scale(.6);opacity:0}18%{opacity:.55}100%{transform:translateY(-220px) scale(1);opacity:0}}
-@keyframes ar-breathe{0%,100%{opacity:.45}50%{opacity:1}}
-@keyframes ar-flame{0%,100%{transform:scale(1);opacity:.75}50%{transform:scale(1.14);opacity:1}}
-@keyframes ar-up{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:none}}
-@keyframes ar-tape{from{opacity:0;transform:translateX(-14px)}to{opacity:1;transform:none}}
-@keyframes ar-roll{0%{transform:translateY(-.42em);opacity:.2;color:#298DFF}100%{transform:none;opacity:1}}
-@keyframes ar-draw{to{stroke-dashoffset:0}}
-@keyframes ar-seam{0%{opacity:0}50%{opacity:1}100%{opacity:0}}
-@keyframes ar-sweep{0%{transform:translateX(-120%)}100%{transform:translateX(320%)}}
-.btn-launch:hover{border-color:rgba(41,141,255,.8)!important;color:#F2F0EC!important;background:rgba(41,141,255,.08)!important}
-.btn-connect:hover{background:#298DFF!important}
-.card-top:hover{border-color:rgba(41,141,255,.5)!important;box-shadow:0 26px 70px rgba(0,0,0,.42)!important}
-.link-pit:hover{color:#F2F0EC!important}
-.row-bout:hover{background:rgba(255,255,255,.05)!important}
-.chip:hover{border-color:rgba(41,141,255,.6)!important;color:#F2F0EC!important}
-.btn-trade:hover{box-shadow:0 0 30px rgba(41,141,255,.45)!important}
-.inp-amt:focus{border-color:rgba(41,141,255,.7)!important;outline:none}
-html.fine-pointer,html.fine-pointer body,html.fine-pointer body *:not(input):not(textarea){cursor:none!important}
-html.shot,html.shot *{animation:none!important}
-html.shot [data-cursor]{display:none!important}
-html.shot [data-plate],html.shot [data-mark],html.shot [data-herotype]{will-change:auto!important}
-@media (max-width: 720px){
-  .floor-plate{
-    top:62%!important;
-    width:min(148vw,640px)!important;
-    height:min(148vw,640px)!important;
-    margin-left:max(-74vw,-320px)!important;
-    margin-top:max(-58vw,-280px)!important;
-  }
-  .pit-plate{
-    top:42%!important;
-    width:min(165vw,640px)!important;
-    height:min(165vw,640px)!important;
-    margin-left:max(-82.5vw,-320px)!important;
-    margin-top:max(-70vw,-300px)!important;
-  }
-  [data-screen-label="Pit"] > section{
-    min-height:100dvh;
-    overflow:visible!important;
-  }
-  [data-screen-label="Pit"] .pit-copy{
-    padding-top:88px!important;
-    padding-bottom:48px!important;
-  }
-  .floor-sticky{
-    overflow:visible!important;
-  }
+:root{
+  --bg:#F3F3F3; --card:#fff; --ink:#111; --muted:#6B7280; --line:#E7E7E7;
+  --sui:#298DFF; --lime:#C8F135; --up:#16A34A; --down:#DC2626;
+  --radius:32px; --shadow:0 8px 28px rgba(17,17,17,.05);
 }
-@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
-.tv-host{height:320px;width:100%;position:relative;margin-top:12px;background:#191A1F}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);-webkit-font-smoothing:antialiased}
+html{overflow-x:hidden}
+body{font-family:"Instrument Sans",ui-sans-serif,system-ui,sans-serif;font-size:15px;line-height:1.5;min-height:100dvh;overflow-x:hidden}
+a{color:var(--sui);text-decoration:none}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer}
+::selection{background:rgba(200,241,53,.45)}
+.shell{width:min(1180px,calc(100% - 32px));margin:0 auto}
+.serif{font-family:"Instrument Serif",Georgia,serif}
+.mono{font-family:"IBM Plex Mono",ui-monospace,monospace;font-variant-numeric:tabular-nums}
+.topbar{position:sticky;top:0;z-index:40;background:rgba(243,243,243,.88);backdrop-filter:blur(16px);border-bottom:1px solid transparent}
+.topbar-inner{display:flex;align-items:center;gap:14px;padding:14px 0;min-height:64px}
+.brand{display:flex;align-items:center;gap:9px;flex:none;cursor:pointer}
+.brand svg{display:block}
+.brand-name{font-family:"Instrument Serif",Georgia,serif;font-size:18px;letter-spacing:.2em;line-height:1;text-transform:uppercase}
+.nav-pill{display:flex;align-items:center;gap:4px;margin:0 auto;background:#EAEAEA;border-radius:999px;padding:4px}
+.nav-item{padding:8px 18px;border-radius:999px;font-size:14px;font-weight:500;color:var(--muted);cursor:pointer;transition:background .2s,color .2s;white-space:nowrap}
+.nav-item.on{background:#fff;color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.04)}
+.nav-item:hover{color:var(--ink)}
+.btn-connect{background:var(--lime);color:#111;border:0;border-radius:999px;padding:10px 18px;font-weight:600;font-size:14px;flex:none;transition:filter .15s}
+.btn-connect:hover{filter:brightness(.97)}
+.search-row{display:flex;align-items:center;gap:10px;margin:8px auto 6px}
+.search-bar{flex:1;display:flex;align-items:center;gap:10px;background:#fff;border-radius:999px;padding:12px 16px;box-shadow:var(--shadow);min-width:0}
+.search-bar svg{flex:none;opacity:.45}
+.search-bar input{flex:1;border:0;outline:none;background:transparent;min-width:0;font-size:15px}
+.search-bar input::placeholder{color:#9CA3AF}
+.kbd{font-family:"IBM Plex Mono",monospace;font-size:11px;color:#9CA3AF;background:#F3F3F3;border-radius:6px;padding:3px 7px;flex:none}
+.btn-create{background:#fff;border:0;border-radius:999px;padding:12px 18px;font-weight:600;box-shadow:var(--shadow);white-space:nowrap;cursor:pointer}
+.btn-create:hover{background:#FAFAFA}
+main{padding:18px 0 72px}
+.card{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow)}
+.explore-head{display:flex;align-items:flex-end;justify-content:space-between;gap:18px;flex-wrap:wrap;margin:10px 0 22px}
+.explore-head h1{font-family:"Instrument Sans",ui-sans-serif,system-ui,sans-serif;font-size:clamp(28px,4vw,40px);font-weight:700;margin:0;letter-spacing:-.03em;line-height:1.1}
+.explore-head p{margin:8px 0 0;color:var(--muted);max-width:42ch}
+.pills{display:flex;flex-wrap:wrap;gap:6px}
+.pill{border:0;background:#EBEBEB;color:#444;border-radius:999px;padding:8px 13px;font-size:13px;font-weight:500;cursor:pointer;transition:background .15s,color .15s}
+.pill.on{background:#fff;color:#111;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+.pill:hover{color:#111}
+.sec-label{display:flex;align-items:baseline;justify-content:space-between;margin:8px 2px 12px;font-weight:600}
+.sec-label span{color:var(--muted);font-weight:500;font-size:13px}
+.featured{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.feat{background:#fff;border-radius:24px;padding:16px;box-shadow:var(--shadow);cursor:pointer;display:flex;flex-direction:column;gap:10px;min-width:0;transition:transform .18s,box-shadow .18s}
+.feat:hover{transform:translateY(-2px);box-shadow:0 14px 34px rgba(17,17,17,.08)}
+.feat-top{display:flex;align-items:center;gap:10px}
+.avatar{width:42px;height:42px;border-radius:14px;display:grid;place-items:center;flex:none}
+.diamond{width:11px;height:11px;transform:rotate(45deg);background:#fff;border-radius:2px}
+.feat-name{font-weight:650;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.feat-tick{font-size:12px;color:var(--muted);font-family:"IBM Plex Mono",monospace}
+.btn-buy{margin-left:auto;background:var(--lime);border:0;border-radius:999px;padding:7px 12px;font-weight:650;font-size:13px;flex:none}
+.feat-mcap{font-weight:700;font-size:18px;font-variant-numeric:tabular-nums}
+.chg{font-size:13px;font-weight:600;font-variant-numeric:tabular-nums}
+.feat-meta{display:flex;gap:12px;color:var(--muted);font-size:12px;flex-wrap:wrap}
+.pit-strip{margin:18px 0;background:#fff;border-radius:28px;padding:18px 22px;box-shadow:var(--shadow);display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;cursor:pointer}
+.pit-strip:hover{box-shadow:0 14px 34px rgba(17,17,17,.08)}
+.pit-kicker{font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.pit-pot{font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:clamp(28px,4vw,40px);line-height:1;margin-top:4px;font-weight:500;letter-spacing:-.04em}
+.pit-right{text-align:right}
+.launches{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px}
+.lcard{background:#fff;border-radius:24px;padding:16px;box-shadow:var(--shadow);cursor:pointer;min-width:0;transition:transform .18s,box-shadow .18s}
+.lcard:hover{transform:translateY(-2px);box-shadow:0 14px 34px rgba(17,17,17,.08)}
+.lcard-top{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.chip{font-size:11px;font-weight:600;border-radius:999px;padding:3px 8px;background:#F3F3F3;color:#444;margin-left:auto;white-space:nowrap}
+.chip.live{color:#298DFF;background:#EAF3FF}
+.chip.grad{color:#111;background:var(--lime)}
+.bar{height:4px;background:#EFEFEF;border-radius:99px;overflow:hidden;margin-top:12px}
+.bar>i{display:block;height:100%;background:linear-gradient(90deg,#9BD0FF,var(--sui));border-radius:99px}
+.rowlist{display:flex;flex-direction:column}
+.row{display:grid;grid-template-columns:28px 1fr 90px 72px 120px 110px;gap:12px;align-items:center;padding:14px 4px;border-top:1px solid var(--line);cursor:pointer}
+.row:first-child{border-top:0}
+.row:hover{background:#FAFAFA}
+.footer{margin:48px auto 0;background:#fff;border-radius:var(--radius);padding:28px 32px;box-shadow:var(--shadow);display:grid;grid-template-columns:1.4fr 1fr 1fr;gap:24px;color:var(--muted);font-size:13px}
+.footer h4{margin:0 0 8px;color:#111;font-size:14px}
+.footer a,.footer div[data-go]{display:block;padding:3px 0;cursor:pointer;color:var(--muted)}
+.footer a:hover,.footer div[data-go]:hover{color:#111}
+.hero-card{background:#fff;border-radius:var(--radius);padding:clamp(28px,4vw,48px);box-shadow:var(--shadow);text-align:center}
+.hero-card h1{font-family:"Instrument Serif",Georgia,serif;font-size:clamp(40px,8vw,88px);margin:8px 0 0;line-height:1;font-weight:400}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px}
+.split{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(280px,380px);grid-template-areas:"main ticket";gap:14px;align-items:start}
+.split>.split-main{grid-area:main}
+.split>.ticket{grid-area:ticket}
+.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:16px 0}
+.stat{background:#fff;border-radius:20px;padding:14px 16px;box-shadow:var(--shadow)}
+.stat .k{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.stat .v{font-size:18px;font-weight:650;margin-top:6px;font-variant-numeric:tabular-nums}
+.tv-host{height:360px;width:100%;position:relative;background:#fff;border-radius:16px;overflow:hidden}
 .tv-host iframe{border:0;display:block;width:100%;height:100%}
+.ticket{background:#fff;border-radius:28px;padding:18px;box-shadow:var(--shadow);position:sticky;top:84px}
+.sides{display:flex;background:#F3F3F3;border-radius:999px;padding:4px}
+.sides>div{flex:1;text-align:center;padding:10px;border-radius:999px;font-weight:650;cursor:pointer;color:var(--muted)}
+.sides>div.on-buy{background:#fff;color:#111}
+.sides>div.on-sell{background:#FEE2E2;color:#991B1B}
+.amt{width:100%;border:1px solid var(--line);border-radius:16px;padding:14px 16px;font-size:26px;font-weight:650;outline:none;background:#FAFAFA}
+.amt:focus{border-color:#298DFF;background:#fff}
+.chips{display:flex;gap:6px;margin-top:10px}
+.chips>div{flex:1;text-align:center;background:#F3F3F3;border-radius:999px;padding:8px 0;font-size:12px;font-weight:600;cursor:pointer}
+.chips>div:hover{background:#EAEAEA}
+.kv{display:flex;justify-content:space-between;padding:10px 0;border-top:1px solid var(--line);font-size:14px}
+.fee-chips{display:flex;flex-wrap:wrap;gap:6px;padding:4px 0 8px}
+.fee-chip{font-family:"IBM Plex Mono",monospace;font-size:10px;letter-spacing:.04em;text-transform:uppercase;border:1px solid currentColor;border-radius:999px;padding:2px 7px;opacity:.9}
+.btn-trade{width:100%;border:0;border-radius:999px;padding:14px;font-weight:700;background:var(--lime);margin-top:12px}
+.btn-trade.sell{background:#FECACA}
+.tape-row{display:flex;align-items:center;gap:8px;padding:10px 0;border-bottom:1px solid var(--line);font-family:"IBM Plex Mono",monospace;font-size:12px;flex-wrap:wrap}
+.form-grid{display:grid;gap:12px;text-align:left;max-width:520px;margin:28px auto 0}
+.form-grid label{font-size:12px;font-weight:600;color:var(--muted);letter-spacing:.06em;text-transform:uppercase}
+.form-grid input{width:100%;border:1px solid var(--line);border-radius:16px;padding:12px 14px;background:#FAFAFA;outline:none}
+.form-grid input:focus{border-color:#298DFF;background:#fff}
+.toggle{display:flex;gap:8px;flex-wrap:wrap}
+.back{font-size:13px;font-weight:600;color:var(--muted);cursor:pointer;margin-bottom:12px}
+.back:hover{color:#111}
+.token-head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.token-head h1{font-family:"Instrument Sans",ui-sans-serif,system-ui,sans-serif;font-size:clamp(28px,4.5vw,44px);margin:0;font-weight:700;letter-spacing:-.03em;line-height:1}
+.badges{display:flex;gap:6px;flex-wrap:wrap}
+.badge{font-size:11px;font-weight:650;border-radius:999px;padding:5px 10px;background:#fff;box-shadow:var(--shadow)}
+.holder-card{background:#fff;border-radius:20px;padding:14px 18px;box-shadow:var(--shadow);display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;margin:12px 0}
+.empty{padding:48px 16px;text-align:center;color:var(--muted)}
+html.shot,html.shot *{animation:none!important;transition:none!important}
+@media (max-width:1100px){
+  .featured{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media (max-width:860px){
+  .split,.grid-2,.footer,.stats{grid-template-columns:1fr}
+  .split{grid-template-areas:"main" "ticket"}
+  .ticket{position:static}
+  .row{grid-template-columns:24px 1fr 64px auto; }
+  .row .spark,.row .st-col{display:none}
+}
+@media (max-width:720px){
+  .shell{width:calc(100% - 20px)}
+  .topbar-inner{flex-wrap:wrap;padding:10px 0 12px}
+  .nav-pill{order:3;width:100%;justify-content:center;margin:0}
+  .search-row{flex-direction:column;align-items:stretch}
+  .btn-create{width:100%}
+  .featured,.launches{grid-template-columns:1fr}
+  .kbd{display:none}
+  .tv-host{height:280px}
+  .explore-head h1{font-size:36px}
+  .footer{padding:22px}
+  .pit-right{text-align:left}
+}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important}}
 </style>
 </head>
 <body>
-<div data-stage style="position:relative;min-height:100vh;background:radial-gradient(ellipse 130% 100% at 50% 24%,#23252D,#191A1F 60%,#15161A);isolation:isolate">
-
-  <div data-cursor style="position:fixed;left:0;top:0;width:28px;height:28px;margin:-14px 0 0 -14px;border-radius:999px;border:1px solid rgba(41,141,255,.55);pointer-events:none;z-index:90;opacity:0;will-change:transform;mix-blend-mode:screen"><div style="position:absolute;left:50%;top:50%;width:3px;height:3px;margin:-1.5px 0 0 -1.5px;border-radius:999px;background:#298DFF"></div></div>
-
-  <div id="gate" style="position:fixed;inset:0;z-index:92;pointer-events:none;overflow:hidden;display:none">
-    <div id="gate-seam" style="position:absolute;left:50%;top:0;bottom:0;width:1px;background:linear-gradient(180deg,transparent,#298DFF 30%,#C9BBA3 50%,#298DFF 70%,transparent);opacity:0;box-shadow:0 0 24px rgba(41,141,255,.8)"></div>
-    <div id="gate-l" style="position:absolute;left:0;top:0;bottom:0;width:50.4%;background:linear-gradient(90deg,#1E2027,#282B34 62%,#34383F);border-right:1px solid rgba(201,187,163,.22);transition:transform .46s cubic-bezier(.76,0,.24,1);transform:translateX(-100%)">
-      <div style="position:absolute;inset:0;background:repeating-linear-gradient(90deg,rgba(0,0,0,.42) 0 2px,transparent 2px 34px);opacity:.7"></div>
+<header class="topbar">
+  <div class="shell topbar-inner">
+    <div class="brand" data-go="explore">
+      <svg viewBox="0 0 24 24" width="22" height="22" fill="#298DFF" aria-hidden="true"><path d="M17.636 10.009a7.16 7.16 0 0 1 1.565 4.474 7.2 7.2 0 0 1-1.608 4.53l-.087.106-.023-.135a7 7 0 0 0-.07-.349c-.502-2.21-2.142-4.106-4.84-5.642-1.823-1.034-2.866-2.278-3.14-3.693-.177-.915-.046-1.834.209-2.62.254-.787.631-1.446.953-1.843l1.05-1.284a.46.46 0 0 1 .713 0l5.28 6.456zm1.66-1.283L12.26.123a.336.336 0 0 0-.52 0L4.704 8.726l-.023.029a9.33 9.33 0 0 0-2.07 5.872C2.612 19.803 6.816 24 12 24s9.388-4.197 9.388-9.373a9.32 9.32 0 0 0-2.07-5.871zM6.389 9.981l.63-.77.018.142q.023.17.055.34c.408 2.136 1.862 3.917 4.294 5.297 2.114 1.203 3.345 2.586 3.7 4.103a5.3 5.3 0 0 1 .109 1.801l-.004.034-.03.014A7.2 7.2 0 0 1 12 21.67c-3.976 0-7.2-3.218-7.2-7.188 0-1.705.594-3.27 1.587-4.503z"/></svg>
+      <span class="brand-name">ARENA</span>
     </div>
-    <div id="gate-r" style="position:absolute;right:0;top:0;bottom:0;width:50.4%;background:linear-gradient(270deg,#1E2027,#282B34 62%,#34383F);border-left:1px solid rgba(201,187,163,.22);transition:transform .46s cubic-bezier(.76,0,.24,1);transform:translateX(100%)">
-      <div style="position:absolute;inset:0;background:repeating-linear-gradient(90deg,rgba(0,0,0,.42) 0 2px,transparent 2px 34px);opacity:.7"></div>
-    </div>
+    <nav class="nav-pill" id="nav-pill"></nav>
+    <button type="button" class="btn-connect" id="wallet-btn" data-wallet>Connect</button>
   </div>
-
-  <div data-topbar style="position:fixed;top:0;left:0;right:0;z-index:70;border-bottom:1px solid rgba(255,255,255,0);transition:background .4s ease,border-color .4s ease,backdrop-filter .4s ease">
-    <div style="max-width:1280px;margin:0 auto;padding:0 clamp(18px,3.6vw,42px);height:68px;display:flex;align-items:center;gap:18px">
-      <div data-magnet data-go="floor" style="display:flex;align-items:center;gap:11px">
-        <svg viewBox="0 0 24 24" width="19" height="19" fill="#298DFF" style="display:block;filter:drop-shadow(0 0 10px rgba(41,141,255,.55))" aria-hidden="true"><path d="M17.636 10.009a7.16 7.16 0 0 1 1.565 4.474 7.2 7.2 0 0 1-1.608 4.53l-.087.106-.023-.135a7 7 0 0 0-.07-.349c-.502-2.21-2.142-4.106-4.84-5.642-1.823-1.034-2.866-2.278-3.14-3.693-.177-.915-.046-1.834.209-2.62.254-.787.631-1.446.953-1.843l1.05-1.284a.46.46 0 0 1 .713 0l5.28 6.456zm1.66-1.283L12.26.123a.336.336 0 0 0-.52 0L4.704 8.726l-.023.029a9.33 9.33 0 0 0-2.07 5.872C2.612 19.803 6.816 24 12 24s9.388-4.197 9.388-9.373a9.32 9.32 0 0 0-2.07-5.871zM6.389 9.981l.63-.77.018.142q.023.17.055.34c.408 2.136 1.862 3.917 4.294 5.297 2.114 1.203 3.345 2.586 3.7 4.103a5.3 5.3 0 0 1 .109 1.801l-.004.034-.03.014A7.2 7.2 0 0 1 12 21.67c-3.976 0-7.2-3.218-7.2-7.188 0-1.705.594-3.27 1.587-4.503z"/></svg>
-        <span style="font-family:Cinzel,serif;font-weight:600;font-size:14px;letter-spacing:.3em">ARENA</span>
-      </div>
-      <div style="margin-left:auto;display:flex;align-items:center;gap:clamp(6px,1.4vw,14px)">
-        <div data-magnet data-go="launch" class="btn-launch" style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.22em;text-transform:uppercase;color:#C9BBA3;border:1px solid rgba(201,187,163,.3);padding:9px 15px;white-space:nowrap;transition:border-color .3s ease,color .3s ease,background .3s ease">Launch</div>
-        <div data-magnet data-wallet class="btn-connect" id="wallet-btn" style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.22em;text-transform:uppercase;color:#191A1F;background:#F2F0EC;padding:9px 15px;white-space:nowrap;transition:background .3s ease">Connect</div>
-      </div>
-    </div>
+</header>
+<div class="shell search-row">
+  <div class="search-bar">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6B7280" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3-3"/></svg>
+    <input id="q" type="search" placeholder="Search tokens" autocomplete="off">
+    <span class="kbd">⌘K</span>
   </div>
-
-  <div id="screens"></div>
-
-  <div style="position:fixed;left:50%;bottom:clamp(14px,2.4vw,26px);transform:translateX(-50%);z-index:80;display:flex;align-items:center;gap:clamp(2px,1vw,6px);padding:7px;border-radius:999px;background:rgba(32,34,41,.8);border:1px solid rgba(255,255,255,.16);backdrop-filter:blur(22px) saturate(1.5);box-shadow:0 18px 50px rgba(0,0,0,.45);max-width:calc(100vw - 24px)">
-    <div id="dock-nav" style="display:contents"></div>
-    <div style="width:1px;height:20px;background:rgba(255,255,255,.18);margin:0 4px;flex:none"></div>
-    <div style="display:flex;align-items:center;gap:7px;padding-right:9px;white-space:nowrap">
-      <span style="width:5px;height:5px;border-radius:999px;background:#298DFF;box-shadow:0 0 8px #298DFF;animation:ar-breathe 1.5s ease-in-out infinite;flex:none"></span>
-      <span data-clock style="font-family:'IBM Plex Mono',monospace;font-size:clamp(9px,2.4vw,10.5px);letter-spacing:.14em;color:#C9BBA3;font-variant-numeric:tabular-nums">1:36</span>
-    </div>
-  </div>
+  <button type="button" class="btn-create" data-go="launch">+ Create</button>
 </div>
+<main class="shell" id="screens"></main>
 <script src="js/indexer.js"></script>
 <script>
 (function(){
   const GRAD = 2000;
-  const ACCENT = "#298DFF";
-  const ROUND_SECONDS = 96;
   const T = [
     {t:"VOLT",n:"Voltcats",b:"Nine lives, one curve. Currently clawing at graduation.",cap:4650,ch:31.3,h:612,st:"Graduating",mode:"Holders",q:"SUI",c:"#298DFF",pit:true},
     {t:"IRON",n:"Ironclad",b:"Object-centric collateral. One vault, many blows.",cap:4380,ch:18.9,h:503,st:"Graduating",mode:"Buy & burn",q:"SUI",c:"#8A99A8"},
@@ -128,49 +196,37 @@ html.shot [data-plate],html.shot [data-mark],html.shot [data-herotype]{will-chan
     const base = Math.max(2.4, k.cap/34);
     k.buckets = Array.from({length:12},function(_,j){return +(base*(0.42+Math.abs(Math.sin((i+1.7)*(j+2.3)))*0.95)).toFixed(2);});
     k.fbuckets = k.buckets.map(function(v){return Math.max(1, Math.round(v/2.6));});
+    k.born = i;
   });
-  const GRADS = [{t:"DUNE",n:"Dune",cap:12400},{t:"AXM",n:"Axiom",cap:9800},{t:"KRKN",n:"Kraken",cap:6100},{t:"ORBT",n:"Orbit",cap:3450}];
+  const GRADS = [{t:"DUNE",n:"Dune",cap:12400,c:"#C9A97E"},{t:"AXM",n:"Axiom",cap:9800,c:"#298DFF"},{t:"KRKN",n:"Kraken",cap:6100,c:"#5A6472"},{t:"ORBT",n:"Orbit",cap:3450,c:"#9A7FB0"}];
   const BELLS = [
     {t:"VOLT",n:"Voltcats",amt:34.20,ago:"1h",mode:"Holders"},
     {t:"IRON",n:"Ironclad",amt:41.90,ago:"3h",mode:"Buy & burn",burn:"9.1M"},
     {t:"BRINE",n:"Brine",amt:28.10,ago:"4h",mode:"Buy & burn",burn:"6.02M"}
   ];
   const ADDR = ["0x8f2a…ab71","0xa91c…d012","0x11c0…012f","0x70bb…4410","0xcc81…e203","0x5d0e…c801","0x09ae…3290","0xbb21…aa13"];
+  const ROUND_SECONDS = 96;
   let bshift = 0, pot = 31.94, prevPot = "", roundNo = 128, secs = ROUND_SECONDS;
-  let tape = [
-    {a:ADDR[0],s:"bought",amt:22.40,t:"VOLT",ago:"now"},
-    {a:ADDR[1],s:"bought",amt:8.10,t:"IRON",ago:"1m"},
-    {a:ADDR[2],s:"sold",amt:3.60,t:"RAZR",ago:"2m"},
-    {a:ADDR[3],s:"bought",amt:5.00,t:"GLOW",ago:"4m"},
-    {a:ADDR[4],s:"bought",amt:14.20,t:"BRINE",ago:"6m"},
-    {a:ADDR[5],s:"sold",amt:2.20,t:"HEX",ago:"8m"},
-    {a:ADDR[6],s:"bought",amt:6.80,t:"SILK",ago:"9m"},
-    {a:ADDR[7],s:"bought",amt:1.40,t:"PBL",ago:"11m"}
-  ];
-  const state = {route:"floor", sym:"VOLT", gate:"idle", filter:"All", side:"Buy", amt:"1", connected:false};
   let balance = 48.60;
   let xaumBal = 2.40;
-  const m = {x:-999,y:-999};
-  const cur = {x:-999,y:-999,s:1,o:0};
-  let hot = null, sy = 0;
-  const t0 = Date.now();
-  let gt = [], hashLock = false;
+  const state = {route:"explore", sym:"VOLT", filter:"All", sort:"Market cap", time:"All", side:"Buy", amt:"1", connected:false, search:"", lName:"", lTick:"", lQuote:"SUI", lMode:"Holders"};
+  let hashLock = false;
   const SHOT = /Headless/i.test(String(navigator.userAgent||"")) || /(?:^|[?&])shot=1(?:&|$)/.test(location.search);
-  if (SHOT){ Array.prototype.slice.call(document.querySelectorAll('link[href*="fonts.google"]')).forEach(function(l){ l.disabled = true; l.remove(); }); }
+  if (SHOT) document.documentElement.classList.add("shot");
   const Index = window.ArenaIndex || window.ArenaIndexer || null;
   const DEMO_WALLET = (Index && Index.DEMO_WALLET) || "0x8f2a00000000000000000000000000000000000000000000000000000000ab71";
   const bus = { trades: [], launches: {}, index: { pools: {}, cursor: null }, sub: null };
   let tvWidget = null;
   let tvSeq = 0;
   let hydrating = true;
-  function cinema(){ return !window.matchMedia("(prefers-reduced-motion: reduce)").matches; }
-  function fmt(n){ return n >= 1000 ? (n/1000).toFixed(2)+"k" : n.toFixed(2); }
+
+  function $(s,r){ return (r||document).querySelector(s); }
+  function $$(s,r){ return Array.prototype.slice.call((r||document).querySelectorAll(s)); }
+  function fmt(n){ return n >= 1000 ? (n/1000).toFixed(2)+"k" : (n >= 1 ? n.toFixed(2) : n.toFixed(n>=0.1?2:3)); }
   function money(n, q){ return fmt(n)+" "+(q||"SUI"); }
   function gradTarget(k){ return poolQuote(k) === "XAUM" ? 1 : GRAD; }
   function walletBal(q){ return (q === "XAUM" ? xaumBal : balance); }
   function clockStr(){ return Math.floor(secs/60)+":"+String(secs%60).padStart(2,"0"); }
-  function $(s,r){ return (r||document).querySelector(s); }
-  function $$(s,r){ return Array.prototype.slice.call((r||document).querySelectorAll(s)); }
   function spark(seed){
     let p = "", y = 18;
     for (let i=0;i<=24;i++){
@@ -180,11 +236,8 @@ html.shot [data-plate],html.shot [data-mark],html.shot [data-herotype]{will-chan
     }
     return p;
   }
-  function stColor(k){ return k.st === "Graduating" ? ACCENT : "#9CA2AD"; }
-  function stBorder(k){ return k.st === "Graduating" ? "rgba(41,141,255,.45)" : "rgba(255,255,255,.2)"; }
-  function barPct(k){ return Math.min(100, k.cap/gradTarget(k)*100).toFixed(0)+"%"; }
   function chText(k){ return (k.ch>=0?"+":"")+k.ch.toFixed(1)+"%"; }
-  function chColor(k){ return k.ch>=0 ? "#8FB07A" : "#C98A80"; }
+  function chColor(k){ return k.ch>=0 ? "#16A34A" : "#DC2626"; }
   function rank(i){ return String(i+1).padStart(2,"0"); }
   function sortedT(){ return T.slice().sort(function(a,b){return b.cap-a.cap;}); }
   function vol(k){ return k.buckets.reduce(function(a,b){return a+b;},0); }
@@ -242,6 +295,11 @@ html.shot [data-plate],html.shot [data-mark],html.shot [data-herotype]{will-chan
     rows.sort(function(a,b){ return (b.ts||0)-(a.ts||0); });
     return rows.slice(0, limit == null ? 8 : limit);
   }
+  function barPct(k){ return Math.min(100, k.cap/gradTarget(k)*100).toFixed(0)+"%"; }
+  function avatar(k, sz){
+    sz = sz || 42;
+    return '<div class="avatar" style="width:'+sz+'px;height:'+sz+'px;background:'+k.c+'"><i class="diamond"></i></div>';
+  }
   function holderHTML(tk){
     if (!isRefl(tk)) return "";
     const q = poolQuote(tk);
@@ -257,43 +315,18 @@ html.shot [data-plate],html.shot [data-mark],html.shot [data-herotype]{will-chan
     const unpaid = h ? fromMist(h.unpaidReflection) : 0;
     const claimed = h ? fromMist(h.claimedReflection) : 0;
     const who = shortAddr((h && h.address) || DEMO_WALLET);
-    return '<div id="holder-refl" style="display:flex;align-items:center;gap:clamp(16px,3vw,32px);flex-wrap:wrap;padding:16px 20px;background:#20222A;border:1px solid rgba(255,255,255,.12);border-top:0">'+
-      '<div style="font-family:\'IBM Plex Mono\',monospace;font-size:9.5px;letter-spacing:.22em;text-transform:uppercase;color:#7C838F">Reflection · Pit&lt;'+q+'&gt; · '+who+'</div>'+
-      '<div style="margin-left:auto;display:flex;gap:28px;flex-wrap:wrap">'+
-        '<div><div style="font-family:\'IBM Plex Mono\',monospace;font-size:9.5px;letter-spacing:.18em;text-transform:uppercase;color:#7C838F">Unpaid</div>'+
-          '<div data-unpaid style="font-family:Cinzel,serif;font-size:18px;margin-top:4px;font-variant-numeric:tabular-nums;color:#298DFF">'+unpaid.toFixed(4)+' '+q+'</div></div>'+
-        '<div><div style="font-family:\'IBM Plex Mono\',monospace;font-size:9.5px;letter-spacing:.18em;text-transform:uppercase;color:#7C838F">Claimed</div>'+
-          '<div data-claimed style="font-family:Cinzel,serif;font-size:18px;margin-top:4px;font-variant-numeric:tabular-nums">'+claimed.toFixed(4)+' '+q+'</div></div>'+
+    return '<div id="holder-refl" class="holder-card">'+
+      '<div><div class="stat k" style="letter-spacing:.08em">Reflection · Pit&lt;'+q+'&gt;</div>'+
+      '<div style="font-size:13px;color:var(--muted);margin-top:4px">'+who+' · Holders mode</div></div>'+
+      '<div style="display:flex;gap:28px">'+
+        '<div><div class="stat k">Unpaid</div><div data-unpaid style="font-size:18px;font-weight:650;color:#298DFF;margin-top:4px">'+unpaid.toFixed(4)+' '+q+'</div></div>'+
+        '<div><div class="stat k">Claimed</div><div data-claimed style="font-size:18px;font-weight:650;margin-top:4px">'+claimed.toFixed(4)+' '+q+'</div></div>'+
       '</div></div>';
-  }
-  function marksHTML(kind){
-    const hero = kind === "hero";
-    const sz = hero ? 8 : 6;
-    const glow = hero ? 14 : 10;
-    const fs = hero ? "10.5px" : "9.5px";
-    const ls = hero ? ".16em" : ".14em";
-    const gap = hero ? 7 : 6;
-    const col = hero ? "rgba(242,240,236,.82)" : "rgba(242,240,236,.72)";
-    const extra = hero ? ",0 0 3px rgba(0,0,0,.9)" : "";
-    const wc = hero ? "will-change:transform;" : "";
-    return T.map(function(k,i){
-      const r = (0.92 - 0.6*Math.min(1, Math.sqrt(k.cap/GRAD))).toFixed(3);
-      const a = (i*36 + (i%3)*9).toFixed(1);
-      const sp = (0.8 + (i%4)*0.22).toFixed(2);
-      const ang0 = parseFloat(a)*Math.PI/180;
-      const lx = (Math.cos(ang0)*parseFloat(r)*50).toFixed(2);
-      const ly = (Math.sin(ang0)*parseFloat(r)*50).toFixed(2);
-      return '<div data-mark="'+k.t+'" data-r="'+r+'" data-a="'+a+'" data-sp="'+sp+'" style="position:absolute;left:calc(50% + '+lx+'%);top:calc(50% + '+ly+'%);width:0;height:0;transform:rotateX(-60deg);transform-style:preserve-3d;'+wc+'">'+
-        '<div style="position:absolute;left:0;top:0;transform:translate(-50%,-50%);display:flex;align-items:center;gap:'+gap+'px;white-space:nowrap">'+
-          '<div style="width:'+sz+'px;height:'+sz+'px;transform:rotate(45deg);background:'+k.c+';box-shadow:0 0 '+glow+'px '+k.c+extra+'"></div>'+
-          '<span style="font-family:\'IBM Plex Mono\',monospace;font-size:'+fs+';letter-spacing:'+ls+';color:'+col+';text-shadow:0 1px 8px rgba(14,15,19,.9)">'+k.t+'</span>'+
-        '</div></div>';
-    }).join("");
   }
   function tapeChip(n, label, color){
     if (!(n > 0)) return "";
     const txt = n >= 0.01 ? n.toFixed(2) : (n >= 0.0001 ? n.toFixed(4) : n.toFixed(6));
-    return '<span style="font-size:8.5px;letter-spacing:.12em;text-transform:uppercase;color:'+color+';border:1px solid '+color+'88;padding:1px 5px;white-space:nowrap">'+txt+' '+label+'</span>';
+    return '<span class="fee-chip" style="color:'+color+'">'+txt+' '+label+'</span>';
   }
   function tapeFeeChips(r){
     const refl = fromMist(r.reflection_fee);
@@ -301,292 +334,30 @@ html.shot [data-plate],html.shot [data-mark],html.shot [data-herotype]{will-chan
     const plat = fromMist(r.platform_fee);
     const pit = fromMist(r.pit_fee);
     if (refl > 0){
-      return tapeChip(refl,"refl","#298DFF")+tapeChip(creator,"creator","#C9BBA3")+tapeChip(pit,"pit","#8FB07A")+tapeChip(plat,"plat","#9CA2AD");
+      return tapeChip(refl,"refl","#298DFF")+tapeChip(creator,"creator","#6B7280")+tapeChip(pit,"pit","#16A34A")+tapeChip(plat,"plat","#9CA3AF");
     }
-    return tapeChip(creator,"creator","#C9BBA3")+tapeChip(plat,"plat","#9CA2AD")+tapeChip(pit,"pit","#298DFF");
+    return tapeChip(creator,"creator","#6B7280")+tapeChip(plat,"plat","#9CA3AF")+tapeChip(pit,"pit","#298DFF");
   }
-  function tapeHTML(pad, pool){
-    const p = pad == null ? 11 : pad;
+  function tapeHTML(pool){
     return tapeItems(8, pool).map(function(r){
       const bought = !!r.is_buy;
       const amt = fromMist(r.quote_amount);
-      return '<div style="display:flex;align-items:center;gap:8px;padding:'+p+'px 0;border-bottom:1px solid rgba(255,255,255,.1);font-family:\'IBM Plex Mono\',monospace;font-size:11.5px;animation:ar-tape .4s cubic-bezier(.22,1,.36,1) both;flex-wrap:wrap">'+
-        '<span style="color:#7C838F;width:88px;overflow:hidden">'+shortAddr(r.trader)+'</span>'+
-        '<span style="width:52px;color:'+(bought?"#8FB07A":"#C98A80")+'">'+(bought?"bought":"sold")+'</span>'+
-        '<span style="font-variant-numeric:tabular-nums">'+amt.toFixed(2)+'</span>'+
-        '<span style="color:#9CA2AD">'+r.pool_id+'</span>'+
+      return '<div class="tape-row">'+
+        '<span style="color:#9CA3AF;width:88px;overflow:hidden">'+shortAddr(r.trader)+'</span>'+
+        '<span style="width:52px;color:'+(bought?"#16A34A":"#DC2626")+'">'+(bought?"bought":"sold")+'</span>'+
+        '<span>'+amt.toFixed(2)+'</span>'+
+        '<span style="color:#6B7280">'+r.pool_id+'</span>'+
         tapeFeeChips(r)+
-        '<span style="margin-left:auto;color:#7C838F">'+agoOf(r.ts)+'</span></div>';
-    }).join("");
+        '<span style="margin-left:auto;color:#9CA3AF">'+agoOf(r.ts)+'</span></div>';
+    }).join("") || '<div class="empty">No fills yet.</div>';
   }
-  function badge(k){
-    return '<span style="font-family:\'IBM Plex Mono\',monospace;font-size:9.5px;letter-spacing:.18em;text-transform:uppercase;color:'+stColor(k)+';border:1px solid '+stBorder(k)+';padding:2px 7px">'+k.st+'</span>';
-  }
-  function sparkSVG(k, animate){
+  function sparkSVG(k){
     const d = spark(k.ch>=0?0.7:0.32);
-    const anim = animate ? ' style="stroke-dasharray:400;stroke-dashoffset:400;animation:ar-draw 1.5s cubic-bezier(.22,1,.36,1) forwards"' : '';
-    return '<svg width="86" height="30" viewBox="0 0 86 30" fill="none" style="flex:none;opacity:.85"><path d="'+d+'" stroke="'+chColor(k)+'" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"'+anim+'></path></svg>';
-  }
-  function sandRow(k, i){
-    return '<div data-magnet data-row data-go="token:'+k.t+'" class="row-bout" style="position:relative;display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr));gap:8px 28px;align-items:center;padding:clamp(18px,2.4vw,28px) 0;border-top:1px solid rgba(255,255,255,.12);transition:background .45s cubic-bezier(.22,1,.36,1)">'+
-      '<div style="display:flex;align-items:center;gap:clamp(14px,2vw,26px);min-width:0">'+
-        '<span style="font-family:Cinzel,serif;font-size:13px;letter-spacing:.1em;color:#7C838F;width:22px;flex:none">'+rank(i)+'</span>'+
-        '<div style="width:9px;height:9px;transform:rotate(45deg);flex:none;background:'+k.c+';box-shadow:0 0 14px '+k.c+'"></div>'+
-        '<div style="min-width:0"><div style="display:flex;align-items:baseline;gap:11px;flex-wrap:wrap">'+
-          '<span style="font-family:Cinzel,serif;font-size:clamp(19px,2.5vw,27px);letter-spacing:.04em">'+k.n+'</span>'+
-          '<span style="font-family:\'IBM Plex Mono\',monospace;font-size:11px;letter-spacing:.16em;color:#7C838F">'+k.t+'</span>'+badge(k)+
-        '</div><div style="font-size:13.5px;color:#9CA2AD;margin-top:6px;text-wrap:pretty">'+k.b+'</div></div></div>'+
-      '<div style="display:flex;align-items:center;justify-content:flex-end;gap:clamp(16px,2.6vw,38px)">'+sparkSVG(k,true)+
-        '<div style="text-align:right;width:74px;flex:none"><div style="font-family:\'IBM Plex Mono\',monospace;font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:#7C838F">24h</div>'+
-          '<div style="font-family:\'IBM Plex Mono\',monospace;font-size:14px;margin-top:5px;font-variant-numeric:tabular-nums;color:'+chColor(k)+'">'+chText(k)+'</div></div>'+
-        '<div style="text-align:right;width:104px;flex:none"><div style="font-family:\'IBM Plex Mono\',monospace;font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:#7C838F">Market cap</div>'+
-          '<div data-cap="'+k.t+'" style="font-family:Cinzel,serif;font-size:17px;margin-top:4px;font-variant-numeric:tabular-nums">'+money(k.cap, poolQuote(k))+'</div></div></div>'+
-      '<div style="position:absolute;left:0;right:0;bottom:0;height:1px;background:rgba(255,255,255,.08)">'+
-        '<div data-bar="'+k.t+'" style="height:100%;background:linear-gradient(90deg,rgba(41,141,255,.35),#298DFF);box-shadow:0 0 10px rgba(41,141,255,.6);transition:width 1.1s cubic-bezier(.22,1,.36,1);width:'+barPct(k)+'"></div></div></div>';
-  }
-  function discRow(k, i){
-    return '<div data-magnet data-row data-go="token:'+k.t+'" class="row-bout" style="position:relative;display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr));gap:8px 28px;align-items:center;padding:clamp(16px,2.2vw,26px) 0;border-top:1px solid rgba(255,255,255,.12);transition:background .45s cubic-bezier(.22,1,.36,1)">'+
-      '<div style="display:flex;align-items:center;gap:clamp(14px,2vw,26px);min-width:0">'+
-        '<span style="font-family:Cinzel,serif;font-size:13px;color:#7C838F;width:22px;flex:none">'+rank(i)+'</span>'+
-        '<div style="width:9px;height:9px;transform:rotate(45deg);flex:none;background:'+k.c+';box-shadow:0 0 14px '+k.c+'"></div>'+
-        '<div style="min-width:0"><div style="display:flex;align-items:baseline;gap:11px;flex-wrap:wrap">'+
-          '<span style="font-family:Cinzel,serif;font-size:clamp(18px,2.3vw,25px);letter-spacing:.04em">'+k.n+'</span>'+
-          '<span style="font-family:\'IBM Plex Mono\',monospace;font-size:11px;letter-spacing:.16em;color:#7C838F">'+k.t+'</span>'+badge(k)+
-        '</div><div style="font-size:13px;color:#9CA2AD;margin-top:5px">'+k.h+' holders · '+k.mode+'</div></div></div>'+
-      '<div style="display:flex;align-items:center;justify-content:flex-end;gap:clamp(16px,2.6vw,38px)">'+sparkSVG(k,false)+
-        '<div style="text-align:right;width:74px;flex:none;font-family:\'IBM Plex Mono\',monospace;font-size:14px;font-variant-numeric:tabular-nums;color:'+chColor(k)+'">'+chText(k)+'</div>'+
-        '<div data-cap="'+k.t+'" style="text-align:right;width:104px;flex:none;font-family:Cinzel,serif;font-size:17px;font-variant-numeric:tabular-nums">'+money(k.cap, poolQuote(k))+'</div></div>'+
-      '<div style="position:absolute;left:0;right:0;bottom:0;height:1px;background:rgba(255,255,255,.08)"><div data-bar="'+k.t+'" style="height:100%;background:linear-gradient(90deg,rgba(41,141,255,.35),#298DFF);transition:width 1.1s cubic-bezier(.22,1,.36,1);width:'+barPct(k)+'"></div></div></div>';
-  }
-  function topHTML(){
-    const byVol = T.slice().sort(function(a,b){return vol(b)-vol(a);});
-    const g = byVol[0], g2 = byVol[1], gv = vol(g), gmax = Math.max.apply(null, g.buckets.concat([1]));
-    const bars = g.buckets.map(function(b,i){
-      const h = Math.max(4, b/gmax*100).toFixed(1)+"%";
-      const c = i === 11 ? ACCENT : "rgba(201,187,163,"+(0.26+i*0.03).toFixed(2)+")";
-      return '<div style="flex:1;border-radius:1px;transition:height .9s cubic-bezier(.22,1,.36,1);height:'+h+';background:'+c+'"></div>';
-    }).join("");
-    return '<div data-magnet data-go="token:'+g.t+'" class="card-top" style="position:relative;overflow:hidden;border:1px solid rgba(255,255,255,.15);background:linear-gradient(180deg,#24262F,#1B1D23);padding:clamp(22px,3vw,34px);transition:border-color .5s cubic-bezier(.22,1,.36,1),box-shadow .5s cubic-bezier(.22,1,.36,1)">'+
-      '<div style="position:absolute;left:36%;right:-18%;bottom:-58%;height:230px;background:radial-gradient(ellipse at 50% 100%,rgba(41,141,255,.18),transparent 70%);pointer-events:none"></div>'+
-      '<div style="position:relative;display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap">'+
-        '<div style="display:flex;align-items:center;gap:10px;font-family:\'IBM Plex Mono\',monospace;font-size:10px;letter-spacing:.3em;text-transform:uppercase;color:#C9BBA3">'+
-          '<span style="width:6px;height:6px;transform:rotate(45deg);background:#C9BBA3;box-shadow:0 0 12px rgba(201,187,163,.7)"></span>Top gladiator · last hour</div>'+
-        '<span style="font-family:\'IBM Plex Mono\',monospace;font-size:9.5px;letter-spacing:.18em;text-transform:uppercase;color:'+stColor(g)+';border:1px solid '+stBorder(g)+';padding:3px 8px">'+g.st+'</span></div>'+
-      '<div style="position:relative;display:flex;align-items:center;gap:16px;margin-top:clamp(20px,2.6vw,28px)">'+
-        '<div style="width:13px;height:13px;transform:rotate(45deg);flex:none;background:'+g.c+';box-shadow:0 0 20px '+g.c+'"></div>'+
-        '<div style="min-width:0"><div style="font-family:Cinzel,serif;font-size:clamp(24px,3.6vw,38px);line-height:1;letter-spacing:.04em">'+g.n+'</div>'+
-          '<div style="font-family:\'IBM Plex Mono\',monospace;font-size:10.5px;letter-spacing:.18em;color:#9CA2AD;margin-top:8px">'+g.t+' · '+g.mode+'</div></div></div>'+
-      '<div style="position:relative;display:flex;align-items:flex-end;justify-content:space-between;gap:clamp(18px,3vw,34px);margin-top:clamp(24px,3vw,34px);flex-wrap:wrap">'+
-        '<div><div style="font-family:\'IBM Plex Mono\',monospace;font-size:10px;letter-spacing:.26em;text-transform:uppercase;color:#7C838F">Volume · 1h</div>'+
-          '<div style="font-family:Cinzel,serif;font-size:clamp(34px,5.6vw,62px);line-height:1;letter-spacing:.02em;margin-top:10px;font-variant-numeric:tabular-nums">'+money(gv)+'</div></div>'+
-        '<div style="display:flex;align-items:flex-end;gap:4px;height:64px;flex:1;min-width:150px">'+bars+'</div></div>'+
-      '<div style="position:relative;font-size:13.5px;color:#9CA2AD;margin-top:14px">Ahead of '+g2.n+' by '+money(Math.max(0, gv-vol(g2)))+' this hour</div>'+
-      '<div style="position:relative;display:flex;gap:clamp(22px,4vw,44px);margin-top:clamp(24px,3vw,32px);padding-top:22px;border-top:1px solid rgba(255,255,255,.12);flex-wrap:wrap">'+
-        '<div><div style="font-family:\'IBM Plex Mono\',monospace;font-size:10px;letter-spacing:.26em;text-transform:uppercase;color:#7C838F">Fills · 1h</div>'+
-          '<div style="font-family:Cinzel,serif;font-size:19px;margin-top:7px;font-variant-numeric:tabular-nums">'+String(g.fbuckets.reduce(function(a,b){return a+b;},0))+'</div></div>'+
-        '<div><div style="font-family:\'IBM Plex Mono\',monospace;font-size:10px;letter-spacing:.26em;text-transform:uppercase;color:#7C838F">24h</div>'+
-          '<div style="font-family:Cinzel,serif;font-size:19px;margin-top:7px;font-variant-numeric:tabular-nums;color:'+chColor(g)+'">'+chText(g)+'</div></div>'+
-        '<div><div style="font-family:\'IBM Plex Mono\',monospace;font-size:10px;letter-spacing:.26em;text-transform:uppercase;color:#7C838F">Market cap</div>'+
-          '<div data-cap="'+g.t+'" style="font-family:Cinzel,serif;font-size:19px;margin-top:7px;font-variant-numeric:tabular-nums">'+money(g.cap)+'</div></div>'+
-        '<div style="margin-left:auto;align-self:flex-end;font-family:\'IBM Plex Mono\',monospace;font-size:10.5px;letter-spacing:.24em;text-transform:uppercase;color:#F2F0EC;white-space:nowrap">Enter the bout <span style="color:#298DFF">→</span></div></div></div>';
-  }
-  function floorHTML(){
-    if (SHOT){
-      return '<div data-screen-label="Floor"><section style="position:relative;height:100vh;overflow:hidden">'+
-        '<div style="position:absolute;inset:0;background:radial-gradient(ellipse 58% 40% at 50% 80%,rgba(201,187,163,.075),transparent 66%),radial-gradient(ellipse 80% 50% at 50% 6%,rgba(201,187,163,.045),transparent 60%)"></div>'+
-        '<div data-heroplate style="position:absolute;left:50%;top:58%;width:min(92vw,980px);margin-left:max(-46vw,-490px);pointer-events:none">'+
-          '<svg viewBox="0 0 980 280" width="100%" height="280" fill="none" xmlns="http://www.w3.org/2000/svg">'+
-            '<ellipse cx="490" cy="150" rx="470" ry="118" stroke="rgba(201,187,163,.28)"/>'+
-            '<ellipse cx="490" cy="150" rx="400" ry="96" stroke="rgba(201,187,163,.2)"/>'+
-            '<ellipse cx="490" cy="150" rx="310" ry="72" stroke="rgba(41,141,255,.3)"/>'+
-            '<ellipse cx="490" cy="150" rx="220" ry="50" stroke="rgba(201,187,163,.22)"/>'+
-            '<ellipse cx="490" cy="150" rx="90" ry="22" fill="url(#fl)"/>'+
-            '<defs><radialGradient id="fl"><stop offset="0" stop-color="#E9F0FF"/><stop offset=".4" stop-color="#298DFF" stop-opacity=".7"/><stop offset="1" stop-color="#298DFF" stop-opacity="0"/></radialGradient></defs>'+
-            '<g font-family="IBM Plex Mono,monospace" font-size="11" fill="rgba(242,240,236,.75)" letter-spacing="1.5">'+
-              '<rect x="86" y="78" width="6" height="6" fill="#298DFF" transform="rotate(45 89 81)"/>'+
-              '<text x="100" y="86">VOLT</text>'+
-              '<rect x="780" y="70" width="6" height="6" fill="#8A99A8" transform="rotate(45 783 73)"/>'+
-              '<text x="794" y="78">IRON</text>'+
-              '<rect x="200" y="190" width="6" height="6" fill="#3FA0A8" transform="rotate(45 203 193)"/>'+
-              '<text x="214" y="198">BRINE</text>'+
-              '<rect x="700" y="200" width="6" height="6" fill="#C9A05A" transform="rotate(45 703 203)"/>'+
-              '<text x="714" y="208">RAZR</text>'+
-            '</g>'+
-          '</svg></div>'+
-        '<div data-herotype style="position:absolute;left:0;right:0;top:14%;text-align:center;pointer-events:none;z-index:4">'+
-          '<div style="font-family:\'IBM Plex Mono\',monospace;font-size:10.5px;letter-spacing:.42em;text-transform:uppercase;color:#9CA2AD">Fair launches on Sui</div>'+
-          '<h1 style="font-family:Cinzel,serif;font-weight:600;font-size:clamp(58px,13.4vw,196px);line-height:.86;letter-spacing:.04em;margin:14px 0 0">ARENA</h1></div>'+
-        '<div style="position:absolute;left:0;right:0;bottom:104px">'+
-          '<div style="max-width:1280px;margin:0 auto;padding:0 clamp(18px,3.6vw,42px);display:flex;align-items:flex-end;justify-content:space-between;gap:24px">'+
-            '<div><div style="font-family:\'IBM Plex Mono\',monospace;font-size:10px;letter-spacing:.28em;text-transform:uppercase;color:#9CA2AD;display:flex;align-items:center;gap:8px"><span style="width:5px;height:5px;border-radius:999px;background:#298DFF;box-shadow:0 0 8px #298DFF"></span>In the pit</div>'+
-              '<div data-pot style="font-family:Cinzel,serif;font-size:clamp(28px,4.4vw,46px);letter-spacing:.04em;margin-top:6px">'+money(pot)+'</div></div>'+
-            '<div style="text-align:right"><div style="font-family:\'IBM Plex Mono\',monospace;font-size:10px;letter-spacing:.28em;text-transform:uppercase;color:#9CA2AD">Bell in</div>'+
-              '<div data-clock style="font-family:Cinzel,serif;font-size:clamp(22px,3vw,32px);letter-spacing:.14em;margin-top:6px">'+clockStr()+'</div></div></div></div>'+
-        '<div style="position:absolute;left:50%;bottom:34px;transform:translateX(-50%);font-family:\'IBM Plex Mono\',monospace;font-size:9.5px;letter-spacing:.3em;text-transform:uppercase;color:#7C838F">Scroll to the sand</div>'+
-      '</section></div>';
-    }
-    const sand = sortedT().slice(0,6).map(sandRow).join("");
-    const conicA = "repeating-conic-gradient(from 0deg,rgba(201,187,163,.22) 0deg .22deg,transparent .22deg 5deg)";
-    const conicB = "repeating-conic-gradient(from 7.5deg,rgba(201,187,163,.18) 0deg .2deg,transparent .2deg 15deg)";
-    const flameFilt = "filter:blur(3px);";
-    const heroH = "height:172vh";
-    const sticky = "position:sticky;top:0;height:100vh;overflow:hidden";
-    const sparks = SHOT ? "" : ('<div style="position:absolute;inset:0;overflow:hidden;pointer-events:none">'+
-            '<div style="position:absolute;left:12%;bottom:24%;width:2px;height:2px;border-radius:999px;background:#C9BBA3;box-shadow:0 0 7px #298DFF;animation:ar-rise 9s linear infinite"></div>'+
-            '<div style="position:absolute;left:23%;bottom:20%;width:1px;height:1px;border-radius:999px;background:#C9BBA3;box-shadow:0 0 6px #298DFF;animation:ar-rise 11s linear 1.4s infinite"></div>'+
-            '<div style="position:absolute;left:34%;bottom:28%;width:2px;height:2px;border-radius:999px;background:#298DFF;box-shadow:0 0 8px #298DFF;animation:ar-rise 8s linear 2.2s infinite"></div>'+
-            '<div style="position:absolute;left:46%;bottom:18%;width:1px;height:1px;border-radius:999px;background:#C9BBA3;box-shadow:0 0 6px #C9BBA3;animation:ar-rise 12s linear .6s infinite"></div>'+
-            '<div style="position:absolute;left:58%;bottom:26%;width:2px;height:2px;border-radius:999px;background:#C9BBA3;box-shadow:0 0 7px #298DFF;animation:ar-rise 10s linear 3.1s infinite"></div>'+
-            '<div style="position:absolute;left:69%;bottom:22%;width:1px;height:1px;border-radius:999px;background:#298DFF;box-shadow:0 0 6px #298DFF;animation:ar-rise 9.5s linear 1.9s infinite"></div>'+
-            '<div style="position:absolute;left:79%;bottom:30%;width:2px;height:2px;border-radius:999px;background:#C9BBA3;box-shadow:0 0 7px #C9BBA3;animation:ar-rise 13s linear 4s infinite"></div>'+
-            '<div style="position:absolute;left:88%;bottom:19%;width:1px;height:1px;border-radius:999px;background:#C9BBA3;box-shadow:0 0 6px #298DFF;animation:ar-rise 10.5s linear 2.6s infinite"></div>'+
-          '</div>');
-    return '<div data-screen-label="Floor">'+
-      '<section style="position:relative;'+heroH+'">'+
-        '<div class="floor-sticky" style="'+sticky+'">'+
-          '<div style="position:absolute;inset:0;background:radial-gradient(ellipse 58% 40% at 50% 80%,rgba(201,187,163,.075),transparent 66%),radial-gradient(ellipse 80% 50% at 50% 6%,rgba(201,187,163,.045),transparent 60%)"></div>'+
-          sparks+
-          '<div data-heroplate class="floor-plate" style="position:absolute;left:50%;top:73%;width:min(88vw,880px);height:min(88vw,880px);margin-left:max(-44vw,-440px);margin-top:max(-44vw,-440px);perspective:1400px;pointer-events:none">'+
-            '<div data-plate data-scrub="1" data-tilt="64" style="position:absolute;inset:0;transform-style:preserve-3d;transform:rotateX(64deg);will-change:transform">'+
-              '<div style="position:absolute;inset:0;border-radius:999px;border:1px solid rgba(201,187,163,.26)"></div>'+
-              '<div style="position:absolute;inset:6%;border-radius:999px;border:1px solid rgba(201,187,163,.19);background:'+conicA+'"></div>'+
-              '<div style="position:absolute;inset:19%;border-radius:999px;border:1px solid rgba(41,141,255,.24)"></div>'+
-              '<div style="position:absolute;inset:31%;border-radius:999px;border:1px solid rgba(201,187,163,.18);background:'+conicB+'"></div>'+
-              '<div style="position:absolute;inset:44%;border-radius:999px;border:1px solid rgba(41,141,255,.2)"></div>'+
-              '<div style="position:absolute;inset:56%;border-radius:999px;background:radial-gradient(circle,rgba(201,187,163,.23),rgba(201,187,163,.03) 60%,transparent 72%);border:1px solid rgba(201,187,163,.23)"></div>'+
-              '<div style="position:absolute;left:50%;top:50%;width:13%;height:13%;margin:-6.5% 0 0 -6.5%;border-radius:999px;background:radial-gradient(circle,rgba(233,240,255,.95),rgba(41,141,255,.6) 34%,rgba(41,141,255,.1) 62%,transparent 74%);'+flameFilt+'animation:ar-flame 3.4s ease-in-out infinite"></div>'+
-              '<div style="position:absolute;left:50%;top:50%;width:30%;height:30%;margin:-15% 0 0 -15%;border-radius:999px;border:1px solid rgba(201,187,163,.3)"></div>'+
-              marksHTML("hero")+
-            '</div></div>'+
-          '<div data-herotype style="position:absolute;left:0;right:0;top:14%;text-align:center;pointer-events:none;z-index:4;isolation:isolate;will-change:transform,opacity">'+
-            '<div style="font-family:\'IBM Plex Mono\',monospace;font-size:10.5px;letter-spacing:.42em;text-transform:uppercase;color:#9CA2AD">Fair launches on Sui</div>'+
-            '<h1 style="font-family:Cinzel,serif;font-weight:600;font-size:clamp(58px,13.4vw,196px);line-height:.86;letter-spacing:.04em;margin:14px 0 0">ARENA</h1></div>'+
-          '<div style="position:absolute;left:0;right:0;bottom:104px;pointer-events:none">'+
-            '<div style="max-width:1280px;margin:0 auto;padding:0 clamp(18px,3.6vw,42px);display:flex;align-items:flex-end;justify-content:space-between;gap:24px;flex-wrap:wrap">'+
-              '<div><div style="font-family:\'IBM Plex Mono\',monospace;font-size:10px;letter-spacing:.28em;text-transform:uppercase;color:#9CA2AD;display:flex;align-items:center;gap:8px"><span style="width:5px;height:5px;border-radius:999px;background:#298DFF;box-shadow:0 0 8px #298DFF;animation:ar-breathe 1.6s ease-in-out infinite"></span>In the pit</div>'+
-                '<div data-pot style="font-family:Cinzel,serif;font-size:clamp(28px,4.4vw,46px);letter-spacing:.04em;margin-top:6px;font-variant-numeric:tabular-nums;text-shadow:0 0 34px rgba(41,141,255,.35)">'+money(pot)+'</div></div>'+
-              '<div style="text-align:right"><div style="font-family:\'IBM Plex Mono\',monospace;font-size:10px;letter-spacing:.28em;text-transform:uppercase;color:#9CA2AD">Bell in</div>'+
-                '<div data-clock style="font-family:Cinzel,serif;font-size:clamp(22px,3vw,32px);letter-spacing:.14em;margin-top:6px;font-variant-numeric:tabular-nums">'+clockStr()+'</div></div></div></div>'+
-          '<div style="position:absolute;left:50%;bottom:34px;transform:translateX(-50%);font-family:\'IBM Plex Mono\',monospace;font-size:9.5px;letter-spacing:.3em;text-transform:uppercase;color:#7C838F">Scroll to the sand</div>'+
-        '</div></section>'+
-      '<section style="position:relative;border-top:1px solid rgba(255,255,255,.12);background:#191A1F">'+
-        '<div style="max-width:1280px;margin:0 auto;padding:clamp(56px,8vw,110px) clamp(18px,3.6vw,42px)">'+
-          '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr));gap:clamp(32px,5vw,72px);align-items:start">'+
-            '<div><div id="top-card">'+topHTML()+'</div>'+
-              '<div data-magnet data-go="pit" class="link-pit" style="display:inline-flex;align-items:center;gap:12px;margin-top:26px;font-family:\'IBM Plex Mono\',monospace;font-size:10.5px;letter-spacing:.24em;text-transform:uppercase;color:#9CA2AD;border-bottom:1px solid rgba(41,141,255,.45);padding-bottom:8px;transition:color .3s ease">Watch the pit <span style="color:#298DFF">→</span></div></div>'+
-            '<div><div style="display:flex;align-items:center;justify-content:space-between;padding-bottom:14px;border-bottom:1px solid rgba(255,255,255,.15)">'+
-              '<span style="font-family:\'IBM Plex Mono\',monospace;font-size:10px;letter-spacing:.28em;text-transform:uppercase;color:#9CA2AD">Live fills</span>'+
-              '<span style="width:5px;height:5px;border-radius:999px;background:#298DFF;box-shadow:0 0 8px #298DFF;animation:ar-breathe 1.4s ease-in-out infinite"></span></div>'+
-              '<div id="tape">'+tapeHTML(11)+'</div></div></div></div></section>'+
-      '<section style="border-top:1px solid rgba(255,255,255,.12)">'+
-        '<div style="max-width:1280px;margin:0 auto;padding:clamp(48px,6vw,86px) clamp(18px,3.6vw,42px) calc(150px + env(safe-area-inset-bottom))">'+
-          '<div style="display:flex;align-items:baseline;justify-content:space-between;gap:20px;flex-wrap:wrap;margin-bottom:clamp(24px,3vw,44px)">'+
-            '<h2 style="font-family:Cinzel,serif;font-weight:600;font-size:clamp(26px,3.6vw,44px);letter-spacing:.06em;margin:0">On the sand</h2>'+
-            '<div data-magnet data-go="discover" style="font-family:\'IBM Plex Mono\',monospace;font-size:10.5px;letter-spacing:.24em;text-transform:uppercase;color:#C9BBA3">All twelve bouts →</div></div>'+
-          '<div id="sand-list">'+sand+'</div>'+
-          '<div style="border-top:1px solid rgba(255,255,255,.12);padding-top:clamp(28px,4vw,52px);margin-top:clamp(28px,4vw,52px);display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr));gap:clamp(24px,3vw,48px)">'+
-            '<div><div style="font-family:Cinzel,serif;font-size:clamp(38px,5vw,64px);line-height:1;color:rgba(201,187,163,.28)">01</div>'+
-              '<h3 style="font-family:Cinzel,serif;font-weight:600;font-size:19px;letter-spacing:.1em;margin:14px 0 10px">Enter</h3>'+
-              '<p style="font-size:14px;color:#9CA2AD;margin:0;text-wrap:pretty">One SUI opens a bout. No presale, no allocation, no team unlock — the curve starts flat for everyone.</p></div>'+
-            '<div><div style="font-family:Cinzel,serif;font-size:clamp(38px,5vw,64px);line-height:1;color:rgba(201,187,163,.28)">02</div>'+
-              '<h3 style="font-family:Cinzel,serif;font-weight:600;font-size:19px;letter-spacing:.1em;margin:14px 0 10px">Fight</h3>'+
-              '<p style="font-size:14px;color:#9CA2AD;margin:0;text-wrap:pretty">Buy and sell against the curve. Every fill pays one percent into the pit — the only fee on the floor.</p></div>'+
-            '<div><div style="font-family:Cinzel,serif;font-size:clamp(38px,5vw,64px);line-height:1;color:rgba(201,187,163,.28)">03</div>'+
-              '<h3 style="font-family:Cinzel,serif;font-weight:600;font-size:19px;letter-spacing:.1em;margin:14px 0 10px">Graduate</h3>'+
-              '<p style="font-size:14px;color:#9CA2AD;margin:0;text-wrap:pretty">At 2,000 SUI raised liquidity leaves for DeepBook. The pit stays behind for whoever is still on the curve.</p></div>'+
-          '</div></div></section></div>';
-  }
-  function discPool(){
-    const sorted = sortedT();
-    if (state.filter === "Graduated") return [];
-    return sorted.filter(function(k){ return state.filter === "All" || k.st === state.filter; });
-  }
-  function filterBtn(f){
-    const on = state.filter === f;
-    return '<div data-magnet data-filter="'+f+'" style="font-family:\'IBM Plex Mono\',monospace;font-size:10px;letter-spacing:.22em;text-transform:uppercase;padding:9px 15px;border:1px solid '+(on?"rgba(41,141,255,.6)":"rgba(255,255,255,.18)")+';color:'+(on?"#F2F0EC":"#9CA2AD")+';background:'+(on?"rgba(41,141,255,.1)":"transparent")+';transition:all .3s ease">'+f+'</div>';
-  }
-  function discoverHTML(){
-    const grads = GRADS.map(function(g){
-      return '<div style="background:#20222A;padding:22px 20px">'+
-        '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">'+
-          '<div style="font-family:Cinzel,serif;font-size:18px;letter-spacing:.05em">'+g.n+'</div>'+
-          '<span style="font-family:\'IBM Plex Mono\',monospace;font-size:8px;letter-spacing:.14em;text-transform:uppercase;color:#298DFF;border:1px solid rgba(41,141,255,.45);padding:2px 6px;white-space:nowrap">LP locked</span></div>'+
-        '<div style="font-family:\'IBM Plex Mono\',monospace;font-size:10px;letter-spacing:.18em;color:#7C838F;margin-top:5px">'+g.t+' · SuiLock</div>'+
-        '<div style="font-family:\'IBM Plex Mono\',monospace;font-size:14px;margin-top:16px;color:#C9BBA3;font-variant-numeric:tabular-nums">'+money(g.cap)+'</div>'+
-        '<div style="font-size:11px;color:#7C838F;margin-top:8px">LP fees auto-burn</div></div>';
-    }).join("");
-    return '<div data-screen-label="Discover">'+
-      '<div style="max-width:1280px;margin:0 auto;padding:calc(68px + clamp(38px,6vw,84px)) clamp(18px,3.6vw,42px) 150px">'+
-        '<div style="font-family:\'IBM Plex Mono\',monospace;font-size:10px;letter-spacing:.36em;text-transform:uppercase;color:#C9BBA3">Discover</div>'+
-        '<h1 style="font-family:Cinzel,serif;font-weight:600;font-size:clamp(36px,7vw,88px);line-height:1;letter-spacing:.03em;margin:20px 0 0">Every bout<br>on the floor.</h1>'+
-        '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr));gap:clamp(30px,5vw,64px);align-items:center;margin-top:clamp(34px,5vw,64px)">'+
-          '<p style="font-size:17px;line-height:1.6;color:#9CA2AD;max-width:40ch;margin:0;text-wrap:pretty">Ten live curves, four graduates. Distance to the centre is distance to the pot — the closer a mark sits to the flame, the higher its cap.</p>'+
-          '<div style="position:relative;height:min(64vw,380px);perspective:1200px">'+
-            '<div data-plate data-tilt="58" style="position:absolute;left:50%;top:50%;width:min(64vw,380px);height:min(64vw,380px);margin-left:max(-32vw,-190px);margin-top:max(-32vw,-190px);transform-style:preserve-3d;transform:rotateX(58deg);will-change:transform">'+
-              '<div style="position:absolute;inset:0;border-radius:999px;border:1px solid rgba(201,187,163,.26);background:'+(SHOT?"repeating-conic-gradient(from 0deg,rgba(201,187,163,.18) 0deg 1.5deg,transparent 1.5deg 12deg)":"repeating-conic-gradient(from 0deg,rgba(201,187,163,.18) 0deg .3deg,transparent .3deg 10deg)")+'"></div>'+
-              '<div style="position:absolute;inset:20%;border-radius:999px;border:1px solid rgba(41,141,255,.26)"></div>'+
-              '<div style="position:absolute;inset:42%;border-radius:999px;border:1px solid rgba(201,187,163,.23);background:radial-gradient(circle,rgba(201,187,163,.18),transparent 70%)"></div>'+
-              '<div style="position:absolute;left:50%;top:50%;width:18%;height:18%;margin:-9% 0 0 -9%;border-radius:999px;background:radial-gradient(circle,rgba(41,141,255,.9),transparent 70%);'+(SHOT?"":"filter:blur(3px);")+'animation:ar-flame 3.4s ease-in-out infinite"></div>'+
-              marksHTML("small")+'</div></div></div>'+
-        '<div id="filters" style="display:flex;gap:8px;margin:clamp(40px,6vw,80px) 0 0;flex-wrap:wrap">'+["All","Live","Graduating","Graduated"].map(filterBtn).join("")+'</div>'+
-        '<div id="disc-list">'+discPool().map(discRow).join("")+'</div>'+
-        '<div style="margin-top:clamp(44px,6vw,84px);border-top:1px solid rgba(255,255,255,.12);padding-top:clamp(26px,3vw,42px)">'+
-          '<h2 style="font-family:Cinzel,serif;font-weight:600;font-size:20px;letter-spacing:.14em;margin:0 0 6px">Graduated</h2>'+
-          '<div style="font-size:13.5px;color:#7C838F;margin-bottom:22px">Liquidity moved to DeepBook. Out of the pit for good.</div>'+
-          '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,200px),1fr));gap:1px;background:rgba(255,255,255,.12)">'+grads+'</div>'+
-        '</div></div></div>';
-  }
-  function pitHTML(){
-    const rows = sortedT().slice(0,8).map(function(k,i){
-      return '<div data-magnet data-row data-go="token:'+k.t+'" class="row-bout" style="display:flex;align-items:center;gap:14px;padding:15px 0;border-bottom:1px solid rgba(255,255,255,.1);transition:background .4s ease">'+
-        '<span style="font-family:Cinzel,serif;font-size:13px;color:#7C838F;width:20px">'+rank(i)+'</span>'+
-        '<div style="width:8px;height:8px;transform:rotate(45deg);flex:none;background:'+k.c+';box-shadow:0 0 12px '+k.c+'"></div>'+
-        '<div style="flex:1;min-width:0"><div style="font-family:Cinzel,serif;font-size:17px;letter-spacing:.04em">'+k.n+'</div>'+
-          '<div style="font-family:\'IBM Plex Mono\',monospace;font-size:10px;letter-spacing:.16em;color:#7C838F;margin-top:3px">'+k.t+' · '+k.mode+'</div></div>'+
-        '<div data-cap="'+k.t+'" style="font-family:Cinzel,serif;font-size:16px;font-variant-numeric:tabular-nums">'+fmt(k.cap)+'</div></div>';
-    }).join("");
-    const bells = BELLS.map(function(b){
-      const holders = b.mode === "Holders";
-      return '<div style="display:flex;align-items:center;gap:14px;padding:18px 0;border-bottom:1px solid rgba(255,255,255,.1)">'+
-        '<div style="flex:1;min-width:0"><div style="font-family:Cinzel,serif;font-size:17px;letter-spacing:.04em">'+b.n+'</div>'+
-          '<div style="font-family:\'IBM Plex Mono\',monospace;font-size:10.5px;color:#7C838F;margin-top:4px">'+b.amt.toFixed(2)+' SUI · '+b.ago+(b.burn?" · burned "+b.burn:"")+'</div></div>'+
-        '<div style="font-family:\'IBM Plex Mono\',monospace;font-size:9.5px;letter-spacing:.18em;text-transform:uppercase;color:'+(holders?ACCENT:"#C9BBA3")+';border:1px solid '+(holders?"rgba(41,141,255,.45)":"rgba(201,187,163,.3)")+';padding:3px 8px">'+b.mode+'</div></div>';
-    }).join("");
-    return '<div data-screen-label="Pit">'+
-      '<section style="position:relative;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;overflow:hidden;border-bottom:1px solid rgba(255,255,255,.12)">'+
-        '<div style="position:absolute;inset:0;background:radial-gradient(ellipse 58% 46% at 50% 62%,rgba(201,187,163,.07),transparent 66%)"></div>'+
-        '<div class="pit-plate" style="position:absolute;left:50%;top:99%;width:min(120vw,980px);height:min(120vw,980px);margin-left:max(-60vw,-490px);margin-top:max(-60vw,-490px);perspective:1300px;pointer-events:none;z-index:0">'+
-          '<div data-plate data-tilt="77" style="position:absolute;inset:0;transform-style:preserve-3d;transform:rotateX(77deg)">'+
-            '<div style="position:absolute;inset:0;border-radius:999px;border:1px solid rgba(201,187,163,.22);background:'+(SHOT?"repeating-conic-gradient(from 0deg,rgba(201,187,163,.16) 0deg 1.6deg,transparent 1.6deg 12deg)":"repeating-conic-gradient(from 0deg,rgba(201,187,163,.16) 0deg .24deg,transparent .24deg 7.5deg)")+'"></div>'+
-            '<div style="position:absolute;inset:22%;border-radius:999px;border:1px solid rgba(41,141,255,.28)"></div>'+
-            '<div style="position:absolute;inset:46%;border-radius:999px;border:1px solid rgba(201,187,163,.26);background:radial-gradient(circle,rgba(201,187,163,.18),transparent 72%)"></div>'+
-            '<div style="position:absolute;left:50%;top:50%;width:22%;height:22%;margin:-11% 0 0 -11%;border-radius:999px;background:radial-gradient(circle,rgba(41,141,255,.95),rgba(41,141,255,.2) 52%,transparent 74%);'+(SHOT?"":"filter:blur(6px);")+'animation:ar-flame 3s ease-in-out infinite"></div>'+
-            marksHTML("small")+'</div></div>'+
-        '<div class="pit-copy" style="position:relative;z-index:3;isolation:isolate;text-align:center;padding:clamp(108px,17vh,180px) clamp(18px,3.6vw,42px) 130px">'+
-          '<div style="font-family:\'IBM Plex Mono\',monospace;font-size:10px;letter-spacing:.36em;text-transform:uppercase;color:#C9BBA3;display:flex;align-items:center;justify-content:center;gap:9px"><span style="width:5px;height:5px;border-radius:999px;background:#298DFF;box-shadow:0 0 8px #298DFF;animation:ar-breathe 1.5s ease-in-out infinite"></span>Round <span data-round>'+String(roundNo)+'</span> · live</div>'+
-          '<div data-pot style="font-family:Cinzel,serif;font-size:clamp(52px,11vw,150px);line-height:1;letter-spacing:.01em;margin:22px 0 0;font-variant-numeric:tabular-nums;text-shadow:0 0 70px rgba(41,141,255,.4)">'+money(pot)+'</div>'+
-          '<div data-clock style="font-family:Cinzel,serif;font-size:clamp(24px,4vw,44px);letter-spacing:.18em;margin-top:18px;font-variant-numeric:tabular-nums;color:#C9BBA3">'+clockStr()+'</div>'+
-          '<p style="font-size:16px;color:#9CA2AD;max-width:42ch;margin:26px auto 0;text-wrap:pretty">The pot is fed by one percent of every fill on every curve. Highest cap still fighting when the bell rings takes all of it.</p>'+
-        '</div></section>'+
-      '<div style="max-width:1280px;margin:0 auto;padding:clamp(46px,6vw,84px) clamp(18px,3.6vw,42px) 150px">'+
-        '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:clamp(30px,4vw,60px)">'+
-          '<div><div style="display:flex;align-items:baseline;justify-content:space-between;padding-bottom:16px;border-bottom:1px solid rgba(255,255,255,.15)">'+
-            '<h2 style="font-family:Cinzel,serif;font-weight:600;font-size:20px;letter-spacing:.14em;margin:0">Contenders</h2>'+
-            '<span style="font-family:\'IBM Plex Mono\',monospace;font-size:10px;letter-spacing:.2em;color:#7C838F">CAP</span></div>'+
-            '<div id="contenders">'+rows+'</div></div>'+
-          '<div><div style="display:flex;align-items:baseline;justify-content:space-between;padding-bottom:16px;border-bottom:1px solid rgba(255,255,255,.15)">'+
-            '<h2 style="font-family:Cinzel,serif;font-weight:600;font-size:20px;letter-spacing:.14em;margin:0">Past bells</h2>'+
-            '<span style="font-family:\'IBM Plex Mono\',monospace;font-size:10px;letter-spacing:.2em;color:#7C838F">PAID</span></div>'+bells+
-            '<div style="margin-top:36px;display:grid;gap:26px">'+
-              '<div><h3 style="font-family:Cinzel,serif;font-weight:600;font-size:15px;letter-spacing:.12em;margin:0 0 8px">Burn</h3>'+
-                '<p style="font-size:13.5px;color:#9CA2AD;margin:0;text-wrap:pretty">The pot buys the winning token straight off its curve. Those units are destroyed on chain.</p></div>'+
-              '<div><h3 style="font-family:Cinzel,serif;font-weight:600;font-size:15px;letter-spacing:.12em;margin:0 0 8px">Split</h3>'+
-                '<p style="font-size:13.5px;color:#9CA2AD;margin:0;text-wrap:pretty">Every holder receives SUI pro-rata at the moment the bell rings. Nothing to claim.</p></div>'+
-            '</div></div></div></div></div>';
+    return '<svg class="spark" width="86" height="30" viewBox="0 0 86 30" fill="none"><path d="'+d+'" stroke="'+chColor(k)+'" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path></svg>';
   }
   function feeChip(n, label, color){
     const txt = n >= 0.01 ? n.toFixed(4) : (n > 0 ? n.toFixed(6) : "0");
-    return '<span style="font-family:\'IBM Plex Mono\',monospace;font-size:8.5px;letter-spacing:.1em;text-transform:uppercase;color:'+color+';border:1px solid '+color+'66;padding:2px 6px;white-space:nowrap">'+txt+' '+label+'</span>';
+    return '<span class="fee-chip" style="color:'+color+'">'+txt+' '+label+'</span>';
   }
   function feeParts(tk){
     const q = poolQuote(tk);
@@ -615,9 +386,9 @@ html.shot [data-plate],html.shot [data-mark],html.shot [data-herotype]{will-chan
   }
   function feeChipsHTML(p){
     if (p.reflectionMode){
-      return feeChip(p.reflection,"refl","#298DFF")+feeChip(p.creator,"creator","#C9BBA3")+feeChip(p.pit,"pit","#8FB07A")+feeChip(p.platform,"plat","#9CA2AD");
+      return feeChip(p.reflection,"refl","#298DFF")+feeChip(p.creator,"creator","#6B7280")+feeChip(p.pit,"pit","#16A34A")+feeChip(p.platform,"plat","#9CA3AF");
     }
-    return feeChip(p.creator,"creator","#C9BBA3")+feeChip(p.platform,"plat","#9CA2AD")+feeChip(p.pit,"pit","#298DFF");
+    return feeChip(p.creator,"creator","#6B7280")+feeChip(p.platform,"plat","#9CA3AF")+feeChip(p.pit,"pit","#298DFF");
   }
   function ticketMeta(){
     const tk = findT(state.sym);
@@ -636,6 +407,165 @@ html.shot [data-plate],html.shot [data-mark],html.shot [data-herotype]{will-chan
       : "1% · 60% creator / 10% platform / 30% pit · launch 1 SUI";
     return {receive:receive, fee:fee, tradeLabel:tradeLabel, payLabel:payLabel, quote:q, parts:parts, note:note, chips:feeChipsHTML(parts)};
   }
+  function sortPool(list){
+    const s = state.sort;
+    const out = list.slice();
+    if (s === "Newest") out.sort(function(a,b){ return (b.born||0)-(a.born||0); });
+    else if (s === "Volume") out.sort(function(a,b){ return vol(b)-vol(a); });
+    else if (s === "Recent") out.sort(function(a,b){
+      const la = tapeItems(1, a.t)[0]; const lb = tapeItems(1, b.t)[0];
+      return ((lb && lb.ts)||0) - ((la && la.ts)||0);
+    });
+    else out.sort(function(a,b){ return b.cap-a.cap; });
+    return out;
+  }
+  function launchPool(){
+    const q = (state.search||"").trim().toLowerCase();
+    let list = T.slice();
+    if (q) list = list.filter(function(k){ return (k.t+" "+k.n+" "+k.b).toLowerCase().indexOf(q) >= 0; });
+    const f = state.filter;
+    if (f === "Trending") list = list.filter(function(k){ return k.ch >= 12 || vol(k) > vol(T[0])*0.4; });
+    else if (f === "New") list = list.filter(function(k){ return (k.born||0) >= T.length-5; });
+    else if (f === "Near graduation") list = list.filter(function(k){ return k.st === "Graduating"; });
+    else if (f === "Live") list = list.filter(function(k){ return k.st === "Live"; });
+    else if (f === "Graduating") list = list.filter(function(k){ return k.st === "Graduating"; });
+    else if (f === "Graduated") list = [];
+    return sortPool(list);
+  }
+  function pill(label, key, val){
+    const on = state[key] === val;
+    return '<button type="button" class="pill'+(on?" on":"")+'" data-set="'+key+'" data-val="'+val+'">'+label+'</button>';
+  }
+  function featCard(k){
+    const q = poolQuote(k);
+    return '<div class="feat" data-go="token:'+k.t+'">'+
+      '<div class="feat-top">'+avatar(k,42)+
+        '<div style="min-width:0"><div class="feat-name">'+k.n+'</div><div class="feat-tick">'+k.t+' · '+k.mode+'</div></div>'+
+        '<button type="button" class="btn-buy" data-go="token:'+k.t+'">Buy</button></div>'+
+      '<div><span class="feat-mcap" data-cap="'+k.t+'">'+money(k.cap,q)+'</span> '+
+        '<span class="chg" style="color:'+chColor(k)+'">'+chText(k)+'</span></div>'+
+      '<div class="feat-meta"><span>'+k.h+' holders</span><span>'+fmt(vol(k))+' vol</span></div>'+
+      '<div class="bar"><i data-bar="'+k.t+'" style="width:'+barPct(k)+'"></i></div></div>';
+  }
+  function launchRow(k, i){
+    const q = poolQuote(k);
+    const cls = k.st === "Graduating" ? "grad" : (k.st === "Graduated" ? "" : "live");
+    const go = k.graduated ? "explore" : ("token:"+k.t);
+    return '<div class="row" data-go="'+go+'">'+
+      '<span class="mono" style="color:#9CA3AF">'+rank(i)+'</span>'+
+      '<div style="display:flex;align-items:center;gap:10px;min-width:0">'+
+        '<div style="width:10px;height:10px;transform:rotate(45deg);background:'+k.c+';flex:none"></div>'+
+        '<div style="min-width:0"><div class="feat-name">'+k.n+' <span class="feat-tick">'+k.t+'</span></div></div></div>'+
+      sparkSVG(k)+
+      '<span class="chg" style="color:'+chColor(k)+';text-align:right">'+chText(k)+'</span>'+
+      '<div data-cap="'+k.t+'" class="mono" style="text-align:right;font-weight:650">'+money(k.cap,q)+'</div>'+
+      '<span class="chip '+cls+' st-col">'+k.st+'</span></div>';
+  }
+  function launchCard(k, i){
+    const q = poolQuote(k);
+    const cls = k.st === "Graduating" ? "grad" : "live";
+    return '<div class="lcard" data-go="token:'+k.t+'">'+
+      '<div class="lcard-top">'+avatar(k,40)+
+        '<div style="min-width:0"><div class="feat-name">'+k.n+'</div><div class="feat-tick">'+k.t+'</div></div>'+
+        '<span class="chip '+cls+'">'+k.st+'</span></div>'+
+      '<div style="display:flex;align-items:baseline;justify-content:space-between;gap:8px">'+
+        '<div class="feat-mcap" data-cap="'+k.t+'" style="font-size:16px">'+money(k.cap,q)+'</div>'+
+        '<div class="chg" style="color:'+chColor(k)+'">'+chText(k)+'</div></div>'+
+      '<div class="feat-meta" style="margin-top:8px"><span>'+k.h+' holders</span><span>'+k.mode+'</span></div>'+
+      '<div class="bar"><i data-bar="'+k.t+'" style="width:'+barPct(k)+'"></i></div></div>';
+  }
+  function footerHTML(){
+    return '<footer class="footer">'+
+      '<div><div class="brand-name" style="color:#111;margin-bottom:8px">ARENA</div>'+
+        '<p style="margin:0;max-width:36ch">Fair launches on Sui. Bonding curves, no presale. Graduation at 2,000 SUI or 1 XAUM. The pit is fed by every fill.</p></div>'+
+      '<div><h4>Product</h4><div data-go="explore">Explore</div><div data-go="pit">Pit</div><div data-go="launch">Create</div></div>'+
+      '<div><h4>Fees</h4>1% on every fill.<br>Default 60/10/30 creator/platform/pit.<br>Reflection 50/20/20/10.</div></footer>';
+  }
+  function exploreHTML(){
+    const top = sortPool(T.slice()).slice(0,4);
+    const pool = launchPool();
+    const leader = sortedT()[0];
+    const sorts = ["Recent","Newest","Market cap","Volume"];
+    const times = ["All","24h"];
+    const chips = ["All","Live","Graduating","Graduated"];
+    let body = pool.map(launchRow).join("");
+    if (state.filter === "Graduated" || (state.filter === "All" && false)) {}
+    if (state.filter === "Graduated"){
+      body = GRADS.map(function(g,i){
+        const k = {t:g.t,n:g.n,cap:g.cap,ch:0,h:0,st:"Graduated",mode:"LP locked",q:"SUI",c:g.c||"#298DFF",buckets:[1],graduated:true};
+        return launchRow(k,i);
+      }).join("");
+    }
+    if (!body) body = '<div class="empty card" style="grid-column:1/-1">No launches match.</div>';
+    return '<div data-screen-label="Explore">'+
+      '<div class="explore-head"><div><h1>Explore</h1><p>Tokens still on the curve on Sui.</p></div>'+
+        '<div><div class="pills" style="justify-content:flex-end">'+sorts.map(function(s){return pill(s,"sort",s);}).join("")+'</div>'+
+        '<div class="pills" style="justify-content:flex-end;margin-top:6px">'+times.map(function(s){return pill(s,"time",s);}).join("")+'</div></div></div>'+
+      '<div class="sec-label">Top tokens <span>Highest cap on the curve</span></div>'+
+      '<div class="featured" id="featured">'+top.map(featCard).join("")+'</div>'+
+      '<div class="pit-strip" data-go="pit">'+
+        '<div><div class="pit-kicker">In the pit · round <span data-round>'+roundNo+'</span></div>'+
+          '<div class="pit-pot" data-pot>'+money(pot)+'</div></div>'+
+        '<div class="pit-right"><div class="mono" style="font-size:22px" data-clock>'+clockStr()+'</div>'+
+          '<div style="color:var(--muted);margin-top:4px">'+leader.n+' leading · Watch the pit →</div></div></div>'+
+      '<div class="sec-label">All launches <span id="launch-count">'+pool.length+' live</span></div>'+
+      '<div class="pills" id="filters" style="margin-bottom:14px">'+chips.map(function(s){return pill(s,"filter",s);}).join("")+'</div>'+
+      '<div class="card" style="padding:6px 18px 10px"><div class="rowlist" id="disc-list">'+body+'</div></div>'+
+      footerHTML()+'</div>';
+  }
+  function pitHTML(){
+    const rows = sortedT().slice(0,8).map(function(k,i){
+      return '<div class="row" data-go="token:'+k.t+'">'+
+        '<span class="mono" style="color:#9CA3AF">'+rank(i)+'</span>'+
+        '<div style="display:flex;align-items:center;gap:10px;min-width:0">'+avatar(k,32)+
+          '<div style="min-width:0"><div class="feat-name">'+k.n+'</div><div class="feat-tick">'+k.t+' · '+k.mode+'</div></div></div>'+
+        '<span class="chg" style="color:'+chColor(k)+'">'+chText(k)+'</span>'+
+        '<div data-cap="'+k.t+'" class="mono" style="font-weight:650">'+fmt(k.cap)+'</div></div>';
+    }).join("");
+    const bells = BELLS.map(function(b){
+      const holders = b.mode === "Holders";
+      return '<div class="row">'+
+        '<span></span><div><div class="feat-name">'+b.n+'</div>'+
+        '<div class="feat-tick">'+b.amt.toFixed(2)+' SUI · '+b.ago+(b.burn?" · burned "+b.burn:"")+'</div></div>'+
+        '<span class="chip '+(holders?"live":"")+'">'+b.mode+'</span></div>';
+    }).join("");
+    return '<div data-screen-label="Pit">'+
+      '<div class="hero-card">'+
+        '<div class="pit-kicker"><span style="display:inline-block;width:7px;height:7px;border-radius:99px;background:#298DFF;margin-right:8px"></span>Round <span data-round>'+roundNo+'</span> · live</div>'+
+        '<div class="pit-pot" data-pot style="font-size:clamp(52px,10vw,96px);margin-top:10px">'+money(pot)+'</div>'+
+        '<div class="mono" data-clock style="font-size:28px;margin-top:10px;color:var(--muted)">'+clockStr()+'</div>'+
+        '<p style="max-width:44ch;margin:18px auto 0;color:var(--muted)">The pot is fed by one percent of every fill on every curve. Highest cap still fighting when the bell rings takes all of it — split to holders or buy &amp; burn.</p>'+
+      '</div>'+
+      '<div class="grid-2">'+
+        '<div class="card" style="padding:22px"><div class="sec-label" style="margin-top:0">Contenders <span>CAP</span></div><div id="contenders">'+rows+'</div></div>'+
+        '<div class="card" style="padding:22px"><div class="sec-label" style="margin-top:0">Past bells <span>PAID</span></div>'+bells+
+          '<div style="margin-top:22px;display:grid;gap:14px;color:var(--muted);font-size:14px">'+
+            '<div><strong style="color:#111">Burn</strong> — the pot buys the winning token off its curve. Those units are destroyed.</div>'+
+            '<div><strong style="color:#111">Split</strong> — every holder receives quote pro-rata when the bell rings.</div>'+
+          '</div></div></div>'+
+      footerHTML()+'</div>';
+  }
+  function launchHTML(){
+    function tog(key, val, label){
+      const on = state[key] === val;
+      return '<button type="button" class="pill'+(on?" on":"")+'" data-set="'+key+'" data-val="'+val+'">'+label+'</button>';
+    }
+    return '<div data-screen-label="Launch">'+
+      '<div class="hero-card" style="text-align:left">'+
+        '<div class="pit-kicker">Launch</div>'+
+        '<h1 style="font-size:clamp(32px,6vw,56px)">Enter the arena.</h1>'+
+        '<p style="color:var(--muted);max-width:48ch">One SUI opens a bout. No presale. If you lead the pit when the bell rings, the pot either buys and burns your token, or splits to holders.</p>'+
+        '<div class="form-grid">'+
+          '<div><label>Name</label><input id="l-name" placeholder="Voltcats" value="'+state.lName+'"></div>'+
+          '<div><label>Ticker</label><input id="l-tick" placeholder="VOLT" maxlength="8" value="'+state.lTick+'"></div>'+
+          '<div><label>Quote</label><div class="toggle">'+tog("lQuote","SUI","SUI")+tog("lQuote","XAUM","XAUM")+'</div>'+
+            '<div style="font-size:12px;color:var(--muted);margin-top:6px">Graduation at '+(state.lQuote==="XAUM"?"1 XAUM":"2,000 SUI")+' · SILK is the gold bout.</div></div>'+
+          '<div><label>Pit outcome</label><div class="toggle">'+tog("lMode","Holders","Holders")+tog("lMode","Buy & burn","Buy & burn")+'</div>'+
+            '<div style="font-size:12px;color:var(--muted);margin-top:6px">'+(state.lMode==="Holders"?"Reflection 50/20/20/10. Unpaid quote streams to holders.":"Default 60/10/30. Winning pot buys and burns.")+'</div></div>'+
+          '<button type="button" class="btn-trade" id="launch-go">Launch token · 1 SUI</button>'+
+        '</div></div>'+
+      footerHTML()+'</div>';
+  }
   function tokenHTML(){
     const tk = findT(state.sym);
     const q = poolQuote(tk);
@@ -647,93 +577,76 @@ html.shot [data-plate],html.shot [data-mark],html.shot [data-herotype]{will-chan
     const px = fmtPx(lastPx(tk.t))+" "+q;
     const chipVals = q === "XAUM" ? ["0.01","0.05","0.1","0.25","Max"] : ["0.1","0.5","1","5","Max"];
     const chips = chipVals.map(function(c){
-      return '<div data-magnet data-chip="'+c+'" class="chip" style="flex:1;text-align:center;border:1px solid rgba(255,255,255,.16);padding:8px 0;font-family:\'IBM Plex Mono\',monospace;font-size:10.5px;color:#C9BBA3;transition:all .25s ease">'+c+'</div>';
+      return '<div data-chip="'+c+'">'+c+'</div>';
     }).join("");
     return '<div data-screen-label="Token">'+
-      '<div style="max-width:1280px;margin:0 auto;padding:calc(68px + clamp(28px,4vw,56px)) clamp(18px,3.6vw,42px) 150px">'+
-        '<div data-magnet data-go="discover" style="font-family:\'IBM Plex Mono\',monospace;font-size:10px;letter-spacing:.26em;text-transform:uppercase;color:#9CA2AD">← Discover</div>'+
-        '<div style="display:flex;align-items:flex-end;justify-content:space-between;gap:24px;flex-wrap:wrap;margin-top:clamp(24px,3vw,44px)">'+
-          '<div style="display:flex;align-items:center;gap:clamp(14px,2vw,24px);min-width:0">'+
-            '<div style="width:14px;height:14px;transform:rotate(45deg);flex:none;background:'+tk.c+';box-shadow:0 0 20px '+tk.c+'"></div>'+
-            '<div style="min-width:0"><h1 style="font-family:Cinzel,serif;font-weight:600;font-size:clamp(32px,6vw,72px);line-height:1;letter-spacing:.03em;margin:0">'+tk.n+'</h1>'+
-              '<div style="font-size:14.5px;color:#9CA2AD;margin-top:10px;max-width:52ch;text-wrap:pretty">'+tk.b+'</div></div></div>'+
-          '<div style="display:flex;gap:8px;flex-wrap:wrap">'+
-            '<span style="font-family:\'IBM Plex Mono\',monospace;font-size:9.5px;letter-spacing:.18em;text-transform:uppercase;color:'+stColor(tk)+';border:1px solid '+stBorder(tk)+';padding:4px 9px">'+tk.st+'</span>'+
-            '<span style="font-family:\'IBM Plex Mono\',monospace;font-size:9.5px;letter-spacing:.18em;text-transform:uppercase;color:#9CA2AD;border:1px solid rgba(255,255,255,.2);padding:4px 9px">Pit · '+tk.mode+'</span>'+
-            '<span style="font-family:\'IBM Plex Mono\',monospace;font-size:9.5px;letter-spacing:.18em;text-transform:uppercase;color:#C9BBA3;border:1px solid rgba(201,187,163,.35);padding:4px 9px">'+q+'</span></div></div>'+
-        '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(50%,150px),1fr));gap:1px;background:rgba(255,255,255,.12);margin-top:clamp(30px,4vw,56px)">'+
-          '<div style="background:#20222A;padding:20px"><div style="font-family:\'IBM Plex Mono\',monospace;font-size:9.5px;letter-spacing:.22em;text-transform:uppercase;color:#7C838F">Price</div>'+
-            '<div data-px style="font-family:Cinzel,serif;font-size:20px;margin-top:8px;font-variant-numeric:tabular-nums">'+px+'</div></div>'+
-          '<div style="background:#20222A;padding:20px"><div style="font-family:\'IBM Plex Mono\',monospace;font-size:9.5px;letter-spacing:.22em;text-transform:uppercase;color:#7C838F">Market cap</div>'+
-            '<div data-cap="'+tk.t+'" style="font-family:Cinzel,serif;font-size:20px;margin-top:8px;font-variant-numeric:tabular-nums">'+money(tk.cap, q)+'</div></div>'+
-          '<div style="background:#20222A;padding:20px"><div style="font-family:\'IBM Plex Mono\',monospace;font-size:9.5px;letter-spacing:.22em;text-transform:uppercase;color:#7C838F">24h</div>'+
-            '<div style="font-family:Cinzel,serif;font-size:20px;margin-top:8px;font-variant-numeric:tabular-nums;color:'+chColor(tk)+'">'+chText(tk)+'</div></div>'+
-          '<div style="background:#20222A;padding:20px"><div style="font-family:\'IBM Plex Mono\',monospace;font-size:9.5px;letter-spacing:.22em;text-transform:uppercase;color:#7C838F">Holders</div>'+
-            '<div style="font-family:Cinzel,serif;font-size:20px;margin-top:8px;font-variant-numeric:tabular-nums">'+tk.h+'</div></div></div>'+
-        holderHTML(tk)+
-        '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,360px),1fr));gap:clamp(24px,3vw,44px);margin-top:clamp(24px,3vw,44px);align-items:start">'+
-          '<div><div style="border:1px solid rgba(255,255,255,.13);background:#1E2027;padding:clamp(18px,2.4vw,28px)">'+
-              '<div style="display:flex;align-items:baseline;justify-content:space-between">'+
-                '<span style="font-family:\'IBM Plex Mono\',monospace;font-size:10px;letter-spacing:.26em;text-transform:uppercase;color:#9CA2AD">Chart</span>'+
-                '<span style="font-family:\'IBM Plex Mono\',monospace;font-size:10px;letter-spacing:.2em;color:#7C838F">'+tk.t+' / '+q+'</span></div>'+
-              '<div id="tv-host" class="tv-host" style="height:320px"></div>'+
-              '<div style="height:1px;background:rgba(255,255,255,.11);margin-top:20px"><div data-bar="'+tk.t+'" style="height:100%;background:linear-gradient(90deg,rgba(41,141,255,.35),#298DFF);box-shadow:0 0 10px rgba(41,141,255,.6);transition:width 1.2s cubic-bezier(.22,1,.36,1);width:'+barPct(tk)+'"></div></div>'+
-              '<div style="display:flex;justify-content:space-between;margin-top:10px;font-family:\'IBM Plex Mono\',monospace;font-size:10.5px;color:#7C838F">'+
-                '<span>'+pct.toFixed(0)+'% to graduation</span>'+
-                '<span style="font-variant-numeric:tabular-nums"><span data-cap="'+tk.t+'">'+money(tk.cap, q)+'</span> / '+gLabel+'</span></div></div>'+
-            '<div style="border:1px solid rgba(255,255,255,.13);border-top:0;background:#1E2027;padding:clamp(18px,2.4vw,28px)">'+
-              '<div style="font-family:\'IBM Plex Mono\',monospace;font-size:10px;letter-spacing:.26em;text-transform:uppercase;color:#9CA2AD;margin-bottom:6px">Tape</div>'+
-              '<div id="tape">'+tapeHTML(10, tk.t)+'</div></div></div>'+
-          '<div style="border:1px solid rgba(255,255,255,.13);background:#1E2027;padding:clamp(18px,2.4vw,28px);position:sticky;top:92px">'+
-            '<div style="display:flex;border:1px solid rgba(255,255,255,.16)">'+
-              '<div data-magnet data-side="Buy" id="btn-buy" style="flex:1;text-align:center;padding:12px;font-family:\'IBM Plex Mono\',monospace;font-size:10.5px;letter-spacing:.22em;text-transform:uppercase;background:'+(buyOn?"#F2F0EC":"transparent")+';color:'+(buyOn?"#191A1F":"#9CA2AD")+';transition:all .3s ease">Buy</div>'+
-              '<div data-magnet data-side="Sell" id="btn-sell" style="flex:1;text-align:center;padding:12px;font-family:\'IBM Plex Mono\',monospace;font-size:10.5px;letter-spacing:.22em;text-transform:uppercase;background:'+(buyOn?"transparent":"#C98A80")+';color:'+(buyOn?"#9CA2AD":"#191A1F")+';transition:all .3s ease">Sell</div></div>'+
-            '<div style="display:flex;justify-content:space-between;margin:20px 0 8px;font-family:\'IBM Plex Mono\',monospace;font-size:10.5px;color:#9CA2AD"><span id="pay-label">'+meta.payLabel+'</span><span id="bal-text" style="font-variant-numeric:tabular-nums">'+walletBal(q).toFixed(2)+' '+q+'</span></div>'+
-            '<input id="amt" class="inp-amt" value="'+state.amt+'" style="width:100%;box-sizing:border-box;background:transparent;border:1px solid rgba(255,255,255,.18);padding:14px 16px;font-family:Cinzel,serif;font-size:26px;color:#F2F0EC;outline:none;font-variant-numeric:tabular-nums;transition:border-color .3s ease">'+
-            '<div style="display:flex;gap:6px;margin-top:10px">'+chips+'</div>'+
-            '<div style="margin:22px 0 0">'+
-              '<div style="display:flex;justify-content:space-between;padding:10px 0;border-top:1px solid rgba(255,255,255,.11);font-size:13.5px"><span style="color:#9CA2AD">You receive</span><span id="receive" style="font-family:\'IBM Plex Mono\',monospace;font-variant-numeric:tabular-nums">'+meta.receive+'</span></div>'+
-              '<div style="display:flex;justify-content:space-between;padding:10px 0;border-top:1px solid rgba(255,255,255,.11);font-size:13.5px"><span style="color:#9CA2AD">Swap fee · 1%</span><span id="fee" style="font-family:\'IBM Plex Mono\',monospace;color:#298DFF;font-variant-numeric:tabular-nums">'+meta.fee+'</span></div>'+
-              '<div id="fee-chips" style="display:flex;flex-wrap:wrap;gap:6px;padding:2px 0 8px">'+meta.chips+'</div>'+
-              '<div style="display:flex;justify-content:space-between;padding:10px 0;border-top:1px solid rgba(255,255,255,.11);font-size:13.5px"><span style="color:#9CA2AD">Venue</span><span>Bonding curve</span></div></div>'+
-            '<div data-magnet data-trade class="btn-trade" id="trade-btn" style="margin-top:20px;text-align:center;padding:15px;background:#298DFF;color:#191A1F;font-family:\'IBM Plex Mono\',monospace;font-size:11px;letter-spacing:.22em;text-transform:uppercase;position:relative;overflow:hidden;transition:box-shadow .3s ease">'+meta.tradeLabel+'</div>'+
-            '<div style="margin-top:12px;text-align:center;font-family:\'IBM Plex Mono\',monospace;font-size:9.5px;letter-spacing:.12em;color:#7C838F;text-wrap:pretty" id="fee-note">'+meta.note+'</div>'+
-          '</div></div></div></div>';
-  }
-
-  function launchHTML(){
-    return '<div data-screen-label="Launch">'+
-      '<div style="max-width:1280px;margin:0 auto;padding:calc(68px + clamp(38px,6vw,84px)) clamp(18px,3.6vw,42px) 150px">'+
-        '<div style="font-family:\'IBM Plex Mono\',monospace;font-size:10px;letter-spacing:.36em;text-transform:uppercase;color:#C9BBA3">Launch</div>'+
-        '<h1 style="font-family:Cinzel,serif;font-weight:600;font-size:clamp(36px,7vw,88px);line-height:1;letter-spacing:.03em;margin:20px 0 0">Enter the arena.</h1>'+
-        '<p style="font-size:17px;color:#9CA2AD;max-width:44ch;margin:24px 0 0;text-wrap:pretty">One SUI opens a bout. If you lead the pit when the bell rings, the pot either buys and burns your token, or splits to your holders.</p>'+
-        '<div style="display:flex;gap:12px;margin-top:44px;flex-wrap:wrap">'+
-          '<div data-magnet data-go="discover" style="padding:14px 22px;background:#F2F0EC;color:#191A1F;font-family:\'IBM Plex Mono\',monospace;font-size:10.5px;letter-spacing:.22em;text-transform:uppercase">See the floor first</div>'+
-          '<div data-magnet data-go="pit" style="padding:14px 22px;border:1px solid rgba(201,187,163,.3);color:#C9BBA3;font-family:\'IBM Plex Mono\',monospace;font-size:10.5px;letter-spacing:.22em;text-transform:uppercase">Watch the pit</div>'+
-        '</div></div></div>';
+      '<div class="back" data-go="explore">← Explore</div>'+
+      '<div class="token-head">'+
+        '<div style="display:flex;align-items:center;gap:14px;min-width:0">'+avatar(tk,52)+
+          '<div><h1>'+tk.n+'</h1><div style="color:var(--muted);margin-top:6px;max-width:52ch">'+tk.b+'</div></div></div>'+
+        '<div class="badges">'+
+          '<span class="badge">'+tk.st+'</span>'+
+          '<span class="badge">Pit · '+tk.mode+'</span>'+
+          '<span class="badge">'+q+'</span></div></div>'+
+      '<div class="stats">'+
+        '<div class="stat"><div class="k">Price</div><div class="v" data-px>'+px+'</div></div>'+
+        '<div class="stat"><div class="k">Market cap</div><div class="v" data-cap="'+tk.t+'">'+money(tk.cap,q)+'</div></div>'+
+        '<div class="stat"><div class="k">24h</div><div class="v" style="color:'+chColor(tk)+'">'+chText(tk)+'</div></div>'+
+        '<div class="stat"><div class="k">Holders</div><div class="v">'+tk.h+'</div></div></div>'+
+      holderHTML(tk)+
+      '<div class="split">'+
+        '<div class="split-main">'+
+          '<div class="card" style="padding:18px">'+
+            '<div style="display:flex;justify-content:space-between;margin-bottom:8px"><span class="stat k">Chart</span><span class="feat-tick">'+tk.t+' / '+q+'</span></div>'+
+            '<div id="tv-host" class="tv-host"></div>'+
+            '<div class="bar" style="margin-top:14px"><i data-bar="'+tk.t+'" style="width:'+barPct(tk)+'"></i></div>'+
+            '<div style="display:flex;justify-content:space-between;margin-top:8px;font-size:12px;color:var(--muted)">'+
+              '<span>'+pct.toFixed(0)+'% to graduation</span>'+
+              '<span><span data-cap="'+tk.t+'">'+money(tk.cap,q)+'</span> / '+gLabel+'</span></div></div>'+
+          '<div class="card" style="padding:18px;margin-top:12px">'+
+            '<div class="stat k" style="margin-bottom:6px">Tape</div>'+
+            '<div id="tape">'+tapeHTML(tk.t)+'</div></div></div>'+
+        '<div class="ticket">'+
+          '<div class="sides">'+
+            '<div data-side="Buy" id="btn-buy" class="'+(buyOn?"on-buy":"")+'">Buy</div>'+
+            '<div data-side="Sell" id="btn-sell" class="'+(buyOn?"":"on-sell")+'">Sell</div></div>'+
+          '<div style="display:flex;justify-content:space-between;margin:16px 0 8px;font-size:13px;color:var(--muted)"><span id="pay-label">'+meta.payLabel+'</span><span id="bal-text" class="mono">'+walletBal(q).toFixed(2)+' '+q+'</span></div>'+
+          '<input id="amt" class="amt" value="'+state.amt+'">'+
+          '<div class="chips">'+chips+'</div>'+
+          '<div style="margin-top:16px">'+
+            '<div class="kv"><span style="color:var(--muted)">You receive</span><span id="receive" class="mono">'+meta.receive+'</span></div>'+
+            '<div class="kv"><span style="color:var(--muted)">Swap fee · 1%</span><span id="fee" class="mono" style="color:#298DFF">'+meta.fee+'</span></div>'+
+            '<div id="fee-chips" class="fee-chips">'+meta.chips+'</div>'+
+            '<div class="kv"><span style="color:var(--muted)">Venue</span><span>Bonding curve</span></div></div>'+
+          '<button type="button" class="btn-trade'+(buyOn?"":" sell")+'" id="trade-btn" data-trade>'+meta.tradeLabel+'</button>'+
+          '<div id="fee-note" style="margin-top:10px;text-align:center;font-size:11px;color:var(--muted)">'+meta.note+'</div>'+
+        '</div></div>'+
+      footerHTML()+'</div>';
   }
   function hashFor(route, sym){
-    if (route === "floor") return "#/";
+    if (route === "explore" || route === "floor" || route === "discover") return "#/";
     if (route === "token") return "#/token/"+(sym||state.sym);
     return "#/"+route;
   }
   function parseHash(){
     const h = (location.hash || "#/").replace(/^#/, "");
     const parts = h.split("/").filter(Boolean);
-    if (!parts.length) return {route:"floor", sym:state.sym};
+    if (!parts.length) return {route:"explore", sym:state.sym};
     if (parts[0] === "token"){
       const raw = (parts[1]||"VOLT").toUpperCase();
       const tk = T.find(function(k){return k.t === raw;});
       return {route:"token", sym: tk ? tk.t : "VOLT"};
     }
-    if (parts[0]==="discover" || parts[0]==="pit" || parts[0]==="launch" || parts[0]==="floor" || parts[0]==="home") return {route: parts[0]==="home"||parts[0]==="floor"?"floor":parts[0], sym:state.sym};
-    return {route:"floor", sym:state.sym};
+    const r = parts[0];
+    if (r === "discover" || r === "floor" || r === "home" || r === "explore") return {route:"explore", sym:state.sym};
+    if (r === "pit" || r === "launch") return {route:r, sym:state.sym};
+    return {route:"explore", sym:state.sym};
   }
-  function paintDock(){
-    const nav = [["Floor","floor"],["Discover","discover"],["Pit","pit"]];
-    $("#dock-nav").innerHTML = nav.map(function(n){
-      const on = state.route === n[1];
-      return '<div data-magnet data-go="'+n[1]+'" style="padding:9px clamp(10px,2.6vw,17px);border-radius:999px;font-family:\'IBM Plex Mono\',monospace;font-size:clamp(9px,2.4vw,10.5px);letter-spacing:.2em;text-transform:uppercase;white-space:nowrap;background:'+(on?"rgba(242,240,236,.94)":"transparent")+';color:'+(on?"#191A1F":"#C9BBA3")+';transition:background .35s ease,color .35s ease">'+n[0]+'</div>';
+  function paintNav(){
+    const nav = [["Explore","explore"],["Pit","pit"]];
+    $("#nav-pill").innerHTML = nav.map(function(n){
+      const on = state.route === n[1] || (n[1]==="explore" && state.route==="token");
+      return '<div class="nav-item'+(on?" on":"")+'" data-go="'+n[1]+'">'+n[0]+'</div>';
     }).join("");
   }
   function paintWallet(){
@@ -747,17 +660,8 @@ html.shot [data-plate],html.shot [data-mark],html.shot [data-herotype]{will-chan
   }
   function paintPots(){
     const txt = money(pot);
-    if (txt !== prevPot){
-      prevPot = txt;
-      $$("[data-pot]").forEach(function(el){
-        el.textContent = txt;
-        el.style.animation = "none";
-        void el.offsetWidth;
-        el.style.animation = "ar-roll .5s cubic-bezier(.22,1,.36,1)";
-      });
-    } else {
-      $$("[data-pot]").forEach(function(el){ el.textContent = txt; });
-    }
+    $$("[data-pot]").forEach(function(el){ el.textContent = txt; });
+    prevPot = txt;
   }
   function paintCaps(){
     T.forEach(function(k){
@@ -766,8 +670,6 @@ html.shot [data-plate],html.shot [data-mark],html.shot [data-herotype]{will-chan
         else el.textContent = money(k.cap, poolQuote(k));
       });
       $$('[data-bar="'+k.t+'"]').forEach(function(el){ el.style.width = barPct(k); });
-      const r = (0.92 - 0.6*Math.min(1, Math.sqrt(k.cap/GRAD))).toFixed(3);
-      $$('[data-mark="'+k.t+'"]').forEach(function(el){ el.dataset.r = r; });
     });
   }
   function paintTicket(){
@@ -775,17 +677,19 @@ html.shot [data-plate],html.shot [data-mark],html.shot [data-herotype]{will-chan
     if (!buy) return;
     const buyOn = state.side === "Buy";
     const meta = ticketMeta();
-    buy.style.background = buyOn ? "#F2F0EC" : "transparent";
-    buy.style.color = buyOn ? "#191A1F" : "#9CA2AD";
-    sell.style.background = buyOn ? "transparent" : "#C98A80";
-    sell.style.color = buyOn ? "#9CA2AD" : "#191A1F";
+    buy.className = buyOn ? "on-buy" : "";
+    sell.className = buyOn ? "" : "on-sell";
     const pl = $("#pay-label"); if (pl) pl.textContent = meta.payLabel;
     const bt = $("#bal-text"); if (bt) bt.textContent = walletBal(meta.quote).toFixed(2)+" "+meta.quote;
     const rec = $("#receive"); if (rec) rec.textContent = meta.receive;
     const fee = $("#fee"); if (fee) fee.textContent = meta.fee;
     const chips = $("#fee-chips"); if (chips) chips.innerHTML = meta.chips;
     const note = $("#fee-note"); if (note) note.textContent = meta.note;
-    const tr = $("#trade-btn"); if (tr) tr.textContent = meta.tradeLabel;
+    const tr = $("#trade-btn");
+    if (tr){
+      tr.textContent = meta.tradeLabel;
+      tr.className = "btn-trade"+(buyOn?"":" sell");
+    }
   }
   function paintPx(){
     const q = poolQuote(state.sym);
@@ -805,14 +709,12 @@ html.shot [data-plate],html.shot [data-mark],html.shot [data-herotype]{will-chan
   }
   function paintTape(){
     const tapeEl = $("#tape");
-    if (tapeEl) tapeEl.innerHTML = tapeHTML(state.route === "token" ? 10 : 11, state.route === "token" ? state.sym : null);
+    if (tapeEl) tapeEl.innerHTML = tapeHTML(state.route === "token" ? state.sym : null);
   }
   function paintLive(){
     paintClocks();
     paintPots();
     paintCaps();
-    const top = $("#top-card");
-    if (top) top.innerHTML = topHTML();
     paintTape();
     paintTicket();
     paintPx();
@@ -903,7 +805,7 @@ html.shot [data-plate],html.shot [data-mark],html.shot [data-herotype]{will-chan
     const quote = poolQuote(tk);
     const ticker = tk.t;
     const seq = ++tvSeq;
-    host.innerHTML = '<div style="min-height:200px;height:100%;display:flex;align-items:center;justify-content:center;color:#7C838F;font-family:\'IBM Plex Mono\',monospace;font-size:11px;letter-spacing:.14em">loading chart…</div>';
+    host.innerHTML = '<div style="min-height:200px;height:100%;display:flex;align-items:center;justify-content:center;color:#6B7280;font-size:13px">loading chart…</div>';
     loadTvScript(function(){
       if (seq !== tvSeq) return;
       const el = document.getElementById("tv-host");
@@ -923,24 +825,24 @@ html.shot [data-plate],html.shot [data-mark],html.shot [data-herotype]{will-chan
         symbol: ticker,
         interval: res,
         timezone: "Etc/UTC",
-        theme: "Dark",
+        theme: "Light",
         style: "1",
         locale: "en",
         autosize: true,
-        toolbar_bg: "#191A1F",
+        toolbar_bg: "#ffffff",
         overrides: {
-          "paneProperties.background": "#191A1F",
+          "paneProperties.background": "#ffffff",
           "paneProperties.backgroundType": "solid",
-          "paneProperties.vertGridProperties.color": "rgba(242,240,236,.06)",
-          "paneProperties.horzGridProperties.color": "rgba(242,240,236,.06)",
-          "scalesProperties.textColor": "#9CA2AD",
-          "scalesProperties.lineColor": "rgba(242,240,236,.10)",
-          "mainSeriesProperties.candleStyle.upColor": "#298DFF",
-          "mainSeriesProperties.candleStyle.downColor": "#C98A80",
-          "mainSeriesProperties.candleStyle.borderUpColor": "#298DFF",
-          "mainSeriesProperties.candleStyle.borderDownColor": "#C98A80",
-          "mainSeriesProperties.candleStyle.wickUpColor": "#298DFF",
-          "mainSeriesProperties.candleStyle.wickDownColor": "#C98A80"
+          "paneProperties.vertGridProperties.color": "#F0F0F0",
+          "paneProperties.horzGridProperties.color": "#F0F0F0",
+          "scalesProperties.textColor": "#6B7280",
+          "scalesProperties.lineColor": "#E7E7E7",
+          "mainSeriesProperties.candleStyle.upColor": "#16A34A",
+          "mainSeriesProperties.candleStyle.downColor": "#DC2626",
+          "mainSeriesProperties.candleStyle.borderUpColor": "#16A34A",
+          "mainSeriesProperties.candleStyle.borderDownColor": "#DC2626",
+          "mainSeriesProperties.candleStyle.wickUpColor": "#16A34A",
+          "mainSeriesProperties.candleStyle.wickDownColor": "#DC2626"
         },
         disabled_features: ["use_localstorage_for_settings","header_symbol_search","header_compare","display_market_status","go_to_date"],
         enabled_features: ["hide_last_na_study_output","move_logo_to_main_pane","volume_force_overlay"]
@@ -952,57 +854,33 @@ html.shot [data-plate],html.shot [data-mark],html.shot [data-herotype]{will-chan
       } catch (e) {}
     }, function(){
       const el = document.getElementById("tv-host");
-      if (el) el.innerHTML = '<div style="min-height:200px;height:100%;display:flex;align-items:center;justify-content:center;color:#7C838F;font-family:\'IBM Plex Mono\',monospace;font-size:11px;letter-spacing:.14em">Chart library unavailable.</div>';
+      if (el) el.innerHTML = '<div style="min-height:200px;height:100%;display:flex;align-items:center;justify-content:center;color:#6B7280;font-size:13px">Chart library unavailable.</div>';
     });
   }
-  function updateChartLive(){
-    /* static datafeed — subscribeBars is a no-op */
-  }
+  function updateChartLive(){ /* static datafeed */ }
   function renderScreen(){
     dropTv();
     const host = $("#screens");
-    const map = {floor:floorHTML, discover:discoverHTML, pit:pitHTML, token:tokenHTML, launch:launchHTML};
-    host.innerHTML = (map[state.route] || floorHTML)();
-    paintDock();
+    const map = {explore:exploreHTML, pit:pitHTML, token:tokenHTML, launch:launchHTML};
+    host.innerHTML = (map[state.route] || exploreHTML)();
+    paintNav();
     paintWallet();
+    const q = $("#q");
+    if (q) q.value = state.search;
     prevPot = money(pot);
-    document.documentElement.classList.toggle("fine-pointer", window.matchMedia("(pointer:fine)").matches);
     if (state.route === "token") mountTvChart();
-  }
-  function showGate(){
-    const g = $("#gate"), L = $("#gate-l"), R = $("#gate-r"), seam = $("#gate-seam");
-    if (state.gate === "idle"){ g.style.display = "none"; return; }
-    const wasHidden = g.style.display === "none";
-    g.style.display = "block";
-    if (wasHidden){
-      seam.style.animation = "none";
-      void seam.offsetWidth;
-      seam.style.animation = "ar-seam .9s ease-out .32s both";
-    }
-    const closing = state.gate === "closing";
-    L.style.transform = closing ? "translateX(0%)" : "translateX(-100%)";
-    R.style.transform = closing ? "translateX(0%)" : "translateX(100%)";
   }
   function go(route, sym){
     const nextSym = sym || state.sym;
     if (route === state.route && (!sym || nextSym === state.sym)) return;
-    gt.forEach(clearTimeout); gt = [];
-    state.gate = "arm";
-    showGate();
-    gt.push(setTimeout(function(){ state.gate = "closing"; showGate(); }, 30));
-    gt.push(setTimeout(function(){
-      window.scrollTo(0,0);
-      state.route = route;
-      if (sym) state.sym = nextSym;
-      hashLock = true;
-      const h = hashFor(route, state.sym);
-      if ((location.hash || "#/") !== h) location.hash = h;
-      else hashLock = false;
-      renderScreen();
-      state.gate = "opening";
-      showGate();
-    }, 500));
-    gt.push(setTimeout(function(){ state.gate = "idle"; showGate(); }, 1060));
+    window.scrollTo(0,0);
+    state.route = route;
+    if (sym) state.sym = nextSym;
+    hashLock = true;
+    const h = hashFor(route, state.sym);
+    if ((location.hash || "#/") !== h) location.hash = h;
+    else hashLock = false;
+    renderScreen();
   }
   function applyLiveTrade(ev){
     const k = T.find(function(t){ return t.t === ev.pool_id; });
@@ -1017,14 +895,8 @@ html.shot [data-plate],html.shot [data-mark],html.shot [data-herotype]{will-chan
       k.cap = Math.max(40, k.cap + (ev.is_buy ? amt*4.2 : -amt*3.1));
     }
   }
-  function fill(){
-    if (!Index || !bus.sub) return;
-    const k = T[Math.floor(Math.random()*T.length)];
-    const ev = Index.generateDemoLive([k], Date.now());
-    if (ev) bus.sub.push(ev);
-  }
   function userFill(){
-    if (!Index || !bus.sub) return fill();
+    if (!Index || !bus.sub) return;
     const tk = findT(state.sym);
     const amt = parseFloat(state.amt) || 0;
     const ev = Index.makeTrade({
@@ -1045,84 +917,22 @@ html.shot [data-plate],html.shot [data-mark],html.shot [data-herotype]{will-chan
     pot = 0.42;
     prevPot = "";
   }
-  function onMove(e){
-    m.x = e.clientX; m.y = e.clientY;
-    const el = e.target && e.target.closest ? e.target.closest("[data-magnet]") : null;
-    if (el !== hot){
-      if (hot && hot.hasAttribute("data-row")) hot.style.transform = "";
-      hot = el;
-    }
-    if (el && el.hasAttribute("data-row") && cinema()){
-      const r = el.getBoundingClientRect();
-      el.style.transform = "translate3d("+((e.clientX-(r.left+r.width/2))*0.014).toFixed(2)+"px,"+((e.clientY-(r.top+r.height/2))*0.06).toFixed(2)+"px,0)";
-      el.style.transition = "transform .5s cubic-bezier(.22,1,.36,1), background .45s cubic-bezier(.22,1,.36,1)";
-    }
-  }
-  function onLeave(){ cur.o = 0; }
-  function onScroll(){ sy = window.scrollY || 0; }
-  function raf(){
-    const t = (Date.now()-t0)/1000;
-    const c = $("[data-cursor]");
-    if (c){
-      const fine = window.matchMedia("(pointer:fine)").matches;
-      let tx = m.x, ty = m.y, ts = 1;
-      if (fine && hot){
-        const r = hot.getBoundingClientRect();
-        tx += (r.left+r.width/2 - m.x)*0.3; ty += (r.top+r.height/2 - m.y)*0.3; ts = 2.3;
-      }
-      cur.x += (tx-cur.x)*0.19; cur.y += (ty-cur.y)*0.19; cur.s += (ts-cur.s)*0.14;
-      const want = fine && m.x > -50 ? 1 : 0;
-      cur.o += (want-cur.o)*0.12;
-      c.style.transform = "translate3d("+cur.x.toFixed(1)+"px,"+cur.y.toFixed(1)+"px,0) scale("+cur.s.toFixed(3)+")";
-      c.style.opacity = cur.o.toFixed(2);
-      c.style.borderColor = hot ? "rgba(201,187,163,.85)" : "rgba(41,141,255,.55)";
-      c.style.background = hot ? "rgba(41,141,255,.07)" : "transparent";
-    }
-    const tb = $("[data-topbar]");
-    if (tb){
-      const on = sy > 40;
-      tb.style.background = on ? "rgba(25,26,31,.84)" : "transparent";
-      tb.style.borderBottomColor = on ? "rgba(255,255,255,.13)" : "rgba(255,255,255,0)";
-      tb.style.backdropFilter = on ? "blur(20px) saturate(1.4)" : "none";
-    }
-    $$("[data-plate]").forEach(function(pl){
-      const narrow = window.innerWidth < 720;
-      let base = parseFloat(pl.dataset.tilt) || 60;
-      if (narrow){
-        const pit = pl.closest && pl.closest(".pit-plate");
-        base = pit ? 44 : Math.min(base, 48);
-      }
-      let tilt = base;
-      if (pl.dataset.scrub){
-        const host = pl.closest("section");
-        const span = host ? Math.max(1, host.offsetHeight - window.innerHeight) : 1;
-        const p = Math.min(1, Math.max(0, sy/span));
-        tilt = base - 46*p;
-        pl.style.transform = "rotateX("+tilt.toFixed(2)+"deg) scale("+(1+0.22*p).toFixed(3)+") translateY("+(p*70).toFixed(1)+"px)";
-        const ht = $("[data-herotype]");
-        if (ht){
-          ht.style.transform = "translate3d(0,"+(-p*130).toFixed(1)+"px,0) scale("+(1-0.1*p).toFixed(3)+")";
-          ht.style.opacity = (1-p*0.92).toFixed(3);
-        }
-      } else {
-        pl.style.transform = "rotateX("+tilt+"deg)";
-      }
-      const R = pl.offsetWidth/2;
-      const spin = cinema() ? 1 : 0;
-      pl.querySelectorAll("[data-mark]").forEach(function(mk){
-        const rn = parseFloat(mk.dataset.r)||0.6, a0 = parseFloat(mk.dataset.a)||0, sp = parseFloat(mk.dataset.sp)||1;
-        const ang = (a0 + t*sp*spin*0.9) * Math.PI/180;
-        const cx = Math.cos(ang);
-        mk.style.left = "50%"; mk.style.top = "50%";
-        mk.style.transform = "translate3d("+(cx*rn*R).toFixed(1)+"px,"+(Math.sin(ang)*rn*R).toFixed(1)+"px,0) rotateX("+(-tilt).toFixed(2)+"deg)";
-        const grp = mk.firstElementChild;
-        if (grp) grp.style.flexDirection = cx < 0 ? "row-reverse" : "row";
-      });
-    });
-    if (SHOT) return;
-    requestAnimationFrame(raf);
+  function doLaunch(){
+    const name = (state.lName || ($("#l-name") && $("#l-name").value) || "").trim();
+    const tick = (state.lTick || ($("#l-tick") && $("#l-tick").value) || "").trim().toUpperCase().replace(/[^A-Z0-9]/g,"").slice(0,8);
+    if (!name || !tick) return;
+    if (T.some(function(k){ return k.t === tick; })) { go("token", tick); return; }
+    const k = {t:tick,n:name,b:"Just entered the arena.",cap:state.lQuote==="XAUM"?0.04:48,ch:0,h:1,st:"Live",mode:state.lMode,q:state.lQuote,c:"#298DFF",born:T.length};
+    const base = Math.max(2.4, k.cap/34);
+    k.buckets = Array.from({length:12},function(){return +base.toFixed(2);});
+    k.fbuckets = k.buckets.map(function(){return 1;});
+    T.push(k);
+    if (!state.connected) state.connected = true;
+    go("token", tick);
   }
   document.addEventListener("click", function(e){
+    const launch = e.target.closest("#launch-go");
+    if (launch){ doLaunch(); return; }
     const trade = e.target.closest("[data-trade]");
     if (trade){
       if (!state.connected){ state.connected = true; paintWallet(); paintTicket(); }
@@ -1141,13 +951,18 @@ html.shot [data-plate],html.shot [data-mark],html.shot [data-herotype]{will-chan
       paintTicket();
       return;
     }
-    const filt = e.target.closest("[data-filter]");
-    if (filt){
-      state.filter = filt.getAttribute("data-filter");
-      const box = $("#filters");
-      if (box) box.innerHTML = ["All","Live","Graduating","Graduated"].map(filterBtn).join("");
-      const list = $("#disc-list");
-      if (list) list.innerHTML = discPool().map(discRow).join("");
+    const set = e.target.closest("[data-set]");
+    if (set){
+      const key = set.getAttribute("data-set");
+      const val = set.getAttribute("data-val");
+      state[key] = val;
+      if (state.route === "launch") renderScreen();
+      else if (state.route === "explore"){
+        const keepQ = state.search;
+        renderScreen();
+        state.search = keepQ;
+        const qel = $("#q"); if (qel) qel.value = keepQ;
+      }
       return;
     }
     const goEl = e.target.closest("[data-go]");
@@ -1159,10 +974,25 @@ html.shot [data-plate],html.shot [data-mark],html.shot [data-herotype]{will-chan
   });
   document.addEventListener("input", function(e){
     if (e.target && e.target.id === "amt"){ state.amt = e.target.value; paintTicket(); }
+    if (e.target && e.target.id === "q"){
+      state.search = e.target.value;
+      if (state.route !== "explore") { go("explore"); return; }
+      const list = $("#disc-list");
+      if (list){
+        const pool = launchPool();
+        list.innerHTML = pool.length ? pool.map(launchRow).join("") : '<div class="empty">No launches match.</div>';
+        const c = $("#launch-count"); if (c) c.textContent = pool.length+" live";
+      }
+    }
+    if (e.target && e.target.id === "l-name") state.lName = e.target.value;
+    if (e.target && e.target.id === "l-tick") state.lTick = e.target.value.toUpperCase();
   });
-  window.addEventListener("mousemove", onMove, {passive:true});
-  window.addEventListener("mouseout", onLeave, {passive:true});
-  window.addEventListener("scroll", onScroll, {passive:true});
+  document.addEventListener("keydown", function(e){
+    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k"){
+      e.preventDefault();
+      const q = $("#q"); if (q) q.focus();
+    }
+  });
   window.addEventListener("hashchange", function(){
     if (hashLock){ hashLock = false; return; }
     const p = parseHash();
@@ -1210,10 +1040,7 @@ html.shot [data-plate],html.shot [data-mark],html.shot [data-herotype]{will-chan
   const parsed = parseHash();
   state.route = parsed.route;
   state.sym = parsed.sym;
-  if (SHOT) document.documentElement.classList.add("shot");
   renderScreen();
-  if (SHOT) raf();
-  else requestAnimationFrame(raf);
 })();
 </script>
 </body>
