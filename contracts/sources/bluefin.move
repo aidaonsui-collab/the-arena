@@ -105,3 +105,13 @@ public(package) fun create_and_seed<CoinA, CoinB, CoinFee>(
     bf_pool::share_pool_object(pool);
     (pool_id, position, paid_a, paid_b, rem_a, rem_b)
 }
+
+/// Collect accrued swap fees for a position. Returns amounts plus Coin A/B balances.
+public(package) fun collect_fee<A, B>(
+    clock: &Clock,
+    protocol_config: &GlobalConfig,
+    pool: &mut bf_pool::Pool<A, B>,
+    position: &mut Position,
+): (u64, u64, Balance<A>, Balance<B>) {
+    bf_pool::collect_fee(clock, protocol_config, pool, position)
+}

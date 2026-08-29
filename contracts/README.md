@@ -48,7 +48,7 @@ Graduation for XAUM defaults to **1 XAUM** (not 2,000 units). 2,000 SUI is only 
 
 ## Instadex (no curve)
 
-Creator already published `Coin<T>` and brings both sides of LP (`Coin<T>` + `Coin<Q>` where Q is SUI or XAUM). One call seeds a Bluefin Spot pool at those amounts, shares it, time-locks the Position NFT in `BluefinPositionLock` for `Config.lp_lock_ms` (180 days), and permanently locks `TreasuryCap<T>` in shared `InstadexMintLock<T>` (no extract, no mint).
+Creator already published `Coin<T>` and brings both sides of LP (`Coin<T>` + `Coin<Q>` where Q is SUI or XAUM). One call seeds a Bluefin Spot pool at those amounts, shares it, and vaults the Position NFT in `BluefinPositionLock` forever (`unlock_ms = 0`; `claim_bluefin_position` aborts). Liquidity never comes out. Anyone can poke `lock::collect_bluefin_fees` and accrued Bluefin swap fees go to the creator. `TreasuryCap<T>` is locked in shared `InstadexMintLock<T>` (no extract, no mint).
 
 **PTB** — `launch::launch_instadex<T, Q>` / `launch_instadex_entry` (returns `lock_id`):
 
@@ -74,7 +74,9 @@ lock_id, bluefin_pool_id, position_id, token, quote, creator,
 token_amount, quote_amount, unlock_ms, name, symbol
 ```
 
-`token` / `quote` are `TypeName` via `type_name::with_defining_ids`. Also emits `BluefinLockEvent` with `pool_id = @0x0`.
+`token` / `quote` are `TypeName` via `type_name::with_defining_ids`. `unlock_ms` is always 0. Does not emit `LaunchEvent`, `LockEvent`, `BluefinLockEvent`, or `GraduationEvent`.
+
+Anyone can poke `lock::collect_bluefin_fees` — Bluefin fees accrue on the vaulted NFT and coins go to the creator (`lock.beneficiary`). `claim_bluefin_position` aborts (`still_locked`) while `unlock_ms == 0`.
 
 Call target after a future Compatible upgrade will be the new published-at. This function is source-only until that upgrade; do not call it on `0x0671…`.
 

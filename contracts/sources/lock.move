@@ -9,7 +9,7 @@
 ///    time-lock the Bluefin Position NFT to the Arena creator for `Config.lp_lock_ms`
 ///    (default 180 days).
 /// 3. Instadex (`launch::launch_instadex`) reuses `seed_and_lock_internal` with no
-///    Arena `Pool`. `BluefinPositionLock.pool_id` is `@0x0`; beneficiary is the sender.
+///    Arena `Pool`. `unlock_ms = 0` (permanent; claim aborts). Fees via `collect_bluefin_fees`.
 ///
 /// Graduate PTB (SUI quote):
 ///   Pool<T, SUI>, Config, Clock, Bluefin GlobalConfig,
@@ -46,7 +46,7 @@ public struct LpLock<phantom T, phantom Q> has key {
     unlock_ms: u64,
 }
 
-/// Shared vault holding the Bluefin Position NFT until `unlock_ms`.
+/// Shared vault holding the Bluefin Position NFT. `unlock_ms == 0` means permanent.
 public struct BluefinPositionLock has key {
     id: UID,
     pool_id: ID,
@@ -133,10 +133,10 @@ public fun seed_and_lock_bluefin<T>(
     let sqrt_p = math::sqrt_price_x64(token_res, virtual_quote + quote_res);
     let (token, mut quote) = pool::take_reserves_for_lock(pool);
     let fee = quote.split(fee_amt);
-    seed_and_lock_internal(
+    let (_lock_id, _bf, _pos, _ms) = seed_and_lock_internal(
         object::id(pool),
         pool.creator(),
-        config,
+        clock.timestamp_ms() + config.lp_lock_ms(),
         clock,
         bf_config,
         meta_t,
@@ -167,10 +167,10 @@ public fun seed_and_lock_bluefin_with_fee<T, Q>(
     let quote_res = pool.quote_reserves();
     let sqrt_p = math::sqrt_price_x64(token_res, virtual_quote + quote_res);
     let (token, quote) = pool::take_reserves_for_lock(pool);
-    seed_and_lock_internal(
+    let (_lock_id, _bf, _pos, _ms) = seed_and_lock_internal(
         object::id(pool),
         pool.creator(),
-        config,
+        clock.timestamp_ms() + config.lp_lock_ms(),
         clock,
         bf_config,
         meta_t,
@@ -208,7 +208,7 @@ public(package) fun take_creation_fee(
 public(package) fun seed_and_lock_internal<T, Q>(
     pool_id: ID,
     beneficiary: address,
-    config: &Config,
+    unlock_ms: u64,
     clock: &Clock,
     bf_config: &mut GlobalConfig,
     meta_t: &CoinMetadata<T>,
@@ -257,7 +257,6 @@ public(package) fun seed_and_lock_internal<T, Q>(
     send_residual(rem_b, beneficiary, ctx);
 
     let position_id = object::id(&position);
-    let unlock_ms = clock.timestamp_ms() + config.lp_lock_ms();
     let lock = BluefinPositionLock {
         id: object::new(ctx),
         pool_id,
@@ -267,16 +266,19 @@ public(package) fun seed_and_lock_internal<T, Q>(
         unlock_ms,
     };
     let lock_id = object::id(&lock);
-    events::emit_bluefin_lock(
-        lock_id,
-        pool_id,
-        beneficiary,
-        unlock_ms,
-        token_amount,
-        quote_amount,
-        bf_pool_id,
-        position_id,
-    );
+    // Curve path only. Instadex (unlock_ms == 0) emits InstadexLaunchEvent instead.
+    if (unlock_ms != 0) {
+        events::emit_bluefin_lock(
+            lock_id,
+            pool_id,
+            beneficiary,
+            unlock_ms,
+            token_amount,
+            quote_amount,
+            bf_pool_id,
+            position_id,
+        );
+    };
     transfer::share_object(lock);
     (lock_id, bf_pool_id, position_id, unlock_ms)
 }
@@ -287,12 +289,30 @@ public fun claim_bluefin_position(
     clock: &Clock,
     ctx: &mut TxContext,
 ): Position {
+    assert!(lock.unlock_ms != 0, errors::still_locked());
     assert!(clock.timestamp_ms() >= lock.unlock_ms, errors::still_locked());
     assert!(ctx.sender() == lock.beneficiary, errors::not_beneficiary());
     assert!(lock.position.is_some(), errors::nothing_to_claim());
     let position = option::extract(&mut lock.position);
     events::emit_lp_claim(object::id(lock), lock.pool_id, ctx.sender(), 0, 0);
     position
+}
+
+/// Permissionless. Collects accrued Bluefin swap fees from the vaulted Position NFT
+/// and sends Coin A / Coin B to lock.beneficiary. NFT stays in the vault.
+/// Aborts if the position has already been claimed (position is none).
+public fun collect_bluefin_fees<A, B>(
+    lock: &mut BluefinPositionLock,
+    clock: &Clock,
+    bf_config: &GlobalConfig,
+    bf_pool: &mut bluefin_spot::pool::Pool<A, B>,
+    ctx: &mut TxContext,
+) {
+    assert!(lock.position.is_some(), errors::nothing_to_claim());
+    let position = option::borrow_mut(&mut lock.position);
+    let (_amt_a, _amt_b, bal_a, bal_b) = bluefin::collect_fee(clock, bf_config, bf_pool, position);
+    send_residual(bal_a, lock.beneficiary, ctx);
+    send_residual(bal_b, lock.beneficiary, ctx);
 }
 
 fun metadata_url<C>(meta: &CoinMetadata<C>): vector<u8> {
@@ -332,3 +352,21 @@ public fun bluefin_lock_spot_id(lock: &BluefinPositionLock): ID { lock.bluefin_p
 public fun bluefin_lock_beneficiary(lock: &BluefinPositionLock): address { lock.beneficiary }
 public fun bluefin_lock_unlock_ms(lock: &BluefinPositionLock): u64 { lock.unlock_ms }
 public fun bluefin_lock_has_position(lock: &BluefinPositionLock): bool { lock.position.is_some() }
+
+#[test_only]
+public fun share_bluefin_lock_for_testing(
+    pool_id: ID,
+    bluefin_pool_id: ID,
+    beneficiary: address,
+    unlock_ms: u64,
+    ctx: &mut TxContext,
+) {
+    transfer::share_object(BluefinPositionLock {
+        id: object::new(ctx),
+        pool_id,
+        bluefin_pool_id,
+        position: option::none(),
+        beneficiary,
+        unlock_ms,
+    });
+}

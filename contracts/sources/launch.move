@@ -4,8 +4,8 @@
 /// `launch` to mint curve supply into a shared Pool<T, Q> and pay the SUI fee.
 ///
 /// Instadex: same published Coin<T>, but the creator brings both LP sides
-/// (Coin<T> + Coin<Q>) and `launch_instadex` seeds a Bluefin Spot pool, time-locks
-/// the Position NFT, and permanently locks TreasuryCap so nobody can mint after.
+/// (Coin<T> + Coin<Q>) and `launch_instadex` seeds a Bluefin Spot pool, vaults the Position NFT
+/// forever (`unlock_ms = 0`), and permanently locks TreasuryCap so nobody can mint after.
 module arena::launch;
 
 use arena::config::Config;
@@ -114,10 +114,10 @@ public fun launch_instadex<T, Q>(
 
     let fee = lock::take_creation_fee(bf_config, creation_fee, ctx.sender(), ctx);
     let sqrt_p = math::sqrt_price_x64(token_amount, quote_amount);
-    let (lock_id, bf_pool_id, position_id, unlock_ms) = lock::seed_and_lock_internal(
+    let (lock_id, bf_pool_id, position_id, _) = lock::seed_and_lock_internal(
         object::id_from_address(@0x0),
         ctx.sender(),
-        config,
+        0,
         clock,
         bf_config,
         meta_t,
@@ -143,7 +143,7 @@ public fun launch_instadex<T, Q>(
         ctx.sender(),
         token_amount,
         quote_amount,
-        unlock_ms,
+        0,
         meta_t.get_name(),
         meta_t.get_symbol(),
     );
