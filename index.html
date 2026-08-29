@@ -25,15 +25,15 @@ button{cursor:pointer}
 .serif{font-family:"Instrument Serif",Georgia,serif}
 .mono{font-family:"IBM Plex Mono",ui-monospace,monospace;font-variant-numeric:tabular-nums}
 .topbar{position:sticky;top:0;z-index:40;background:rgba(20,22,21,.86);backdrop-filter:blur(16px);border-bottom:1px solid transparent}
-.topbar-inner{display:flex;align-items:center;gap:14px;padding:14px 0;min-height:64px}
+.topbar-inner{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:14px;padding:14px 0;min-height:64px}
 .brand{display:flex;align-items:center;gap:9px;flex:none;cursor:pointer}
 .brand svg{display:block}
 .brand-name{font-family:"Instrument Serif",Georgia,serif;font-size:18px;letter-spacing:.2em;line-height:1;text-transform:uppercase}
-.nav-pill{display:flex;align-items:center;gap:4px;margin:0 auto;background:#101211;border-radius:999px;padding:4px}
+.nav-pill{display:flex;align-items:center;gap:4px;margin:0;justify-self:center;background:#101211;border-radius:999px;padding:4px}
 .nav-item{padding:8px 18px;border-radius:999px;font-size:14px;font-weight:500;color:var(--muted);cursor:pointer;transition:background .2s,color .2s;white-space:nowrap}
 .nav-item.on{background:var(--card);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.35)}
 .nav-item:hover{color:var(--ink)}
-.btn-connect{background:var(--lime);color:#111;border:0;border-radius:999px;padding:10px 18px;font-weight:600;font-size:14px;flex:none;transition:filter .15s}
+.btn-connect{background:var(--lime);color:#111;border:0;border-radius:999px;padding:10px 18px;font-weight:600;font-size:14px;justify-self:end;transition:filter .15s}
 .btn-connect:hover{filter:brightness(.97)}
 .search-row{display:flex;align-items:center;gap:10px;margin:8px auto 6px}
 .search-bar{flex:1;display:flex;align-items:center;gap:10px;background:var(--card);border-radius:999px;padding:12px 16px;box-shadow:var(--shadow);min-width:0}
@@ -186,8 +186,9 @@ html.shot,html.shot *{animation:none!important;transition:none!important}
 }
 @media (max-width:720px){
   .shell{width:calc(100% - 20px)}
-  .topbar-inner{flex-wrap:wrap;padding:10px 0 12px}
-  .nav-pill{order:3;width:100%;justify-content:center;margin:0}
+  .topbar-inner{grid-template-columns:1fr auto;padding:10px 0 12px}
+  .nav-pill{grid-column:1/-1;width:100%;justify-content:center;justify-self:stretch}
+  .btn-connect{justify-self:end}
   .search-row{gap:8px}
   .btn-create{flex:none;padding:12px 14px}
   .featured,.launches{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
