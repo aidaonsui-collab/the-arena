@@ -11,3 +11,16 @@ Sui Move package for the launchpad lives in [`contracts/`](contracts/). TOKEN/SU
 ## Keepers
 
 Cron jobs (pit bell, pit settle, reflection index) live in [`keepers/`](keepers/).
+
+## Token art (Vercel Blob)
+
+Store `arena-art` is linked to this project. Create POSTs the image bytes to `/api/upload` with `Content-Type: image/png` (or jpeg/webp/gif) and optional `x-filename`. Response `{ url }` is the public HTTPS URL for the card.
+
+```
+const res = await fetch('/api/upload', {
+  method: 'POST',
+  headers: { 'content-type': file.type, 'x-filename': file.name },
+  body: file,
+});
+const { url } = await res.json();
+```
