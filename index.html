@@ -35,6 +35,29 @@ html.fine-pointer,html.fine-pointer body,html.fine-pointer body *:not(input):not
 html.shot,html.shot *{animation:none!important}
 html.shot [data-cursor]{display:none!important}
 html.shot [data-plate],html.shot [data-mark],html.shot [data-herotype]{will-change:auto!important}
+@media (max-width: 720px){
+  .floor-plate{
+    top:62%!important;
+    width:min(148vw,640px)!important;
+    height:min(148vw,640px)!important;
+    margin-left:max(-74vw,-320px)!important;
+    margin-top:max(-58vw,-280px)!important;
+  }
+  .pit-plate{
+    top:56%!important;
+    width:min(170vw,680px)!important;
+    height:min(170vw,680px)!important;
+    margin-left:max(-85vw,-340px)!important;
+    margin-top:max(-48vw,-240px)!important;
+  }
+  [data-screen-label="Pit"] > section{
+    min-height:100dvh;
+  }
+  [data-screen-label="Pit"] .pit-copy{
+    padding-top:92px!important;
+    padding-bottom:72px!important;
+  }
+}
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
 .tv-host{height:320px;width:100%;position:relative;margin-top:12px;background:#191A1F}
 .tv-host iframe{border:0;display:block;width:100%;height:100%}
@@ -419,7 +442,7 @@ html.shot [data-plate],html.shot [data-mark],html.shot [data-herotype]{will-chan
         '<div style="'+sticky+'">'+
           '<div style="position:absolute;inset:0;background:radial-gradient(ellipse 58% 40% at 50% 80%,rgba(201,187,163,.075),transparent 66%),radial-gradient(ellipse 80% 50% at 50% 6%,rgba(201,187,163,.045),transparent 60%)"></div>'+
           sparks+
-          '<div data-heroplate style="position:absolute;left:50%;top:73%;width:min(88vw,880px);height:min(88vw,880px);margin-left:max(-44vw,-440px);margin-top:max(-44vw,-440px);perspective:1400px;pointer-events:none">'+
+          '<div data-heroplate class="floor-plate" style="position:absolute;left:50%;top:73%;width:min(88vw,880px);height:min(88vw,880px);margin-left:max(-44vw,-440px);margin-top:max(-44vw,-440px);perspective:1400px;pointer-events:none">'+
             '<div data-plate data-scrub="1" data-tilt="64" style="position:absolute;inset:0;transform-style:preserve-3d;transform:rotateX(64deg);will-change:transform">'+
               '<div style="position:absolute;inset:0;border-radius:999px;border:1px solid rgba(201,187,163,.26)"></div>'+
               '<div style="position:absolute;inset:6%;border-radius:999px;border:1px solid rgba(201,187,163,.19);background:'+conicA+'"></div>'+
@@ -528,14 +551,14 @@ html.shot [data-plate],html.shot [data-mark],html.shot [data-herotype]{will-chan
     return '<div data-screen-label="Pit">'+
       '<section style="position:relative;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;overflow:hidden;border-bottom:1px solid rgba(255,255,255,.12)">'+
         '<div style="position:absolute;inset:0;background:radial-gradient(ellipse 58% 46% at 50% 62%,rgba(201,187,163,.07),transparent 66%)"></div>'+
-        '<div style="position:absolute;left:50%;top:99%;width:min(120vw,980px);height:min(120vw,980px);margin-left:max(-60vw,-490px);margin-top:max(-60vw,-490px);perspective:1300px;pointer-events:none;z-index:0">'+
+        '<div class="pit-plate" style="position:absolute;left:50%;top:99%;width:min(120vw,980px);height:min(120vw,980px);margin-left:max(-60vw,-490px);margin-top:max(-60vw,-490px);perspective:1300px;pointer-events:none;z-index:0">'+
           '<div data-plate data-tilt="77" style="position:absolute;inset:0;transform-style:preserve-3d;transform:rotateX(77deg)">'+
             '<div style="position:absolute;inset:0;border-radius:999px;border:1px solid rgba(201,187,163,.22);background:'+(SHOT?"repeating-conic-gradient(from 0deg,rgba(201,187,163,.16) 0deg 1.6deg,transparent 1.6deg 12deg)":"repeating-conic-gradient(from 0deg,rgba(201,187,163,.16) 0deg .24deg,transparent .24deg 7.5deg)")+'"></div>'+
             '<div style="position:absolute;inset:22%;border-radius:999px;border:1px solid rgba(41,141,255,.28)"></div>'+
             '<div style="position:absolute;inset:46%;border-radius:999px;border:1px solid rgba(201,187,163,.26);background:radial-gradient(circle,rgba(201,187,163,.18),transparent 72%)"></div>'+
             '<div style="position:absolute;left:50%;top:50%;width:22%;height:22%;margin:-11% 0 0 -11%;border-radius:999px;background:radial-gradient(circle,rgba(41,141,255,.95),rgba(41,141,255,.2) 52%,transparent 74%);'+(SHOT?"":"filter:blur(6px);")+'animation:ar-flame 3s ease-in-out infinite"></div>'+
             marksHTML("small")+'</div></div>'+
-        '<div style="position:relative;z-index:3;isolation:isolate;text-align:center;padding:clamp(108px,17vh,180px) clamp(18px,3.6vw,42px) 130px">'+
+        '<div class="pit-copy" style="position:relative;z-index:3;isolation:isolate;text-align:center;padding:clamp(108px,17vh,180px) clamp(18px,3.6vw,42px) 130px">'+
           '<div style="font-family:\'IBM Plex Mono\',monospace;font-size:10px;letter-spacing:.36em;text-transform:uppercase;color:#C9BBA3;display:flex;align-items:center;justify-content:center;gap:9px"><span style="width:5px;height:5px;border-radius:999px;background:#298DFF;box-shadow:0 0 8px #298DFF;animation:ar-breathe 1.5s ease-in-out infinite"></span>Round <span data-round>'+String(roundNo)+'</span> · live</div>'+
           '<div data-pot style="font-family:Cinzel,serif;font-size:clamp(52px,11vw,150px);line-height:1;letter-spacing:.01em;margin:22px 0 0;font-variant-numeric:tabular-nums;text-shadow:0 0 70px rgba(41,141,255,.4)">'+money(pot)+'</div>'+
           '<div data-clock style="font-family:Cinzel,serif;font-size:clamp(24px,4vw,44px);letter-spacing:.18em;margin-top:18px;font-variant-numeric:tabular-nums;color:#C9BBA3">'+clockStr()+'</div>'+
