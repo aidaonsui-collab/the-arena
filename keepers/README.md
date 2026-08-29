@@ -33,9 +33,11 @@ Snapshot file (default `./data/reflections.json`) is the shape the token page ca
 
 ## Env
 
-- `ARENA_PACKAGE_ID`
+- `ARENA_PACKAGE_ID`=`0x5cfddf8ba23be6835644a8ea22482ff6ebb0081e42cc1bc052b5f770ca8bbdea`
 - `SUI_RPC`
-- `ARENA_PIT_SUI` / `ARENA_PIT_XAUM` (shared object ids after publish)
+- `ARENA_PIT_SUI`=`0x8ec38e9bcac0838bf474680e71d0c3f302f4ea2f757d759b7b399701f904389c`
+- `ARENA_PIT_XAUM`=`0xa8a391bf380914c04be5deb478474b42754a5aa8c29c0955f267d73190a98783`
+- `ARENA_CONFIG`=`0xcd527cb2389d806e5285ae708ee28df30a841ec5df7508ebfebaa0c9660b5d2c`
 - `ARENA_KEEPER_PHRASE` (signing key for ring/settle, later — not the platform wallet)
 - Platform launch + swap-fee withdraws: Odyssey admin `0x92a32ac7fd525f8bd37ed359423b8d7d858cad26224854dfbff1914b75ee658b` holds `AdminCap`
 - `KEEPERS_CURSOR_PATH`
