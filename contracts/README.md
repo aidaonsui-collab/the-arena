@@ -1,0 +1,58 @@
+# Arena Move package
+
+Fair launches on Sui. Bonding curve, no presale.
+
+## Three launch modes
+
+1. **TOKEN/SUI** — curve quoted in SUI. Graduation at 2,000 SUI.
+2. **TOKEN/XAUM** — same curve, quoted in Matrixdock gold. Bluefin Spot lists this as **XAUM**, not GOLD.
+3. **Reflection** — extra 2% of quote (after the pit take) paid to holders who bought through the curve.
+
+## Gold quote is XAUM
+
+Bluefin ticker: `XAUM` (Matrixdock Gold, 1 token = 1 troy oz LBMA gold).
+
+```
+0x9d297676e7a4b771ab023291377b2adfaa4938fb9080b8d12430e4b108b836a9::xaum::XAUM
+```
+
+9 decimals. Bluefin Spot pools: XAUM/SUI, XAUM/USDC.
+
+The package does not vendor Matrixdock sources. `Pool<T, Q>` and `Pit<Q>` are generic; pass XAUM as `Q` at the call site.
+
+`Pit<SUI>` is created at publish. After publish, open the gold pit once:
+
+```
+sui client call --package <ARENA> --module pit --function create_pit \
+  --type-args 0x9d297676e7a4b771ab023291377b2adfaa4938fb9080b8d12430e4b108b836a9::xaum::XAUM
+```
+
+Graduation for XAUM defaults to **1 XAUM** (not 2,000 units). 2,000 SUI is only ~0.3 oz.
+
+## Fees and the pit
+
+- Launch fee: 1 SUI, even for XAUM pairs.
+- 1% of every fill goes to `Pit<Q>`.
+- Highest cap still on the curve when the bell rings wins.
+  - Holders: pot is claimable pro-rata via the holder registry.
+  - Buy and burn: pot buys the winning token on the curve and burns it.
+
+## Launch (two transactions)
+
+1. Publish a coin module so you have `TreasuryCap<T>` + `CoinMetadata<T>`.
+2. Call `launch::launch<T, Q>` with 1 SUI, pit mode (`0` holders / `1` buy-and-burn), and the reflection flag.
+
+## Graduation
+
+Trading freezes when `raised` hits the quote threshold. Remaining balances stay in the pool. DeepBook seed is a follow-up (no hardcoded package IDs).
+
+## Holder registry
+
+Sui coins have no transfer hooks. Reflections and pit-holder claims follow **net bought through the pool**. Sending `Coin<T>` elsewhere does not move the registry.
+
+## Build / test
+
+```
+sui move build
+sui move test
+```
