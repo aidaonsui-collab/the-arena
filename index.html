@@ -44,18 +44,22 @@ html.shot [data-plate],html.shot [data-mark],html.shot [data-herotype]{will-chan
     margin-top:max(-58vw,-280px)!important;
   }
   .pit-plate{
-    top:56%!important;
-    width:min(170vw,680px)!important;
-    height:min(170vw,680px)!important;
-    margin-left:max(-85vw,-340px)!important;
-    margin-top:max(-48vw,-240px)!important;
+    top:42%!important;
+    width:min(165vw,640px)!important;
+    height:min(165vw,640px)!important;
+    margin-left:max(-82.5vw,-320px)!important;
+    margin-top:max(-70vw,-300px)!important;
   }
   [data-screen-label="Pit"] > section{
     min-height:100dvh;
+    overflow:visible!important;
   }
   [data-screen-label="Pit"] .pit-copy{
-    padding-top:92px!important;
-    padding-bottom:72px!important;
+    padding-top:88px!important;
+    padding-bottom:48px!important;
+  }
+  .floor-sticky{
+    overflow:visible!important;
   }
 }
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
@@ -439,7 +443,7 @@ html.shot [data-plate],html.shot [data-mark],html.shot [data-herotype]{will-chan
           '</div>');
     return '<div data-screen-label="Floor">'+
       '<section style="position:relative;'+heroH+'">'+
-        '<div style="'+sticky+'">'+
+        '<div class="floor-sticky" style="'+sticky+'">'+
           '<div style="position:absolute;inset:0;background:radial-gradient(ellipse 58% 40% at 50% 80%,rgba(201,187,163,.075),transparent 66%),radial-gradient(ellipse 80% 50% at 50% 6%,rgba(201,187,163,.045),transparent 60%)"></div>'+
           sparks+
           '<div data-heroplate class="floor-plate" style="position:absolute;left:50%;top:73%;width:min(88vw,880px);height:min(88vw,880px);margin-left:max(-44vw,-440px);margin-top:max(-44vw,-440px);perspective:1400px;pointer-events:none">'+
@@ -1082,7 +1086,12 @@ html.shot [data-plate],html.shot [data-mark],html.shot [data-herotype]{will-chan
       tb.style.backdropFilter = on ? "blur(20px) saturate(1.4)" : "none";
     }
     $$("[data-plate]").forEach(function(pl){
-      const base = parseFloat(pl.dataset.tilt) || 60;
+      const narrow = window.innerWidth < 720;
+      let base = parseFloat(pl.dataset.tilt) || 60;
+      if (narrow){
+        const pit = pl.closest && pl.closest(".pit-plate");
+        base = pit ? 44 : Math.min(base, 48);
+      }
       let tilt = base;
       if (pl.dataset.scrub){
         const host = pl.closest("section");
