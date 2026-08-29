@@ -304,8 +304,8 @@ html.shot,html.shot *{animation:none!important;transition:none!important}
 <script>
 window.ARENA_PACKAGE_ID = "0x5cfddf8ba23be6835644a8ea22482ff6ebb0081e42cc1bc052b5f770ca8bbdea";
 window.ARENA_INSTADEX_PACKAGE = "0xcf7835ae4e3f8a3d4eb4bd9d14cb4a3dbdd80e70908feb6c433688a31e119de3";
-window.ARENA_CALL_PACKAGE = window.ARENA_INSTADEX_PACKAGE;
-window.ARENA_COLLECT_PACKAGE = "0x68e178d50276b3bcbce11a136df48909aceff1f2a8ee8a45483e9f128e989972";
+window.ARENA_COLLECT_PACKAGE = "0x47ea732e44f21470aa3dd449a7b26731ed2c377e2c02e650f3ede6ea581bf000";
+window.ARENA_CALL_PACKAGE = window.ARENA_COLLECT_PACKAGE;
 window.ARENA_LOCK_PACKAGE = "0x067136624c5bec5221247e9b0a0a1afbd77a79aadbabdac18a95a10bc186cc74";
 window.ARENA_BLUEFIN_EVENT_PACKAGE = "0x8e28ff4116a8c9025b5d615b0b0a7bc45f4f543120f30a9d226e5b94c7277b79";
 window.ARENA_CONFIG = "0xcd527cb2389d806e5285ae708ee28df30a841ec5df7508ebfebaa0c9660b5d2c";
@@ -1082,7 +1082,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       '<div><div class="brand-name" style="color:var(--ink);margin-bottom:8px">ARENA</div>'+
         '<p style="margin:0;max-width:36ch">Fair launches on Sui. Instadex seeds Bluefin in block one. Quote is SUI or XAUM. LP locked forever.</p></div>'+
       '<div><h4>Product</h4><div data-go="explore">Explore</div><div data-go="pit">Pit</div><div data-go="metrics">Metrics</div><div data-go="launch">Create</div></div>'+
-      '<div><h4>Fees</h4>Bluefin 1% on the pair (keeps 20%).<br>Our 80% quote split 60/10/30 creator/platform/pit.<br>Token fees still go to the creator.</div></footer>';
+      '<div><h4>Fees</h4>Bluefin 1% on the pair (keeps 20%).<br>Our 80% quote split 60/10/30 creator/platform/pit.<br>Token-side LP fees burn.</div></footer>';
   }
   function exploreHTML(){
     if (state.filter === "Graduating" || state.filter === "Near graduation" || state.filter === "Graduated") state.filter = "All";
@@ -1275,7 +1275,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       ? '<div class="kv"><span style="color:var(--muted)">Lock</span><span>'+lockLabel+'</span></div>'
       : '';
     const note = (insta || tk.bluefinPool)
-      ? "Anyone can poke collect_lp_fees. Bluefin keeps 20%. Our 80% quote splits 60/10/30. Token fees go to the creator."
+      ? "Anyone can poke collect_instadex_fees. Bluefin keeps 20%. Quote splits 60/10/30. Token-side LP fees burn."
       : "Create is Instadex only. Live curve tokens stay listed.";
     return '<div class="ticket">'+
       '<div class="pit-kicker">'+kicker+'</div>'+
@@ -1349,7 +1349,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
             (dexBout
               ? '<div><div class="about-k">Lock &amp; fees</div>'+
                   '<div class="about-v">Forever<span class="tick">lock</span></div>'+
-                  '<div class="about-s">LP locked forever. collect_lp_fees: Bluefin keeps 20%. Quote 60/10/30 creator/platform/pit. Token fees to the creator.</div></div>'
+                  '<div class="about-s">LP locked forever. collect_instadex_fees burns token fees. Quote splits 60/10/30. Bluefin keeps 20%.</div></div>'
               : '<div><div class="about-k">Burned</div>'+
                   '<div class="about-v">'+fmtBig(burnedN)+'<span class="tick">'+tk.t+'</span></div>'+
                   '<div class="about-s">'+burnSub+'</div></div>')+
@@ -1902,7 +1902,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       if (!(tokenAmt > 0)) throw new Error("Token seed must be > 0");
       if (tokenAmt > tokenWhole) throw new Error("Token seed exceeds the coin balance");
       var Transaction = await loadTransaction();
-      var CALL = window.ARENA_INSTADEX_PACKAGE || window.ARENA_CALL_PACKAGE;
+      var CALL = window.ARENA_CALL_PACKAGE || window.ARENA_COLLECT_PACKAGE;
       if (!CALL) throw new Error("ARENA_INSTADEX_PACKAGE missing");
       if (CALL.indexOf("067136624c5bec5221247e9b0a0a1afbd77a79aadbabdac18a95a10bc186cc74") >= 0){
         throw new Error("Refusing v3 package for launch_instadex");
@@ -1973,6 +1973,27 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       if (!launchedOk && btn){ btn.disabled = false; paintLaunchBtn(); }
     }
   }
+  function mintLockType(Ttype){
+    var origin = "0xcf7835ae4e3f8a3d4eb4bd9d14cb4a3dbdd80e70908feb6c433688a31e119de3";
+    return origin + "::launch::InstadexMintLock<" + Ttype + ">";
+  }
+  async function resolveMintLock(tk, Ttype){
+    if (tk.mintLock) return tk.mintLock;
+    if (String(tk.t).toUpperCase() === "IDEX") return "0x38c1667f65f085677a577a48338dd86f6cb8ec1ea4aa0351bbcfb3cb39336e54";
+    var gql = "https://graphql.mainnet.sui.io/graphql";
+    var q = "query($t:String!){ objects(first:5, filter:{ type:$t }){ nodes{ address } } }";
+    var res = await fetch(gql, { method:"POST", headers:{ "content-type":"application/json" }, body: JSON.stringify({ query:q, variables:{ t: mintLockType(Ttype) } }) });
+    var j = await res.json();
+    var nodes = j && j.data && j.data.objects && j.data.objects.nodes;
+    if (nodes && nodes[0] && nodes[0].address) return nodes[0].address;
+    throw new Error("InstadexMintLock not found");
+  }
+  function typeNameStr(v){
+    if (!v) return "";
+    if (typeof v === "string") return v;
+    if (v.name) return String(v.name);
+    return String(v);
+  }
   async function doCollect(){
     var btn = $("#collect-go");
     var tk = findT(state.sym);
@@ -1987,17 +2008,20 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       var Transaction = await loadTransaction();
       var CALL = window.ARENA_COLLECT_PACKAGE;
       if (!CALL) throw new Error("ARENA_COLLECT_PACKAGE missing");
-      var Ttype = tk.token || demoTypeId(tk);
+      var Ttype = typeNameStr(tk.token) || demoTypeId(tk);
       var q = poolQuote(tk);
       var Qtype = q === "XAUM" ? window.ARENA_XAUM_TYPE : "0x2::sui::SUI";
       var pit = q === "XAUM" ? window.ARENA_PIT_XAUM : window.ARENA_PIT_SUI;
+      var mint = await resolveMintLock(tk, Ttype);
+      tk.mintLock = mint;
       var tx = new Transaction();
       tx.setSender(suiSession.address);
       tx.moveCall({
-        target: CALL + "::lock::collect_lp_fees",
+        target: CALL + "::launch::collect_instadex_fees",
         typeArguments: [Ttype, Qtype],
         arguments: [
           tx.object(tk.lockId),
+          tx.object(mint),
           tx.object(window.ARENA_CLOCK || "0x6"),
           tx.object(window.ARENA_BLUEFIN_CONFIG),
           tx.object(tk.bluefinPool),
