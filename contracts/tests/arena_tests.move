@@ -21,9 +21,13 @@ const LP_LOCK_MS: u64 = 15_552_000_000;
 
 fun setup(scenario: &mut Scenario) {
     config::init_for_testing(scenario.ctx());
-    pit::create_pit<QCOIN>(scenario.ctx());
-    scenario.next_tx(ADMIN);
+    // Pit<SUI> is created and registered by init. The QCOIN pit now needs the
+    // AdminCap, which init sends to the platform wallet.
+    scenario.next_tx(config::platform_wallet());
     let mut config = scenario.take_shared<Config>();
+    let cap = scenario.take_from_sender<AdminCap>();
+    config::create_pit<QCOIN>(&mut config, &cap, scenario.ctx());
+    scenario.return_to_sender(cap);
     config.set_for_testing(
         1_000,
         100,
@@ -85,6 +89,22 @@ fun launch_xaum(scenario: &mut Scenario, sender: address, pit_mode: u8, reflecti
     transfer::public_freeze_object(metadata);
     ts::return_shared(config);
     ts::return_shared(pit);
+    ts::return_shared(clock);
+}
+
+/// `lock_graduated_lp` is AdminCap-gated now, so the fallback vault is opened
+/// from the platform wallet in its own transaction.
+fun lock_lp_admin(scenario: &mut Scenario) {
+    scenario.next_tx(config::platform_wallet());
+    let config = scenario.take_shared<Config>();
+    let cap = scenario.take_from_sender<AdminCap>();
+    let mut pool = scenario.take_shared<Pool<TCOIN, SUI>>();
+    let clock = scenario.take_shared<Clock>();
+    lock::lock_graduated_lp_admin(&mut pool, &config, &cap, &clock, scenario.ctx());
+    assert!(pool.lp_locked(), 0);
+    scenario.return_to_sender(cap);
+    ts::return_shared(config);
+    ts::return_shared(pool);
     ts::return_shared(clock);
 }
 
@@ -173,8 +193,11 @@ fun test_reflection_two_buyers() {
         // reflection split: 50/20/20/10 refl/creator/pit/platform. raised 9900.
         assert!(pool.raised() == 9_900, 0);
         assert!(pit.pot_value() == 20, 1);
-        assert!(pool.creator_pot_value() == 20, 2);
         assert!(config.platform_value<SUI>() == 10, 21);
+        // Nobody was registered when this fee was charged, so the 50 reflection
+        // slice has no claim behind it and goes to the creator rather than into
+        // a pot that could never be paid out: 20 creator + 50 = 70.
+        assert!(pool.creator_pot_value() == 70, 2);
         transfer::public_transfer(tokens, USER1);
         ts::return_shared(config);
         ts::return_shared(pit);
@@ -191,14 +214,60 @@ fun test_reflection_two_buyers() {
         let pay = coin::mint_for_testing<SUI>(10_000, scenario.ctx());
         let tokens = pool::buy(&mut pool, &mut config, &mut pit, pay, 0, &clock, scenario.ctx());
         assert!(pit.pot_value() == 40, 3);
-        let refl = pool::claim_reflection(&mut pool, scenario.ctx());
-        assert!(refl.value() > 0, 4);
-        coin::burn_for_testing(tokens);
-        coin::burn_for_testing(refl);
+        transfer::public_transfer(tokens, USER2);
         ts::return_shared(config);
         ts::return_shared(pit);
         ts::return_shared(pool);
         ts::return_shared(clock);
+    };
+
+    // USER2's reflection fee goes to the holders registered when they paid it,
+    // which is USER1 alone. USER2 no longer gets any of their own fee back.
+    scenario.next_tx(USER1);
+    {
+        let mut pool = scenario.take_shared<Pool<TCOIN, SUI>>();
+        let refl = pool::claim_reflection(&mut pool, scenario.ctx());
+        assert!(refl.value() > 0, 4);
+        coin::burn_for_testing(refl);
+        ts::return_shared(pool);
+    };
+
+    scenario.end();
+}
+
+/// M1 regression: a buyer must not be credited before their own trade's
+/// reflection fee is distributed, or a dominant buyer refunds themselves.
+#[test]
+#[expected_failure(abort_code = 14)]
+fun test_buyer_earns_nothing_from_own_reflection_fee() {
+    let mut scenario = ts::begin(ADMIN);
+    setup(&mut scenario);
+    launch_sui(&mut scenario, ADMIN, pool::pit_holders(), true);
+
+    scenario.next_tx(USER1);
+    {
+        let mut config = scenario.take_shared<Config>();
+        let mut pit = scenario.take_shared<Pit<SUI>>();
+        let mut pool = scenario.take_shared<Pool<TCOIN, SUI>>();
+        let clock = scenario.take_shared<Clock>();
+        let pay = coin::mint_for_testing<SUI>(10_000, scenario.ctx());
+        let tokens = pool::buy(&mut pool, &mut config, &mut pit, pay, 0, &clock, scenario.ctx());
+        transfer::public_transfer(tokens, USER1);
+        ts::return_shared(config);
+        ts::return_shared(pit);
+        ts::return_shared(pool);
+        ts::return_shared(clock);
+    };
+
+    // Sole buyer: every reflection fee they paid was distributed across the
+    // holders registered before them, of whom there were none. Claiming aborts
+    // with nothing_to_claim (14) rather than handing the fee back.
+    scenario.next_tx(USER1);
+    {
+        let mut pool = scenario.take_shared<Pool<TCOIN, SUI>>();
+        let refl = pool::claim_reflection(&mut pool, scenario.ctx());
+        coin::burn_for_testing(refl);
+        ts::return_shared(pool);
     };
 
     scenario.end();
@@ -303,7 +372,7 @@ fun test_pit_holders_claim() {
         let mut pool = scenario.take_shared<Pool<TCOIN, SUI>>();
         let mut clock = scenario.take_shared<Clock>();
         clock.set_for_testing(2_000);
-        pit::ring(&mut pit, config.round_ms(), &clock);
+        config::ring_pit(&mut pit, &config, &clock);
         pool::settle_pit(&mut pool, &mut pit, scenario.ctx());
         assert!(pit.pot_value() == 0, 0);
         ts::return_shared(config);
@@ -352,7 +421,7 @@ fun test_pit_buy_and_burn() {
     assert!(pit.pot_value() == 30, 0);
 
     clock.set_for_testing(2_000);
-    pit::ring(&mut pit, config.round_ms(), &clock);
+    config::ring_pit(&mut pit, &config, &clock);
     pool::settle_pit(&mut pool, &mut pit, scenario.ctx());
 
     assert!(pool.token_reserves() < reserve_before, 1);
@@ -431,10 +500,6 @@ fun test_lp_lock() {
         let pay = coin::mint_for_testing<SUI>(60_000, scenario.ctx());
         let tokens = pool::buy(&mut pool, &mut config, &mut pit, pay, 0, &clock, scenario.ctx());
         assert!(pool.is_graduated(), 0);
-        lock::lock_graduated_lp(&mut pool, &config, &clock, scenario.ctx());
-        assert!(pool.lp_locked(), 1);
-        assert!(pool.token_reserves() == 0, 2);
-        assert!(pool.quote_reserves() == 0, 3);
         coin::burn_for_testing(tokens);
         ts::return_shared(config);
         ts::return_shared(pit);
@@ -442,8 +507,14 @@ fun test_lp_lock() {
         ts::return_shared(clock);
     };
 
+    lock_lp_admin(&mut scenario);
+
     scenario.next_tx(ADMIN);
     {
+        let pool = scenario.take_shared<Pool<TCOIN, SUI>>();
+        assert!(pool.token_reserves() == 0, 2);
+        assert!(pool.quote_reserves() == 0, 3);
+        ts::return_shared(pool);
         let mut lock = scenario.take_shared<LpLock<TCOIN, SUI>>();
         let mut clock = scenario.take_shared<Clock>();
         assert!(lock.beneficiary() == ADMIN, 4);
@@ -478,13 +549,14 @@ fun test_lp_claim_too_early() {
         let clock = scenario.take_shared<Clock>();
         let pay = coin::mint_for_testing<SUI>(60_000, scenario.ctx());
         let tokens = pool::buy(&mut pool, &mut config, &mut pit, pay, 0, &clock, scenario.ctx());
-        lock::lock_graduated_lp(&mut pool, &config, &clock, scenario.ctx());
         coin::burn_for_testing(tokens);
         ts::return_shared(config);
         ts::return_shared(pit);
         ts::return_shared(pool);
         ts::return_shared(clock);
     };
+
+    lock_lp_admin(&mut scenario);
 
     scenario.next_tx(ADMIN);
     {
@@ -679,3 +751,363 @@ fun test_collect_lp_fees_aborts() {
     lock::abort_instadex_collect();
 }
 
+
+// ---------------------------------------------------------------------------
+// Audit regressions
+//
+// Each of these used to be a working exploit. Green means the hole is closed.
+// ---------------------------------------------------------------------------
+
+/// C1: the pot used to be returned to whoever called, with only a value check
+/// on a `pool_id` argument. Anyone could read the winner off `BellEvent` and
+/// take the pot.
+#[test]
+#[expected_failure(abort_code = 25)]
+fun test_poc_outsider_cannot_take_pot() {
+    let mut scenario = ts::begin(ADMIN);
+    setup(&mut scenario);
+    launch_sui(&mut scenario, ADMIN, pool::pit_holders(), false);
+
+    scenario.next_tx(USER1);
+    {
+        let mut config = scenario.take_shared<Config>();
+        let mut pit = scenario.take_shared<Pit<SUI>>();
+        let mut pool = scenario.take_shared<Pool<TCOIN, SUI>>();
+        let mut clock = scenario.take_shared<Clock>();
+        let pay = coin::mint_for_testing<SUI>(10_000, scenario.ctx());
+        let tokens = pool::buy(&mut pool, &mut config, &mut pit, pay, 0, &clock, scenario.ctx());
+        transfer::public_transfer(tokens, USER1);
+        clock.set_for_testing(2_000);
+        config::ring_pit(&mut pit, &config, &clock);
+        ts::return_shared(config);
+        ts::return_shared(pit);
+        ts::return_shared(pool);
+        ts::return_shared(clock);
+    };
+
+    // USER2 knows the winning pool id and asks the pit for the pot directly.
+    scenario.next_tx(USER2);
+    {
+        let mut pit = scenario.take_shared<Pit<SUI>>();
+        let pool = scenario.take_shared<Pool<TCOIN, SUI>>();
+        let stolen = pit::settle_to_holders(&mut pit, pool.id());
+        stolen.destroy_zero();
+        ts::return_shared(pit);
+        ts::return_shared(pool);
+    };
+
+    scenario.end();
+}
+
+/// C1, burn-mode twin of the above.
+#[test]
+#[expected_failure(abort_code = 25)]
+fun test_poc_outsider_cannot_take_burn_pot() {
+    let mut scenario = ts::begin(ADMIN);
+    setup(&mut scenario);
+
+    scenario.next_tx(USER2);
+    let mut pit = scenario.take_shared<Pit<SUI>>();
+    let pit_id = pit.id();
+    let stolen = pit::settle_burn_quote(&mut pit, pit_id);
+    stolen.destroy_zero();
+    ts::return_shared(pit);
+    scenario.end();
+}
+
+/// C2: `metric` and `pool_id` were caller-supplied, so anyone could take the
+/// lead with u64::MAX and win every round.
+#[test]
+#[expected_failure(abort_code = 25)]
+fun test_poc_outsider_cannot_claim_the_lead() {
+    let mut scenario = ts::begin(ADMIN);
+    setup(&mut scenario);
+
+    scenario.next_tx(USER2);
+    let mut pit = scenario.take_shared<Pit<SUI>>();
+    let clock = scenario.take_shared<Clock>();
+    let pit_id = pit.id();
+    pit::nudge(&mut pit, pit_id, 18446744073709551615, false, 1_000, &clock);
+    ts::return_shared(pit);
+    ts::return_shared(clock);
+    scenario.end();
+}
+
+/// C3: `round_ms` was a caller argument, so one call could push the bell years
+/// out and freeze the pot forever.
+#[test]
+#[expected_failure(abort_code = 25)]
+fun test_poc_outsider_cannot_set_round_length() {
+    let mut scenario = ts::begin(ADMIN);
+    setup(&mut scenario);
+
+    scenario.next_tx(USER2);
+    let mut pit = scenario.take_shared<Pit<SUI>>();
+    let clock = scenario.take_shared<Clock>();
+    pit::ring(&mut pit, 315_360_000_000, &clock);
+    ts::return_shared(pit);
+    ts::return_shared(clock);
+    scenario.end();
+}
+
+/// C3: and the round length the honest bell uses is bounded at the setter.
+#[test]
+#[expected_failure(abort_code = 30)]
+fun test_round_ms_is_bounded() {
+    let mut scenario = ts::begin(ADMIN);
+    setup(&mut scenario);
+    scenario.next_tx(config::platform_wallet());
+    let mut config = scenario.take_shared<Config>();
+    let cap = scenario.take_from_sender<AdminCap>();
+    config::set_round_ms(&mut config, &cap, 315_360_000_000);
+    scenario.return_to_sender(cap);
+    ts::return_shared(config);
+    scenario.end();
+}
+
+/// C4: buy from A, hand the coin to B, sell from B — A used to keep its
+/// dividend weight forever while `total_registered` never came down.
+#[test]
+#[expected_failure(abort_code = 27)]
+fun test_poc_transfer_then_sell_from_fresh_wallet() {
+    let mut scenario = ts::begin(ADMIN);
+    setup(&mut scenario);
+    launch_sui(&mut scenario, ADMIN, pool::pit_holders(), true);
+
+    scenario.next_tx(USER1);
+    {
+        let mut config = scenario.take_shared<Config>();
+        let mut pit = scenario.take_shared<Pit<SUI>>();
+        let mut pool = scenario.take_shared<Pool<TCOIN, SUI>>();
+        let clock = scenario.take_shared<Clock>();
+        let pay = coin::mint_for_testing<SUI>(10_000, scenario.ctx());
+        let tokens = pool::buy(&mut pool, &mut config, &mut pit, pay, 0, &clock, scenario.ctx());
+        // The coin moves to a wallet the registry has never seen.
+        transfer::public_transfer(tokens, USER2);
+        ts::return_shared(config);
+        ts::return_shared(pit);
+        ts::return_shared(pool);
+        ts::return_shared(clock);
+    };
+
+    scenario.next_tx(USER2);
+    {
+        let mut config = scenario.take_shared<Config>();
+        let mut pit = scenario.take_shared<Pit<SUI>>();
+        let mut pool = scenario.take_shared<Pool<TCOIN, SUI>>();
+        let clock = scenario.take_shared<Clock>();
+        let tokens = scenario.take_from_sender<coin::Coin<TCOIN>>();
+        assert!(pool.holder_amount(USER1) > 0, 0);
+        let out = pool::sell(&mut pool, &mut config, &mut pit, tokens, 0, &clock, scenario.ctx());
+        coin::burn_for_testing(out);
+        ts::return_shared(config);
+        ts::return_shared(pit);
+        ts::return_shared(pool);
+        ts::return_shared(clock);
+    };
+
+    scenario.end();
+}
+
+/// C4: and the wallet that did buy can still sell its own position.
+#[test]
+fun test_buyer_can_still_sell_their_own_position() {
+    let mut scenario = ts::begin(ADMIN);
+    setup(&mut scenario);
+    launch_sui(&mut scenario, ADMIN, pool::pit_holders(), false);
+
+    scenario.next_tx(USER1);
+    let mut config = scenario.take_shared<Config>();
+    let mut pit = scenario.take_shared<Pit<SUI>>();
+    let mut pool = scenario.take_shared<Pool<TCOIN, SUI>>();
+    let clock = scenario.take_shared<Clock>();
+
+    let pay = coin::mint_for_testing<SUI>(10_000, scenario.ctx());
+    let tokens = pool::buy(&mut pool, &mut config, &mut pit, pay, 0, &clock, scenario.ctx());
+    let bought = tokens.value();
+    assert!(pool.holder_amount(USER1) == bought, 0);
+
+    let out = pool::sell(&mut pool, &mut config, &mut pit, tokens, 0, &clock, scenario.ctx());
+    assert!(out.value() > 0, 1);
+    assert!(pool.holder_amount(USER1) == 0, 2);
+    assert!(pool.total_registered() == 0, 3);
+
+    coin::burn_for_testing(out);
+    ts::return_shared(config);
+    ts::return_shared(pit);
+    ts::return_shared(pool);
+    ts::return_shared(clock);
+    scenario.end();
+}
+
+/// H2: `lock_graduated_lp` raced the Bluefin seed for a one-shot flag, and both
+/// were permissionless. Winning that race meant the token never got a market.
+#[test]
+#[expected_failure(abort_code = 25)]
+fun test_poc_outsider_cannot_divert_graduation() {
+    let mut scenario = ts::begin(ADMIN);
+    setup(&mut scenario);
+    launch_sui(&mut scenario, ADMIN, pool::pit_holders(), false);
+
+    scenario.next_tx(USER1);
+    let mut config = scenario.take_shared<Config>();
+    let mut pit = scenario.take_shared<Pit<SUI>>();
+    let mut pool = scenario.take_shared<Pool<TCOIN, SUI>>();
+    let clock = scenario.take_shared<Clock>();
+    let pay = coin::mint_for_testing<SUI>(60_000, scenario.ctx());
+    let tokens = pool::buy(&mut pool, &mut config, &mut pit, pay, 0, &clock, scenario.ctx());
+    assert!(pool.is_graduated(), 0);
+    lock::lock_graduated_lp(&mut pool, &config, &clock, scenario.ctx());
+    coin::burn_for_testing(tokens);
+    ts::return_shared(config);
+    ts::return_shared(pit);
+    ts::return_shared(pool);
+    ts::return_shared(clock);
+    scenario.end();
+}
+
+/// H4: graduation is measured on the quote actually in the curve, so a
+/// buy → sell cycle no longer walks a pool over the line.
+#[test]
+fun test_wash_trading_does_not_graduate() {
+    let mut scenario = ts::begin(ADMIN);
+    setup(&mut scenario);
+    launch_sui(&mut scenario, ADMIN, pool::pit_holders(), false);
+
+    scenario.next_tx(USER1);
+    let mut config = scenario.take_shared<Config>();
+    let mut pit = scenario.take_shared<Pit<SUI>>();
+    let mut pool = scenario.take_shared<Pool<TCOIN, SUI>>();
+    let clock = scenario.take_shared<Clock>();
+
+    // Threshold is 50_000. Five round trips of 20_000 push `raised` well past
+    // it while the real reserve keeps coming back down.
+    let mut i = 0u64;
+    while (i < 5) {
+        let pay = coin::mint_for_testing<SUI>(20_000, scenario.ctx());
+        let tokens = pool::buy(&mut pool, &mut config, &mut pit, pay, 0, &clock, scenario.ctx());
+        let out = pool::sell(&mut pool, &mut config, &mut pit, tokens, 0, &clock, scenario.ctx());
+        coin::burn_for_testing(out);
+        i = i + 1;
+    };
+
+    assert!(pool.raised() > 50_000, 0);
+    assert!(pool.quote_reserves() < 50_000, 1);
+    assert!(!pool.is_graduated(), 2);
+
+    ts::return_shared(config);
+    ts::return_shared(pit);
+    ts::return_shared(pool);
+    ts::return_shared(clock);
+    scenario.end();
+}
+
+/// H1: the pit that collects the fee is the one `Config` names, not the one the
+/// caller passed.
+#[test]
+#[expected_failure(abort_code = 26)]
+fun test_poc_cannot_route_fee_to_own_pit() {
+    let mut scenario = ts::begin(ADMIN);
+    setup(&mut scenario);
+    launch_sui(&mut scenario, ADMIN, pool::pit_holders(), false);
+
+    // Note the pit Config currently points at.
+    scenario.next_tx(ADMIN);
+    let canonical = {
+        let pit = scenario.take_shared<Pit<SUI>>();
+        let id = pit.id();
+        ts::return_shared(pit);
+        id
+    };
+
+    // A second SUI pit is shared and Config is repointed at it. Trading against
+    // the now-stale pit aborts — the same check that stops a pit an attacker
+    // shared from ever collecting a fee.
+    scenario.next_tx(config::platform_wallet());
+    {
+        let mut config = scenario.take_shared<Config>();
+        let cap = scenario.take_from_sender<AdminCap>();
+        config::create_pit<SUI>(&mut config, &cap, scenario.ctx());
+        assert!(*config::canonical_pit<SUI>(&config).borrow() != canonical, 0);
+        scenario.return_to_sender(cap);
+        ts::return_shared(config);
+    };
+
+    scenario.next_tx(USER1);
+    {
+        let mut config = scenario.take_shared<Config>();
+        let mut pit = ts::take_shared_by_id<Pit<SUI>>(&scenario, canonical);
+        let mut pool = scenario.take_shared<Pool<TCOIN, SUI>>();
+        let clock = scenario.take_shared<Clock>();
+        let pay = coin::mint_for_testing<SUI>(10_000, scenario.ctx());
+        let tokens = pool::buy(&mut pool, &mut config, &mut pit, pay, 0, &clock, scenario.ctx());
+        coin::burn_for_testing(tokens);
+        ts::return_shared(config);
+        ts::return_shared(pit);
+        ts::return_shared(pool);
+        ts::return_shared(clock);
+    };
+
+    scenario.end();
+}
+
+/// H3: the fee-less curve buy is reachable only through `settle_pit` now, so it
+/// cannot be used to set the price the Bluefin pool is seeded at.
+#[test]
+#[expected_failure(abort_code = 25)]
+fun test_poc_outsider_cannot_move_reserves() {
+    let mut scenario = ts::begin(ADMIN);
+    setup(&mut scenario);
+    launch_sui(&mut scenario, ADMIN, pool::pit_holders(), false);
+
+    scenario.next_tx(USER2);
+    let mut pool = scenario.take_shared<Pool<TCOIN, SUI>>();
+    let quote = coin::mint_for_testing<SUI>(50_000, scenario.ctx());
+    pool::burn_from_pit(&mut pool, quote.into_balance(), scenario.ctx());
+    ts::return_shared(pool);
+    scenario.end();
+}
+
+/// H5: settling to a pool with nothing registered would strand the whole pot
+/// in an unclaimable bag. It stays in the pit instead.
+#[test]
+#[expected_failure(abort_code = 28)]
+fun test_settle_to_empty_pool_does_not_strand_the_pot() {
+    let mut scenario = ts::begin(ADMIN);
+    setup(&mut scenario);
+    launch_sui(&mut scenario, ADMIN, pool::pit_holders(), false);
+
+    scenario.next_tx(USER1);
+    {
+        let mut config = scenario.take_shared<Config>();
+        let mut pit = scenario.take_shared<Pit<SUI>>();
+        let mut pool = scenario.take_shared<Pool<TCOIN, SUI>>();
+        let mut clock = scenario.take_shared<Clock>();
+        let pay = coin::mint_for_testing<SUI>(10_000, scenario.ctx());
+        let tokens = pool::buy(&mut pool, &mut config, &mut pit, pay, 0, &clock, scenario.ctx());
+        // The only holder exits, so nothing is registered when the bell rings.
+        let out = pool::sell(&mut pool, &mut config, &mut pit, tokens, 0, &clock, scenario.ctx());
+        coin::burn_for_testing(out);
+        assert!(pool.total_registered() == 0, 0);
+        clock.set_for_testing(2_000);
+        config::ring_pit(&mut pit, &config, &clock);
+        pool::settle_pit(&mut pool, &mut pit, scenario.ctx());
+        ts::return_shared(config);
+        ts::return_shared(pit);
+        ts::return_shared(pool);
+        ts::return_shared(clock);
+    };
+
+    scenario.end();
+}
+
+/// The retired `create_pit` cannot be used to share a rival pot.
+#[test]
+#[expected_failure(abort_code = 25)]
+fun test_poc_outsider_cannot_open_a_pit() {
+    let mut scenario = ts::begin(ADMIN);
+    setup(&mut scenario);
+    scenario.next_tx(USER2);
+    pit::create_pit<SUI>(scenario.ctx());
+    scenario.end();
+}

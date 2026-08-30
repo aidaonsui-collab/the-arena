@@ -1,8 +1,11 @@
 /// Time vault for graduated bonding-curve liquidity.
 ///
 /// Two production-adjacent paths:
-/// 1. `lock_graduated_lp` — raw remaining `token_reserve` + `quote_reserve` into a
-///    shared `LpLock<T, Q>`. Kept for tests and as a fallback.
+/// 1. `lock_graduated_lp_admin` — raw remaining `token_reserve` + `quote_reserve`
+///    into a shared `LpLock<T, Q>`. AdminCap-gated fallback. The old
+///    permissionless `lock_graduated_lp` raced the Bluefin seed for the same
+///    one-shot `lp_locked` flag, so anyone could stop a launch ever getting a
+///    market; it is retired and aborts.
 /// 2. `seed_and_lock_bluefin` / `seed_and_lock_bluefin_with_fee` — production path.
 ///    Permissionless after graduation: drain curve reserves, create a Bluefin Spot
 ///    pool, seed full-range liquidity at the curve spot, share the pool, and
@@ -20,7 +23,7 @@
 module arena::lock;
 
 use arena::bluefin;
-use arena::config::{Self, Config};
+use arena::config::{Self, AdminCap, Config};
 use arena::errors;
 use arena::events;
 use arena::math;
@@ -59,11 +62,29 @@ public struct BluefinPositionLock has key {
     unlock_ms: u64,
 }
 
-/// Permissionless. Moves remaining curve balances into a shared vault. Once only.
-/// Fallback / test path — production calls `seed_and_lock_bluefin*`.
+/// Retired. `take_reserves_for_lock` can only ever run once, so this raced
+/// `seed_and_lock_bluefin` for the same one-shot flag — and both were
+/// permissionless. Winning that race with this function meant no Bluefin pool
+/// was ever created, the token never got a market, and both sides of the raise
+/// sat in an `LpLock` the creator alone could drain after `lp_lock_ms`. That is
+/// a griefing vector for a stranger and a delayed rug for the creator.
+/// A fallback anyone can trigger is not a fallback: use `lock_graduated_lp_admin`.
 public fun lock_graduated_lp<T, Q>(
+    _pool: &mut Pool<T, Q>,
+    _config: &Config,
+    _clock: &Clock,
+    _ctx: &mut TxContext,
+) {
+    abort errors::retired()
+}
+
+/// AdminCap-gated fallback vault, for a graduation that cannot be seeded on
+/// Bluefin. Moves remaining curve balances into a shared vault. Once only.
+/// Production path is `seed_and_lock_bluefin*`.
+public fun lock_graduated_lp_admin<T, Q>(
     pool: &mut Pool<T, Q>,
     config: &Config,
+    _: &AdminCap,
     clock: &Clock,
     ctx: &mut TxContext,
 ) {
@@ -330,6 +351,12 @@ public(package) fun collect_lp_fees_return_token<A, B>(
     ctx: &mut TxContext,
 ): Balance<A> {
     assert!(lock.position.is_some(), errors::nothing_to_claim());
+    // The lock records which Bluefin pool its position belongs to; check it
+    // here rather than relying on Bluefin to reject a mismatched pair.
+    assert!(object::id(bf_pool) == lock.bluefin_pool_id, errors::not_graduated());
+    // The pit share must land in the canonical pot, not one the caller shared.
+    // This path is permissionless via `launch::collect_instadex_fees`.
+    config::assert_canonical_pit(config, pit);
     let beneficiary = lock.beneficiary;
     let position = option::borrow_mut(&mut lock.position);
     let (_amt_a, _amt_b, bal_a, mut bal_b) = bluefin::collect_fee(clock, bf_config, bf_pool, position);
@@ -340,7 +367,7 @@ public(package) fun collect_lp_fees_return_token<A, B>(
         config.std_pit_bps(),
     );
     config::take_platform(config, bal_b.split(platform_amt));
-    pit::take_fee(pit, bal_b.split(pit_amt));
+    pit::take_fee_internal(pit, bal_b.split(pit_amt));
     events::emit_collect_lp_fees(
         object::id(lock),
         beneficiary,

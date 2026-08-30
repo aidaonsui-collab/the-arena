@@ -6,13 +6,15 @@ module arena::config;
 
 use arena::errors;
 use arena::math;
-use arena::pit;
-use std::type_name;
+use arena::pit::{Self, Pit};
+use std::type_name::{Self, TypeName};
 use sui::bag::{Self, Bag};
 use sui::balance::{Self, Balance};
+use sui::clock::Clock;
 use sui::coin::{Self, Coin};
+use sui::dynamic_field;
 use sui::sui::SUI;
-use sui::object::{Self, UID};
+use sui::object::{Self, ID, UID};
 use sui::transfer;
 use sui::tx_context::TxContext;
 
@@ -37,8 +39,22 @@ const BPS: u64 = 10_000;
 /// Same platform wallet as The Odyssey on Sui launchpad.
 const PLATFORM_WALLET: address = @0x92a32ac7fd525f8bd37ed359423b8d7d858cad26224854dfbff1914b75ee658b;
 
+/// Longest round the bell may be pushed out to. A round length is the window in
+/// which the pot is unreachable, so it is bounded rather than free-form.
+const MAX_ROUND_MS: u64 = 30 * 86_400_000;
+/// Ceiling on the swap fee. The published rate is 100 bps; 10_000 would drive
+/// `curve_in` to zero and abort every buy.
+const MAX_SWAP_FEE_BPS: u64 = 1_000;
+
 public struct AdminCap has key, store {
     id: UID,
+}
+
+/// Dynamic-field key naming the canonical `Pit<Q>` for one quote type.
+/// A dynamic field rather than a `Config` field because the `Compatible`
+/// upgrade policy forbids changing an existing struct's layout.
+public struct PitKey has copy, drop, store {
+    quote: TypeName,
 }
 
 public struct StoredQuote<phantom Q> has store {
@@ -72,7 +88,7 @@ fun init(ctx: &mut TxContext) {
     let admin = AdminCap { id: object::new(ctx) };
     transfer::transfer(admin, PLATFORM_WALLET);
 
-    transfer::share_object(Config {
+    let mut config = Config {
         id: object::new(ctx),
         launch_fee_sui: DEFAULT_LAUNCH_FEE_SUI,
         swap_fee_bps: DEFAULT_SWAP_FEE_BPS,
@@ -93,10 +109,79 @@ fun init(ctx: &mut TxContext) {
         treasury: balance::zero<SUI>(),
         platform: bag::new(ctx),
         paused: false,
-    });
+    };
 
-    pit::create_and_share<SUI>(ctx);
-    // Pit<XAUM> is created post-publish with pit::create_pit<XAUM>
+    // Pit<XAUM> is created post-publish with config::create_pit<XAUM> (AdminCap).
+    // On a fresh publish the SUI pit is registered as canonical here; the live
+    // mainnet package predates the registry, so its pits are registered with
+    // config::register_pit after the upgrade.
+    let pit_sui = pit::create_and_share<SUI>(ctx);
+    set_canonical_pit<SUI>(&mut config, pit_sui);
+
+    transfer::share_object(config);
+}
+
+// ---------------------------------------------------------------------------
+// Canonical pit
+//
+// `Pit<Q>` is a shared object and every fee sink used to accept whichever one
+// the caller passed, so a trader could route the pit's share of their fee into
+// a pot whose bell they controlled. `Config` now names the real one per quote
+// type and every sink checks against it.
+// ---------------------------------------------------------------------------
+
+/// Open the pit for a quote type (XAUM after publish) and register it as
+/// canonical in one step.
+public fun create_pit<Q>(config: &mut Config, _: &AdminCap, ctx: &mut TxContext) {
+    let id = pit::create_and_share<Q>(ctx);
+    set_canonical_pit<Q>(config, id);
+}
+
+/// Point `Config` at the canonical `Pit<Q>`. Registering is idempotent and
+/// re-pointable so a pit can be replaced if one is ever compromised.
+/// This is what the existing mainnet `Pit<SUI>` and `Pit<XAUM>` need after
+/// the upgrade, since they were shared before `Config` tracked them.
+public fun register_pit<Q>(config: &mut Config, _: &AdminCap, pit: &Pit<Q>) {
+    set_canonical_pit<Q>(config, object::id(pit));
+}
+
+fun set_canonical_pit<Q>(config: &mut Config, id: ID) {
+    let key = PitKey { quote: type_name::with_defining_ids<Q>() };
+    if (dynamic_field::exists_with_type<PitKey, ID>(&config.id, key)) {
+        let slot: &mut ID = dynamic_field::borrow_mut(&mut config.id, key);
+        *slot = id;
+    } else {
+        dynamic_field::add(&mut config.id, key, id);
+    }
+}
+
+/// The registered pit for `Q`, or `none` while unregistered.
+public fun canonical_pit<Q>(config: &Config): Option<ID> {
+    let key = PitKey { quote: type_name::with_defining_ids<Q>() };
+    if (dynamic_field::exists_with_type<PitKey, ID>(&config.id, key)) {
+        option::some(*dynamic_field::borrow<PitKey, ID>(&config.id, key))
+    } else {
+        option::none()
+    }
+}
+
+/// Abort unless `pit` is the canonical pit for `Q`.
+///
+/// Fails open while `Q` has no registered pit, so the one-transaction window
+/// between publishing this upgrade and calling `register_pit` does not brick
+/// trading. Registering both pits is step one of the upgrade runbook.
+public(package) fun assert_canonical_pit<Q>(config: &Config, pit: &Pit<Q>) {
+    let expected = canonical_pit<Q>(config);
+    if (expected.is_some()) {
+        assert!(*expected.borrow() == object::id(pit), errors::wrong_pit());
+    }
+}
+
+/// Permissionless bell. Replaces `pit::ring`, which took the next round's
+/// length from the caller and so let anyone freeze the pit indefinitely.
+public fun ring_pit<Q>(pit: &mut Pit<Q>, config: &Config, clock: &Clock) {
+    assert_canonical_pit<Q>(config, pit);
+    pit::ring_internal(pit, config.round_ms, clock);
 }
 
 public fun take_launch_fee(config: &mut Config, fee: Coin<SUI>) {
@@ -201,8 +286,10 @@ public fun set_launch_fee_sui(config: &mut Config, _: &AdminCap, v: u64) {
     config.launch_fee_sui = v;
 }
 
+/// Capped well below `BPS`: a 100% swap fee drives `curve_in` to zero and
+/// aborts every buy on every pool.
 public fun set_swap_fee_bps(config: &mut Config, _: &AdminCap, v: u64) {
-    assert!(v <= BPS, errors::invalid_fee());
+    assert!(v <= MAX_SWAP_FEE_BPS, errors::invalid_fee());
     config.swap_fee_bps = v;
 }
 
@@ -234,27 +321,37 @@ public fun set_refl_split(
     config.refl_platform_bps = platform_bps;
 }
 
+// Each setter below rejects values `pool::new` would later abort on, or that
+// would graduate a pool on its first buy. Validating here puts the failure
+// where the mistake is made rather than on the next creator to try to launch.
+
 public fun set_graduation_sui(config: &mut Config, _: &AdminCap, v: u64) {
+    assert!(v > config.virtual_quote_sui, errors::bad_param());
     config.graduation_sui = v;
 }
 
 public fun set_graduation_xaum(config: &mut Config, _: &AdminCap, v: u64) {
+    assert!(v > config.virtual_quote_xaum, errors::bad_param());
     config.graduation_xaum = v;
 }
 
 public fun set_virtual_quote_sui(config: &mut Config, _: &AdminCap, v: u64) {
+    assert!(v > 0 && v < config.graduation_sui, errors::bad_param());
     config.virtual_quote_sui = v;
 }
 
 public fun set_virtual_quote_xaum(config: &mut Config, _: &AdminCap, v: u64) {
+    assert!(v > 0 && v < config.graduation_xaum, errors::bad_param());
     config.virtual_quote_xaum = v;
 }
 
 public fun set_virtual_token(config: &mut Config, _: &AdminCap, v: u64) {
+    assert!(v > 0, errors::bad_param());
     config.virtual_token = v;
 }
 
 public fun set_round_ms(config: &mut Config, _: &AdminCap, v: u64) {
+    assert!(v > 0 && v <= MAX_ROUND_MS, errors::bad_param());
     config.round_ms = v;
 }
 

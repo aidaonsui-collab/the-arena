@@ -134,6 +134,7 @@ public fun buy<T, Q>(
     ctx: &mut TxContext,
 ): Coin<T> {
     config::assert_not_paused(config);
+    config::assert_canonical_pit(config, pit);
     assert!(!pool.graduated, errors::graduated());
     let quote_in = quote.value();
     assert!(quote_in > 0, errors::zero_amount());
@@ -148,17 +149,31 @@ public fun buy<T, Q>(
     assert!(tokens_out >= min_out, errors::slippage());
     assert!(tokens_out > 0, errors::zero_amount());
 
-    pipe_fees(pool, config, pit, &mut quote, creator_fee, platform_fee, pit_fee, refl_fee, ctx);
+    // Distribute before crediting the buyer, so this trade's reflection fee is
+    // shared among the holders who were registered when it was charged. Doing
+    // it the other way round handed a large buyer most of their own fee back.
+    // `sell` already debits before distributing; this makes buy match.
+    let refl_credited = distribute_reflection(pool, refl_fee);
+
+    pipe_fees(
+        pool,
+        config,
+        pit,
+        &mut quote,
+        creator_fee,
+        platform_fee,
+        pit_fee,
+        refl_fee,
+        refl_credited,
+        ctx,
+    );
     pool.quote_reserve.join(quote.into_balance());
     let out = pool.token_reserve.split(tokens_out);
     pool.raised = pool.raised + curve_in;
 
     credit_holder(pool, ctx.sender(), tokens_out);
-    if (refl_fee > 0) {
-        distribute_reflection(pool, refl_fee);
-    };
 
-    pit::nudge(
+    pit::nudge_internal(
         pit,
         object::id(pool),
         market_cap_metric(pool),
@@ -197,6 +212,7 @@ public fun sell<T, Q>(
     ctx: &mut TxContext,
 ): Coin<Q> {
     config::assert_not_paused(config);
+    config::assert_canonical_pit(config, pit);
     assert!(!pool.graduated, errors::graduated());
     let tokens_in = tokens.value();
     assert!(tokens_in > 0, errors::zero_amount());
@@ -217,7 +233,7 @@ public fun sell<T, Q>(
     pool.token_reserve.join(tokens.into_balance());
     let mut quote_bal = pool.quote_reserve.split(quote_out);
     if (pit_fee > 0) {
-        pit::take_fee(pit, quote_bal.split(pit_fee));
+        pit::take_fee_internal(pit, quote_bal.split(pit_fee));
     };
     if (creator_fee > 0) {
         pool.creator_pot.join(quote_bal.split(creator_fee));
@@ -225,16 +241,22 @@ public fun sell<T, Q>(
     if (platform_fee > 0) {
         config::take_platform(config, quote_bal.split(platform_fee));
     };
-    if (refl_fee > 0) {
-        pool.reflection_pot.join(quote_bal.split(refl_fee));
-    };
 
     debit_holder(pool, ctx.sender(), tokens_in);
     if (refl_fee > 0) {
-        distribute_reflection(pool, refl_fee);
+        // Debit first so the seller does not earn on their own fee, then route
+        // the slice: to the reflection pot if it was actually distributed,
+        // otherwise to the creator, because a pot with no `refl_mps` movement
+        // behind it is unclaimable forever.
+        let refl_bal = quote_bal.split(refl_fee);
+        if (distribute_reflection(pool, refl_fee)) {
+            pool.reflection_pot.join(refl_bal);
+        } else {
+            pool.creator_pot.join(refl_bal);
+        };
     };
 
-    pit::nudge(
+    pit::nudge_internal(
         pit,
         object::id(pool),
         market_cap_metric(pool),
@@ -270,11 +292,12 @@ fun pipe_fees<T, Q>(
     platform_fee: u64,
     pit_fee: u64,
     refl_fee: u64,
+    refl_credited: bool,
     ctx: &mut TxContext,
 ) {
     if (pit_fee > 0) {
         let fee_coin = quote.split(pit_fee, ctx);
-        pit::take_fee(pit, fee_coin.into_balance());
+        pit::take_fee_internal(pit, fee_coin.into_balance());
     };
     if (creator_fee > 0) {
         let ccoin = quote.split(creator_fee, ctx);
@@ -286,7 +309,13 @@ fun pipe_fees<T, Q>(
     };
     if (refl_fee > 0) {
         let rcoin = quote.split(refl_fee, ctx);
-        pool.reflection_pot.join(rcoin.into_balance());
+        // Only park it in the reflection pot if a claim was actually created
+        // against it; otherwise it would sit there unreachable forever.
+        if (refl_credited) {
+            pool.reflection_pot.join(rcoin.into_balance());
+        } else {
+            pool.creator_pot.join(rcoin.into_balance());
+        };
     };
 }
 
@@ -310,11 +339,18 @@ public fun claim_creator<T, Q>(pool: &mut Pool<T, Q>, ctx: &mut TxContext): Coin
     coin::from_balance(pool.creator_pot.split(amt), ctx)
 }
 
-/// Permissionless freeze once `raised` has crossed the pair threshold.
-/// Buys that cross the threshold also call this.
+/// Permissionless freeze once the pool's real quote reserve crosses the pair
+/// threshold.
+///
+/// This used to test `raised`, which only ever goes up: sells never reduced it,
+/// so one wallet cycling buy → sell added its full notional on every cycle and
+/// could carry a pool over a 2,000 SUI threshold for a few tens of SUI in fees.
+/// The pool then graduated and seeded Bluefin with whatever was actually there.
+/// `quote_reserve` is the money that is really in the curve, so that is what
+/// graduation is measured on. `raised` stays as the gross tape counter.
 public fun graduate<T, Q>(pool: &mut Pool<T, Q>) {
     assert!(!pool.graduated, errors::graduated());
-    assert!(pool.raised >= pool.graduation_threshold, errors::not_graduated());
+    assert!(pool.quote_reserve.value() >= pool.graduation_threshold, errors::not_graduated());
     do_graduate(pool);
 }
 
@@ -322,19 +358,43 @@ public fun graduate<T, Q>(pool: &mut Pool<T, Q>) {
 public fun settle_pit<T, Q>(pool: &mut Pool<T, Q>, pit: &mut Pit<Q>, ctx: &mut TxContext) {
     let id = object::id(pool);
     if (pool.pit_mode == PIT_HOLDERS) {
-        let bal = pit::settle_to_holders(pit, id);
+        // With nothing registered, `distribute_pit` cannot move `pit_mps` and
+        // the whole pot would land in `pit_claim_pot` unclaimable, with no
+        // rescue path on `Pool`. Leave it in the pit for the next round.
+        assert!(pool.total_registered > 0, errors::no_holders());
+        let bal = pit::settle_to_holders_internal(pit, id);
         let amt = bal.value();
         pool.pit_claim_pot.join(bal);
         distribute_pit(pool, amt);
     } else {
         assert!(pool.pit_mode == PIT_BUY_AND_BURN, errors::invalid_pit_mode());
-        let bal = pit::settle_burn_quote(pit, id);
-        burn_from_pit(pool, bal, ctx);
+        // Once the curve reserves are vaulted there is nothing to buy against.
+        assert!(!pool.lp_locked, errors::reserves_locked());
+        let bal = pit::settle_burn_quote_internal(pit, id);
+        burn_from_pit_internal(pool, bal, ctx);
     }
 }
 
+/// Retired. This was `public` and took any `Balance<Q>` with no caller check,
+/// no pause check and no `!graduated` check, so between graduation and
+/// `seed_and_lock_bluefin` — both permissionless — anyone could push quote into
+/// `quote_reserve` and pull tokens out of `token_reserve`, choosing the
+/// `sqrt_price` the Bluefin pool gets seeded at. Reachable only through
+/// `settle_pit` now.
+public fun burn_from_pit<T, Q>(
+    _pool: &mut Pool<T, Q>,
+    _quote: Balance<Q>,
+    _ctx: &mut TxContext,
+) {
+    abort errors::retired()
+}
+
 /// Spend quote as a fee-less curve buy and burn the tokens off supply.
-public fun burn_from_pit<T, Q>(pool: &mut Pool<T, Q>, quote: Balance<Q>, ctx: &mut TxContext) {
+public(package) fun burn_from_pit_internal<T, Q>(
+    pool: &mut Pool<T, Q>,
+    quote: Balance<Q>,
+    ctx: &mut TxContext,
+) {
     let qin = quote.value();
     if (qin == 0) {
         quote.destroy_zero();
@@ -350,7 +410,7 @@ public fun burn_from_pit<T, Q>(pool: &mut Pool<T, Q>, quote: Balance<Q>, ctx: &m
 }
 
 fun maybe_graduate<T, Q>(pool: &mut Pool<T, Q>) {
-    if (!pool.graduated && pool.raised >= pool.graduation_threshold) {
+    if (!pool.graduated && pool.quote_reserve.value() >= pool.graduation_threshold) {
         do_graduate(pool);
     }
 }
@@ -385,11 +445,14 @@ public(package) fun extract_for_lock<T, Q>(
     (token, quote, id, creator)
 }
 
-fun distribute_reflection<T, Q>(pool: &mut Pool<T, Q>, amount: u64) {
+/// Returns whether a claim was actually created. `false` means the caller must
+/// send the money somewhere reachable instead of into a pot nobody can claim.
+fun distribute_reflection<T, Q>(pool: &mut Pool<T, Q>, amount: u64): bool {
     if (amount == 0 || pool.total_registered == 0) {
-        return
+        return false
     };
     pool.refl_mps = pool.refl_mps + (amount as u256) * MAG / (pool.total_registered as u256);
+    true
 }
 
 fun distribute_pit<T, Q>(pool: &mut Pool<T, Q>, amount: u64) {
@@ -437,22 +500,28 @@ fun credit_holder<T, Q>(pool: &mut Pool<T, Q>, who: address, tokens: u64) {
     h.pit_debt = (h.amount as u256) * pit_mps;
 }
 
+/// Sui coins carry no transfer hook, so the registry cannot follow a `Coin<T>`
+/// that moves between wallets. Debiting only what the seller happened to hold
+/// in the registry turned that gap into a loop: buy from A, hand the coin to a
+/// fresh wallet B, sell from B, and A kept its dividend weight forever while
+/// `total_registered` never came down. Repeat and one address owns the
+/// denominator for ~2% of notional per cycle.
+///
+/// So selling into the curve now requires the registry weight to back it.
+/// Tokens acquired by transfer must be sold from the wallet that bought them.
 fun debit_holder<T, Q>(pool: &mut Pool<T, Q>, who: address, tokens: u64) {
-    if (!pool.holders.contains(who)) {
-        return
-    };
+    assert!(pool.holders.contains(who), errors::unregistered_seller());
     let refl_mps = pool.refl_mps;
     let pit_mps = pool.pit_mps;
-    let mut reduce = 0;
     {
         let h = pool.holders.borrow_mut(who);
         accure(h, refl_mps, pit_mps);
-        reduce = if (h.amount >= tokens) { tokens } else { h.amount };
-        h.amount = h.amount - reduce;
+        assert!(h.amount >= tokens, errors::unregistered_seller());
+        h.amount = h.amount - tokens;
         h.refl_debt = (h.amount as u256) * refl_mps;
         h.pit_debt = (h.amount as u256) * pit_mps;
     };
-    pool.total_registered = pool.total_registered - reduce;
+    pool.total_registered = pool.total_registered - tokens;
 }
 
 fun take_unpaid<T, Q>(pool: &mut Pool<T, Q>, who: address, kind: u8): u64 {
