@@ -5,6 +5,7 @@
   "scripts": {
     "ring": "npx tsx src/cli.ts ring",
     "settle": "npx tsx src/cli.ts settle",
+    "collect": "npx tsx src/cli.ts collect",
     "reflections": "npx tsx src/cli.ts reflections"
   },
   "dependencies": {

@@ -2,6 +2,7 @@
   "crons": [
     { "path": "/api/reflections", "schedule": "* * * * *" },
     { "path": "/api/ring", "schedule": "*/5 * * * *" },
-    { "path": "/api/settle", "schedule": "*/5 * * * *" }
+    { "path": "/api/settle", "schedule": "*/5 * * * *" },
+    { "path": "/api/collect", "schedule": "*/10 * * * *" }
   ]
 }

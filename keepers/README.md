@@ -9,11 +9,13 @@ Cron jobs for The Arena launchpad. Reflection payouts **accrue on every fill** i
 | `* * * * *` | `/api/reflections` | Ingest `TradeEvent` + `ClaimEvent` (kind=0). Snapshot unpaid/claimed per holder. |
 | `*/5 * * * *` | `/api/ring` | Call `pit::ring` when the round clock is up. |
 | `*/5 * * * *` | `/api/settle` | Call `pool::settle_pit` on the winning pool after `BellEvent`. |
+| `*/10 * * * *` | `/api/collect` | Poke `launch::collect_instadex_fees` on every Instadex lock with accrued LP fees. Burns coin A, splits quote 60/10/30. |
 
 Local:
 
 ```
 ARENA_PACKAGE_ID=0x... npx tsx src/cli.ts reflections
+ARENA_KEEPER_PHRASE='…' npx tsx src/cli.ts collect
 ```
 
 ## Events for the UI indexer
@@ -38,6 +40,9 @@ Snapshot file (default `./data/reflections.json`) is the shape the token page ca
 - `ARENA_PIT_SUI`=`0x8ec38e9bcac0838bf474680e71d0c3f302f4ea2f757d759b7b399701f904389c`
 - `ARENA_PIT_XAUM`=`0xa8a391bf380914c04be5deb478474b42754a5aa8c29c0955f267d73190a98783`
 - `ARENA_CONFIG`=`0xcd527cb2389d806e5285ae708ee28df30a841ec5df7508ebfebaa0c9660b5d2c`
-- `ARENA_KEEPER_PHRASE` (signing key for ring/settle, later — not the platform wallet)
+- `ARENA_KEEPER_PHRASE` (signing key for collect/ring/settle — gas only, not AdminCap / not the platform wallet)
+- `ARENA_CALL_PACKAGE` (latest published-at, default v6 `0x47ea…`)
+- `ARENA_INSTADEX_PACKAGE` (InstadexLaunchEvent type origin v4 `0xcf78…`)
+- `SUI_GRAPHQL` (default `https://graphql.mainnet.sui.io/graphql`)
 - Platform launch + swap-fee withdraws: Odyssey admin `0x92a32ac7fd525f8bd37ed359423b8d7d858cad26224854dfbff1914b75ee658b` holds `AdminCap`
 - `KEEPERS_CURSOR_PATH`
