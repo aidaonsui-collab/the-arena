@@ -1,8 +1,8 @@
 /**
  * Permissionless collect_instadex_fees for every Instadex lock with accrued LP fees.
- * Burns coin A, splits quote 60/10/30. Needs ARENA_KEEPER_PHRASE (gas only, not AdminCap).
+ * Burns coin A, splits quote 60/10/30. Signs with ARENA_KEEPER_PHRASE if set, else the local Sui keystore (gas only).
  */
-import { Ed25519Keypair } from "@mysten/sui/keypairs/ed25519";
+import { loadSigner } from "../loadSigner.ts";
 import { Transaction } from "@mysten/sui/transactions";
 import { client } from "../sui.ts";
 
@@ -129,19 +129,8 @@ async function accrued(lockId: string): Promise<{ a: number; b: number }> {
   return walkFees(content.fields);
 }
 
-function keypair() {
-  const phrase = process.env.ARENA_KEEPER_PHRASE ?? "";
-  if (!phrase) return null;
-  return Ed25519Keypair.deriveKeypair(phrase.trim());
-}
-
 export async function runCollectInstadex() {
-  const phraseMissing = !process.env.ARENA_KEEPER_PHRASE;
-  if (phraseMissing) {
-    return { skipped: true, reason: "ARENA_KEEPER_PHRASE unset" };
-  }
-  const kp = keypair();
-  if (!kp) return { skipped: true, reason: "ARENA_KEEPER_PHRASE unset" };
+  const kp = loadSigner();
   const launches = await listLaunches();
   const results: unknown[] = [];
   for (const L of launches) {
