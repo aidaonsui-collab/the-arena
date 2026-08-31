@@ -236,6 +236,8 @@ a.btn-trade{display:block;text-align:center;text-decoration:none;box-sizing:bord
 .pit-row .rank{font-family:"IBM Plex Mono",monospace;color:var(--muted);font-size:13px}
 .pit-row .cap{font-family:"IBM Plex Mono",monospace;font-weight:650;text-align:right}
 .pit-row.lead{background:rgba(41,141,255,.1);border-radius:12px;padding:12px 8px;border-top:0;margin-top:2px}
+.pit-row.sitout{opacity:.62}
+.pit-sit{color:var(--muted);font-weight:600}
 .pit-tally{font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:12px;color:var(--muted);text-align:right;font-variant-numeric:tabular-nums}
 .pit-vote{border:0;background:var(--sui);color:#fff;border-radius:999px;padding:8px 12px;font-weight:650;font-size:12px;white-space:nowrap}
 .pit-vote:hover{filter:brightness(.97)}
@@ -261,7 +263,6 @@ html[data-route="pit"] .search-row,html[data-route="launch"] .search-row,html[da
   .pit-row .mode-col,.pit-row .chg,.pit-row .cap,.pit-tally{display:none}
   .pit-community{font-size:13px}
   .bells-grid{grid-template-columns:1fr}
-  [data-screen-label="Pit"] > .card:last-of-type{grid-template-columns:1fr!important}
 }
 
 .metrics-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:8px 0 18px}
@@ -414,6 +415,8 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   var pitVoteBusy = "";
   var pitVoteErr = "";
   var pitVoteLoaded = false;
+  var pitState = { winner: null, banned: [], bells: [], standing: [], roundEndMs: 0, roundStartedMs: 0, round: 0 };
+  var pitStateKey = "";
   let balance = 48.60;
   let xaumBal = 2.40;
   const state = {route:"explore", sym:"VOLT", filter:"All", sort:"Market cap", time:"All", side:"Buy", amt:"1", connected:false, search:"", lName:"", lTick:"", lQuote:"SUI", lPath:"instadex", lMode:"Holders", lTokenAmt:"", lQuoteAmt:"", lFirstBuy:"1", lCap:"", lTokenCoin:"", lQuoteCoin:"", lCoinMode:"create", lDecimals:"9", lSupply:"1000000000", lDesc:"", lX:"", lTg:"", lWeb:"", lPublishedType:"", metricsWindow:"All", tapeTab:"trades", tapeOpen:"", tapePage:0, tapeAge:"age", lFile:null, lArtUrl:"", lArtPreview:"", payWith:"SUI", lNote:"", lNoteErr:false};
@@ -1448,7 +1451,20 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
 
   function gradTarget(k){ return poolQuote(k) === "XAUM" ? 1 : GRAD; }
   function walletBal(q){ return (q === "XAUM" ? xaumBal : balance); }
-  function clockStr(){ return Math.floor(secs/60)+":"+String(secs%60).padStart(2,"0"); }
+  function pitRound(){
+    return Number(pitState.round) > 0 ? Number(pitState.round) : roundNo;
+  }
+  function clockStr(){
+    var s = secs;
+    if (Number(pitState.roundEndMs) > Date.now()){
+      s = Math.max(0, Math.ceil((Number(pitState.roundEndMs) - Date.now()) / 1000));
+    }
+    const h = Math.floor(s / 3600);
+    const m = Math.floor((s % 3600) / 60);
+    const sec = s % 60;
+    if (h > 0) return h + ":" + String(m).padStart(2,"0") + ":" + String(sec).padStart(2,"0");
+    return Math.floor(s/60)+":"+String(s%60).padStart(2,"0");
+  }
   function spark(seed){
     let p = "", y = 18;
     for (let i=0;i<=24;i++){
@@ -1468,17 +1484,57 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     return /^Arena (Bluefin|Grad|Smoke)$/i.test(n) || /^INSTA$/i.test(n);
   }
   function sortedT(){ return T.filter(function(k){ return !isHiddenToken(k) && !k.graduated && k.st !== "Graduated"; }).sort(function(a,b){return b.cap-a.cap;}); }
-  function pitContenders(){
+  function pitBannedTicker(t){
+    t = String(t || "").toUpperCase();
+    const now = Date.now();
+    return (pitState.banned || []).some(function(b){
+      return String(b.t || "").toUpperCase() === t && Number(b.untilMs) > now;
+    });
+  }
+  function pitRanked(){
     return T.filter(function(k){
       if (!k || k.missing || !k.t || k.t === "—" || isHiddenToken(k)) return false;
-      if (k.instadex || k.st === "Instadex" || k.bluefinPool) return true;
-      return !k.graduated && k.st !== "Graduated";
+      return !!(k.instadex || k.st === "Instadex" || k.bluefinPool);
     }).sort(function(a,b){
       const ca = usdCap(a) || Number(a.cap) || 0;
       const cb = usdCap(b) || Number(b.cap) || 0;
       if (cb !== ca) return cb - ca;
       return Number(b.ts || 0) - Number(a.ts || 0);
-    }).slice(0, 5);
+    });
+  }
+  function pitWinnerTok(){
+    if (pitState.winner && pitState.winner.t && !pitBannedTicker(pitState.winner.t)){
+      const w = T.find(function(k){ return k.t === String(pitState.winner.t).toUpperCase(); });
+      if (w && !isHiddenToken(w)) return w;
+    }
+    const eligible = pitRanked().filter(function(k){ return !pitBannedTicker(k.t); });
+    return eligible[0] || null;
+  }
+  function pitTokByTicker(t){
+    t = String(t || "").toUpperCase();
+    return T.find(function(k){ return k && k.t === t && !isHiddenToken(k); }) || null;
+  }
+  function pitContenders(){
+    const out = [];
+    const used = {};
+    function pushTok(k){
+      if (!k || !k.t || used[k.t] || isHiddenToken(k)) return;
+      used[k.t] = 1;
+      out.push(k);
+    }
+    pushTok(pitWinnerTok());
+    const stand = (pitState.standing || []).slice().sort(function(a,b){
+      return (Number(b.peakMcUsd) || 0) - (Number(a.peakMcUsd) || 0);
+    });
+    stand.forEach(function(s){
+      if (out.length >= 5) return;
+      pushTok(pitTokByTicker(s.t));
+    });
+    pitRanked().forEach(function(k){
+      if (out.length >= 5) return;
+      pushTok(k);
+    });
+    return out;
   }
   function vol(k){ return k.buckets.reduce(function(a,b){return a+b;},0); }
   function findT(sym){
@@ -2039,7 +2095,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       '<span class="chip '+cls+' st-col">'+k.st+'</span></div>';
   }
   function launchCard(k, i){
-    const leader = sortedT()[0];
+    const leader = pitWinnerTok() || sortedT()[0];
     const hot = !k.graduated && leader && leader.t === k.t;
     const addr = ADDR[(i||0) % ADDR.length];
     const go = "token:"+k.t;
@@ -2059,7 +2115,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   function exploreHTML(){
     if (state.filter === "Graduating" || state.filter === "Near graduation" || state.filter === "Graduated") state.filter = "All";
     const pool = launchPool();
-    const leader = sortedT()[0];
+    const leader = pitWinnerTok() || sortedT()[0];
     const sorts = ["Recent","Newest","Market cap","Volume"];
     const chips = ["All","Live"];
     let cards = pool.map(function(k,i){ return launchCard(k,i); }).join("");
@@ -2074,7 +2130,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
         '<div><div class="pit-kicker">The pit · round <span data-round>'+roundNo+'</span></div>'+
           '<div class="pit-pot" data-pot>'+money(pot)+'</div></div>'+
         '<div class="pit-right"><div class="mono" style="font-size:22px" data-clock>'+clockStr()+'</div>'+
-          '<div style="color:var(--muted);margin-top:4px">'+(leader ? leader.n+' leading · ' : '')+'Watch the pit →</div></div></div>'+
+          '<div style="color:var(--muted);margin-top:4px">'+(leader ? leader.n+' leading on 24h MC · ' : '')+'Watch the pit →</div></div></div>'+
       '<div class="launches" id="disc-list">'+cards+'</div>'+
       footerHTML()+'</div>';
   }
@@ -2092,7 +2148,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     const list = pitVotes.list || [];
     const mine = (suiSession.address || "").toLowerCase();
     if (!list.length){
-      return '<div class="empty" style="padding:28px 8px">No votes this round yet. 0.1 SUI goes into the pot.</div>';
+      return '<div class="empty" style="padding:28px 8px">No votes yet. 0.1 SUI goes into the pot. Votes do not pick the winner.</div>';
     }
     return list.slice(0, 80).map(function(v){
       const name = suinsOf(v.address) || shortTapeAddr(v.address);
@@ -2114,9 +2170,9 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     const note = $("#pit-vote-note");
     if (note){
       if (pitVoteErr) note.textContent = pitVoteErr;
-      else if (!suiSession.address) note.textContent = "Connect a Sui wallet. 0.1 SUI is paid into the pit to cast a vote.";
-      else if (pitVotes.mine) note.textContent = "You picked $"+pitVotes.mine+". Pay another 0.1 SUI to switch.";
-      else note.textContent = "0.1 SUI per vote, paid into the pit. One pick per wallet; you can switch by voting again.";
+      else if (!suiSession.address) note.textContent = "Connect a Sui wallet. 0.1 SUI goes into the pot. Votes do not pick the winner.";
+      else if (pitVotes.mine) note.textContent = "You picked $"+pitVotes.mine+". Votes do not pick the winner. Pay another 0.1 SUI to switch.";
+      else note.textContent = "Votes do not pick the winner. 0.1 SUI still goes in the pot. One pick per wallet; you can switch by voting again.";
     }
     const roll = $("#voter-roll");
     if (roll) roll.innerHTML = voterRollHTML();
@@ -2145,6 +2201,25 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     pitVoteLoaded = true;
     resolveSuins(pitVotes.list.map(function(v){ return v.address; }));
     paintPitVotes();
+  }
+  function rankingKey(j){
+    if (!j) return "";
+    const w = (j.winner && j.winner.t) || "";
+    const banned = (j.banned || []).map(function(b){ return String(b.t || "").toUpperCase() + ":" + String(b.untilMs || ""); }).join(",");
+    const stand = (j.standing || []).map(function(s){ return s.t; }).join(",");
+    const bells = (j.bells || []).map(function(b){ return String(b.t || "") + ":" + String(b.ts || ""); }).join(",");
+    return [j.round, j.roundEndMs, w, banned, stand, bells].join("|");
+  }
+  function loadPitState(){
+    return fetch("/api/pit-state", { cache: "no-store" }).then(function(r){ return r.json(); }).then(function(j){
+      if (!j || j.error) return;
+      const key = rankingKey(j);
+      const changed = key !== pitStateKey;
+      pitState = j;
+      pitStateKey = key;
+      paintClocks();
+      if (changed && (state.route === "pit" || state.route === "explore" || state.route === "metrics") && (state.route !== "pit" || $("#contenders"))) scheduleScreen();
+    }).catch(function(){});
   }
   function loadPitVotes(){
     return fetch("/api/pit-vote", { cache: "no-store" }).then(function(r){ return r.json(); }).then(function(j){
@@ -2228,47 +2303,57 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     paintPitVotes();
   }
   function pitHTML(){
+    const win = pitWinnerTok();
     const rows = pitContenders().map(function(k,i){
       hydrateTokenMeta(k);
       const mine = pitVotes.mine === k.t;
-      return '<div class="pit-row'+(i===0?" lead":"")+'" data-go="token:'+k.t+'">'+
+      const banned = pitBannedTicker(k.t);
+      const lead = !!(win && win.t === k.t && !banned);
+      return '<div class="pit-row'+(lead?" lead":"")+(banned?" sitout":"")+'" data-go="token:'+k.t+'">'+
         '<span class="rank">'+rank(i)+'</span>'+avatar(k,40)+
-        '<div style="min-width:0"><div class="feat-name">'+k.n+'</div><div class="feat-tick">$'+k.t+'</div></div>'+
+        '<div style="min-width:0"><div class="feat-name">'+k.n+'</div><div class="feat-tick">$'+k.t+(banned?' <span class="pit-sit">sits out 48h</span>':'')+'</div></div>'+
         '<div class="pit-vote-col"><button type="button" class="pit-vote'+(mine?" mine":"")+'" data-pit-vote="'+k.t+'">'+pitVoteLabel(k.t)+'</button></div>'+
         '<div class="pit-tally" data-tally="'+k.t+'">'+pitTallyText(k.t)+'</div>'+
         '<div data-usd-cap="'+k.t+'" class="cap">'+usdCapText(k)+'</div></div>';
     }).join("");
-    const bells = BELLS.map(function(b){
-      const holders = b.mode === "Holders";
+    const bellSrc = (pitState.bells && pitState.bells.length) ? pitState.bells.slice(0, 3) : [];
+    const bells = bellSrc.map(function(b){
+      const when = b.ts ? agoOf(b.ts) : (b.ago || "");
+      const mc = Number(b.mcUsd) > 0 ? fmtUsd(b.mcUsd) + " peak MC" : "Buy & burn";
+      const kicker = when === "now" ? "just now" : (when ? when+" ago" : "past bell");
       return '<div class="bell-card">'+
-        '<div class="pit-kicker">'+b.ago+' ago</div>'+
-        '<div class="feat-name">'+b.n+'</div>'+
-        '<div class="pit-pot" style="font-size:28px;margin-top:10px">'+b.amt.toFixed(2)+' SUI</div>'+
-        '<div class="feat-tick" style="margin-top:8px">'+(b.burn?"burned "+b.burn:"split to holders")+'</div>'+
-        '<span class="chip '+(holders?"live":"")+'" style="margin-top:12px;display:inline-block">'+b.mode+'</span></div>';
+        '<div class="pit-kicker">'+kicker+'</div>'+
+        '<div class="feat-name">'+escHtml(b.n || b.t)+'</div>'+
+        '<div class="feat-tick" style="margin-top:8px">$'+escHtml(b.t)+'</div>'+
+        '<div class="feat-tick" style="margin-top:8px">'+mc+'</div>'+
+        '<span class="chip" style="margin-top:12px;display:inline-block">Buy & burn</span></div>';
     }).join("");
+    const voteNote = pitVoteErr || (suiSession.address
+      ? (pitVotes.mine
+        ? ("You picked $"+pitVotes.mine+". Votes do not pick the winner. Pay another 0.1 SUI to switch.")
+        : "Votes do not pick the winner. 0.1 SUI still goes in the pot.")
+      : "Connect a Sui wallet. 0.1 SUI goes into the pot. Votes do not pick the winner.");
     return '<div data-screen-label="Pit">'+
       '<div class="pit-hero">'+
-        '<div style="grid-area:pot"><div class="pit-kicker"><span style="display:inline-block;width:7px;height:7px;border-radius:99px;background:var(--sui);margin-right:8px"></span>Round <span data-round>'+roundNo+'</span> · live</div>'+
+        '<div style="grid-area:pot"><div class="pit-kicker"><span style="display:inline-block;width:7px;height:7px;border-radius:99px;background:var(--sui);margin-right:8px"></span>Round <span data-round>'+pitRound()+'</span> · live</div>'+
           '<div class="pit-pot" data-pot>'+money(pot)+'</div></div>'+
         '<div class="pit-clock" style="grid-area:clock"><span data-clock>'+clockStr()+'</span><span>until the bell</span></div>'+
-        '<p>Pick who takes the pot. 0.1 SUI per vote, paid into the pit.</p>'+
+        '<p>Highest Instant market cap over 24 hours takes the pot. The pot buys the winner on Bluefin and burns it. Last bell sits out 48 hours. Votes are just the roll — they don\'t pick the winner.</p>'+
       '</div>'+
       '<div class="card" style="padding:20px 22px;margin-top:14px">'+
-        '<div class="sec-label" style="margin-top:0">Contenders <span>top 5</span></div>'+
+        '<div class="sec-label" style="margin-top:0">Contenders <span>top 5 · 24h MC</span></div>'+
         (rows
           ? '<div class="pit-head"><span></span><span></span><span></span><div class="pit-community">Who\'s got the strongest community?</div><span class="pit-tally">Votes</span><span class="cap">CAP</span></div>'
           : "")+
-        '<div id="contenders">'+(rows || '<div class="empty">No live curve bouts this round.</div>')+'</div></div>'+
+        '<div id="contenders">'+(rows || '<div class="empty">No Instant bouts this round.</div>')+'</div></div>'+
       '<div class="card" style="padding:20px 22px;margin-top:14px">'+
         '<div class="sec-label" style="margin-top:0">Voter roll <span class="count-pill" id="voter-count">'+(pitVotes.list||[]).length+'</span></div>'+
-        '<div id="pit-vote-note" style="color:var(--muted);font-size:13px;margin:0 0 12px">'+(pitVoteErr || (suiSession.address ? (pitVotes.mine ? ("You picked $"+pitVotes.mine+". Pay another 0.1 SUI to switch.") : "0.1 SUI per vote, paid into the pit.") : "Connect a Sui wallet. 0.1 SUI is paid into the pit to cast a vote."))+'</div>'+
+        '<div id="pit-vote-note" style="color:var(--muted);font-size:13px;margin:0 0 12px">'+voteNote+'</div>'+
         '<div id="voter-roll">'+voterRollHTML()+'</div></div>'+
-      '<div class="sec-label" style="margin-top:22px">Past bells <span>last three</span></div>'+
-      '<div class="bells-grid">'+bells+'</div>'+
-      '<div class="card" style="padding:18px 22px;margin-top:14px;display:grid;grid-template-columns:1fr 1fr;gap:18px;color:var(--muted);font-size:14px">'+
-        '<div><strong style="color:var(--ink)">Burn</strong> — the pot buys the winner off its curve and destroys those units.</div>'+
-        '<div><strong style="color:var(--ink)">Split</strong> — every holder gets quote pro-rata when the bell rings.</div></div>'+
+      '<div class="sec-label" style="margin-top:22px">Past bells <span>buy & burn</span></div>'+
+      '<div class="bells-grid">'+(bells || '<div class="empty card" style="grid-column:1/-1;padding:28px 8px">No bells yet. First 24h round is live.</div>')+'</div>'+
+      '<div class="card" style="padding:18px 22px;margin-top:14px;color:var(--muted);font-size:14px">'+
+        '<strong style="color:var(--ink)">Buy & burn only.</strong> When the bell rings, the pot buys the winner on Bluefin and those tokens are burned. No airdrop, no holder split.</div>'+
       footerHTML()+'</div>';
   }
   function metricsRollup(){
@@ -2303,8 +2388,9 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     out.pitClaims = claims.filter(function(c){ return Number(c.kind)===1; }).length;
     out.launches = T.length;
     out.grads = GRADS.length;
-    out.bells = BELLS.length;
-    out.bellPaid = BELLS.reduce(function(a,b){ return a + (b.amt||0); }, 0);
+    const bells = (pitState.bells && pitState.bells.length) ? pitState.bells : [];
+    out.bells = bells.length;
+    out.bellPaid = bells.reduce(function(a,b){ return a + (Number(b.amt)||0); }, 0);
     return out;
   }
   function metricsHTML(){
@@ -2493,7 +2579,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       : fmtBig(capN)+' '+q+' · '+chText(tk)+' · '+tk.h+' holders';
     const burnSub = burnedN > 0
       ? money(burnedQ, q)+' · '+burnedPct.toFixed(2)+'% of supply'
-      : (tk.mode === "Buy & burn" ? "No pit burns yet" : "Holders mode · no burn");
+      : (dexBout || tk.mode === "Buy & burn" ? "No pit burns yet" : "Holders mode · no burn");
     const xq = encodeURIComponent("$"+tk.t);
     const dex = tk.bluefinPool
       ? "https://dexscreener.com/sui/"+tk.bluefinPool
@@ -2604,7 +2690,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   function paintClocks(){
     const c = clockStr();
     $$("[data-clock]").forEach(function(el){ el.textContent = c; });
-    $$("[data-round]").forEach(function(el){ el.textContent = String(roundNo); });
+    $$("[data-round]").forEach(function(el){ el.textContent = String(pitRound()); });
   }
   function paintPots(){
     const txt = money(pot);
@@ -3193,6 +3279,9 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     if (state.route === "pit"){
       refreshPitObject();
       loadPitVotes();
+      loadPitState();
+    } else if (state.route === "explore" || state.route === "metrics"){
+      loadPitState();
     }
     paintCaps();
   }
@@ -4345,6 +4434,9 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     if (state.route === "pit" && bshift % 8 === 0){
       refreshPitObject();
       loadPitVotes();
+      loadPitState();
+    } else if ((state.route === "explore" || state.route === "metrics") && bshift % 8 === 0){
+      loadPitState();
     }
     paintLive();
   }, 1000);
