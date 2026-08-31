@@ -170,6 +170,11 @@ a.btn-trade{display:block;text-align:center;text-decoration:none;box-sizing:bord
 .form-grid label{font-size:12px;font-weight:600;color:var(--muted);letter-spacing:.06em;text-transform:uppercase}
 .form-grid input{width:100%;border:1px solid var(--line);border-radius:16px;padding:12px 14px;background:#16171A;outline:none;color:var(--ink)}
 .form-grid input:focus{border-color:#298DFF;background:#1C1D21}
+.social-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+.social-row input{padding:12px 10px;font-size:13px}
+@media (max-width:560px){
+  .social-row{grid-template-columns:1fr}
+}
 .toggle{display:flex;gap:8px;flex-wrap:wrap}
 .back{font-size:13px;font-weight:600;color:var(--muted);cursor:pointer;margin-bottom:12px}
 .back:hover{color:var(--ink)}
@@ -180,7 +185,7 @@ a.btn-trade{display:block;text-align:center;text-decoration:none;box-sizing:bord
 
 .about-card{padding:22px 24px;margin:14px 0 0}
 .about-card h2{font-size:18px;font-weight:650;margin:0;letter-spacing:-.02em}
-.about-desc{color:var(--muted);margin:10px 0 22px;max-width:56ch;line-height:1.5}
+.about-desc{color:var(--muted);margin:10px 0 22px;max-width:56ch;line-height:1.5;white-space:pre-wrap}
 .about-metrics{display:grid;grid-template-columns:1fr 1fr;gap:22px 28px;margin-bottom:22px}
 .about-k{font-size:12px;color:var(--muted);font-weight:500}
 .about-v{font-size:clamp(26px,4vw,34px);font-weight:700;letter-spacing:-.04em;line-height:1.15;margin-top:6px;font-variant-numeric:tabular-nums}
@@ -354,7 +359,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   let bshift = 0, pot = 31.94, prevPot = "", roundNo = 128, secs = ROUND_SECONDS;
   let balance = 48.60;
   let xaumBal = 2.40;
-  const state = {route:"explore", sym:"VOLT", filter:"All", sort:"Market cap", time:"All", side:"Buy", amt:"1", connected:false, search:"", lName:"", lTick:"", lQuote:"SUI", lPath:"instadex", lMode:"Holders", lTokenAmt:"", lQuoteAmt:"", lCap:"", lTokenCoin:"", lQuoteCoin:"", lCoinMode:"create", lDecimals:"9", lSupply:"1000000000", lDesc:"", lPublishedType:"", metricsWindow:"All", tapeTab:"trades", tapeOpen:"", lFile:null, lArtUrl:"", lArtPreview:"", payWith:"SUI"};
+  const state = {route:"explore", sym:"VOLT", filter:"All", sort:"Market cap", time:"All", side:"Buy", amt:"1", connected:false, search:"", lName:"", lTick:"", lQuote:"SUI", lPath:"instadex", lMode:"Holders", lTokenAmt:"", lQuoteAmt:"", lCap:"", lTokenCoin:"", lQuoteCoin:"", lCoinMode:"create", lDecimals:"9", lSupply:"1000000000", lDesc:"", lX:"", lTg:"", lWeb:"", lPublishedType:"", metricsWindow:"All", tapeTab:"trades", tapeOpen:"", lFile:null, lArtUrl:"", lArtPreview:"", payWith:"SUI"};
   let hashLock = false;
   const hop = { suiPerXaum: null, usd: null, suiUsd: null, source: "" };
 
@@ -733,7 +738,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     var node = data && data.objects && data.objects.nodes && data.objects.nodes[0];
     if (!node) throw new Error("CoinMetadata not found for " + t);
     var json = (node.asMoveObject && node.asMoveObject.contents && node.asMoveObject.contents.json) || {};
-    return { id: node.address, name: json.name || "", symbol: json.symbol || "", decimals: json.decimals != null ? json.decimals : 9, type: t };
+    return { id: node.address, name: json.name || "", symbol: json.symbol || "", decimals: json.decimals != null ? json.decimals : 9, type: t, description: json.description || "" };
   }
   async function coinsOf(owner, coinType){
     var t = "0x2::coin::Coin<" + normType(coinType) + ">";
@@ -988,6 +993,102 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     u = String(u || "");
     if (u.indexOf("https://") !== 0 && u.indexOf("blob:") !== 0) return "";
     return u.replace(/"/g, "").replace(/</g, "");
+  }
+  function httpsUrl(s){
+    try {
+      var u = new URL(String(s || "").trim());
+      if (u.protocol !== "https:") return "";
+      if (!u.hostname || u.hostname.indexOf(".") < 0) return "";
+      return u.href.replace(/\/$/, "");
+    } catch (e) { return ""; }
+  }
+  function normX(s){
+    s = String(s || "").trim();
+    if (!s) return "";
+    if (/^https?:\/\//i.test(s)){
+      try {
+        var u = new URL(s);
+        if (!/^(www\.)?(x\.com|twitter\.com)$/i.test(u.hostname)) return "";
+        var path = u.pathname.replace(/\/+$/, "");
+        if (!path || path === "/") return "";
+        return "https://x.com" + path;
+      } catch (e) { return ""; }
+    }
+    s = s.replace(/^@/, "").replace(/^(https?:\/\/)?(www\.)?(x|twitter)\.com\//i, "");
+    s = s.split(/[/?#]/)[0];
+    if (!/^[A-Za-z0-9_]{1,15}$/.test(s)) return "";
+    return "https://x.com/" + s;
+  }
+  function normTg(s){
+    s = String(s || "").trim();
+    if (!s) return "";
+    if (/^https?:\/\//i.test(s)){
+      try {
+        var u = new URL(s);
+        if (!/^(www\.)?(t\.me|telegram\.me)$/i.test(u.hostname)) return "";
+        var path = u.pathname.replace(/\/+$/, "");
+        if (!path || path === "/") return "";
+        return "https://t.me" + path;
+      } catch (e) { return ""; }
+    }
+    s = s.replace(/^@/, "").replace(/^(https?:\/\/)?(www\.)?(t|telegram)\.me\//i, "");
+    s = s.split(/[/?#]/)[0];
+    if (!/^[A-Za-z0-9_]{3,32}$/.test(s)) return "";
+    return "https://t.me/" + s;
+  }
+  function normWeb(s){
+    s = String(s || "").trim();
+    if (!s) return "";
+    if (!/^https?:\/\//i.test(s)) s = "https://" + s;
+    return httpsUrl(s);
+  }
+  function requireSocial(kind, raw, normed){
+    if (!String(raw || "").trim()) return "";
+    if (!normed) throw new Error("Invalid " + kind + " link");
+    return normed;
+  }
+  function encodeMetadataDescription(desc, x, tg, web){
+    var lines = [];
+    desc = String(desc || "").trim();
+    if (desc) lines.push(desc);
+    if (x || tg || web){
+      if (lines.length) lines.push("");
+      if (x) lines.push("X " + x);
+      if (tg) lines.push("Telegram " + tg);
+      if (web) lines.push("Website " + web);
+    }
+    return lines.join("\n");
+  }
+  function parseSocials(desc){
+    var out = { text: "", x: "", tg: "", web: "" };
+    var body = [];
+    String(desc || "").split(/\r?\n/).forEach(function(line){
+      var t = line.trim();
+      var m = /^(x|twitter)\s+(\S+)/i.exec(t);
+      if (m){ out.x = normX(m[2]); return; }
+      m = /^(telegram|tg)\s+(\S+)/i.exec(t);
+      if (m){ out.tg = normTg(m[2]); return; }
+      m = /^(website|web)\s+(\S+)/i.exec(t);
+      if (m){ out.web = normWeb(m[2]); return; }
+      body.push(line);
+    });
+    out.text = body.join("\n").replace(/^\n+|\n+$/g, "");
+    return out;
+  }
+  function hydrateTokenMeta(tk){
+    if (!tk || tk.metaHydrated) return;
+    var t = typeNameStr(tk.token);
+    if (!t || t.indexOf("::") < 0) return;
+    tk.metaHydrated = true;
+    metadataFor(t).then(function(meta){
+      var parsed = parseSocials(meta.description || "");
+      if (parsed.text) tk.b = parsed.text;
+      tk.twitter = parsed.x || tk.twitter || "";
+      tk.telegram = parsed.tg || tk.telegram || "";
+      tk.website = parsed.web || tk.website || "";
+      if (meta.name) tk.n = meta.name;
+      if (state.route === "token" && findT(state.sym) === tk) renderScreen();
+    }).catch(function(){});
   }
   function avatar(k, sz){
     sz = sz || 42;
@@ -1412,7 +1513,13 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
                 : "For a coin you published yourself. Paste its TreasuryCap and a Coin&lt;T&gt;. All of that coin goes into LP.")+
             '</div></div>'+
           (state.lCoinMode==="create"
-            ? '<div><label>Description · optional</label><input id="l-desc" placeholder="One line about the token" value="'+escAttr(state.lDesc)+'"></div>'
+            ? '<div><label>Description · optional</label><input id="l-desc" placeholder="One line about the token" value="'+escAttr(state.lDesc)+'"></div>'+
+              '<div><label>Socials · optional</label><div class="social-row">'+
+                '<input id="l-x" spellcheck="false" placeholder="x.com/handle" value="'+escAttr(state.lX)+'">'+
+                '<input id="l-tg" spellcheck="false" placeholder="t.me/handle" value="'+escAttr(state.lTg)+'">'+
+                '<input id="l-web" spellcheck="false" placeholder="https://site" value="'+escAttr(state.lWeb)+'">'+
+              '</div>'+
+              '<div style="font-size:12px;color:var(--muted);margin-top:6px">Baked into CoinMetadata at publish. Can\'t change later.</div></div>'
             : '<div><label>TreasuryCap object</label><input id="l-cap" spellcheck="false" placeholder="0x… TreasuryCap" value="'+escAttr(state.lCap)+'"></div>'+
               '<div><label>Token coin object</label><input id="l-token-coin" spellcheck="false" placeholder="0x… Coin&lt;T&gt;" value="'+escAttr(state.lTokenCoin)+'"></div>')+
           '<div><label>Quote</label><div class="toggle">'+tog("lQuote","SUI","SUI")+tog("lQuote","XAUM","XAUM")+'</div>'+
@@ -1469,6 +1576,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   }
   function tokenHTML(){
     const tk = findT(state.sym);
+    hydrateTokenMeta(tk);
     const q = poolQuote(tk);
     const insta = isInstadex(tk);
     const dexBout = isDexBout(tk);
@@ -1489,9 +1597,12 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     const gecko = tk.bluefinPool
       ? "https://www.geckoterminal.com/sui-network/pools/"+tk.bluefinPool
       : "https://www.geckoterminal.com/sui-network";
+    const xHref = escUrl(tk.twitter) || ("https://x.com/search?q="+xq);
     const aboutLinks =
-      '<a class="about-link" href="https://x.com/search?q='+xq+'" target="_blank" rel="noopener">'+
+      (escUrl(tk.website) ? '<a class="about-link" href="'+escUrl(tk.website)+'" target="_blank" rel="noopener">Website</a>' : '')+
+      '<a class="about-link" href="'+xHref+'" target="_blank" rel="noopener">'+
         '<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.172-5.397 6.172H2.75l7.73-8.835L1.254 2.25H8.08l4.253 5.622L18.244 2.25zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>X</a>'+
+      (escUrl(tk.telegram) ? '<a class="about-link" href="'+escUrl(tk.telegram)+'" target="_blank" rel="noopener">Telegram</a>' : '')+
       '<a class="about-link" href="'+dex+'" target="_blank" rel="noopener">Dexscreener</a>'+
       '<a class="about-link" href="'+gecko+'" target="_blank" rel="noopener">GeckoTerminal</a>'+
       '<button type="button" class="about-link" data-copy="'+demoTypeId(tk)+'">Contract</button>'+
@@ -1520,7 +1631,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
         '<div class="split-main">'+
         '<div class="about-card card">'+
           '<h2>About</h2>'+
-          '<div class="about-desc">'+(tk.b || "No description yet.")+'</div>'+
+          '<div class="about-desc">'+(tk.b ? escHtml(tk.b) : "No description yet.")+'</div>'+
           '<div class="about-metrics">'+
             '<div><div class="about-k">Market cap</div>'+
               '<div class="about-v"><span data-usd-cap="'+tk.t+'">'+usdCapText(tk)+'</span><span class="tick">mc</span></div>'+
@@ -1931,7 +2042,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       tk = {
         t: sym || "TOK",
         n: l.name || sym || "Token",
-        b: "Instadex. Skipped the curve. Seeded Bluefin; LP locked forever.",
+        b: "",
         cap: cap,
         ch: 0, h: 1,
         st: "Instadex",
@@ -1974,12 +2085,12 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       tk.lpLocked = true;
       tk.bluefin = true;
       if (l.token) tk.token = l.token;
-      tk.b = "Instadex. Skipped the curve. Seeded Bluefin; LP locked forever.";
       if (cap > 0) tk.cap = cap;
       if (l.token) tk.token = l.token;
       if (l.creator) tk.creator = l.creator;
       if (l.ts) tk.ts = l.ts;
     }
+    hydrateTokenMeta(tk);
     if (LIVE && state.sym && !T.some(function(k){ return k.t === state.sym; })) state.sym = tk.t;
     if (state.route === "explore" || state.route === "token" || state.route === "pit") renderScreen();
   }
@@ -2138,6 +2249,13 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
         if (supplyWhole > 18446744073709551615n) throw new Error("Total supply overflows u64 at that many decimals");
 
         if (btn) btn.textContent = "Building coin…";
+        var metaDesc = encodeMetadataDescription(
+          state.lDesc || "",
+          requireSocial("X", state.lX, normX(state.lX)),
+          requireSocial("Telegram", state.lTg, normTg(state.lTg)),
+          requireSocial("website", state.lWeb, normWeb(state.lWeb))
+        );
+        if (metaDesc.length > 512) throw new Error("Description plus socials is too long");
         var tplLib = await loadMoveTemplate();
         var built = buildCoinModule(tplLib, {
           ticker: wantTick,
@@ -2145,7 +2263,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
           name: wantName,
           decimals: decimals,
           supply: supplyWhole,
-          description: state.lDesc || "",
+          description: metaDesc,
           icon: state.lArtUrl || ""
         });
 
@@ -2261,6 +2379,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   function typeNameStr(v){
     if (!v) return "";
     if (typeof v === "string") return v;
+    if (v.address && v.module) return String(v.address) + "::" + v.module + "::" + (v.name || "");
     if (v.name) return String(v.name);
     return String(v);
   }
@@ -2416,6 +2535,9 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     if (e.target && e.target.id === "l-token-coin") state.lTokenCoin = e.target.value.trim();
     if (e.target && e.target.id === "l-quote-coin") state.lQuoteCoin = e.target.value.trim();
     if (e.target && e.target.id === "l-desc") state.lDesc = e.target.value;
+    if (e.target && e.target.id === "l-x") state.lX = e.target.value.trim();
+    if (e.target && e.target.id === "l-tg") state.lTg = e.target.value.trim();
+    if (e.target && e.target.id === "l-web") state.lWeb = e.target.value.trim();
   });
   document.addEventListener("change", function(e){
     if (e.target && e.target.id === "l-cap"){
