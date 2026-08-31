@@ -352,10 +352,9 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   const ADDR = ["0x8f2a…ab71","0xa91c…d012","0x11c0…012f","0x70bb…4410","0xcc81…e203","0x5d0e…c801","0x09ae…3290","0xbb21…aa13"];
   const ROUND_SECONDS = 96;
   let bshift = 0, pot = 31.94, prevPot = "", roundNo = 128, secs = ROUND_SECONDS;
-  var pitLive = { round: 1, endMs: 0, potMist: 0, settled: true };
   let balance = 48.60;
   let xaumBal = 2.40;
-  const state = {route:"explore", sym:"VOLT", filter:"All", sort:"Market cap", time:"All", side:"Buy", amt:"1", connected:false, search:"", lName:"", lTick:"", lQuote:"SUI", lPath:"instadex", lMode:"Holders", lTokenAmt:"", lQuoteAmt:"", lCap:"", lTokenCoin:"", lQuoteCoin:"", metricsWindow:"All", tapeTab:"trades", tapeOpen:"", lFile:null, lArtUrl:"", lArtPreview:"", payWith:"SUI"};
+  const state = {route:"explore", sym:"VOLT", filter:"All", sort:"Market cap", time:"All", side:"Buy", amt:"1", connected:false, search:"", lName:"", lTick:"", lQuote:"SUI", lPath:"instadex", lMode:"Holders", lTokenAmt:"", lQuoteAmt:"", lCap:"", lTokenCoin:"", lQuoteCoin:"", lCoinMode:"create", lDecimals:"9", lSupply:"1000000000", lDesc:"", lPublishedType:"", metricsWindow:"All", tapeTab:"trades", tapeOpen:"", lFile:null, lArtUrl:"", lArtPreview:"", payWith:"SUI"};
   let hashLock = false;
   const hop = { suiPerXaum: null, usd: null, suiUsd: null, source: "" };
 
@@ -371,10 +370,158 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   var SuiTransaction = null;
   var SUI_TYPE = "0x2::sui::SUI";
   var LAUNCH_FEE = 1000000000;
+  var TOKEN_DECIMALS = 9;
+  var TOKEN_SUPPLY = "1000000000";
+  var QUOTE_SEED_SUI = "1";
+  var QUOTE_SEED_XAUM = "0.01";
+  function quoteSeedHuman(){
+    return state.lQuote === "XAUM" ? QUOTE_SEED_XAUM : QUOTE_SEED_SUI;
+  }
+  function lpBlurb(){
+    if (state.lQuote === "XAUM"){
+      return "1,000,000,000 supply, 9 decimals. All of it locks in Bluefin with 0.01 XAUM. You pay 1 SUI launch fee plus 0.01 XAUM LP. The Position NFT never unlocks.";
+    }
+    return "1,000,000,000 supply, 9 decimals. All of it locks in Bluefin with 1 SUI. You pay 1 SUI launch fee plus 1 SUI LP (2 SUI total). The Position NFT never unlocks.";
+  }
   var SDK_URLS = [
     "https://esm.sh/@mysten/sui/transactions",
     "https://esm.sh/@mysten/sui@1.37.2/transactions"
   ];
+
+  // ---------------------------------------------------------------------------
+  // Coin publishing
+  //
+  // Sui gives every coin type its own Move module with a one-time witness, so a
+  // coin cannot be minted into existence by an already-deployed package. A
+  // launchpad has to publish a module per token. This is the compiled bytecode
+  // of `sources/coin_template.move`, with the identifiers and the six constants
+  // patched in the browser before it is published.
+  //
+  // The OTW rule is that the witness struct is the module name uppercased, so
+  // ticker `gladius` gives module `gladius` and struct `GLADIUS`.
+  // ---------------------------------------------------------------------------
+  var COIN_TEMPLATE_B64 = "oRzrCwcAAAUKAQAMAgwkAzAzBGMOBXF8B+0B2wEIyANgBqgEUAr4BAUM/QReABMBDgIHAhQCFQIWAAMCAAECBwEAAAIADAEAAQIBDAEAAQIEDAEAAQQFAgAFBgcAAAoAAQABDQEFAQABEgcFAQACCAkKAQICCwsMAQADDwcBAQwDEBABAQwEEQ0OAAUMBgQAAQQCBAMIBAgGDwURBhICCAAHCAUABQoCCwEBCAYLAQEIBgsDAQgACwQBCAABAgEIBgELAQEJAAEKAgEJAAEIAAcJAAIKAgoCCgILAQEIBgcIBQILBAEJAAsDAQkAAwcLBAEJAAMHCAUBCwIBCQABBggFAQUBCwIBCAACCQAFAQsDAQgAAQsEAQgABENvaW4MQ29pbk1ldGFkYXRhBk9wdGlvbghURU1QTEFURQtUcmVhc3VyeUNhcAlUeENvbnRleHQDVXJsBGNvaW4PY3JlYXRlX2N1cnJlbmN5C2R1bW15X2ZpZWxkBGluaXQEbWludBVuZXdfdW5zYWZlX2Zyb21fYnl0ZXMEbm9uZQZvcHRpb24UcHVibGljX2ZyZWV6ZV9vYmplY3QPcHVibGljX3RyYW5zZmVyBnNlbmRlcgRzb21lCHRlbXBsYXRlCHRyYW5zZmVyCnR4X2NvbnRleHQDdXJsAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACAgEJAwgAgMakfo0DAAoCBQRUTVBMCgIJCFRlbXBsYXRlCgIYF0RFU0NSSVBUSU9OX1BMQUNFSE9MREVSCgIREElDT05fUExBQ0VIT0xERVIAAgEJAQAAAAACKgcFDAIOAkEDBgAAAAAAAAAAIQQKOAAMAwUOBwURCDgBDAMLAwwECwAHAAcCBwMHBAsECgE4AgwFDAYNBgcBCgE4AwoBLhEHOAQLBTgFCwYLAS4RBzgGAgAA";
+  var TPL_VERSION = "0.4.1";
+  var TPL_URLS = [
+    "https://esm.sh/@mysten/move-bytecode-template@" + TPL_VERSION,
+    "https://esm.sh/@mysten/move-bytecode-template"
+  ];
+  var TPL_WASM = "https://esm.sh/@mysten/move-bytecode-template@" + TPL_VERSION + "/web/move_bytecode_template_bg.wasm";
+  var MoveTpl = null;
+
+  // Placeholder values compiled into the template. `update_constants` matches on
+  // the existing bytes, so these must stay in step with coin_template.move.
+  var TPL_DEFAULTS = {
+    decimals: 9,
+    supply: "1000000000000000",
+    symbol: "TMPL",
+    name: "Template",
+    description: "DESCRIPTION_PLACEHOLDER",
+    icon: "ICON_PLACEHOLDER"
+  };
+
+  async function loadMoveTemplate(){
+    if (MoveTpl) return MoveTpl;
+    var lastErr = null;
+    for (var i = 0; i < TPL_URLS.length; i++){
+      try {
+        var mod = await import(TPL_URLS[i]);
+        var init = mod.default || mod.init || mod.initSync;
+        if (typeof init === "function") await init(TPL_WASM);
+        if (typeof mod.update_identifiers === "function"){ MoveTpl = mod; return mod; }
+      } catch (e) { lastErr = e; }
+    }
+    throw lastErr || new Error("Could not load @mysten/move-bytecode-template");
+  }
+
+  function b64ToBytes(b64){
+    var bin = atob(b64);
+    var out = new Uint8Array(bin.length);
+    for (var i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+    return out;
+  }
+  function bytesToB64(bytes){
+    var s = "";
+    for (var i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]);
+    return btoa(s);
+  }
+  // BCS encoders for the three constant shapes the template uses. Hand-rolled so
+  // the page does not need a second CDN dependency for six values.
+  function bcsU8(n){ return new Uint8Array([n & 0xff]); }
+  function bcsU64(v){
+    var x = BigInt(v), out = new Uint8Array(8);
+    for (var i = 0; i < 8; i++){ out[i] = Number(x & 0xffn); x >>= 8n; }
+    return out;
+  }
+  function uleb128(n){
+    var out = [];
+    do { var b = n & 0x7f; n >>>= 7; if (n) b |= 0x80; out.push(b); } while (n);
+    return out;
+  }
+  function bcsString(str){
+    var body = new TextEncoder().encode(str);
+    var len = uleb128(body.length);
+    var out = new Uint8Array(len.length + body.length);
+    out.set(len, 0); out.set(body, len.length);
+    return out;
+  }
+
+  /// A Move module name must be a valid identifier: letters, digits and
+  /// underscores, not starting with a digit. Tickers are not, so they are
+  /// sanitised and the result is what the on-chain type will read as.
+  function tickerToIdent(ticker){
+    var id = String(ticker || "").replace(/[^A-Za-z0-9_]/g, "").toLowerCase();
+    if (!id) return "";
+    if (/^[0-9]/.test(id)) id = "c" + id;
+    return id.slice(0, 24);
+  }
+
+  function buildCoinModule(tpl, opts){
+    var ident = tickerToIdent(opts.ticker);
+    if (!ident) throw new Error("Ticker must contain at least one letter or digit");
+    var upper = ident.toUpperCase();
+
+    var bytes = tpl.update_identifiers(b64ToBytes(COIN_TEMPLATE_B64), {
+      TEMPLATE: upper,
+      template: ident
+    });
+    bytes = tpl.update_constants(bytes, bcsU8(opts.decimals), bcsU8(TPL_DEFAULTS.decimals), "U8");
+    bytes = tpl.update_constants(bytes, bcsU64(opts.supply), bcsU64(TPL_DEFAULTS.supply), "U64");
+    // opts.supply is a BigInt; bcsU64 normalises both sides through BigInt.
+    bytes = tpl.update_constants(bytes, bcsString(opts.symbol), bcsString(TPL_DEFAULTS.symbol), "Vector(U8)");
+    bytes = tpl.update_constants(bytes, bcsString(opts.name), bcsString(TPL_DEFAULTS.name), "Vector(U8)");
+    bytes = tpl.update_constants(bytes, bcsString(opts.description || ""), bcsString(TPL_DEFAULTS.description), "Vector(U8)");
+    bytes = tpl.update_constants(bytes, bcsString(opts.icon || ""), bcsString(TPL_DEFAULTS.icon), "Vector(U8)");
+    return { bytes: bytes, ident: ident, upper: upper };
+  }
+
+  /// Pull the objects the coin's `init` created out of a publish result.
+  function readPublishResult(result, ident){
+    var changes = (result && (result.objectChanges || (result.effects && result.effects.objectChanges))) || [];
+    var out = { packageId: "", capId: "", coinId: "", metaId: "", coinType: "" };
+
+    for (var i = 0; i < changes.length; i++){
+      if (changes[i].type === "published"){ out.packageId = changes[i].packageId; break; }
+    }
+    if (!out.packageId) return out;
+    if (ident) out.coinType = out.packageId + "::" + ident + "::" + ident.toUpperCase();
+
+    // Only objects this transaction created, and only ones parameterised by the
+    // coin type just published. objectChanges also reports the mutated gas coin,
+    // which is a Coin<0x2::sui::SUI> and would otherwise be mistaken for the
+    // freshly minted supply.
+    var mine = out.packageId.replace(/^0x0*/, "");
+    for (var j = 0; j < changes.length; j++){
+      var c = changes[j];
+      if (c.type !== "created") continue;
+      var t = String(c.objectType || "");
+      if (t.replace(/0x0*/g, "").indexOf(mine) < 0) continue;
+      if (t.indexOf("::coin::TreasuryCap<") >= 0) out.capId = c.objectId;
+      else if (t.indexOf("::coin::CoinMetadata<") >= 0) out.metaId = c.objectId;
+      else if (t.indexOf("::coin::Coin<") >= 0) out.coinId = c.objectId;
+    }
+    return out;
+  }
 
   function gql(query, variables){
     return fetch(window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graphql", {
@@ -543,6 +690,20 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     var n = Number(b);
     return isFinite(n) ? n : 0;
   }
+  /// Exact human -> base units, as BigInt. `toSmallest` below rounds through a
+  /// double, which is fine for trade sizes but silently wrong for a total
+  /// supply: 123456789 tokens at 9 decimals is 1.23e17, past the 2^53 mark
+  /// where doubles stop representing every integer.
+  function toSmallestBig(human, decimals){
+    var d = decimals == null ? 9 : Number(decimals);
+    var str = String(human == null ? "" : human).trim();
+    if (!/^[0-9]*\.?[0-9]*$/.test(str) || str === "" || str === ".") return 0n;
+    var parts = str.split(".");
+    var whole = parts[0] || "0";
+    var frac = (parts[1] || "").slice(0, d);
+    while (frac.length < d) frac += "0";
+    return BigInt(whole + frac);
+  }
   function toSmallest(human, decimals){
     var d = decimals == null ? 9 : Number(decimals);
     var n = Number(human);
@@ -632,7 +793,8 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     note.style.color = err ? "#FF6640" : "";
   }
 
-
+  let tvWidget = null;
+  let tvSeq = 0;
   let hydrating = true;
 
   function $(s,r){ return (r||document).querySelector(s); }
@@ -715,14 +877,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
 
   function gradTarget(k){ return poolQuote(k) === "XAUM" ? 1 : GRAD; }
   function walletBal(q){ return (q === "XAUM" ? xaumBal : balance); }
-  function clockStr(){
-    if (LIVE) {
-      if (!(pitLive.endMs > 0)) return "—";
-      var s = Math.max(0, Math.floor((pitLive.endMs - Date.now()) / 1000));
-      return Math.floor(s / 60)+":"+String(s % 60).padStart(2, "0");
-    }
-    return Math.floor(secs/60)+":"+String(secs%60).padStart(2,"0");
-  }
+  function clockStr(){ return Math.floor(secs/60)+":"+String(secs%60).padStart(2,"0"); }
   function spark(seed){
     let p = "", y = 18;
     for (let i=0;i<=24;i++){
@@ -776,7 +931,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   }
   function dexEmbed(pool){
     if (!pool) return '<div class="tv-host" style="display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:13px">Bluefin pool pending</div>';
-    const src = "https://dexscreener.com/sui/"+encodeURIComponent(pool)+"?embed=1&theme=dark&info=0";
+    const src = "https://dexscreener.com/sui/"+pool+"?embed=1&theme=dark&info=0";
     return '<div class="tv-host"><iframe src="'+src+'" title="Dexscreener" allow="clipboard-write" allowfullscreen></iframe></div>';
   }
 
@@ -827,13 +982,17 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     return rows.slice(0, limit == null ? 8 : limit);
   }
   function barPct(k){ return Math.min(100, k.cap/gradTarget(k)*100).toFixed(0)+"%"; }
+  function escHtml(v){
+    return String(v == null ? "" : v)
+      .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  }
+  function escAttr(v){
+    return escHtml(v).replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+  }
   function escUrl(u){
     u = String(u || "");
     if (u.indexOf("https://") !== 0 && u.indexOf("blob:") !== 0) return "";
     return u.replace(/"/g, "").replace(/</g, "");
-  }
-  function escHtml(s){
-    return String(s ?? "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");
   }
   function avatar(k, sz){
     sz = sz || 42;
@@ -1058,34 +1217,34 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     const src = escUrl(k.img);
     const inner = src
       ? '<img src="'+src+'" alt="">'
-      : '<span class="art-letter">'+escHtml((k.t||"?").charAt(0))+'</span>';
+      : '<span class="art-letter">'+k.t.charAt(0)+'</span>';
     return '<div class="lcard-art" style="background:'+(src?"#101211":(hot?"#111":k.c))+'">'+
-      '<span class="chip">'+escHtml(badge)+'</span>'+inner+'</div>';
+      '<span class="chip">'+badge+'</span>'+inner+'</div>';
   }
   function featCard(k){ return launchCard(k, 0); }
   function launchRow(k, i){
     const q = poolQuote(k);
     const cls = k.st === "Graduating" ? "grad" : (k.st === "Graduated" ? "" : "live");
     const go = "token:"+k.t;
-    return '<div class="row" data-go="'+escHtml(go)+'">'+
+    return '<div class="row" data-go="'+go+'">'+
       '<span class="mono" style="color:#9CA3AF">'+rank(i)+'</span>'+
       '<div style="display:flex;align-items:center;gap:10px;min-width:0">'+
-        '<div style="width:10px;height:10px;transform:rotate(45deg);background:'+escHtml(k.c)+';flex:none"></div>'+
-        '<div style="min-width:0"><div class="feat-name">'+escHtml(k.n)+' <span class="feat-tick">'+escHtml(k.t)+'</span></div></div></div>'+
+        '<div style="width:10px;height:10px;transform:rotate(45deg);background:'+k.c+';flex:none"></div>'+
+        '<div style="min-width:0"><div class="feat-name">'+k.n+' <span class="feat-tick">'+k.t+'</span></div></div></div>'+
       sparkSVG(k)+
       '<span class="chg" style="color:'+chColor(k)+';text-align:right">'+chText(k)+'</span>'+
-      '<div data-usd-cap="'+escHtml(k.t)+'" class="mono" style="text-align:right;font-weight:650">'+usdCapText(k)+'</div>'+
-      '<span class="chip '+cls+' st-col">'+escHtml(k.st)+'</span></div>';
+      '<div data-usd-cap="'+k.t+'" class="mono" style="text-align:right;font-weight:650">'+usdCapText(k)+'</div>'+
+      '<span class="chip '+cls+' st-col">'+k.st+'</span></div>';
   }
   function launchCard(k, i){
     const leader = sortedT()[0];
     const hot = !k.graduated && leader && leader.t === k.t;
     const addr = ADDR[(i||0) % ADDR.length];
     const go = "token:"+k.t;
-    return '<div class="lcard'+(hot?" hot":"")+'" data-go="'+escHtml(go)+'">'+
+    return '<div class="lcard'+(hot?" hot":"")+'" data-go="'+go+'">'+
       artBlock(k, hot)+
-      '<div><div class="feat-name">'+escHtml(k.n)+'</div><div class="feat-tick">$'+escHtml(k.t)+'</div></div>'+
-      '<div class="feat-mcap" data-usd-cap="'+escHtml(k.t)+'" style="font-size:15px">'+usdCapText(k)+' MC</div>'+
+      '<div><div class="feat-name">'+k.n+'</div><div class="feat-tick">$'+k.t+'</div></div>'+
+      '<div class="feat-mcap" data-usd-cap="'+k.t+'" style="font-size:15px">'+usdCapText(k)+' MC</div>'+
       '<div class="lcard-foot"><span class="mono">'+addr+'</span><span class="ago">'+lastAgo(k)+'</span></div></div>';
   }
   function footerHTML(){
@@ -1119,22 +1278,22 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   }
   function pitHTML(){
     const rows = sortedT().map(function(k,i){
-      return '<div class="pit-row'+(i===0?" lead":"")+'" data-go="'+escHtml("token:"+k.t)+'">'+
+      return '<div class="pit-row'+(i===0?" lead":"")+'" data-go="token:'+k.t+'">'+
         '<span class="rank">'+rank(i)+'</span>'+avatar(k,40)+
-        '<div style="min-width:0"><div class="feat-name">'+escHtml(k.n)+'</div><div class="feat-tick">$'+escHtml(k.t)+'</div></div>'+
-        '<span class="feat-tick mode-col">'+escHtml(k.mode)+'</span>'+
+        '<div style="min-width:0"><div class="feat-name">'+k.n+'</div><div class="feat-tick">$'+k.t+'</div></div>'+
+        '<span class="feat-tick mode-col">'+k.mode+'</span>'+
         '<span class="chg" style="color:'+chColor(k)+'">'+chText(k)+'</span>'+
         '<div data-cap="'+k.t+'" class="cap">'+fmt(k.cap)+'</div></div>';
     }).join("");
-    const bells = (LIVE ? [] : BELLS).map(function(b){
+    const bells = BELLS.map(function(b){
       const holders = b.mode === "Holders";
       return '<div class="bell-card">'+
-        '<div class="pit-kicker">'+escHtml(b.ago)+' ago</div>'+
-        '<div class="feat-name">'+escHtml(b.n)+'</div>'+
+        '<div class="pit-kicker">'+b.ago+' ago</div>'+
+        '<div class="feat-name">'+b.n+'</div>'+
         '<div class="pit-pot" style="font-size:28px;margin-top:10px">'+b.amt.toFixed(2)+' SUI</div>'+
-        '<div class="feat-tick" style="margin-top:8px">'+(b.burn?"burned "+escHtml(b.burn):"split to holders")+'</div>'+
-        '<span class="chip '+(holders?"live":"")+'" style="margin-top:12px;display:inline-block">'+escHtml(b.mode)+'</span></div>';
-    }).join("") || (LIVE ? '<div class="empty">Bells settle on-chain. Keepers call pit::ring / pool::settle_pit.</div>' : "");
+        '<div class="feat-tick" style="margin-top:8px">'+(b.burn?"burned "+b.burn:"split to holders")+'</div>'+
+        '<span class="chip '+(holders?"live":"")+'" style="margin-top:12px;display:inline-block">'+b.mode+'</span></div>';
+    }).join("");
     return '<div data-screen-label="Pit">'+
       '<div class="pit-hero">'+
         '<div style="grid-area:pot"><div class="pit-kicker"><span style="display:inline-block;width:7px;height:7px;border-radius:99px;background:var(--sui);margin-right:8px"></span>Round <span data-round>'+roundNo+'</span> · live</div>'+
@@ -1201,7 +1360,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       : '<div class="empty" style="width:100%">No TradeEvent fills in this window.</div>';
     const rows = top.map(function(r,i){
       const tk = T.find(function(k){ return k.t === r.id; }) || GRADS.find(function(g){ return g.t === r.id; }) || {n:r.id,t:r.id,c:"#298DFF"};
-      return '<tr data-go="'+escHtml("token:"+r.id)+'"><td class="mono" style="color:var(--muted)">'+rank(i)+'</td><td><div class="feat-name">'+escHtml(tk.n)+'</div><div class="feat-tick">$'+escHtml(r.id)+'</div></td><td class="mono">'+r.fills+'</td><td class="mono" style="text-align:right">'+fmt(r.vol)+' '+escHtml(r.q)+'</td></tr>';
+      return '<tr data-go="token:'+r.id+'"><td class="mono" style="color:var(--muted)">'+rank(i)+'</td><td><div class="feat-name">'+tk.n+'</div><div class="feat-tick">$'+r.id+'</div></td><td class="mono">'+r.fills+'</td><td class="mono" style="text-align:right">'+fmt(r.vol)+' '+r.q+'</td></tr>';
     }).join("");
     const src = (window.ARENA_PACKAGE_ID)
       ? "Indexed from on-chain TradeEvent, ClaimEvent, BellEvent, GraduationEvent."
@@ -1245,23 +1404,38 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       '<div class="hero-card" style="text-align:left">'+
         '<div class="pit-kicker">Launch</div>'+
         '<h1 style="font-size:clamp(32px,6vw,56px)">Enter the arena.</h1>'+
-        '<p style="color:var(--muted);max-width:48ch">Skip the curve. Bring both LP sides and seed Bluefin in the first block. The Position NFT is locked forever.</p>'+
+        '<p style="color:var(--muted);max-width:48ch">'+lpBlurb()+'</p>'+
         '<div class="form-grid">'+
           '<div><label>Art</label><div class="art-field">'+
-            '<div class="art-preview" id="l-art-preview">'+(state.lArtPreview?'<img src="'+escUrl(state.lArtPreview)+'" alt="">':escHtml(state.lTick?state.lTick.charAt(0):"?"))+'</div>'+
+            '<div class="art-preview" id="l-art-preview">'+(state.lArtPreview?'<img src="'+escUrl(state.lArtPreview)+'" alt="">':(state.lTick?state.lTick.charAt(0):"?"))+'</div>'+
             '<div><input id="l-art" type="file" accept="image/png,image/jpeg,image/webp,image/gif">'+
             '<div class="art-note" id="l-art-note">'+(state.lArtUrl?"Ready · Blob URL set":"png, jpeg, webp, or gif · 2MB")+'</div></div></div></div>'+
-          '<div><label>TreasuryCap object</label><input id="l-cap" spellcheck="false" placeholder="0x… TreasuryCap" value="'+escHtml(state.lCap)+'"></div>'+
-          '<div><label>Token coin object</label><input id="l-token-coin" spellcheck="false" placeholder="0x… Coin&lt;T&gt;" value="'+escHtml(state.lTokenCoin)+'"></div>'+
-          '<div><label>Token seed</label><input id="l-token-amt" inputmode="decimal" placeholder="Amount to split · blank uses the whole coin" value="'+escHtml(state.lTokenAmt)+'"></div>'+
+          '<div><label>Coin</label><div class="toggle">'+tog("lCoinMode","create","Create new")+tog("lCoinMode","existing","I have one")+'</div>'+
+            '<div style="font-size:12px;color:var(--muted);margin-top:6px">'+
+              (state.lCoinMode==="create"
+                ? "1,000,000,000 supply · 9 decimals. Two signatures: publish, then seed."
+                : "For a coin you published yourself. Paste its TreasuryCap and a Coin&lt;T&gt;. All of that coin goes into LP.")+
+            '</div></div>'+
+          (state.lCoinMode==="create"
+            ? '<div><label>Description · optional</label><input id="l-desc" placeholder="One line about the token" value="'+escAttr(state.lDesc)+'"></div>'
+            : '<div><label>TreasuryCap object</label><input id="l-cap" spellcheck="false" placeholder="0x… TreasuryCap" value="'+escAttr(state.lCap)+'"></div>'+
+              '<div><label>Token coin object</label><input id="l-token-coin" spellcheck="false" placeholder="0x… Coin&lt;T&gt;" value="'+escAttr(state.lTokenCoin)+'"></div>')+
           '<div><label>Quote</label><div class="toggle">'+tog("lQuote","SUI","SUI")+tog("lQuote","XAUM","XAUM")+'</div>'+
-            '<div style="font-size:12px;color:var(--muted);margin-top:6px">Both sides seed the Bluefin pair. '+state.lQuote+' is coin B. No bonding-curve Create.</div></div>'+
-          '<div><label>Quote seed · '+escHtml(state.lQuote)+'</label><input id="l-quote-amt" inputmode="decimal" placeholder="'+(state.lQuote==="XAUM"?"XAUM amount":"SUI amount")+'" value="'+escHtml(state.lQuoteAmt)+'"></div>'+
-          (state.lQuote==="XAUM" ? '<div><label>Quote coin object · optional</label><input id="l-quote-coin" spellcheck="false" placeholder="0x… Coin&lt;XAUM&gt; or pick from wallet" value="'+escHtml(state.lQuoteCoin)+'"></div>' : '')+
-          '<div><label>Name</label><input id="l-name" placeholder="From CoinMetadata" value="'+escHtml(state.lName)+'"></div>'+
-          '<div><label>Ticker</label><input id="l-tick" placeholder="From CoinMetadata" maxlength="12" value="'+escHtml(state.lTick)+'"></div>'+
+            '<div style="font-size:12px;color:var(--muted);margin-top:6px">'+
+              (state.lQuote==="XAUM"
+                ? "TOKEN/XAUM. Arena sets LP at 0.01 XAUM vs 100% of the token."
+                : "TOKEN/SUI. Arena sets LP at 1 SUI vs 100% of the token.")+
+            '</div></div>'+
+          (state.lQuote==="XAUM" ? '<div><label>XAUM coin · optional</label><input id="l-quote-coin" spellcheck="false" placeholder="0x… Coin&lt;XAUM&gt; or pick from wallet" value="'+escAttr(state.lQuoteCoin)+'"></div>' : '')+
+          '<div><label>Name</label><input id="l-name" placeholder="'+(state.lCoinMode==="create"?"Gladius Token":"From CoinMetadata")+'" value="'+escAttr(state.lName)+'"></div>'+
+          '<div><label>Ticker</label><input id="l-tick" placeholder="'+(state.lCoinMode==="create"?"GLADIUS":"From CoinMetadata")+'" maxlength="12" value="'+escAttr(state.lTick)+'"></div>'+
+          (state.lCoinMode==="create" && tickerToIdent(state.lTick)
+            ? '<div id="l-type-hint" style="font-size:12px;color:var(--muted);margin-top:-4px">Coin type will be <code>…::'+escHtml(tickerToIdent(state.lTick))+'::'+escHtml(tickerToIdent(state.lTick).toUpperCase())+'</code></div>'
+            : (state.lCoinMode==="create" ? '<div id="l-type-hint" style="font-size:12px;color:var(--muted);margin-top:-4px"></div>' : ''))+
           '<button type="button" class="btn-trade" id="launch-go">'+launchBtnLabel()+'</button>'+
-          '<div id="launch-note" style="font-size:12px;color:var(--muted);margin-top:8px;text-align:center">1 SUI launch fee from gas. Creation fee 0. Calls v6 launch_instadex_entry. No curve.</div>'+
+          '<div id="launch-note" style="font-size:12px;color:var(--muted);margin-top:8px;text-align:center">'+
+            (state.lQuote==="XAUM" ? "Pay 1 SUI fee + 0.01 XAUM LP." : "Pay 2 SUI total · 1 fee + 1 LP.")+
+          '</div>'+
         '</div></div>'+
       footerHTML()+'</div>';
   }
@@ -1292,7 +1466,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       '<div class="pit-kicker">'+kicker+'</div>'+
       '<div style="font-size:22px;font-weight:700;letter-spacing:-.03em;margin:8px 0 10px">'+title+'</div>'+
       '<p style="color:var(--muted);margin:0 0 14px">'+copy+'</p>'+
-      '<div class="kv"><span style="color:var(--muted)">Pair</span><span class="mono">'+escHtml(tk.t)+' / '+escHtml(q)+'</span></div>'+
+      '<div class="kv"><span style="color:var(--muted)">Pair</span><span class="mono">'+tk.t+' / '+q+'</span></div>'+
       '<div class="kv"><span style="color:var(--muted)">Pool</span><span class="mono">'+(tk.bluefinPool ? shortAddr(tk.bluefinPool) : "—")+'</span></div>'+
       lockRow+
       cta+
@@ -1340,11 +1514,11 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       '<div class="back" data-go="explore">← Explore</div>'+
       '<div class="token-head">'+
         '<div style="display:flex;align-items:center;gap:14px;min-width:0">'+avatar(tk,52)+
-          '<div><h1>'+escHtml(tk.n)+'</h1><div class="feat-tick" style="margin-top:6px">'+escHtml(tk.t)+' / '+escHtml(q)+'</div></div></div>'+
+          '<div><h1>'+tk.n+'</h1><div class="feat-tick" style="margin-top:6px">'+tk.t+' / '+q+'</div></div></div>'+
         '<div class="badges">'+
-          '<span class="badge">'+escHtml(tk.st)+'</span>'+
-          (insta ? '' : '<span class="badge">Pit · '+escHtml(tk.mode)+'</span>')+
-          (tk.bluefinPool ? '<span class="badge">Bluefin · '+escHtml(tk.t)+'/'+escHtml(q)+'</span>' : '')+
+          '<span class="badge">'+tk.st+'</span>'+
+          (insta ? '' : '<span class="badge">Pit · '+tk.mode+'</span>')+
+          (tk.bluefinPool ? '<span class="badge">Bluefin · '+tk.t+'/'+q+'</span>' : '')+
           (tk.bluefinPool ? '<span class="badge">Pool · '+shortAddr(tk.bluefinPool)+'</span>' : '')+
           (tk.lpLocked ? '<span class="badge">'+(insta || Number(tk.unlockMs)===0 ? "Lock · permanent" : ("Vault · "+(tk.unlockMs ? new Date(tk.unlockMs).toLocaleDateString() : "180d")))+'</span>' : '')+
           '<span class="badge">'+q+'</span></div></div>'+
@@ -1352,7 +1526,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
         '<div class="split-main">'+
         '<div class="about-card card">'+
           '<h2>About</h2>'+
-          '<div class="about-desc">'+escHtml(tk.b || "No description yet.")+'</div>'+
+          '<div class="about-desc">'+(tk.b || "No description yet.")+'</div>'+
           '<div class="about-metrics">'+
             '<div><div class="about-k">Market cap</div>'+
               '<div class="about-v"><span data-usd-cap="'+tk.t+'">'+usdCapText(tk)+'</span><span class="tick">mc</span></div>'+
@@ -1514,7 +1688,30 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     paintPx();
     updateChartLive();
   }
-  function dropTv(){}
+  function dropTv(){
+    if (tvWidget){
+      try { tvWidget.remove(); } catch (e) {}
+      tvWidget = null;
+    }
+  }
+  function loadTvScript(onLoad, onError){
+    if (window.TradingView){ onLoad(); return; }
+    const candidates = [
+      "./charting_library/charting_library/charting_library.standalone.js",
+      "/charting_library/charting_library/charting_library.standalone.js",
+      "/charting_library/charting_library/charting_library.js"
+    ];
+    let idx = 0;
+    (function tryNext(){
+      if (idx >= candidates.length){ onError(); return; }
+      const el = document.createElement("script");
+      el.src = candidates[idx++];
+      el.async = true;
+      el.onload = function(){ window.TradingView ? onLoad() : tryNext(); };
+      el.onerror = tryNext;
+      document.head.appendChild(el);
+    })();
+  }
   function tvBars(sym){
     const id = String(sym || state.sym || '').toUpperCase();
     if (!Index || !Index.toCandles) return [];
@@ -1565,7 +1762,69 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       getServerTime: function(cb){ cb(Math.floor(Date.now() / 1000)); }
     };
   }
-  function mountTvChart(){}
+  function mountTvChart(){
+    dropTv();
+    return; // Dexscreener embed; no TradingView
+    if (state.route !== "token") return;
+    const tk = findT(state.sym);
+    if (isDexBout(tk)) return;
+    const host = document.getElementById("tv-host");
+    if (!host) return;
+    const quote = poolQuote(tk);
+    const ticker = tk.t;
+    const seq = ++tvSeq;
+    host.innerHTML = '<div style="min-height:200px;height:100%;display:flex;align-items:center;justify-content:center;color:#6B7280;font-size:13px">loading chart…</div>';
+    loadTvScript(function(){
+      if (seq !== tvSeq) return;
+      const el = document.getElementById("tv-host");
+      if (!el || !window.TradingView) return;
+      dropTv();
+      el.innerHTML = "";
+      const candles = tvBars(ticker);
+      el.setAttribute("data-tv-bars", String(candles.length));
+      document.documentElement.setAttribute("data-tv-bars", String(candles.length));
+      const px = candles.length ? candles[candles.length - 1].close : 0;
+      const pricescale = px > 0 && px < 1 ? Math.pow(10, Math.min(12, Math.ceil(-Math.log10(px)) + 4)) : 100;
+      const res = "1";
+      tvWidget = new window.TradingView.widget({
+        container: el,
+        datafeed: staticDatafeed(ticker, candles, res, pricescale, quote),
+        library_path: "/charting_library/charting_library/",
+        symbol: ticker,
+        interval: res,
+        timezone: "Etc/UTC",
+        theme: "Dark",
+        style: "1",
+        locale: "en",
+        autosize: true,
+        toolbar_bg: "#26272C",
+        overrides: {
+          "paneProperties.background": "#26272C",
+          "paneProperties.backgroundType": "solid",
+          "paneProperties.vertGridProperties.color": "rgba(237,236,232,.06)",
+          "paneProperties.horzGridProperties.color": "rgba(237,236,232,.06)",
+          "scalesProperties.textColor": "#9A9BA3",
+          "scalesProperties.lineColor": "rgba(237,236,232,.12)",
+          "mainSeriesProperties.candleStyle.upColor": "#298DFF",
+          "mainSeriesProperties.candleStyle.downColor": "#FF6640",
+          "mainSeriesProperties.candleStyle.borderUpColor": "#298DFF",
+          "mainSeriesProperties.candleStyle.borderDownColor": "#FF6640",
+          "mainSeriesProperties.candleStyle.wickUpColor": "#298DFF",
+          "mainSeriesProperties.candleStyle.wickDownColor": "#FF6640"
+        },
+        disabled_features: ["use_localstorage_for_settings","header_symbol_search","header_compare","display_market_status","go_to_date"],
+        enabled_features: ["hide_last_na_study_output","move_logo_to_main_pane","volume_force_overlay"]
+      });
+      try {
+        tvWidget.onChartReady(function(){
+          document.documentElement.setAttribute("data-tv-ready","1");
+        });
+      } catch (e) {}
+    }, function(){
+      const el = document.getElementById("tv-host");
+      if (el) el.innerHTML = '<div style="min-height:200px;height:100%;display:flex;align-items:center;justify-content:center;color:#9A9BA3;font-size:13px">Chart library unavailable.</div>';
+    });
+  }
   function updateChartLive(){ /* static datafeed */ }
   function upsertLaunch(l){
     if (!l) return;
@@ -1647,16 +1906,6 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   }
   var seenBurns = {};
   var pendingBurns = {};
-  function applyInstadexMintLock(m){
-    if (!m || !m.lock_id || !m.mint_lock_id) return;
-    const tk = T.find(function(k){ return k.lockId === m.lock_id; });
-    if (tk) tk.mintLock = m.mint_lock_id;
-    if (!bus.launches[m.lock_id]) bus.launches[m.lock_id] = { lock_id: m.lock_id };
-    Object.keys(bus.launches).forEach(function(key){
-      var L = bus.launches[key];
-      if (L && (L.lock_id === m.lock_id || key === m.lock_id)) L.mint_lock_id = m.mint_lock_id;
-    });
-  }
   function applyInstadexBurn(b){
     if (!b || !b.lock_id) return;
     const key = b.lock_id + ":" + (b.ts || "") + ":" + (b.amount || "");
@@ -1706,7 +1955,6 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
         unlockMs: l.unlock_ms,
         token: l.token,
         creator: l.creator,
-        mintLock: l.mint_lock_id || "",
         ts: l.ts
       };
       const base = Math.max(2.4, (tk.cap || 1) / 34);
@@ -1736,7 +1984,6 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       if (cap > 0) tk.cap = cap;
       if (l.token) tk.token = l.token;
       if (l.creator) tk.creator = l.creator;
-      if (l.mint_lock_id) tk.mintLock = l.mint_lock_id;
       if (l.ts) tk.ts = l.ts;
     }
     if (LIVE && state.sym && !T.some(function(k){ return k.t === state.sym; })) state.sym = tk.t;
@@ -1773,7 +2020,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     const amt = fromMist(ev.quote_amount);
     const gold = poolQuote(k) === "XAUM";
     k.buckets[11] += gold ? amt * 40 : amt; k.fbuckets[11] += 1;
-    if (!gold && !LIVE) pot += fromMist(ev.pit_fee);
+    if (!gold) pot += fromMist(ev.pit_fee);
     if (gold){
       k.cap = Math.max(0.02, Math.min(0.95, k.cap + (ev.is_buy ? Math.min(0.04, amt*0.12) : -Math.min(0.03, amt*0.09))));
     } else {
@@ -1854,16 +2101,85 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       if (!suiSession.address) await connectWallet();
       var capId = (state.lCap || "").trim();
       var tokenCoinId = (state.lTokenCoin || "").trim();
-      var quoteHuman = state.lQuoteAmt;
-      var tokenHuman = state.lTokenAmt;
       var quoteIsXaum = state.lQuote === "XAUM";
-      if (!capId) throw new Error("TreasuryCap object id required");
-      if (!tokenCoinId) throw new Error("Token coin object id required");
-      if (!(Number(quoteHuman) > 0)) throw new Error("Quote seed amount required");
-      if (btn) btn.textContent = "Building PTB…";
-      if (state.lFile && !state.lArtUrl){
-        try { state.lArtUrl = await uploadArt(state.lFile); } catch (e) {}
+      var creating = state.lCoinMode === "create";
+      var quoteHuman = quoteSeedHuman();
+      var tokenHuman = "";
+      state.lDecimals = String(TOKEN_DECIMALS);
+      state.lSupply = TOKEN_SUPPLY;
+      state.lQuoteAmt = quoteHuman;
+      state.lTokenAmt = "";
+      if (!creating){
+        if (!capId) throw new Error("TreasuryCap object id required");
+        if (!tokenCoinId) throw new Error("Token coin object id required");
       }
+
+      // Art is uploaded first either way: in create mode the URL is baked into
+      // the coin's own CoinMetadata, so it has to exist before the publish.
+      if (state.lFile && !state.lArtUrl){
+        if (btn) btn.textContent = "Uploading art…";
+        try {
+          state.lArtUrl = await uploadArt(state.lFile);
+        } catch (e) {
+          // In create mode the URL is baked into a CoinMetadata that is frozen
+          // at publish, so a silent failure here is permanent. Say so and stop
+          // rather than minting a coin that can never show its art.
+          if (creating) throw new Error("Art upload failed, and the icon cannot be changed after publish. Retry, or clear the file to launch without art.");
+        }
+      }
+
+      if (creating){
+        // Sui gives every coin type its own module, so the coin has to be
+        // published before it can be launched. The new package id is not known
+        // until this lands, and a PTB needs its type arguments up front, so
+        // this cannot be folded into the launch transaction.
+        var wantName = (state.lName || "").trim();
+        var wantTick = (state.lTick || "").trim();
+        if (!wantName) throw new Error("Name required");
+        if (!wantTick) throw new Error("Ticker required");
+        var ident = tickerToIdent(wantTick);
+        if (!ident) throw new Error("Ticker needs at least one letter or digit");
+        var decimals = TOKEN_DECIMALS;
+        var supplyWhole = toSmallestBig(TOKEN_SUPPLY, decimals);
+        if (!(supplyWhole > 0n)) throw new Error("Total supply must be > 0");
+        if (supplyWhole > 18446744073709551615n) throw new Error("Total supply overflows u64 at that many decimals");
+
+        if (btn) btn.textContent = "Building coin…";
+        var tplLib = await loadMoveTemplate();
+        var built = buildCoinModule(tplLib, {
+          ticker: wantTick,
+          symbol: wantTick.toUpperCase(),
+          name: wantName,
+          decimals: decimals,
+          supply: supplyWhole,
+          description: state.lDesc || "",
+          icon: state.lArtUrl || ""
+        });
+
+        var TransactionP = await loadTransaction();
+        var ptx = new TransactionP();
+        ptx.setSender(suiSession.address);
+        var pub = ptx.publish({ modules: [bytesToB64(built.bytes)], dependencies: ["0x1", "0x2"] });
+        var upgradeCap = Array.isArray(pub) ? pub[0] : pub;
+        ptx.transferObjects([upgradeCap], suiSession.address);
+
+        if (btn) btn.textContent = "Sign 1 of 2 · publish coin…";
+        setLaunchNote("Publishing " + built.upper + ". Signature 1 of 2.", false);
+        var pubRes = await walletExec(ptx);
+        var made = readPublishResult(pubRes, built.ident);
+        if (!made.packageId) throw new Error("Publish did not report a package id. Check your wallet history before retrying — the coin may already exist.");
+        if (!made.capId || !made.coinId){
+          throw new Error("Coin published at " + made.packageId + " but the TreasuryCap or minted coin was not returned. Switch to \"I have one\" and paste them rather than publishing again.");
+        }
+        capId = made.capId;
+        tokenCoinId = made.coinId;
+        state.lCap = capId;
+        state.lTokenCoin = tokenCoinId;
+        state.lPublishedType = made.coinType;
+        setLaunchNote("Coin live at " + made.packageId.slice(0, 10) + "…. Signature 2 of 2 seeds the pair.", false);
+      }
+
+      if (btn) btn.textContent = "Building PTB…";
       var capObj = await moveObject(capId);
       var Ttype = innerType(capObj.type);
       if (!Ttype || String(capObj.type).indexOf("TreasuryCap") < 0) throw new Error("That object is not a TreasuryCap");
@@ -1875,14 +2191,13 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       var metaQ = await metadataFor(Qtype);
       if (metaT.name) { state.lName = metaT.name; var nEl = $("#l-name"); if (nEl) nEl.value = metaT.name; }
       if (metaT.symbol) { state.lTick = String(metaT.symbol).toUpperCase(); var tEl = $("#l-tick"); if (tEl) tEl.value = state.lTick; }
-      var tokenDecimals = metaT.decimals != null ? metaT.decimals : 9;
+      var tokenDecimals = metaT.decimals != null ? metaT.decimals : TOKEN_DECIMALS;
       var quoteDecimals = metaQ.decimals != null ? metaQ.decimals : 9;
       var quoteAmt = toSmallest(quoteHuman, quoteDecimals);
-      if (!(quoteAmt > 0)) throw new Error("Quote seed must be > 0");
+      if (!(quoteAmt > 0)) throw new Error("Quote LP must be > 0");
       var tokenWhole = coinValue(tokenObj.json);
-      var tokenAmt = tokenHuman ? toSmallest(tokenHuman, tokenDecimals) : tokenWhole;
-      if (!(tokenAmt > 0)) throw new Error("Token seed must be > 0");
-      if (tokenAmt > tokenWhole) throw new Error("Token seed exceeds the coin balance");
+      var tokenAmt = tokenWhole;
+      if (!(tokenAmt > 0)) throw new Error("Token coin is empty");
       var Transaction = await loadTransaction();
       var CALL = window.ARENA_CALL_PACKAGE || window.ARENA_COLLECT_PACKAGE;
       if (!CALL) throw new Error("ARENA_INSTADEX_PACKAGE missing");
@@ -1961,8 +2276,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   }
   async function resolveMintLock(tk, Ttype){
     if (tk.mintLock) return tk.mintLock;
-    var launch = bus.launches[tk.lockId] || bus.launches[tk.t] || bus.launches[tk.bluefinPool];
-    if (launch && launch.mint_lock_id) return launch.mint_lock_id;
+    if (String(tk.t).toUpperCase() === "IDEX") return "0x38c1667f65f085677a577a48338dd86f6cb8ec1ea4aa0351bbcfb3cb39336e54";
     var gql = "https://graphql.mainnet.sui.io/graphql";
     var q = "query($t:String!){ objects(first:5, filter:{ type:$t }){ nodes{ address } } }";
     var res = await fetch(gql, { method:"POST", headers:{ "content-type":"application/json" }, body: JSON.stringify({ query:q, variables:{ t: mintLockType(Ttype) } }) });
@@ -1974,8 +2288,6 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   function typeNameStr(v){
     if (!v) return "";
     if (typeof v === "string") return v;
-    if (v.address && v.module) return String(v.address)+"::"+v.module+"::"+(v.name||"");
-    if (v.name && String(v.name).indexOf("::") >= 0) return String(v.name);
     if (v.name) return String(v.name);
     return String(v);
   }
@@ -2119,12 +2431,18 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       }
     }
     if (e.target && e.target.id === "l-name") state.lName = e.target.value;
-    if (e.target && e.target.id === "l-tick") state.lTick = e.target.value.toUpperCase();
-    if (e.target && e.target.id === "l-token-amt") state.lTokenAmt = e.target.value;
-    if (e.target && e.target.id === "l-quote-amt") state.lQuoteAmt = e.target.value;
+    if (e.target && e.target.id === "l-tick"){
+      state.lTick = e.target.value.toUpperCase();
+      if (state.lCoinMode === "create"){
+        var hint = $("#l-type-hint");
+        var id = tickerToIdent(state.lTick);
+        if (hint) hint.innerHTML = id ? ("Coin type will be <code>…::"+escHtml(id)+"::"+escHtml(id.toUpperCase())+"</code>") : "";
+      }
+    }
     if (e.target && e.target.id === "l-cap") state.lCap = e.target.value.trim();
     if (e.target && e.target.id === "l-token-coin") state.lTokenCoin = e.target.value.trim();
     if (e.target && e.target.id === "l-quote-coin") state.lQuoteCoin = e.target.value.trim();
+    if (e.target && e.target.id === "l-desc") state.lDesc = e.target.value;
   });
   document.addEventListener("change", function(e){
     if (e.target && e.target.id === "l-cap"){
@@ -2167,46 +2485,15 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     const p = parseHash();
     go(p.route, p.sym);
   });
-  function loadPit(){
-    if (!LIVE || !window.ARENA_PIT_SUI) return;
-    fetch(window.SUI_RPC || "https://fullnode.mainnet.sui.io:443", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        jsonrpc: "2.0",
-        id: 1,
-        method: "sui_getObject",
-        params: [window.ARENA_PIT_SUI, { showContent: true }]
-      })
-    }).then(function(r){ return r.json(); }).then(function(j){
-      var f = j && j.result && j.result.data && j.result.data.content && j.result.data.content.fields;
-      if (!f) return;
-      pitLive.round = Number(f.round) || 1;
-      pitLive.endMs = Number(f.round_end_ms) || 0;
-      pitLive.settled = !!f.settled;
-      var raw = f.pot && f.pot.value != null ? f.pot.value : f.pot;
-      pitLive.potMist = Number(raw) || 0;
-      roundNo = pitLive.round;
-      pot = fromMist(pitLive.potMist);
-      paintPots();
-      paintClocks();
-    }).catch(function(){});
-  }
   if (!SHOT) setInterval(function(){
-    if (!LIVE) {
-      secs = secs > 0 ? secs - 1 : ROUND_SECONDS;
-      if (secs === ROUND_SECONDS) rollover();
-      if (++bshift >= 20){
-        bshift = 0;
-        T.forEach(function(k){ k.buckets.shift(); k.buckets.push(0); k.fbuckets.shift(); k.fbuckets.push(0); });
-      }
+    secs = secs > 0 ? secs - 1 : ROUND_SECONDS;
+    if (secs === ROUND_SECONDS) rollover();
+    if (++bshift >= 20){
+      bshift = 0;
+      T.forEach(function(k){ k.buckets.shift(); k.buckets.push(0); k.fbuckets.shift(); k.fbuckets.push(0); });
     }
     paintLive();
   }, 1000);
-  if (LIVE && !SHOT){
-    loadPit();
-    setInterval(loadPit, 15000);
-  }
   if (Index){
     hydrating = true;
     bus.index = Index.demoSnapshot(T, DEMO_WALLET);
@@ -2232,9 +2519,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       onLock: function(g){ applyLock(g); },
       onBluefinLock: function(g){ applyBluefinLock(g); },
       onInstadexBurn: function(b){ applyInstadexBurn(b); },
-      onInstadexMintLock: function(m){ applyInstadexMintLock(m); },
       burnPackages: [window.ARENA_COLLECT_PACKAGE].filter(Boolean),
-      mintLockPackages: [window.ARENA_COLLECT_PACKAGE].filter(Boolean),
       callPackage: window.ARENA_INSTADEX_PACKAGE,
       instadexPackages: [window.ARENA_INSTADEX_PACKAGE].filter(Boolean),
       lockPackages: [window.ARENA_INSTADEX_PACKAGE, window.ARENA_LOCK_PACKAGE, window.ARENA_BLUEFIN_EVENT_PACKAGE].filter(Boolean)
@@ -2283,3 +2568,4 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
 </script>
 </body>
 </html>
+<script async data-explicit-opt-in="true" data-deployment-id="dpl_sdioMTbMxjjEcCLR1sYH1Cae6csN" src="https://vercel.live/_next-live/feedback/feedback.js"></script>
