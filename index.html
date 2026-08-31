@@ -1468,7 +1468,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   }
   function dexEmbed(pool){
     if (!pool) return '<div class="tv-host" style="display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:13px">Bluefin pool pending</div>';
-    const src = "https://dexscreener.com/sui/"+pool+"?embed=1&theme=dark&info=0";
+    const src = "https://dexscreener.com/sui/"+pool+"?embed=1&theme=dark&info=0&trades=0&tabs=0";
     return '<div class="tv-host"><iframe src="'+src+'" title="Dexscreener" allow="clipboard-write" allowfullscreen></iframe></div>';
   }
 
