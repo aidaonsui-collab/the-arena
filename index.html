@@ -2155,38 +2155,47 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     pot = 0.42;
     prevPot = "";
   }
+  function pickSignature(out){
+    if (!out) return "";
+    if (typeof out === "string") return out;
+    if (typeof out.signature === "string") return out.signature;
+    if (out.signature && typeof out.signature.signature === "string") return out.signature.signature;
+    return "";
+  }
   async function signUploadTicket(){
     if (!suiSession.address) await connectWallet();
     var ts = String(Date.now());
     var message = new TextEncoder().encode("arena-upload:" + ts);
     var w = suiSession.wallet;
     var feats = (w && w.features) || {};
+    var req = { message: message, account: suiSession.account, chain: "sui:mainnet" };
     var out;
     if (feats["sui:signPersonalMessage"] && feats["sui:signPersonalMessage"].signPersonalMessage){
-      out = await feats["sui:signPersonalMessage"].signPersonalMessage({ message: message, account: suiSession.account });
+      out = await feats["sui:signPersonalMessage"].signPersonalMessage(req);
     } else if (typeof w.signPersonalMessage === "function"){
-      out = await w.signPersonalMessage({ message: message, account: suiSession.account });
+      out = await w.signPersonalMessage(req);
+    } else if (feats["sui:signMessage"] && feats["sui:signMessage"].signMessage){
+      out = await feats["sui:signMessage"].signMessage(req);
     } else {
       throw new Error("Wallet cannot sign personal messages");
     }
-    return { ts: ts, sig: out.signature || out, address: suiSession.address };
+    var sig = pickSignature(out);
+    if (!sig) throw new Error("Wallet did not return a signature");
+    return { ts: ts, sig: sig, address: suiSession.address };
   }
   function uploadArt(file){
     return signUploadTicket().then(function(ticket){
-      return fetch("/api/upload", {
-        method: "POST",
-        headers: {
-          "content-type": file.type,
-          "x-filename": file.name,
-          "x-sui-address": ticket.address,
-          "x-sui-signature": ticket.sig,
-          "x-sui-ts": ticket.ts
-        },
-        body: file
-      });
+      var fd = new FormData();
+      fd.append("file", file, (file && file.name) || "token");
+      fd.append("address", ticket.address);
+      fd.append("signature", ticket.sig);
+      fd.append("ts", ticket.ts);
+      return fetch("/api/upload", { method: "POST", body: fd });
     }).then(function(res){
-      return res.json().then(function(j){
-        if (!res.ok || !j.url) throw new Error(j.error || "upload failed");
+      return res.text().then(function(raw){
+        var j = {};
+        try { j = raw ? JSON.parse(raw) : {}; } catch (e) {}
+        if (!res.ok || !j.url) throw new Error(j.error || ("upload failed (" + res.status + ")"));
         return j.url;
       });
     });
@@ -2228,7 +2237,9 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
           // In create mode the URL is baked into a CoinMetadata that is frozen
           // at publish, so a silent failure here is permanent. Say so and stop
           // rather than minting a coin that can never show its art.
-          if (creating) throw new Error("Art upload failed, and the icon cannot be changed after publish. Retry, or clear the file to launch without art.");
+          var why = (e && e.message) ? e.message : "upload failed";
+          if (/reject|denied|cancelled|canceled/i.test(why)) throw new Error("Wallet rejected the art-upload signature. Approve it, or clear the file to launch without art.");
+          if (creating) throw new Error("Art upload failed (" + why + "). The icon cannot be changed after publish. Retry, or clear the file to launch without art.");
         }
       }
 

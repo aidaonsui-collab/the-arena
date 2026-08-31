@@ -1,5 +1,6 @@
 import { put } from "@vercel/blob";
 import { verifyPersonalMessageSignature } from "@mysten/sui/verify";
+import { normalizeSuiAddress } from "@mysten/sui/utils";
 
 const MAX = 2 * 1024 * 1024;
 const WINDOW_MS = 60 * 60 * 1000;
@@ -42,6 +43,20 @@ function originOk(request) {
   return allow.some((a) => origin === a || origin.startsWith(a));
 }
 
+function corsHeaders(request) {
+  const origin = request.headers.get("origin") || "*";
+  return {
+    "access-control-allow-origin": origin,
+    "access-control-allow-methods": "POST, OPTIONS",
+    "access-control-allow-headers": "content-type, x-filename, x-sui-address, x-sui-signature, x-sui-ts",
+    vary: "Origin",
+  };
+}
+
+function json(body, status, request) {
+  return Response.json(body, { status, headers: corsHeaders(request) });
+}
+
 function rateKey(ip, addr) {
   return `${ip || "noip"}:${addr || "noaddr"}`;
 }
@@ -64,47 +79,98 @@ function clientIp(request) {
   return fwd.split(",")[0].trim() || "unknown";
 }
 
+function asString(v) {
+  if (v == null) return "";
+  if (typeof v === "string") return v.trim();
+  if (typeof v === "object" && typeof v.signature === "string") return v.signature.trim();
+  return String(v).trim();
+}
+
+async function readUpload(request) {
+  const ct = request.headers.get("content-type") || "";
+  if (ct.includes("multipart/form-data")) {
+    const form = await request.formData();
+    const file = form.get("file");
+    let buf = Buffer.alloc(0);
+    let filename = asString(form.get("filename")) || "token";
+    if (file && typeof file.arrayBuffer === "function") {
+      buf = Buffer.from(await file.arrayBuffer());
+      filename = file.name || filename;
+    }
+    return {
+      address: asString(form.get("address")),
+      signature: asString(form.get("signature")),
+      ts: asString(form.get("ts")),
+      buf,
+      filename,
+    };
+  }
+  return {
+    address: asString(request.headers.get("x-sui-address")),
+    signature: asString(request.headers.get("x-sui-signature")),
+    ts: asString(request.headers.get("x-sui-ts")),
+    buf: Buffer.from(await request.arrayBuffer()),
+    filename: asString(request.headers.get("x-filename")) || "token",
+  };
+}
+
 async function verifyUploadSig(address, signature, ts) {
   const t = Number(ts);
   if (!address || !signature || !Number.isFinite(t)) return false;
   if (Math.abs(Date.now() - t) > 10 * 60 * 1000) return false;
+  const addr = normalizeSuiAddress(address);
   const msg = new TextEncoder().encode(`arena-upload:${t}`);
-  const pub = await verifyPersonalMessageSignature(msg, signature);
-  return pub.toSuiAddress().toLowerCase() === String(address).toLowerCase();
+  const pub = await verifyPersonalMessageSignature(msg, signature, { address: addr });
+  return normalizeSuiAddress(pub.toSuiAddress()) === addr;
+}
+
+export function OPTIONS(request) {
+  return new Response(null, { status: 204, headers: corsHeaders(request) });
 }
 
 export async function POST(request) {
   if (!originOk(request)) {
-    return Response.json({ error: "bad origin" }, { status: 403 });
+    return json({ error: "bad origin" }, 403, request);
   }
-  const address = (request.headers.get("x-sui-address") || "").trim();
-  const signature = (request.headers.get("x-sui-signature") || "").trim();
-  const ts = (request.headers.get("x-sui-ts") || "").trim();
+  let address;
+  let signature;
+  let ts;
+  let buf;
+  let filename;
+  try {
+    ({ address, signature, ts, buf, filename } = await readUpload(request));
+  } catch {
+    return json({ error: "could not read upload" }, 400, request);
+  }
   try {
     if (!(await verifyUploadSig(address, signature, ts))) {
-      return Response.json({ error: "sign arena-upload:<ts> with the connected wallet" }, { status: 401 });
+      return json({ error: "sign arena-upload:<ts> with the connected wallet" }, 401, request);
     }
-  } catch {
-    return Response.json({ error: "invalid upload signature" }, { status: 401 });
+  } catch (e) {
+    const why = e && e.message ? String(e.message) : "invalid upload signature";
+    return json({ error: why.slice(0, 180) }, 401, request);
   }
   const ip = clientIp(request);
   if (!rateOk(rateKey(ip, address))) {
-    return Response.json({ error: "upload quota (8/hour)" }, { status: 429 });
+    return json({ error: "upload quota (8/hour)" }, 429, request);
   }
-  const buf = Buffer.from(await request.arrayBuffer());
   if (buf.length === 0 || buf.length > MAX) {
-    return Response.json({ error: "empty or over 2MB" }, { status: 400 });
+    return json({ error: "empty or over 2MB" }, 400, request);
   }
   const kind = sniff(buf);
   if (!kind) {
-    return Response.json({ error: "png, jpeg, webp, or gif" }, { status: 400 });
+    return json({ error: "png, jpeg, webp, or gif" }, 400, request);
   }
-  const rawName = request.headers.get("x-filename") || "token";
-  const safe = rawName.replace(/[^a-zA-Z0-9._-]/g, "_").slice(0, 80) || "token";
-  const blob = await put(`tokens/${safe}`, buf, {
-    access: "public",
-    addRandomSuffix: true,
-    contentType: kind,
-  });
-  return Response.json({ url: blob.url });
+  const safe = String(filename || "token").replace(/[^a-zA-Z0-9._-]/g, "_").slice(0, 80) || "token";
+  try {
+    const blob = await put(`tokens/${safe}`, buf, {
+      access: "public",
+      addRandomSuffix: true,
+      contentType: kind,
+    });
+    return json({ url: blob.url }, 200, request);
+  } catch (e) {
+    const why = e && e.message ? String(e.message) : "blob put failed";
+    return json({ error: why.slice(0, 180) }, 502, request);
+  }
 }
