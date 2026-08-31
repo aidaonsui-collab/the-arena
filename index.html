@@ -501,9 +501,9 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     return out;
   }
   function bytesToB64(bytes){
-    var s = "";
-    for (var i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]);
-    return btoa(s);
+    var u8 = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
+    var bin = Array.from(u8, function(b){ return String.fromCharCode(b); }).join("");
+    return btoa(bin);
   }
   // BCS encoders for the three constant shapes the template uses. Hand-rolled so
   // the page does not need a second CDN dependency for six values.
@@ -3088,7 +3088,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
         var ptx = new TransactionP();
         ptx.setSender(suiSession.address);
         if (typeof ptx.setGasBudget === "function") ptx.setGasBudget(300000000);
-        var pub = ptx.publish({ modules: [Array.from(built.bytes)], dependencies: ["0x1", "0x2"] });
+        var pub = ptx.publish({ modules: [bytesToB64(built.bytes)], dependencies: ["0x1", "0x2"] });
         var upgradeCap = Array.isArray(pub) ? pub[0] : pub;
         ptx.transferObjects([upgradeCap], suiSession.address);
 
