@@ -391,7 +391,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   let bshift = 0, pot = 31.94, prevPot = "", roundNo = 128, secs = ROUND_SECONDS;
   let balance = 48.60;
   let xaumBal = 2.40;
-  const state = {route:"explore", sym:"VOLT", filter:"All", sort:"Market cap", time:"All", side:"Buy", amt:"1", connected:false, search:"", lName:"", lTick:"", lQuote:"SUI", lPath:"instadex", lMode:"Holders", lTokenAmt:"", lQuoteAmt:"", lFirstBuy:"", lCap:"", lTokenCoin:"", lQuoteCoin:"", lCoinMode:"create", lDecimals:"9", lSupply:"1000000000", lDesc:"", lX:"", lTg:"", lWeb:"", lPublishedType:"", metricsWindow:"All", tapeTab:"trades", tapeOpen:"", tapePage:0, tapeAge:"age", lFile:null, lArtUrl:"", lArtPreview:"", payWith:"SUI"};
+  const state = {route:"explore", sym:"VOLT", filter:"All", sort:"Market cap", time:"All", side:"Buy", amt:"1", connected:false, search:"", lName:"", lTick:"", lQuote:"SUI", lPath:"instadex", lMode:"Holders", lTokenAmt:"", lQuoteAmt:"", lFirstBuy:"1", lCap:"", lTokenCoin:"", lQuoteCoin:"", lCoinMode:"create", lDecimals:"9", lSupply:"1000000000", lDesc:"", lX:"", lTg:"", lWeb:"", lPublishedType:"", metricsWindow:"All", tapeTab:"trades", tapeOpen:"", tapePage:0, tapeAge:"age", lFile:null, lArtUrl:"", lArtPreview:"", payWith:"SUI"};
   let hashLock = false;
   const hop = { suiPerXaum: null, suiPerUsdy: null, suiPerXagm: null, usd: null, suiUsd: null, usdyUsd: null, xagmUsd: null, xaumUsd: null, source: "" };
 
@@ -438,7 +438,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   function lpBlurb(){
     var rec = quoteRec(state.lQuote);
     var q = rec.label;
-    return "1,000,000,000 supply, 9 decimals. All of it locks in a single-sided TOKEN/"+q+" Bluefin position. 0 "+q+" in LP. Price from "+rec.virtualHuman+" virtual. You pay 1 SUI launch fee. Optional first buy is extra "+q+" into the pair. The Position NFT never unlocks.";
+    return "1,000,000,000 supply, 9 decimals. All of it locks in a single-sided TOKEN/"+q+" Bluefin position. 0 "+q+" in LP. Price from "+rec.virtualHuman+" virtual. You pay 1 SUI launch fee. First buy is SUI (hopped through "+q+" if needed) so you do not need "+q+" in the wallet. The Position NFT never unlocks.";
   }
   var SDK_URLS = [
     "https://esm.sh/@mysten/sui@1.37.2/transactions",
@@ -1255,11 +1255,13 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   }
   function poolQuote(sym){
     const id = (sym && sym.t) ? sym.t : (sym || state.sym);
+    const given = (sym && typeof sym === "object") ? (sym.q || sym.quote || "") : "";
     const tk = findT(id);
     const rec = bus.index && bus.index.pools && (bus.index.pools[tk.t] || bus.index.pools[id]);
     if (rec && rec.quote) return quoteRec(rec.quote).label;
-    const launch = bus.launches[tk.t] || bus.launches[id] || (tk.bluefinPool && bus.launches[tk.bluefinPool]);
+    const launch = bus.launches[tk.t] || bus.launches[id] || (tk.bluefinPool && bus.launches[tk.bluefinPool]) || (sym && sym.bluefinPool && bus.launches[sym.bluefinPool]);
     if (launch) return quoteRec(launch.quoteLabel || launch.quote).label;
+    if (given) return quoteRec(given).label;
     return quoteRec(tk.q || tk.quote || "SUI").label;
   }
   function isInstadex(tk){
@@ -1955,7 +1957,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
           '<div><label>Coin</label><div class="toggle">'+tog("lCoinMode","create","Create new")+tog("lCoinMode","existing","I have one")+'</div>'+
             '<div style="font-size:12px;color:var(--muted);margin-top:6px">'+
               (state.lCoinMode==="create"
-                ? "1,000,000,000 supply · 9 decimals. Two signatures: publish, then seed."
+                ? "1,000,000,000 supply · 9 decimals. Publish, seed, then first buy in SUI."
                 : "For a coin you published yourself. Paste its TreasuryCap and a Coin&lt;T&gt;. All of that coin goes into LP.")+
             '</div></div>'+
           (state.lCoinMode==="create"
@@ -1970,8 +1972,10 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
               '<div><label>Token coin object</label><input id="l-token-coin" spellcheck="false" placeholder="0x… Coin&lt;T&gt;" value="'+escAttr(state.lTokenCoin)+'"></div>')+
           '<div><label>Quote</label><div class="toggle">'+CREATE_QUOTES.map(function(q){ return tog("lQuote",q,q); }).join("")+'</div>'+
             '<div style="font-size:12px;color:var(--muted);margin-top:6px">'+quoteRec(state.lQuote).what+'. TOKEN/'+state.lQuote+'. Starting price from '+quoteRec(state.lQuote).virtualHuman+' virtual. No '+state.lQuote+' required for LP.</div></div>'+
-          '<div><label>First buy · optional</label><input id="l-first-buy" inputmode="decimal" placeholder="0" value="'+escAttr(state.lFirstBuy)+'"></div>'+
-            '<div style="font-size:12px;color:var(--muted);margin-top:-4px">Extra '+state.lQuote+' swapped into the pair after seed. Puts quote in the pool so the first sell can land. Leave 0 to skip.</div>'+
+          '<div><label>First buy · SUI</label><input id="l-first-buy" inputmode="decimal" placeholder="1" value="'+escAttr(state.lFirstBuy)+'"></div>'+
+            '<div style="font-size:12px;color:var(--muted);margin-top:-4px">'+(state.lQuote==="SUI"
+              ? "SUI swapped into TOKEN/SUI right after seed. Puts quote in the pool so the first sell can land. 0 skips."
+              : "Paid in SUI. Hopped SUI → "+state.lQuote+" → TOKEN after seed. You do not need "+state.lQuote+" in the wallet. 0 skips.")+'</div>'+
           '<div><label>Name</label><input id="l-name" placeholder="'+(state.lCoinMode==="create"?"Gladius Token":"From CoinMetadata")+'" value="'+escAttr(state.lName)+'"></div>'+
           '<div><label>Ticker</label><input id="l-tick" placeholder="'+(state.lCoinMode==="create"?"GLADIUS":"From CoinMetadata")+'" maxlength="12" value="'+escAttr(state.lTick)+'"></div>'+
           (state.lCoinMode==="create" && tickerToIdent(state.lTick)
@@ -1980,7 +1984,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
           '<button type="button" class="btn-trade" id="launch-go">'+launchBtnLabel()+'</button>'+
           '<div id="launch-note" style="font-size:12px;color:var(--muted);margin-top:8px;text-align:center">'+
             (Number(state.lFirstBuy)>0
-              ? ("Pay 1 SUI launch fee, then a first buy of "+state.lFirstBuy+" "+state.lQuote+".")
+              ? ("Pay 1 SUI launch fee, then a first buy of "+state.lFirstBuy+" SUI"+(state.lQuote==="SUI"?"":" hopped through "+state.lQuote)+".")
               : "Pay 1 SUI launch fee. 0 quote LP.")+
           '</div>'+
         '</div></div>'+
@@ -2868,7 +2872,14 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       var capId = (state.lCap || "").trim();
       var tokenCoinId = (state.lTokenCoin || "").trim();
       var launchQuote = quoteRec(state.lQuote).label;
+      var firstBuy = toSmallestBig(state.lFirstBuy, 9);
       var creating = state.lCoinMode === "create";
+      if (firstBuy > 0n){
+        var suiCoins = await coinsOfExact(suiSession.address, SUI_TYPE);
+        var suiBal = (suiCoins || []).reduce(function(a,c){ return a + c.valueBig; }, 0n);
+        var need = BigInt(LAUNCH_FEE) + firstBuy + 400000000n;
+        if (suiBal < need) throw new Error("Need about "+fromBase(need, 9).toFixed(2)+" SUI for the 1 SUI launch fee, first buy, and gas. First buy is paid in SUI — you do not need "+launchQuote+" in the wallet.");
+      }
       var tokenHuman = "";
       state.lDecimals = String(TOKEN_DECIMALS);
       state.lSupply = TOKEN_SUPPLY;
@@ -3020,10 +3031,11 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       var launched = digest ? await waitForInstadexLaunch(digest) : null;
       if (launched){
         upsertInstadex(launched);
-        var firstBuy = toSmallestBig(state.lFirstBuy, quoteDecimalsOf(launchQuote));
         if (firstBuy > 0n && launched.bluefin_pool_id){
-          if (btn) btn.textContent = "Sign first buy…";
-          setLaunchNote("Pair live. Sign the first buy into the pool.", false);
+          if (btn) btn.textContent = "Sign first buy · SUI…";
+          setLaunchNote(launchQuote === "SUI"
+            ? "Pair live. Sign the first buy in SUI."
+            : "Pair live. Sign the first buy: SUI → "+launchQuote+" → token.", false);
           var buyTk = {
             t: String(launched.symbol || state.lTick || "").toUpperCase(),
             token: launched.token || Ttype,
@@ -3033,15 +3045,27 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
           };
           var prevSide = state.side, prevPay = state.payWith;
           state.side = "Buy";
-          state.payWith = launchQuote;
+          state.payWith = "SUI";
           swapping = true;
+          var buyErrLast = null;
           try {
-            await swapViaBluefin(buyTk, firstBuy, 1n);
+            for (var bi = 0; bi < 3; bi++){
+              try {
+                if (launchQuote !== "SUI") await swapViaQuoteHop(buyTk, firstBuy, 1n);
+                else await swapViaBluefin(buyTk, firstBuy, 1n);
+                buyErrLast = null;
+                break;
+              } catch (buyErr){
+                buyErrLast = buyErr;
+                if (bi < 2) await sleep(800 + bi * 400);
+              }
+            }
+            if (buyErrLast) throw buyErrLast;
             if (bus.sub && bus.sub.refreshBluefin) bus.sub.refreshBluefin(launched.bluefin_pool_id);
-            setLaunchNote("Launched with first buy.", false);
+            setLaunchNote("Launched with first buy in SUI.", false);
           } catch (buyErr){
             var buyMsg = (buyErr && buyErr.message) ? buyErr.message : String(buyErr);
-            setLaunchNote("Launched. First buy failed: "+buyMsg, true);
+            setLaunchNote("Launched. First buy failed: "+buyMsg+" Pair is live — retry the buy on the token page with Pay SUI.", true);
           } finally {
             swapping = false;
             state.side = prevSide;
