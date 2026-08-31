@@ -102,6 +102,16 @@ public fun settle_burn_quote<Q>(pit: &mut Pit<Q>, pool_id: ID): Balance<Q> {
     take_pot(pit, pool_id, 1)
 }
 
+/// Drain the pot for Instant buy-and-burn. Marks settled so leftover curve `ring`
+/// is not stuck; Instant 24h MC is the product winner, not `winner_id`.
+public(package) fun admin_take_pot<Q>(pit: &mut Pit<Q>, winner_id: ID): Balance<Q> {
+    let amount = pit.pot.value();
+    assert!(amount > 0, errors::zero_amount());
+    pit.settled = true;
+    events::emit_instadex_pit_settle(winner_id, amount);
+    pit.pot.split(amount)
+}
+
 /// Mark the current winner settled without paying the pot. Pot stays for the next round.
 /// `mode` on PitSettleEvent is 2. Caller must have checked the winner cannot burn.
 public(package) fun forfeit<Q>(pit: &mut Pit<Q>, pool_id: ID) {

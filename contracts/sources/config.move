@@ -330,6 +330,20 @@ public fun withdraw_treasury(
     sui::coin::from_balance(config.treasury.split(amount), ctx)
 }
 
+/// AdminCap drains the official pit so a keeper can Bluefin-buy the Instant
+/// 24h MC winner and burn through `launch::burn_pit_buy`. `winner_id` is the
+/// Bluefin pool id (recorded on InstadexPitSettleEvent).
+public fun take_pit_pot_for_burn<Q>(
+    config: &Config,
+    _: &AdminCap,
+    pit: &mut Pit<Q>,
+    winner_id: ID,
+    ctx: &mut TxContext,
+): Coin<Q> {
+    assert_official_pit(config, pit);
+    coin::from_balance(pit::admin_take_pot(pit, winner_id), ctx)
+}
+
 #[test_only]
 public fun init_for_testing(ctx: &mut TxContext) {
     init(ctx)

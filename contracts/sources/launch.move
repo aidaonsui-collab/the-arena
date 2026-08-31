@@ -305,11 +305,20 @@ public fun mint_lock_supply<T>(mint: &InstadexMintLock<T>): u64 {
 }
 
 /// Burn through the vaulted cap (same path collect_instadex_fees uses).
-#[test_only]
+/// Permissionless: anyone holding `Coin<T>` can destroy it.
 public fun burn_from_mint_lock<T>(mint: &mut InstadexMintLock<T>, c: Coin<T>) {
-    if (c.value() == 0) {
+    let mint_id = object::id(mint);
+    burn_pit_buy(mint, mint_id, c)
+}
+
+/// Pit buy-and-burn. `lock_id` is the BluefinPositionLock id so the existing
+/// InstadexBurnEvent indexer attributes the burn to the bout.
+public fun burn_pit_buy<T>(mint: &mut InstadexMintLock<T>, lock_id: ID, c: Coin<T>) {
+    let amount = c.value();
+    if (amount == 0) {
         c.destroy_zero();
-    } else {
-        coin::burn(&mut mint.cap, c);
-    }
+        return
+    };
+    coin::burn(&mut mint.cap, c);
+    events::emit_instadex_burn(lock_id, amount);
 }

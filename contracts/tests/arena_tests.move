@@ -896,3 +896,54 @@ fun test_forfeit_still_burnable_aborts() {
     scenario.end();
 }
 
+#[test]
+fun test_admin_take_pit_for_instant_burn() {
+    let mut scenario = ts::begin(ADMIN);
+    setup(&mut scenario);
+
+    scenario.next_tx(USER1);
+    {
+        let mut pit = scenario.take_shared<Pit<SUI>>();
+        let fee = coin::mint_for_testing<SUI>(5_000, scenario.ctx());
+        pit::take_fee(&mut pit, fee.into_balance());
+        assert!(pit.pot_value() == 5_000, 0);
+        ts::return_shared(pit);
+    };
+
+    scenario.next_tx(config::platform_wallet());
+    {
+        let config = scenario.take_shared<Config>();
+        let admin = scenario.take_from_sender<AdminCap>();
+        let mut pit = scenario.take_shared<Pit<SUI>>();
+        let winner = sui::object::id_from_address(@0xBEEF);
+        let c = config::take_pit_pot_for_burn(&config, &admin, &mut pit, winner, scenario.ctx());
+        assert!(c.value() == 5_000, 1);
+        assert!(pit.pot_value() == 0, 2);
+        assert!(pit.settled(), 3);
+        coin::burn_for_testing(c);
+        ts::return_to_sender(&scenario, admin);
+        ts::return_shared(config);
+        ts::return_shared(pit);
+    };
+
+    scenario.end();
+}
+
+#[test]
+#[expected_failure(abort_code = 3)]
+fun test_admin_take_empty_pit_aborts() {
+    let mut scenario = ts::begin(ADMIN);
+    setup(&mut scenario);
+    scenario.next_tx(config::platform_wallet());
+    let config = scenario.take_shared<Config>();
+    let admin = scenario.take_from_sender<AdminCap>();
+    let mut pit = scenario.take_shared<Pit<SUI>>();
+    let winner = sui::object::id_from_address(@0xBEEF);
+    let c = config::take_pit_pot_for_burn(&config, &admin, &mut pit, winner, scenario.ctx());
+    coin::burn_for_testing(c);
+    ts::return_to_sender(&scenario, admin);
+    ts::return_shared(config);
+    ts::return_shared(pit);
+    scenario.end();
+}
+

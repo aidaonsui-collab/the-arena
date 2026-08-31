@@ -2,7 +2,7 @@
 name = "arena"
 edition = "2024.beta"
 license = "Apache-2.0"
-published-at = "0x5175c397e0f70475dcc4ae3d60e1d5984a35f1b762c941275ab7bb09aabd94fe"
+published-at = "0xd8531cc8c4e1ee914f0e4e48aea9a796faa0603459cc4665838f688e51bf23d9"
 
 [dependencies]
 Sui = { git = "https://github.com/MystenLabs/sui.git", subdir = "crates/sui-framework/packages/sui-framework", rev = "framework/mainnet", override = true }

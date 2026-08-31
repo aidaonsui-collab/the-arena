@@ -45,9 +45,9 @@ Graduation for XAUM defaults to **1 XAUM** (not 2,000 units). 2,000 SUI is only 
 - 1% (`swap_fee_bps=100`) of every fill (buy quote in, sell quote out).
   - Standard: 60% creator, 10% platform, 30% pit.
   - Reflection: 50/20/20/10 holders/creator/pit/platform.
-- Highest cap still on the curve when the bell rings wins.
-  - Holders: pot is claimable pro-rata via the holder registry.
-  - Buy and burn: pot buys the winning token on the curve and burns it.
+- Instant pit: highest Instant USD market cap over 24 hours wins. Previous winner sits out 48 hours. Votes are display-only (0.1 SUI still goes in the pot).
+  - Buy and burn only. `config::take_pit_pot_for_burn` (AdminCap) drains the official pit; the keeper hops SUI to the winner's quote, Bluefin-buys the token, and `launch::burn_pit_buy` burns it through `InstadexMintLock`.
+  - Leftover curve `pit::ring` / `pool::settle_pit` still exist. Instant take marks the pit settled so a leftover curve winner cannot strand `ring`.
 
 ## Launch (two transactions)
 
@@ -97,7 +97,7 @@ Anyone can poke `launch::collect_instadex_fees<A, B>` — Bluefin LP fees accrue
 | `config` | Arena `Config` `0xcd527cb2389d806e5285ae708ee28df30a841ec5df7508ebfebaa0c9660b5d2c` |
 | `pit` | `Pit<Q>` (SUI: `0x8ec38e9bcac0838bf474680e71d0c3f302f4ea2f757d759b7b399701f904389c`) |
 
-Do not pass `Pit<T>` — pit and platform bags are quote-typed. Do not call `config.fee_split` on collected amounts (that takes another `swap_fee_bps`). Call latest published-at `0x5175c397e0f70475dcc4ae3d60e1d5984a35f1b762c941275ab7bb09aabd94fe`, not the type-origin package.
+Do not pass `Pit<T>` — pit and platform bags are quote-typed. Do not call `config.fee_split` on collected amounts (that takes another `swap_fee_bps`). Call latest published-at `0xd8531cc8c4e1ee914f0e4e48aea9a796faa0603459cc4665838f688e51bf23d9`, not the type-origin package.
 
 ## Graduation
 

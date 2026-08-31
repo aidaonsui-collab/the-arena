@@ -38,10 +38,18 @@ function corsHeaders(request) {
   const origin = request.headers.get("origin") || "*";
   return {
     "access-control-allow-origin": origin,
-    "access-control-allow-methods": "GET, OPTIONS",
-    "access-control-allow-headers": "content-type",
+    "access-control-allow-methods": "GET, POST, OPTIONS",
+    "access-control-allow-headers": "content-type, authorization",
     vary: "Origin",
   };
+}
+
+function settleAuth(request) {
+  const hdr = request.headers.get("authorization") || "";
+  const token = hdr.replace(/^Bearer\s+/i, "").trim();
+  if (!token) return false;
+  const secrets = [process.env.CRON_SECRET, process.env.ARENA_SETTLE_SECRET].filter(Boolean);
+  return secrets.includes(token);
 }
 
 function json(body, status, request) {
@@ -173,6 +181,7 @@ async function listLaunches() {
         t: t,
         n: n,
         pool: asId(p.bluefin_pool_id),
+        lock: asId(p.lock_id),
         token: typeNameOf(p.token),
         quote: typeNameOf(p.quote),
       });
@@ -285,7 +294,10 @@ async function refresh(prev) {
       t: l.t,
       n: l.n,
       pool: l.pool,
+      lock: l.lock,
+      token: l.token,
       quote: qm.label,
+      quoteType: l.quote,
       mcUsd: mc,
       peakMcUsd: peak,
       banned: bannedNow(state.banned, l.t, now),
@@ -301,7 +313,18 @@ async function refresh(prev) {
       const last = (state.bells || [])[0];
       const dup = last && last.t === w.t && Math.abs(Number(last.ts) - now) < ROUND_MS;
       if (!dup) {
-        state.bells = [{ t: w.t, n: w.n, mcUsd: w.peakMcUsd, ts: now, mode: "buy-burn" }].concat(state.bells || []).slice(0, 12);
+        state.bells = [{
+          t: w.t,
+          n: w.n,
+          mcUsd: w.peakMcUsd,
+          ts: now,
+          mode: "buy-burn",
+          pool: w.pool,
+          lock: w.lock,
+          token: w.token,
+          quote: w.quote,
+          quoteType: w.quoteType,
+        }].concat(state.bells || []).slice(0, 12);
         const already = (state.banned || []).some(function (b) {
           return String(b.t).toUpperCase() === w.t && Number(b.untilMs) > now;
         });
@@ -347,4 +370,38 @@ export async function GET(request) {
     const why = e && e.message ? String(e.message) : "pit-state failed";
     return json({ error: why.slice(0, 180) }, 502, request);
   }
+}
+
+export async function POST(request) {
+  if (!settleAuth(request)) return json({ error: "unauthorized" }, 401, request);
+  let body = {};
+  try {
+    body = await request.json();
+  } catch (e) {
+    return json({ error: "bad json" }, 400, request);
+  }
+  const ticker = String(body.ticker || body.t || "").toUpperCase();
+  const digest = String(body.digest || "");
+  const burned = body.burned != null ? Number(body.burned) : null;
+  const amount = body.amount != null ? Number(body.amount) : null;
+  const skipped = body.skipped ? String(body.skipped) : "";
+  if (!ticker) return json({ error: "ticker required" }, 400, request);
+  if (!digest && !skipped) return json({ error: "digest or skipped required" }, 400, request);
+  const prev = await loadBlob();
+  if (!prev) return json({ error: "no pit-state" }, 404, request);
+  const bells = prev.bells || [];
+  const hit = bells.find(function (b) {
+    return String(b.t || "").toUpperCase() === ticker && !b.digest && !b.skipped;
+  }) || bells.find(function (b) {
+    return String(b.t || "").toUpperCase() === ticker;
+  });
+  if (!hit) return json({ error: "no bell for " + ticker }, 404, request);
+  if (digest) hit.digest = digest;
+  if (skipped) hit.skipped = skipped;
+  if (burned != null && burned >= 0) hit.burned = burned;
+  if (amount != null && amount >= 0) hit.amount = amount;
+  hit.settledMs = Date.now();
+  prev.updatedMs = Date.now();
+  try { await saveBlob(prev); } catch (e) {}
+  return json(prev, 200, request);
 }

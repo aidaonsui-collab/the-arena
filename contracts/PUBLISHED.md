@@ -3,7 +3,8 @@
 Published from `0x92a32ac7fd525f8bd37ed359423b8d7d858cad26224854dfbff1914b75ee658b`.
 
 - Type origin / original package: `0x5cfddf8ba23be6835644a8ea22482ff6ebb0081e42cc1bc052b5f770ca8bbdea`
-- Latest published-at (v7): `0x5175c397e0f70475dcc4ae3d60e1d5984a35f1b762c941275ab7bb09aabd94fe`
+- Latest published-at (v8): `0xd8531cc8c4e1ee914f0e4e48aea9a796faa0603459cc4665838f688e51bf23d9`
+- v7 published-at: `0x5175c397e0f70475dcc4ae3d60e1d5984a35f1b762c941275ab7bb09aabd94fe`
 - v6 published-at: `0x47ea732e44f21470aa3dd449a7b26731ed2c377e2c02e650f3ede6ea581bf000`
 - v5 published-at: `0x68e178d50276b3bcbce11a136df48909aceff1f2a8ee8a45483e9f128e989972`
 - v4 published-at: `0xcf7835ae4e3f8a3d4eb4bd9d14cb4a3dbdd80e70908feb6c433688a31e119de3`
@@ -13,7 +14,7 @@ Published from `0x92a32ac7fd525f8bd37ed359423b8d7d858cad26224854dfbff1914b75ee65
 - Pit SUI: `0x8ec38e9bcac0838bf474680e71d0c3f302f4ea2f757d759b7b399701f904389c`
 - Pit XAUM: `0xa8a391bf380914c04be5deb478474b42754a5aa8c29c0955f267d73190a98783`
 - AdminCap: `0x79e041a4444971bfbf8000925ac3386d8351a3e997eb7d838d84eb6c3e507acf` (held by the platform wallet)
-- UpgradeCap: `0x8db3965ac77247107c811cb79bccd9bf1daf5647136a0b2f8891351a56d73608` (held by the platform wallet, version 7, policy Compatible)
+- UpgradeCap: `0x8db3965ac77247107c811cb79bccd9bf1daf5647136a0b2f8891351a56d73608` (held by the platform wallet, version 8, policy Compatible)
 - Publish tx: `4zVLuMuPGG62WrkNCeodwpYs1athobrYymqi3fPULQWt`
 - Upgrade v2 tx: `9XJ5cvahK2Un4BBDGBTk3FPREiDodwxVhUACb75YwYX1` (2026-08-29 15:42 CT)
 - Upgrade v3 tx: `AtVquqVh1G1FCvQTZyYQ3ZizNYfceDJA36d66gWsWjPW` (fee_rate 100000 → 10000)
@@ -21,8 +22,9 @@ Published from `0x92a32ac7fd525f8bd37ed359423b8d7d858cad26224854dfbff1914b75ee65
 - Upgrade v5 tx: `ETJ8WZpGFo6JDRVv7UtNiLuXbJBJ4zwCF9gYwL3ciQme` (2026-08-29 17:53 CT; collect_lp_fees 60/10/30 LP quote split)
 - Upgrade v6 tx: `GUsTHo7VgYQZYYLaScxgjA6F8GfCY1Yx9hgaoKBLhGab` (2026-08-29 18:07 CT; burn Instadex token-side LP fees via InstadexMintLock)
 - Upgrade v7 tx: `5BZGVSce3tNa5DTS2YvK6gB9vmTvnnvMenAkTA3V4gac` (2026-08-31 10:45 CT; Instant 0-quote LP / `launch_instant_entry`)
+- Upgrade v8 tx: `5yX3TEz5u6MgAvXux9YqV7Jt6uv1LWCd9ZrJdPAEfUVU` (2026-08-31 18:43 CT; Instant pit buy/burn `take_pit_pot_for_burn` + `burn_pit_buy`)
 
-Call new functions on the latest published-at (`0x5175…`). Object types stay `0x5cfd…::pool::Pool` etc. `BluefinLockEvent` and `BluefinPositionLock` originated in v2 (`0x8e28…`). `InstadexLaunchEvent` and `InstadexMintLock` originated in v4 (`0xcf78…`). `CollectLpFeesEvent` originated in v5 (`0x68e1…`). `InstadexBurnEvent` originated in v6 (`0x47ea…`). `launch_instant` / `launch_instant_entry` originated in v7 (`0x5175…`).
+Call new functions on the latest published-at (`0xd853…`). Object types stay `0x5cfd…::pool::Pool` etc. `BluefinLockEvent` and `BluefinPositionLock` originated in v2 (`0x8e28…`). `InstadexLaunchEvent` and `InstadexMintLock` originated in v4 (`0xcf78…`). `CollectLpFeesEvent` originated in v5 (`0x68e1…`). `InstadexBurnEvent` originated in v6 (`0x47ea…`). `launch_instant` / `launch_instant_entry` originated in v7 (`0x5175…`). `take_pit_pot_for_burn` / `burn_pit_buy` / `InstadexPitSettleEvent` originated in v8 (`0xd853…`).
 
 ## Bluefin Spot (graduation seed)
 

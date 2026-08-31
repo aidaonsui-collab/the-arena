@@ -135,6 +135,13 @@ public struct InstadexMintLockEvent has copy, drop {
     mint_lock_id: ID,
 }
 
+/// Instant 24h MC winner: AdminCap drained `Pit<Q>` to buy-and-burn on Bluefin.
+/// `winner_id` is the Bluefin pool id (not an Arena curve Pool).
+public struct InstadexPitSettleEvent has copy, drop {
+    winner_id: ID,
+    amount: u64,
+}
+
 public fun emit_launch(
     pool_id: ID,
     token: TypeName,
@@ -319,4 +326,8 @@ public fun emit_instadex_burn(lock_id: ID, amount: u64) {
 
 public fun emit_instadex_mint_lock(lock_id: ID, mint_lock_id: ID) {
     sui::event::emit(InstadexMintLockEvent { lock_id, mint_lock_id })
+}
+
+public fun emit_instadex_pit_settle(winner_id: ID, amount: u64) {
+    sui::event::emit(InstadexPitSettleEvent { winner_id, amount })
 }

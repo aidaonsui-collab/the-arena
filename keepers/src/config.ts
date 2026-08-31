@@ -16,6 +16,7 @@ export const EVENTS = {
   pitSettle: "events::PitSettleEvent",
   pitNudge: "events::PitNudgeEvent",
   graduation: "events::GraduationEvent",
+  instadexPitSettle: "events::InstadexPitSettleEvent",
 } as const;
 
 export const CLAIM_REFLECTION = 0;

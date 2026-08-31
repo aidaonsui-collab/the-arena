@@ -347,7 +347,7 @@ html.shot,html.shot *{animation:none!important;transition:none!important}
 <script>
 window.ARENA_PACKAGE_ID = "0x5cfddf8ba23be6835644a8ea22482ff6ebb0081e42cc1bc052b5f770ca8bbdea";
 window.ARENA_INSTADEX_PACKAGE = "0xcf7835ae4e3f8a3d4eb4bd9d14cb4a3dbdd80e70908feb6c433688a31e119de3";
-window.ARENA_COLLECT_PACKAGE = "0x5175c397e0f70475dcc4ae3d60e1d5984a35f1b762c941275ab7bb09aabd94fe";
+window.ARENA_COLLECT_PACKAGE = "0xd8531cc8c4e1ee914f0e4e48aea9a796faa0603459cc4665838f688e51bf23d9";
 window.ARENA_CALL_PACKAGE = window.ARENA_COLLECT_PACKAGE;
 window.ARENA_LOCK_PACKAGE = "0x067136624c5bec5221247e9b0a0a1afbd77a79aadbabdac18a95a10bc186cc74";
 window.ARENA_BLUEFIN_EVENT_PACKAGE = "0x8e28ff4116a8c9025b5d615b0b0a7bc45f4f543120f30a9d226e5b94c7277b79";
@@ -2326,6 +2326,9 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
         '<div class="feat-name">'+escHtml(b.n || b.t)+'</div>'+
         '<div class="feat-tick" style="margin-top:8px">$'+escHtml(b.t)+'</div>'+
         '<div class="feat-tick" style="margin-top:8px">'+mc+'</div>'+
+        (b.digest
+          ? '<div class="feat-tick" style="margin-top:8px"><a href="https://suiscan.xyz/mainnet/tx/'+escAttr(b.digest)+'" target="_blank" rel="noopener">buy & burn tx</a></div>'
+          : (b.skipped ? '<div class="feat-tick" style="margin-top:8px">'+escHtml(b.skipped)+'</div>' : ''))+
         '<span class="chip" style="margin-top:12px;display:inline-block">Buy & burn</span></div>';
     }).join("");
     const voteNote = pitVoteErr || (suiSession.address
@@ -3168,7 +3171,9 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     if (seenBurns[key]) return;
     seenBurns[key] = 1;
     const n = Number(b.amount) || 0;
-    const tk = T.find(function(k){ return k.lockId === b.lock_id; });
+    const tk = T.find(function(k){
+      return k.lockId === b.lock_id || k.mintLock === b.lock_id;
+    });
     if (!tk){
       pendingBurns[b.lock_id] = (Number(pendingBurns[b.lock_id]) || 0) + n;
       return;
@@ -4474,7 +4479,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       onLock: function(g){ applyLock(g); },
       onBluefinLock: function(g){ applyBluefinLock(g); },
       onInstadexBurn: function(b){ applyInstadexBurn(b); },
-      burnPackages: [window.ARENA_COLLECT_PACKAGE].filter(Boolean),
+      burnPackages: [window.ARENA_COLLECT_PACKAGE, "0x47ea732e44f21470aa3dd449a7b26731ed2c377e2c02e650f3ede6ea581bf000"].filter(Boolean),
       callPackage: window.ARENA_INSTADEX_PACKAGE,
       instadexPackages: [window.ARENA_INSTADEX_PACKAGE, window.ARENA_CALL_PACKAGE, window.ARENA_COLLECT_PACKAGE].filter(Boolean),
       lockPackages: [window.ARENA_INSTADEX_PACKAGE, window.ARENA_LOCK_PACKAGE, window.ARENA_BLUEFIN_EVENT_PACKAGE].filter(Boolean)
