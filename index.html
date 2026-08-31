@@ -423,6 +423,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   var LAUNCH_FEE = 1000000000;
   var TOKEN_DECIMALS = 9;
   var TOKEN_SUPPLY = "1000000000";
+  var INSTANT_START_USD = 500;
   var QUOTES = {
     SUI: { label:"SUI", type:SUI_TYPE, metadata:window.ARENA_SUI_METADATA, decimals:9, name:"Sui", what:"Native Sui", create:true, chips:["0.5","1","5","10","Max"], virtualHuman:"≈ $500", pit:window.ARENA_PIT_SUI, color:"#4DA2FF" },
     USDY: { label:"USDY", type:window.ARENA_USDY_TYPE, metadata:window.ARENA_USDY_METADATA, decimals:6, name:"Ondo US Dollar Yield", what:"Ondo tokenized US Treasury bills", create:true, chips:["1","5","10","25","Max"], virtualHuman:"≈ $500", pit:window.ARENA_PIT_USDY, color:"#3ECF8E" },
@@ -435,6 +436,24 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     return QUOTES[lab] || QUOTES.SUI;
   }
   function quoteDecimalsOf(q){ return quoteRec(q).decimals; }
+  function firstBuyPreview(){
+    var buy = Number(state.lFirstBuy);
+    if (!(buy > 0)) return "0 skips the first buy.";
+    var suiUsd = hop.suiUsd;
+    if (!(suiUsd > 0)) return "Estimate loads with SUI price…";
+    var buyUsd = buy * suiUsd * 0.99;
+    var start = INSTANT_START_USD;
+    var supply = Number(TOKEN_SUPPLY) || 1e9;
+    var got = supply * buyUsd / (start + buyUsd);
+    var pct = got / supply * 100;
+    var tick = String(state.lTick || "TOKEN").toUpperCase() || "TOKEN";
+    var pctTxt = pct >= 1 ? pct.toFixed(2) : (pct >= 0.1 ? pct.toFixed(2) : pct.toFixed(3));
+    return "≈ " + fmtAmt(got) + " " + tick + " · " + pctTxt + "% of supply (est. after 1% fee)";
+  }
+  function paintFirstBuyPreview(){
+    var el = $("#l-first-buy-preview");
+    if (el) el.textContent = firstBuyPreview();
+  }
   function lpBlurb(){
     var rec = quoteRec(state.lQuote);
     var q = rec.label;
@@ -2133,7 +2152,8 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
           '<div><label>Quote</label><div class="toggle">'+CREATE_QUOTES.map(function(q){ return tog("lQuote",q,q); }).join("")+'</div>'+
             '<div style="font-size:12px;color:var(--muted);margin-top:6px">'+quoteRec(state.lQuote).what+'. TOKEN/'+state.lQuote+'. Starting market cap ≈ $500, same for every quote. No '+state.lQuote+' required for LP.</div></div>'+
           '<div><label>First buy · SUI</label><input id="l-first-buy" inputmode="decimal" placeholder="1" value="'+escAttr(state.lFirstBuy)+'"></div>'+
-            '<div style="font-size:12px;color:var(--muted);margin-top:-4px">'+(state.lQuote==="SUI"
+            '<div id="l-first-buy-preview" style="font-size:13px;color:var(--text);margin-top:6px">'+escHtml(firstBuyPreview())+'</div>'+
+            '<div style="font-size:12px;color:var(--muted);margin-top:4px">'+(state.lQuote==="SUI"
               ? "SUI swapped into TOKEN/SUI right after seed. Puts quote in the pool so the first sell can land. 0 skips."
               : "Paid in SUI. Hopped SUI → "+state.lQuote+" → TOKEN after seed. You do not need "+state.lQuote+" in the wallet. 0 skips.")+'</div>'+
           '<div><label>Name</label><input id="l-name" placeholder="'+(state.lCoinMode==="create"?"Gladius Token":"From CoinMetadata")+'" value="'+escAttr(state.lName)+'"></div>'+
@@ -3979,7 +3999,10 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
         const c = $("#launch-count"); if (c) c.textContent = pool.length+" live";
       }
     }
-    if (e.target && e.target.id === "l-first-buy") state.lFirstBuy = e.target.value.trim();
+    if (e.target && e.target.id === "l-first-buy"){
+      state.lFirstBuy = e.target.value.trim();
+      paintFirstBuyPreview();
+    }
     if (e.target && e.target.id === "l-name") state.lName = e.target.value;
     if (e.target && e.target.id === "l-tick"){
       state.lTick = e.target.value.toUpperCase();
@@ -3988,6 +4011,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
         var id = tickerToIdent(state.lTick);
         if (hint) hint.innerHTML = id ? ("Coin type will be <code>…::"+escHtml(id)+"::"+escHtml(id.toUpperCase())+"</code>") : "";
       }
+      paintFirstBuyPreview();
     }
     if (e.target && e.target.id === "l-cap") state.lCap = e.target.value.trim();
     if (e.target && e.target.id === "l-token-coin") state.lTokenCoin = e.target.value.trim();
@@ -4118,6 +4142,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       hop.source = d.source || "Cetus USDY/USDC · Bluefin XAGM/USDC";
       paintTicket();
       paintCaps();
+      paintFirstBuyPreview();
     }
     fetch("/api/hop").then(function(r){ return r.ok ? r.json() : Promise.reject(); }).then(apply).catch(function(){
       Promise.all([
