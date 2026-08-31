@@ -97,7 +97,7 @@ Anyone can poke `launch::collect_instadex_fees<A, B>` — Bluefin LP fees accrue
 | `config` | Arena `Config` `0xcd527cb2389d806e5285ae708ee28df30a841ec5df7508ebfebaa0c9660b5d2c` |
 | `pit` | `Pit<Q>` (SUI: `0x8ec38e9bcac0838bf474680e71d0c3f302f4ea2f757d759b7b399701f904389c`) |
 
-Do not pass `Pit<T>` — pit and platform bags are quote-typed. Do not call `config.fee_split` on collected amounts (that takes another `swap_fee_bps`). Call latest published-at `0x47ea732e44f21470aa3dd449a7b26731ed2c377e2c02e650f3ede6ea581bf000`, not the type-origin package.
+Do not pass `Pit<T>` — pit and platform bags are quote-typed. Do not call `config.fee_split` on collected amounts (that takes another `swap_fee_bps`). Call latest published-at `0x5175c397e0f70475dcc4ae3d60e1d5984a35f1b762c941275ab7bb09aabd94fe`, not the type-origin package.
 
 ## Graduation
 

@@ -45,7 +45,7 @@ Snapshot file (default `./data/reflections.json`) is the shape the token page ca
 - `ARENA_CONFIG`=`0xcd527cb2389d806e5285ae708ee28df30a841ec5df7508ebfebaa0c9660b5d2c`
 - `ARENA_KEEPER_PHRASE` optional. If unset, collect/ring/settle sign with the local Sui keystore (gas only, not AdminCap).
 - `CRON_SECRET` required on Vercel so `/api/{ring,settle,collect,reflections}` are not public.
-- `ARENA_CALL_PACKAGE` (latest published-at, default v6 `0x47ea…`)
+- `ARENA_CALL_PACKAGE` (latest published-at, default v7 `0x5175…`)
 - `ARENA_INSTADEX_PACKAGE` (InstadexLaunchEvent type origin v4 `0xcf78…`)
 - `SUI_GRAPHQL` (default `https://graphql.mainnet.sui.io/graphql`)
 - Platform launch + swap-fee withdraws: Odyssey admin `0x92a32ac7fd525f8bd37ed359423b8d7d858cad26224854dfbff1914b75ee658b` holds `AdminCap`
