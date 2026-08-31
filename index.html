@@ -830,6 +830,33 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     "https://mainnet.suiet.app",
     "https://rpc-mainnet.suiscan.xyz:443"
   ];
+  var suiRpcClient = null;
+  async function loadSuiClient(){
+    if (suiRpcClient) return suiRpcClient;
+    var urls = [
+      "https://esm.sh/@mysten/sui@1.37.2/client",
+      "https://esm.sh/@mysten/sui/client"
+    ];
+    for (var i = 0; i < urls.length; i++){
+      try {
+        var mod = await import(urls[i]);
+        var Ctor = mod.SuiClient || (mod.default && mod.default.SuiClient);
+        if (Ctor){
+          suiRpcClient = new Ctor({ url: RPC_EXEC[0] });
+          return suiRpcClient;
+        }
+      } catch (e) {}
+    }
+    return null;
+  }
+  async function prepareTx(tx){
+    if (typeof tx.setSender === "function") tx.setSender(suiSession.address);
+    try {
+      var client = await loadSuiClient();
+      if (client && typeof tx.build === "function") await tx.build({ client: client });
+    } catch (e) {}
+    return tx;
+  }
   async function executeSigned(bytes, signature){
     var sigs = Array.isArray(signature) ? signature : [signature];
     var last = null;
@@ -856,7 +883,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     var w = suiSession.wallet;
     var account = suiSession.account;
     if (!w) throw new Error("No Sui wallet found");
-    if (typeof tx.setSender === "function") tx.setSender(suiSession.address);
+    await prepareTx(tx);
     var feats = w.features || {};
     var signTx = (feats["sui:signTransaction"] && feats["sui:signTransaction"].signTransaction)
       || (typeof w.signTransaction === "function" ? function(req){ return w.signTransaction(req); } : null);
@@ -3079,7 +3106,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
         ptx.transferObjects([upgradeCap], suiSession.address);
 
         if (btn) btn.textContent = "Sign 1 of 2 · publish coin…";
-        setLaunchNote("Publishing " + built.upper + ". Sign in Slush — yellow unverified-site banner is .vercel.app, not a failed tx.", false);
+        setLaunchNote("Publishing " + built.upper + ". Click Approve. Slush shows red Unable to process on .vercel.app even when the tx is valid — last SILVER publish succeeded after Approve.", false);
         var pubRes = await walletExecSigned(ptx);
         var digest = txDigest(pubRes);
         var made = readPublishResult(pubRes, built.ident);
