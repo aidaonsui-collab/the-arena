@@ -133,6 +133,7 @@ main{padding:18px 0 72px}
 .chips{display:flex;gap:6px;margin-top:10px}
 .chips>div{flex:1;text-align:center;background:#16171A;border-radius:999px;padding:8px 0;font-size:12px;font-weight:600;cursor:pointer}
 .chips>div:hover{background:var(--lift)}
+.chips>div.on{background:var(--lift);color:var(--ink)}
 .kv{display:flex;justify-content:space-between;padding:10px 0;border-top:1px solid var(--line);font-size:14px}
 .fee-chips{display:flex;flex-wrap:wrap;gap:6px;padding:4px 0 8px}
 .fee-chip{font-family:"IBM Plex Mono",monospace;font-size:10px;letter-spacing:.04em;text-transform:uppercase;border:1px solid currentColor;border-radius:999px;padding:2px 7px;opacity:.9}
@@ -140,6 +141,8 @@ main{padding:18px 0 72px}
 .btn-trade.sell{background:#FECACA}
 .btn-trade:disabled{opacity:.5;cursor:not-allowed;filter:none}
 a.btn-trade{display:block;text-align:center;text-decoration:none;box-sizing:border-box}
+.btn-ghost{background:#16171A;color:var(--ink)}
+.ticket .swap-err{color:#FF6640;font-size:12px;text-align:center;margin-top:8px}
 
 .tape-tabs{display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap}
 .tape-row{display:grid;grid-template-columns:28px minmax(0,1fr) minmax(72px,.7fr) 40px;gap:8px;align-items:center;padding:12px 2px;border-bottom:1px solid var(--line);cursor:pointer}
@@ -316,6 +319,9 @@ window.ARENA_BLUEFIN_EVENT_PACKAGE = "0x8e28ff4116a8c9025b5d615b0b0a7bc45f4f5431
 window.ARENA_CONFIG = "0xcd527cb2389d806e5285ae708ee28df30a841ec5df7508ebfebaa0c9660b5d2c";
 window.ARENA_CLOCK = "0x6";
 window.ARENA_BLUEFIN_CONFIG = "0x03db251ba509a8d5d8777b6338836082335d93eecbdd09a11e190a1cff51c352";
+window.ARENA_BLUEFIN_SPOT = "0xd075338d105482f1527cbfd363d6413558f184dec36d9138a70261e87f486e9c";
+window.ARENA_XAUM_SUI_POOL = "0xe80e81a24dc18b5ce708bea23dc151385df291767db4b1cccb4517105f35aa17";
+window.ARENA_SWAP_PARTNER = "0x92a32ac7fd525f8bd37ed359423b8d7d858cad26224854dfbff1914b75ee658b";
 window.ARENA_SUI_METADATA = "0x9258181f5ceac8dbffb7030890243caed69a9599d2886d957a9cb7656af3bdb3";
 window.ARENA_XAUM_TYPE = "0x9d297676e7a4b771ab023291377b2adfaa4938fb9080b8d12430e4b108b836a9::xaum::XAUM";
 window.ARENA_XAUM_METADATA = "0x7c03508c00036b4a6ec1f7a4a225537992ae6fed24bafa152b70b7a414b19dbd";
@@ -370,6 +376,19 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   const bus = { trades: [], launches: {}, bluefinLocks: {}, index: { pools: {}, cursor: null }, sub: null };
   var suiSession = { wallet: null, account: null, address: "" };
   var launching = false;
+  var SevenK = null;
+  var hopPoolSnap = null;
+  var swapQuoteTimer = 0;
+  var swapQuoteSeq = 0;
+  var swapQuote = null;
+  var swapBals = { sui: 0n, quote: 0n, tok: 0n };
+  var SWAP_SLIP = 0.02;
+  var BLUEFIN_MIN_SQRT = "4295048016";
+  var BLUEFIN_MAX_SQRT = "79226673515401279992447579055";
+  var SEVENK_URLS = [
+    "https://esm.sh/@bluefin-exchange/bluefin7k-aggregator-sdk@7.6.3",
+    "https://esm.sh/@bluefin-exchange/bluefin7k-aggregator-sdk"
+  ];
   var stdWallets = [];
   var stdReady = false;
   var SuiTransaction = null;
@@ -721,6 +740,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     suiSession = { wallet: w, account: account, address: addr };
     state.connected = true;
     paintWallet();
+    if (state.route === "token") refreshSwapBals(findT(state.sym));
     return suiSession;
   }
   async function loadTransaction(){
@@ -859,20 +879,24 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   }
   function takeCoin(tx, coins, amount){
     if (!coins || !coins.length) throw new Error("No coins to spend");
-    var need = Number(amount);
-    if (!(need > 0)) throw new Error("Amount must be > 0");
-    var exact = coins.find(function(c){ return c.value === need; });
+    var need = typeof amount === "bigint" ? amount : BigInt(String(Math.trunc(Number(amount))));
+    if (need <= 0n) throw new Error("Amount must be > 0");
+    function val(c){
+      if (typeof c.valueBig === "bigint") return c.valueBig;
+      return BigInt(String(Math.trunc(Number(c.value) || 0)));
+    }
+    var exact = coins.find(function(c){ return val(c) === need; });
     if (exact) return tx.object(exact.id);
-    var one = coins.find(function(c){ return c.value > need; });
+    var one = coins.find(function(c){ return val(c) > need; });
     if (one){
       var split = tx.splitCoins(tx.object(one.id), [need]);
       return Array.isArray(split) ? split[0] : split;
     }
-    var total = 0;
+    var total = 0n;
     var ids = [];
     for (var i = 0; i < coins.length && total < need; i++){
       ids.push(coins[i].id);
-      total += coins[i].value;
+      total += val(coins[i]);
     }
     if (total < need) throw new Error("Not enough coin balance");
     var primary = tx.object(ids[0]);
@@ -880,6 +904,46 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     if (total === need) return primary;
     var parts = tx.splitCoins(primary, [need]);
     return Array.isArray(parts) ? parts[0] : parts;
+  }
+  function coinValueBig(json){
+    if (!json) return 0n;
+    var b = json.balance;
+    if (b && typeof b === "object") b = b.value;
+    try { return BigInt(String(b == null ? "0" : b)); } catch (e) { return 0n; }
+  }
+  async function coinsOfExact(owner, coinType){
+    var t = "0x2::coin::Coin<" + normType(coinType) + ">";
+    var data = await gql(
+      "query($o:SuiAddress!,$t:String){ address(address:$o){ objects(first:50, filter:{ type:$t }){ nodes { address contents { json } } } } }",
+      { o: owner, t: t }
+    );
+    var nodes = (data && data.address && data.address.objects && data.address.objects.nodes) || [];
+    return nodes.map(function(n){
+      var big = coinValueBig(n.contents && n.contents.json);
+      return { id: n.address, value: Number(big > BigInt(Number.MAX_SAFE_INTEGER) ? Number.MAX_SAFE_INTEGER : big), valueBig: big };
+    }).filter(function(c){ return c.valueBig > 0n; }).sort(function(a,b){ return a.valueBig < b.valueBig ? 1 : -1; });
+  }
+  function fromBase(raw, decimals){
+    var d = decimals == null ? 9 : Number(decimals);
+    var s = String(raw == null ? "0" : raw);
+    if (!/^[0-9]+$/.test(s)) return 0;
+    if (s.length <= d) s = s.padStart(d + 1, "0");
+    var whole = s.slice(0, s.length - d);
+    var frac = s.slice(s.length - d).replace(/0+$/, "");
+    return Number(frac ? whole + "." + frac.slice(0, 8) : whole);
+  }
+  function fmtSwapAmt(n){
+    n = Number(n) || 0;
+    if (!(n > 0)) return "0";
+    if (n >= 1e6) return fmtBig(n);
+    if (n >= 1) return n.toFixed(n >= 100 ? 2 : 4);
+    if (n >= 0.0001) return n.toFixed(6);
+    return n.toExponential(2);
+  }
+  function txPure(tx, kind, v){
+    if (tx.pure && typeof tx.pure[kind] === "function") return tx.pure[kind](v);
+    if (typeof tx.pure === "function") return tx.pure(v, kind);
+    throw new Error("Transaction.pure." + kind + " missing");
   }
   async function lookupCapMeta(capId){
     if (!capId) return;
@@ -1194,6 +1258,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       tk.website = parsed.web || tk.website || "";
       if (meta.name) tk.n = meta.name;
       if (meta.icon) tk.img = meta.icon;
+      if (meta.decimals != null) tk.decimals = meta.decimals;
       if (state.route === "token" || state.route === "explore" || state.route === "pit") renderScreen();
     }).catch(function(){ tk.metaHydrated = false; });
   }
@@ -1651,34 +1716,60 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     const permanent = insta || Number(tk.unlockMs)===0;
     const lockLabel = permanent ? "Permanent" : (tk.unlockMs ? new Date(tk.unlockMs).toLocaleDateString() : "—");
     const kicker = insta ? "Instadex" : (tk.bluefinPool ? "Bluefin" : "Legacy");
-    const title = (insta || tk.bluefinPool) ? "Trade on Bluefin" : "No curve ticket";
-    const copy = insta
-      ? "Not a curve buy or sell. The pair is live on Bluefin Spot. LP is locked forever."
-      : (tk.bluefinPool
-        ? "Not a curve buy or sell. The pair is on Bluefin. The pad does not offer a curve ticket."
-        : "This bout launched on the bonding curve. The pad no longer offers curve buy or sell.");
+    if (!tk.bluefinPool && !insta){
+      return '<div class="ticket">'+
+        '<div class="pit-kicker">'+kicker+'</div>'+
+        '<div style="font-size:22px;font-weight:700;letter-spacing:-.03em;margin:8px 0 10px">No curve ticket</div>'+
+        '<p style="color:var(--muted);margin:0 0 14px">This bout launched on the bonding curve. The pad no longer offers curve buy or sell.</p>'+
+        '<button type="button" class="btn-trade" disabled>Curve ticket retired</button>'+
+      '</div>';
+    }
+    if (!tk.bluefinPool){
+      return '<div class="ticket">'+
+        '<div class="pit-kicker">'+kicker+'</div>'+
+        '<div style="font-size:22px;font-weight:700;letter-spacing:-.03em;margin:8px 0 10px">Swap</div>'+
+        '<p style="color:var(--muted);margin:0 0 14px">Bluefin pool pending. Refresh in a few seconds.</p>'+
+        '<button type="button" class="btn-trade" disabled>Bluefin pool pending</button>'+
+      '</div>';
+    }
+    const gold = q === "XAUM";
+    const buyOn = state.side !== "Sell";
+    const payAsset = buyOn ? (gold && state.payWith === "SUI" ? "SUI" : q) : tk.t;
+    const recvAsset = buyOn ? tk.t : (gold && state.payWith === "SUI" ? "SUI" : q);
     const canCollect = !!(tk.lockId && tk.bluefinPool);
-    const cta = tk.bluefinPool
-      ? '<a class="btn-trade" href="https://trade.bluefin.io/swap?pool='+tk.bluefinPool+'" target="_blank" rel="noopener">Open Bluefin</a>'+
-        (canCollect ? '<button type="button" class="btn-trade" id="collect-go" style="margin-top:10px;background:#16171A;color:var(--ink)">Collect LP fees</button>' : '')
-      : (insta
-        ? '<button type="button" class="btn-trade" disabled>Bluefin pool pending</button>'
-        : '<button type="button" class="btn-trade" disabled>Curve ticket retired</button>');
-    const lockRow = (insta || tk.lpLocked)
-      ? '<div class="kv"><span style="color:var(--muted)">Lock</span><span>'+lockLabel+'</span></div>'
-      : '';
-    const note = (insta || tk.bluefinPool)
-      ? "Anyone can poke collect_instadex_fees. Bluefin keeps 20%. Quote splits 60/10/30. Token-side LP fees burn."
-      : "Create is Instadex only. Live curve tokens stay listed.";
-    return '<div class="ticket">'+
+    const amtVal = escAttr(state.amt || (gold && state.payWith !== "SUI" ? "0.01" : "1"));
+    const payToggle = gold
+      ? '<div class="chips" id="pay-route" style="margin-top:10px">'+
+          '<div data-pay="SUI"'+(state.payWith==="SUI"?" class=\"on\"":"")+'>'+(buyOn?"Pay SUI":"Get SUI")+'</div>'+
+          '<div data-pay="XAUM"'+(state.payWith!=="SUI"?" class=\"on\"":"")+'>'+(buyOn?"Pay XAUM":"Get XAUM")+'</div>'+
+        '</div>'
+      : '<div id="pay-route" style="display:none"></div>';
+    return '<div class="ticket" id="swap-box">'+
       '<div class="pit-kicker">'+kicker+'</div>'+
-      '<div style="font-size:22px;font-weight:700;letter-spacing:-.03em;margin:8px 0 10px">'+title+'</div>'+
-      '<p style="color:var(--muted);margin:0 0 14px">'+copy+'</p>'+
+      '<div style="font-size:22px;font-weight:700;letter-spacing:-.03em;margin:8px 0 10px">Swap</div>'+
+      '<div class="sides">'+
+        '<div id="btn-buy" data-side="Buy"'+(buyOn?' class="on-buy"':'')+'>Buy</div>'+
+        '<div id="btn-sell" data-side="Sell"'+(buyOn?'':' class="on-sell"')+'>Sell</div>'+
+      '</div>'+
+      payToggle+
+      '<div style="margin-top:12px">'+
+        '<div class="kv" style="border:0;padding:0 0 8px"><span id="pay-label">'+(buyOn?"Pay with "+payAsset:"Sell "+tk.t)+'</span><span id="bal-text" class="mono" style="color:var(--muted)">—</span></div>'+
+        '<input id="amt" class="amt" inputmode="decimal" autocomplete="off" value="'+amtVal+'">'+
+        '<div class="chips" id="amt-chips"></div>'+
+      '</div>'+
+      '<div class="kv"><span style="color:var(--muted)">You receive</span><span id="receive">'+recvAsset+' …</span></div>'+
+      '<div class="kv"><span style="color:var(--muted)">Route</span><span id="venue-text">7k aggregator</span></div>'+
+      '<div class="kv" id="hop-row" style="display:none"><span style="color:var(--muted)">Path</span><span id="hop-text"></span></div>'+
       '<div class="kv"><span style="color:var(--muted)">Pair</span><span class="mono">'+tk.t+' / '+q+'</span></div>'+
-      '<div class="kv"><span style="color:var(--muted)">Pool</span><span class="mono">'+(tk.bluefinPool ? shortAddr(tk.bluefinPool) : "—")+'</span></div>'+
-      lockRow+
-      cta+
-      '<div style="margin-top:10px;text-align:center;font-size:11px;color:var(--muted)">'+note+'</div>'+
+      '<div class="kv"><span style="color:var(--muted)">Lock</span><span>'+lockLabel+'</span></div>'+
+      '<div class="kv"><span style="color:var(--muted)">Pool fee</span><span>1% Bluefin</span></div>'+
+      '<button type="button" class="btn-trade" id="trade-btn" data-trade>Connect wallet</button>'+
+      '<div id="swap-err" class="swap-err"></div>'+
+      (canCollect ? '<button type="button" class="btn-trade btn-ghost" id="collect-go" style="margin-top:10px">Collect LP fees</button>' : '')+
+      '<div style="margin-top:10px;text-align:center;font-size:11px;color:var(--muted)">'+
+        'Best route across Bluefin, Cetus, and other Sui pools. LP locked forever. Anyone can collect. Token-side fees burn.'+
+        (tk.bluefinPool ? ' · <a href="https://trade.bluefin.io/swap?pool='+tk.bluefinPool+'" target="_blank" rel="noopener">Bluefin</a>' : '')+
+      '</div>'+
     '</div>';
   }
   function tokenHTML(){
@@ -1822,7 +1913,145 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       $$('[data-bar="'+k.t+'"]').forEach(function(el){ el.style.width = barPct(k); });
     });
   }
+  function tokenDecimals(tk){
+    var n = Number(tk && tk.decimals);
+    return n >= 0 && n <= 18 ? n : 9;
+  }
+  function quoteTypeOf(tk){
+    return poolQuote(tk) === "XAUM" ? window.ARENA_XAUM_TYPE : SUI_TYPE;
+  }
+  function tokenTypeOf(tk){
+    return normType(typeNameStr(tk.token) || demoTypeId(tk));
+  }
+  function swapPayType(tk){
+    if (state.side === "Sell") return tokenTypeOf(tk);
+    if (poolQuote(tk) === "XAUM" && state.payWith === "SUI") return SUI_TYPE;
+    return quoteTypeOf(tk);
+  }
+  function swapOutType(tk){
+    if (state.side === "Buy") return tokenTypeOf(tk);
+    if (poolQuote(tk) === "XAUM" && state.payWith === "SUI") return SUI_TYPE;
+    return quoteTypeOf(tk);
+  }
+  function swapPayLabel(tk){
+    if (state.side === "Sell") return tk.t;
+    if (poolQuote(tk) === "XAUM" && state.payWith === "SUI") return "SUI";
+    return poolQuote(tk);
+  }
+  function swapOutLabel(tk){
+    if (state.side === "Buy") return tk.t;
+    if (poolQuote(tk) === "XAUM" && state.payWith === "SUI") return "SUI";
+    return poolQuote(tk);
+  }
+  function swapPayDecimals(tk){
+    if (state.side === "Sell") return tokenDecimals(tk);
+    return 9;
+  }
+  function swapOutDecimals(tk){
+    if (state.side === "Buy") return tokenDecimals(tk);
+    return 9;
+  }
+  function swapNeedsHop(tk){
+    return poolQuote(tk) === "XAUM" && state.payWith === "SUI";
+  }
+  function humanToBase(human, decimals){
+    return toSmallestBig(human, decimals);
+  }
+  function balForPay(tk){
+    if (state.side === "Sell") return swapBals.tok;
+    if (poolQuote(tk) === "XAUM" && state.payWith === "SUI") return swapBals.sui;
+    return swapBals.quote;
+  }
+  function swapMaxHuman(tk){
+    var d = swapPayDecimals(tk);
+    var raw = balForPay(tk);
+    if (state.side === "Buy" && swapPayType(tk) === SUI_TYPE){
+      var gas = 50000000n;
+      if (raw > gas) raw -= gas;
+      else raw = 0n;
+    }
+    return fromBase(raw, d);
+  }
+  function venueLabel(q){
+    if (!q) return "7k aggregator";
+    if (q.venue === "bluefin") return "Bluefin Spot";
+    if (q.venue === "cetus") return "Cetus aggregator";
+    if (q.venue === "navi") return "Astros aggregator";
+    if (q.venue === "7k") return "7k aggregator";
+    return q.venue || "Aggregator";
+  }
+  function paintSwapBox(){
+    const tk = findT(state.sym);
+    const buy = $("#btn-buy"), sell = $("#btn-sell");
+    if (!buy || !tk || !tk.bluefinPool) return;
+    const buyOn = state.side !== "Sell";
+    const q = poolQuote(tk);
+    const gold = q === "XAUM";
+    const payAsset = swapPayLabel(tk);
+    const outAsset = swapOutLabel(tk);
+    buy.className = buyOn ? "on-buy" : "";
+    sell.className = buyOn ? "" : "on-sell";
+    const pl = $("#pay-label"); if (pl) pl.textContent = buyOn ? ("Pay with " + payAsset) : ("Sell " + tk.t);
+    const bt = $("#bal-text");
+    if (bt) bt.textContent = (suiSession.address ? (fmtSwapAmt(fromBase(balForPay(tk), swapPayDecimals(tk))) + " " + payAsset) : "Connect");
+    const route = $("#pay-route");
+    if (route){
+      route.style.display = gold ? "" : "none";
+      $$("[data-pay]", route).forEach(function(el){
+        el.classList.toggle("on", el.getAttribute("data-pay") === (state.payWith === "SUI" ? "SUI" : "XAUM"));
+        var isSui = el.getAttribute("data-pay") === "SUI";
+        el.textContent = buyOn ? (isSui ? "Pay SUI" : "Pay XAUM") : (isSui ? "Get SUI" : "Get XAUM");
+      });
+    }
+    const chipHost = $("#amt-chips");
+    if (chipHost){
+      const vals = state.side === "Sell"
+        ? ["1000","10000","100000","1m","Max"]
+        : (payAsset === "XAUM" ? ["0.01","0.05","0.1","0.25","Max"] : ["0.5","1","5","10","Max"]);
+      chipHost.innerHTML = vals.map(function(c){ return '<div data-chip="'+c+'">'+c+'</div>'; }).join("");
+    }
+    const rec = $("#receive");
+    const venue = $("#venue-text");
+    const hopEl = $("#hop-text");
+    const hopRow = $("#hop-row");
+    const err = $("#swap-err");
+    if (swapQuote && swapQuote.error && !swapQuote.amountOut){
+      if (rec) rec.textContent = "—";
+      if (venue) venue.textContent = "No route yet";
+      if (hopRow) hopRow.style.display = "";
+      if (hopEl) hopEl.textContent = swapQuote.error;
+    } else if (swapQuote && swapQuote.amountOut){
+      const outN = fromBase(swapQuote.amountOut, swapOutDecimals(tk));
+      if (rec) rec.textContent = fmtSwapAmt(outN) + " " + outAsset;
+      if (venue) venue.textContent = venueLabel(swapQuote);
+      const hops = (swapQuote.hops && swapQuote.hops.length) ? swapQuote.hops.join(" → ") : "";
+      if (hopRow) hopRow.style.display = hops || swapNeedsHop(tk) ? "" : "none";
+      if (hopEl) hopEl.textContent = hops || (swapNeedsHop(tk) ? "SUI → XAUM → " + tk.t : (tk.t + " / " + q));
+    } else if (swapQuote && swapQuote.pending){
+      if (rec) rec.textContent = "Confirm in wallet";
+      if (venue) venue.textContent = "Bluefin Spot";
+      if (hopRow) hopRow.style.display = "";
+      if (hopEl) hopEl.textContent = swapQuote.hopOut || ((swapQuote.hops || []).join(" → ")) || "New pool · 7k has not indexed it yet";
+    } else {
+      if (rec) rec.textContent = swapQuote && swapQuote.quoting ? "…" : ("— " + outAsset);
+      if (venue) venue.textContent = "7k aggregator";
+      if (hopRow) hopRow.style.display = swapNeedsHop(tk) ? "" : "none";
+      if (hopEl) hopEl.textContent = swapNeedsHop(tk) ? ("SUI → XAUM → " + tk.t) : "";
+    }
+    if (err && !(swapQuote && swapQuote.error && !swapQuote.amountOut)) err.textContent = "";
+    const tr = $("#trade-btn");
+    if (tr){
+      tr.className = "btn-trade" + (buyOn ? "" : " sell");
+      if (!suiSession.address) tr.textContent = "Connect wallet";
+      else if (swapQuote && swapQuote.quoting) tr.textContent = "Quoting…";
+      else tr.textContent = buyOn ? ("Buy " + tk.t) : ("Sell " + tk.t);
+    }
+  }
   function paintTicket(){
+    if (state.route === "token" && isDexBout(findT(state.sym))) {
+      paintSwapBox();
+      return;
+    }
     const buy = $("#btn-buy"), sell = $("#btn-sell");
     if (!buy) return;
     const buyOn = state.side === "Buy";
@@ -2215,11 +2444,19 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     if (q) q.value = state.search;
     prevPot = money(pot);
     if (state.route === "token" && !isDexBout(findT(state.sym))) mountTvChart();
+    if (state.route === "token" && isDexBout(findT(state.sym))){
+      refreshSwapBals(findT(state.sym));
+      scheduleSwapQuote();
+    }
   }
   function go(route, sym){
     const nextSym = sym || state.sym;
     if (route === state.route && (!sym || nextSym === state.sym)) return;
     window.scrollTo(0,0);
+    if (sym && nextSym !== state.sym){
+      swapQuote = null;
+      swapBals = { sui: 0n, quote: 0n, tok: 0n };
+    }
     state.route = route;
     if (sym) state.sym = nextSym;
     hashLock = true;
@@ -2522,6 +2759,304 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     if (v.name) return String(v.name);
     return String(v);
   }
+  function parsePoolTypes(typeRepr){
+    var s = String(typeRepr || "");
+    var i = s.indexOf("<");
+    var j = s.lastIndexOf(">");
+    if (i < 0 || j < 0) return { a: "", b: "" };
+    var parts = s.slice(i + 1, j).split(",");
+    return { a: normType((parts[0] || "").trim()), b: normType((parts.slice(1).join(",") || "").trim()) };
+  }
+  async function poolSnap(id){
+    var obj = await moveObject(id);
+    var types = parsePoolTypes(obj.type);
+    var j = obj.json || {};
+    function num(v){
+      if (v == null) return 0;
+      if (typeof v === "object") return Number(v.value || v.amount || 0);
+      return Number(v);
+    }
+    return {
+      id: id,
+      type: obj.type,
+      a: types.a,
+      b: types.b,
+      sqrt: String(j.current_sqrt_price || j.current_sqrt_price_x64 || j.sqrt_price || "0"),
+      liq: String(j.liquidity || "0"),
+      coinA: num(j.coin_a != null ? j.coin_a : j.coin_a_amount),
+      coinB: num(j.coin_b != null ? j.coin_b : j.coin_b_amount)
+    };
+  }
+  async function loadHopPool(){
+    if (hopPoolSnap && hopPoolSnap.a) return hopPoolSnap;
+    hopPoolSnap = await poolSnap(window.ARENA_XAUM_SUI_POOL);
+    return hopPoolSnap;
+  }
+  async function refreshSwapBals(tk){
+    if (!suiSession.address || !tk) return;
+    try {
+      var suiCoins = await coinsOfExact(suiSession.address, SUI_TYPE);
+      var qCoins = await coinsOfExact(suiSession.address, quoteTypeOf(tk));
+      var tCoins = await coinsOfExact(suiSession.address, tokenTypeOf(tk));
+      function sum(cs){
+        return (cs || []).reduce(function(a,c){ return a + c.valueBig; }, 0n);
+      }
+      swapBals.sui = sum(suiCoins);
+      swapBals.quote = sum(qCoins);
+      swapBals.tok = sum(tCoins);
+      paintSwapBox();
+    } catch (e) {}
+  }
+  function scheduleSwapQuote(){
+    if (state.route !== "token") return;
+    var tk = findT(state.sym);
+    if (!isDexBout(tk) || !tk.bluefinPool) return;
+    clearTimeout(swapQuoteTimer);
+    swapQuote = { quoting: true, amountOut: swapQuote && swapQuote.amountOut, hops: swapQuote && swapQuote.hops, venue: swapQuote && swapQuote.venue };
+    paintSwapBox();
+    swapQuoteTimer = setTimeout(function(){ fetchSwapQuote(); }, 280);
+  }
+  async function quoteAggregator(fromType, toType, amount, targetPools){
+    var q = new URLSearchParams({
+      amount: String(amount),
+      from: fromType,
+      to: toType
+    });
+    if (targetPools) q.set("target_pools", targetPools);
+    var r = await fetch("/api/quote?" + q.toString());
+    var j = await r.json().catch(function(){ return null; });
+    if (j && j.ok && j.amountOut && String(j.amountOut) !== "0") return j;
+    throw new Error((j && j.error) || "No aggregator route");
+  }
+  async function fetchSwapQuote(){
+    var tk = findT(state.sym);
+    if (!tk || !tk.bluefinPool || state.route !== "token") return;
+    var seq = ++swapQuoteSeq;
+    var amount = humanToBase(state.amt, swapPayDecimals(tk));
+    if (amount <= 0n){
+      swapQuote = { error: "Enter an amount" };
+      paintSwapBox();
+      return;
+    }
+    var fromType = swapPayType(tk);
+    var toType = swapOutType(tk);
+    var target = (!swapNeedsHop(tk) && tk.bluefinPool) ? tk.bluefinPool : "";
+    try {
+      var j = await quoteAggregator(fromType, toType, amount, target);
+      if (seq !== swapQuoteSeq) return;
+      swapQuote = {
+        venue: j.venue,
+        amountIn: String(amount),
+        amountOut: String(j.amountOut),
+        hops: j.hops || [],
+        raw: j.raw,
+        fromType: fromType,
+        toType: toType
+      };
+      paintSwapBox();
+      return;
+    } catch (e) {}
+    try {
+      var insta = await poolSnap(tk.bluefinPool);
+      if (state.side === "Sell" && !(insta.coinB > 0)){
+        if (seq !== swapQuoteSeq) return;
+        swapQuote = { error: "No quote in the pool yet. A buy has to land first.", venue: "bluefin" };
+        paintSwapBox();
+        return;
+      }
+      var hops = swapNeedsHop(tk)
+        ? (state.side === "Buy" ? ["SUI → XAUM", tk.t + " pool"] : [tk.t + " pool", "XAUM → SUI"])
+        : [tk.t + "/" + poolQuote(tk)];
+      var hopOut = "";
+      if (swapNeedsHop(tk) && state.side === "Buy" && hop.suiPerXaum > 0){
+        var xaumN = (Number(state.amt) || 0) / hop.suiPerXaum;
+        hopOut = fmtSwapAmt(xaumN) + " XAUM → " + tk.t;
+      }
+      if (seq !== swapQuoteSeq) return;
+      swapQuote = {
+        venue: "bluefin",
+        amountIn: String(amount),
+        amountOut: "",
+        hops: hops,
+        hopOut: hopOut,
+        fromType: fromType,
+        toType: toType,
+        pending: true
+      };
+      paintSwapBox();
+    } catch (err) {
+      if (seq !== swapQuoteSeq) return;
+      swapQuote = { error: (err && err.message) ? err.message : "Quote failed" };
+      paintSwapBox();
+    }
+  }
+  async function loadSevenK(){
+    if (SevenK) return SevenK;
+    var last = null;
+    for (var i = 0; i < SEVENK_URLS.length; i++){
+      try {
+        var mod = await import(SEVENK_URLS[i]);
+        if (mod && (mod.getQuote || (mod.default && mod.default.getQuote))){
+          SevenK = {
+            getQuote: mod.getQuote || mod.default.getQuote,
+            buildTx: mod.buildTx || mod.default.buildTx,
+            Config: mod.Config || (mod.default && mod.default.Config)
+          };
+          return SevenK;
+        }
+      } catch (e) { last = e; }
+    }
+    throw last || new Error("Could not load 7k aggregator SDK");
+  }
+  function coinZero(tx, type){
+    return tx.moveCall({ target: "0x2::coin::zero", typeArguments: [type], arguments: [] });
+  }
+  async function takeSwapCoin(tx, type, amount){
+    if (normType(type) === SUI_TYPE){
+      var sp = tx.splitCoins(tx.gas, [amount]);
+      return Array.isArray(sp) ? sp[0] : sp;
+    }
+    var coins = await coinsOfExact(suiSession.address, type);
+    return takeCoin(tx, coins, amount);
+  }
+  function bluefinSwapCall(tx, poolId, typeA, typeB, coinA, coinB, a2b, amount, minOut, middle){
+    var sqrt = a2b ? BLUEFIN_MIN_SQRT : BLUEFIN_MAX_SQRT;
+    var target = window.ARENA_BLUEFIN_SPOT + "::gateway::" + (middle != null ? "route_swap" : "swap_assets");
+    var args = [
+      tx.object(window.ARENA_CLOCK || "0x6"),
+      tx.object(window.ARENA_BLUEFIN_CONFIG),
+      tx.object(poolId),
+      coinA,
+      coinB,
+      txPure(tx, "bool", !!a2b),
+      txPure(tx, "bool", true)
+    ];
+    if (middle != null) args.push(txPure(tx, "bool", !!middle));
+    args.push(txPure(tx, "u64", BigInt(amount)));
+    args.push(txPure(tx, "u64", BigInt(minOut)));
+    args.push(txPure(tx, "u128", sqrt));
+    return tx.moveCall({
+      target: target,
+      typeArguments: [typeA, typeB],
+      arguments: args
+    });
+  }
+  function a2bFor(snap, fromType){
+    return normType(fromType) === snap.a;
+  }
+  async function swapViaBluefin(tk, amount, minOut){
+    var Transaction = await loadTransaction();
+    var tx = new Transaction();
+    tx.setSender(suiSession.address);
+    var insta = await poolSnap(tk.bluefinPool);
+    var fromType = swapPayType(tk);
+    if (swapNeedsHop(tk)){
+      var hopP = await loadHopPool();
+      var firstFrom = state.side === "Buy" ? SUI_TYPE : tokenTypeOf(tk);
+      var midType = window.ARENA_XAUM_TYPE;
+      var firstPool = state.side === "Buy" ? hopP : insta;
+      var secondPool = state.side === "Buy" ? insta : hopP;
+      var coinIn = await takeSwapCoin(tx, firstFrom, amount);
+      var a2b1 = a2bFor(firstPool, firstFrom);
+      var coinA1 = a2b1 ? coinIn : coinZero(tx, firstPool.a);
+      var coinB1 = a2b1 ? coinZero(tx, firstPool.b) : coinIn;
+      var hop1 = bluefinSwapCall(tx, firstPool.id, firstPool.a, firstPool.b, coinA1, coinB1, a2b1, amount, 0, false);
+      var midCoin = a2b1 ? hop1[1] : hop1[0];
+      var dust = a2b1 ? hop1[0] : hop1[1];
+      var a2b2 = a2bFor(secondPool, midType);
+      var coinA2 = a2b2 ? midCoin : coinZero(tx, secondPool.a);
+      var coinB2 = a2b2 ? coinZero(tx, secondPool.b) : midCoin;
+      var hop2 = bluefinSwapCall(tx, secondPool.id, secondPool.a, secondPool.b, coinA2, coinB2, a2b2, 0, minOut, true);
+      var outCoin = a2b2 ? hop2[1] : hop2[0];
+      var dust2 = a2b2 ? hop2[0] : hop2[1];
+      tx.transferObjects([outCoin, dust, dust2], suiSession.address);
+    } else {
+      var snap = insta;
+      var a2b = a2bFor(snap, fromType);
+      var coinIn = await takeSwapCoin(tx, fromType, amount);
+      var coinA = a2b ? coinIn : coinZero(tx, snap.a);
+      var coinB = a2b ? coinZero(tx, snap.b) : coinIn;
+      bluefinSwapCall(tx, snap.id, snap.a, snap.b, coinA, coinB, a2b, amount, minOut, null);
+    }
+    return walletExec(tx);
+  }
+  async function swapVia7k(tk, amount){
+    var sdk = await loadSevenK();
+    var qOpts = {
+      tokenIn: swapPayType(tk),
+      tokenOut: swapOutType(tk),
+      amountIn: String(amount)
+    };
+    if (!swapNeedsHop(tk) && tk.bluefinPool) qOpts.targetPools = [tk.bluefinPool];
+    var q = await sdk.getQuote(qOpts);
+    if (!q || !(q.returnAmountWithDecimal || q.returnAmount)) throw new Error("7k returned no quote");
+    var Transaction = await loadTransaction();
+    var tx = new Transaction();
+    tx.setSender(suiSession.address);
+    var coinIn = await takeSwapCoin(tx, swapPayType(tk), amount);
+    var built = await sdk.buildTx({
+      quoteResponse: q,
+      accountAddress: suiSession.address,
+      slippage: SWAP_SLIP,
+      commission: { partner: window.ARENA_SWAP_PARTNER, commissionBps: 0 },
+      extendTx: { tx: tx, coinIn: coinIn }
+    });
+    var outTx = (built && built.tx) || tx;
+    if (built && built.coinOut) outTx.transferObjects([built.coinOut], suiSession.address);
+    return walletExec(outTx);
+  }
+  async function doSwap(){
+    var btn = $("#trade-btn");
+    var tk = findT(state.sym);
+    var err = $("#swap-err");
+    if (!tk || !tk.bluefinPool) return;
+    try {
+      if (!hasSuiWallet() && !suiSession.address){
+        if (btn) btn.textContent = "No Sui wallet found";
+        return;
+      }
+      if (!suiSession.address){
+        await connectWallet();
+        await refreshSwapBals(tk);
+        paintSwapBox();
+        scheduleSwapQuote();
+        return;
+      }
+      var amount = humanToBase(state.amt, swapPayDecimals(tk));
+      if (amount <= 0n) throw new Error("Enter an amount");
+      if (btn){ btn.disabled = true; btn.textContent = "Swapping…"; }
+      if (err) err.textContent = "";
+      var minOut = 1n;
+      if (swapQuote && swapQuote.amountOut){
+        var quoted = BigInt(String(swapQuote.amountOut));
+        var bps = swapQuote.venue === "bluefin" ? 9000n : BigInt(Math.round((1 - SWAP_SLIP) * 10000));
+        minOut = (quoted * bps) / 10000n;
+        if (minOut < 1n) minOut = 1n;
+      }
+      var result;
+      var can7k = swapQuote && swapQuote.raw && swapQuote.venue && swapQuote.venue !== "bluefin";
+      if (can7k){
+        try {
+          result = await swapVia7k(tk, amount);
+        } catch (e7) {
+          result = await swapViaBluefin(tk, amount, minOut);
+        }
+      } else {
+        result = await swapViaBluefin(tk, amount, minOut);
+      }
+      var digest = txDigest(result);
+      if (btn){
+        btn.disabled = false;
+        btn.textContent = digest ? ("Swapped · " + String(digest).slice(0, 8)) : "Swapped";
+      }
+      await refreshSwapBals(tk);
+      scheduleSwapQuote();
+    } catch (err2){
+      var msg = (err2 && err2.message) ? err2.message : String(err2 || "Swap failed");
+      if (btn){ btn.disabled = false; btn.textContent = msg.length > 32 ? "Swap failed" : msg; }
+      if (err) err.textContent = msg;
+    }
+  }
   async function doCollect(){
     var btn = $("#collect-go");
     var tk = findT(state.sym);
@@ -2572,6 +3107,10 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     if (collect){ doCollect(); return; }
     const trade = e.target.closest("[data-trade]");
     if (trade){
+      if (state.route === "token" && isDexBout(findT(state.sym))){
+        doSwap();
+        return;
+      }
       if (!state.connected){ state.connected = true; paintWallet(); paintTicket(); }
       else { userFill(); paintLive(); }
       return;
@@ -2586,7 +3125,18 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       return;
     }
     const side = e.target.closest("[data-side]");
-    if (side){ state.side = side.getAttribute("data-side"); paintTicket(); return; }
+    if (side){
+      state.side = side.getAttribute("data-side");
+      if (state.route === "token" && isDexBout(findT(state.sym))){
+        if (!state.amt) state.amt = (poolQuote(state.sym) === "XAUM" && state.payWith !== "SUI" && state.side === "Buy") ? "0.01" : "1";
+        const inpS = $("#amt"); if (inpS) inpS.value = state.amt;
+        paintTicket();
+        scheduleSwapQuote();
+        return;
+      }
+      paintTicket();
+      return;
+    }
     const copyBtn = e.target.closest("[data-copy]");
     if (copyBtn){
       const val = copyBtn.getAttribute("data-copy") || "";
@@ -2599,17 +3149,34 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     const pay = e.target.closest("[data-pay]");
     if (pay){
       state.payWith = pay.getAttribute("data-pay");
-      state.amt = state.payWith === "SUI" ? "5" : "0.01";
+      if (state.route === "token" && isDexBout(findT(state.sym))){
+        state.amt = state.payWith === "SUI" ? "1" : "0.01";
+      } else {
+        state.amt = state.payWith === "SUI" ? "5" : "0.01";
+      }
       const inp = $("#amt"); if (inp) inp.value = state.amt;
       paintTicket();
+      if (state.route === "token" && isDexBout(findT(state.sym))) scheduleSwapQuote();
       return;
     }
     const chip = e.target.closest("[data-chip]");
     if (chip){
       const v = chip.getAttribute("data-chip");
-      state.amt = v === "Max" ? (payingSui() ? balance : walletBal(poolQuote(state.sym))).toFixed(2) : v;
+      if (v === "Max"){
+        if (state.route === "token" && isDexBout(findT(state.sym))){
+          var mx = swapMaxHuman(findT(state.sym));
+          state.amt = mx > 0 ? String(mx) : "0";
+        } else {
+          state.amt = (payingSui() ? balance : walletBal(poolQuote(state.sym))).toFixed(2);
+        }
+      } else if (v === "1m" || v === "1M"){
+        state.amt = "1000000";
+      } else {
+        state.amt = v;
+      }
       const inp = $("#amt"); if (inp) inp.value = state.amt;
       paintTicket();
+      if (state.route === "token" && isDexBout(findT(state.sym))) scheduleSwapQuote();
       return;
     }
     const tapeRow = e.target.closest("[data-tape]");
@@ -2650,7 +3217,11 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     }
   });
   document.addEventListener("input", function(e){
-    if (e.target && e.target.id === "amt"){ state.amt = e.target.value; paintTicket(); }
+    if (e.target && e.target.id === "amt"){
+      state.amt = e.target.value;
+      paintTicket();
+      if (state.route === "token" && isDexBout(findT(state.sym))) scheduleSwapQuote();
+    }
     if (e.target && e.target.id === "q"){
       state.search = e.target.value;
       if (state.route !== "explore") { go("explore"); return; }
