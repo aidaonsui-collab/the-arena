@@ -495,13 +495,38 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     return { bytes: bytes, ident: ident, upper: upper };
   }
 
+  function txDigest(result){
+    if (!result) return "";
+    if (typeof result === "string") return result;
+    return result.digest
+      || (result.effects && (result.effects.transactionDigest || result.effects.digest))
+      || result.transactionDigest
+      || "";
+  }
+  function flattenObjectChanges(result){
+    if (!result) return [];
+    if (Array.isArray(result.objectChanges)) return result.objectChanges;
+    var fx = result.effects || {};
+    if (Array.isArray(fx.objectChanges)) return fx.objectChanges;
+    if (fx.objectChanges && Array.isArray(fx.objectChanges.nodes)) return fx.objectChanges.nodes;
+    return [];
+  }
   /// Pull the objects the coin's `init` created out of a publish result.
+  /// Accepts wallet JSON-RPC objectChanges and GraphQL transaction effects.
   function readPublishResult(result, ident){
-    var changes = (result && (result.objectChanges || (result.effects && result.effects.objectChanges))) || [];
-    var out = { packageId: "", capId: "", coinId: "", metaId: "", coinType: "" };
+    var changes = flattenObjectChanges(result);
+    var out = { packageId: "", capId: "", coinId: "", metaId: "", coinType: "", digest: txDigest(result) };
 
     for (var i = 0; i < changes.length; i++){
-      if (changes[i].type === "published"){ out.packageId = changes[i].packageId; break; }
+      var c = changes[i] || {};
+      if (c.type === "published" && c.packageId){
+        out.packageId = c.packageId;
+        continue;
+      }
+      var pkg = c.outputState && c.outputState.asMovePackage;
+      if (pkg){
+        out.packageId = pkg.address || c.address || out.packageId;
+      }
     }
     if (!out.packageId) return out;
     if (ident) out.coinType = out.packageId + "::" + ident + "::" + ident.toUpperCase();
@@ -512,15 +537,51 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     // freshly minted supply.
     var mine = out.packageId.replace(/^0x0*/, "");
     for (var j = 0; j < changes.length; j++){
-      var c = changes[j];
-      if (c.type !== "created") continue;
-      var t = String(c.objectType || "");
-      if (t.replace(/0x0*/g, "").indexOf(mine) < 0) continue;
-      if (t.indexOf("::coin::TreasuryCap<") >= 0) out.capId = c.objectId;
-      else if (t.indexOf("::coin::CoinMetadata<") >= 0) out.metaId = c.objectId;
-      else if (t.indexOf("::coin::Coin<") >= 0) out.coinId = c.objectId;
+      var ch = changes[j] || {};
+      var t = "";
+      var id = ch.objectId || ch.address || "";
+      if (ch.type === "created") t = String(ch.objectType || "");
+      else if (ch.outputState && ch.outputState.asMoveObject){
+        if (ch.idCreated === false) continue;
+        var cont = ch.outputState.asMoveObject.contents || {};
+        t = String((cont.type && (cont.type.repr || cont.type)) || "");
+      } else continue;
+      if (!t || t.replace(/0x0*/g, "").indexOf(mine) < 0) continue;
+      if (t.indexOf("::coin::TreasuryCap<") >= 0) out.capId = id;
+      else if (t.indexOf("::coin::CoinMetadata<") >= 0) out.metaId = id;
+      else if (t.indexOf("::coin::Coin<") >= 0) out.coinId = id;
     }
     return out;
+  }
+  function sleep(ms){ return new Promise(function(ok){ setTimeout(ok, ms); }); }
+  async function fetchPublishTx(digest){
+    var data = await gql(
+      "query($d:String!){ transaction(digest:$d){ digest effects { status objectChanges(first:50){ nodes { address idCreated outputState { asMovePackage { address } asMoveObject { contents { type { repr } } } } } } } } }",
+      { d: digest }
+    );
+    return data && data.transaction;
+  }
+  async function waitForPublish(digest, ident){
+    var last = "";
+    for (var i = 0; i < 15; i++){
+      try {
+        var tx = await fetchPublishTx(digest);
+        if (tx && tx.effects){
+          var st = String(tx.effects.status || "");
+          if (st && st !== "SUCCESS" && st !== "success"){
+            throw new Error("Publish failed on-chain (" + st + "). Digest " + digest);
+          }
+          var made = readPublishResult(tx, ident);
+          made.digest = digest;
+          if (made.packageId) return made;
+        }
+      } catch (e) {
+        last = (e && e.message) ? e.message : String(e);
+        if (/failed on-chain/i.test(last)) throw e;
+      }
+      await sleep(400 + i * 150);
+    }
+    throw new Error("Publish sent (" + digest.slice(0, 8) + "…) but the package id is not indexed yet. Check wallet history before retrying." + (last ? " " + last : ""));
   }
 
   function gql(query, variables){
@@ -2288,10 +2349,20 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
         if (btn) btn.textContent = "Sign 1 of 2 · publish coin…";
         setLaunchNote("Publishing " + built.upper + ". Signature 1 of 2.", false);
         var pubRes = await walletExec(ptx);
+        var digest = txDigest(pubRes);
         var made = readPublishResult(pubRes, built.ident);
+        if (!made.packageId){
+          if (!digest) throw new Error("Wallet did not return a publish digest. Check wallet history before retrying — the coin may already exist.");
+          setLaunchNote("Publish sent (" + digest.slice(0, 8) + "…). Waiting for the package…", false);
+          made = await waitForPublish(digest, built.ident);
+        }
         if (!made.packageId) throw new Error("Publish did not report a package id. Check your wallet history before retrying — the coin may already exist.");
+        if (!made.coinId && made.coinType){
+          var minted = await coinsOf(suiSession.address, made.coinType);
+          if (minted && minted[0]) made.coinId = minted[0].id;
+        }
         if (!made.capId || !made.coinId){
-          throw new Error("Coin published at " + made.packageId + " but the TreasuryCap or minted coin was not returned. Switch to \"I have one\" and paste them rather than publishing again.");
+          throw new Error("Coin published at " + made.packageId + " but the TreasuryCap or minted coin was not returned. Switch to \"I have one\" and paste them rather than publishing again. Digest " + (made.digest || digest || ""));
         }
         capId = made.capId;
         tokenCoinId = made.coinId;
