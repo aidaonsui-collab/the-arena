@@ -3084,8 +3084,8 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
         ptx.transferObjects([upgradeCap], suiSession.address);
 
         if (btn) btn.textContent = "Sign 1 of 2 · publish coin…";
-        setLaunchNote("Publishing " + built.upper + ". Click Approve. Ignore Slush red Unable to process on .vercel.app.", false);
-        var pubRes = await walletExecSigned(ptx);
+        setLaunchNote("Publishing " + built.upper + ". Sign in Slush. If it says Unable to process, Reject — that preview is a bad publish.", false);
+        var pubRes = await walletExec(ptx);
         var digest = txDigest(pubRes);
         var made = readPublishResult(pubRes, built.ident);
         if (!made.packageId){
@@ -3157,7 +3157,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
         ]
       });
       if (btn) btn.textContent = "Sign in wallet…";
-      var result = await walletExecSigned(tx);
+      var result = await walletExec(tx);
       var digest = txDigest(result);
       launchedOk = true;
       if (btn){ btn.disabled = true; btn.textContent = digest ? ("Launched · " + String(digest).slice(0, 8)) : "Launched"; }
