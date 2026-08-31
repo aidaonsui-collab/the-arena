@@ -2147,14 +2147,26 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     paintPitVotes();
   }
   function loadPitVotes(){
-    const q = "/api/pit-vote?round="+encodeURIComponent(String(roundNo));
-    return fetch(q, { cache: "no-store" }).then(function(r){ return r.json(); }).then(function(j){
-      if (j && !j.error) applyPitVotePayload(j);
-      else if (j && j.error) pitVoteErr = j.error;
+    return fetch("/api/pit-vote", { cache: "no-store" }).then(function(r){ return r.json(); }).then(function(j){
+      if (j && !j.error){
+        if ((j.votes && j.votes.length) || !(pitVotes.list && pitVotes.list.length)) applyPitVotePayload(j);
+      } else if (j && j.error) pitVoteErr = j.error;
       paintPitVotes();
     }).catch(function(){
       paintPitVotes();
     });
+  }
+  function noteLocalVote(tick, digest){
+    const addr = suiSession.address;
+    const prev = pitVotes.mine;
+    if (prev && prev !== tick && pitVotes.tallies[prev] > 0) pitVotes.tallies[prev] -= 1;
+    if (prev !== tick) pitVotes.tallies[tick] = (Number(pitVotes.tallies[tick]) || 0) + 1;
+    pitVotes.mine = tick;
+    pitVotes.list = (pitVotes.list || []).filter(function(v){
+      return String(v.address || "").toLowerCase() !== String(addr || "").toLowerCase();
+    });
+    pitVotes.list.unshift({ address: addr, ticker: tick, digest: digest, ts: Date.now() });
+    paintPitVotes();
   }
   function pitNum(v){
     if (v == null) return 0;
@@ -2197,13 +2209,14 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       const result = await walletExec(tx);
       const digest = txDigest(result);
       if (!digest) throw new Error("Wallet did not return a digest");
+      noteLocalVote(tick, digest);
       const res = await fetch("/api/pit-vote", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ digest: digest, ticker: tick, address: suiSession.address, round: roundNo })
+        body: JSON.stringify({ digest: digest, ticker: tick, address: suiSession.address })
       });
       const j = await res.json().catch(function(){ return null; });
-      if (!res.ok || (j && j.error)) throw new Error((j && j.error) || "Vote not counted");
+      if (!res.ok || (j && j.error)) throw new Error((j && j.error) || "Vote paid, but the roll did not record it");
       applyPitVotePayload(j);
       pot += PIT_VOTE_FEE / 1e9;
       paintPots();
