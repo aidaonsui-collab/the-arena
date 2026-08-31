@@ -1,5 +1,6 @@
 const SEVENK = "https://aggregator.api.sui-prod.bluefin.io/v2/quote";
 const CETUS = "https://api-sui.cetus.zone/router_v3/find_routes";
+const CETUS_V2 = "https://api-sui.cetus.zone/router_v2/find_routes";
 const NAVI = "https://open-aggregator-api.naviprotocol.io/find_routes";
 
 // Oracle-priced 7k sources need a Pyth key in buildTx. Leave them out.
@@ -180,9 +181,35 @@ export async function GET(req) {
         raw: r.json
       });
     }
-    errors.push("cetus " + (r.status || "fail"));
+    errors.push("cetus " + ((r.json && r.json.msg) || r.status || "fail"));
   } catch (e) {
     errors.push("cetus " + ((e && e.message) || e));
+  }
+
+  try {
+    const q = new URLSearchParams({
+      from: from,
+      target: to,
+      amount: amount,
+      by_amount_in: "true"
+    });
+    const r = await getJson(CETUS_V2 + "?" + q.toString(), 4500);
+    const d = r.json && (r.json.data || r.json);
+    const out = d && (d.amount_out || d.amountOut || d.outputAmount);
+    if (r.ok && out != null && String(out) !== "0") {
+      return Response.json({
+        ok: true,
+        venue: "cetus",
+        amountIn: asStr((d && (d.amount_in || d.amountIn)) || amount),
+        amountOut: asStr(out),
+        returnAmount: "",
+        hops: hopsFromPaths((d && (d.paths || d.routes || d.routers)) || []),
+        raw: r.json
+      });
+    }
+    errors.push("cetus-v2 " + (r.status || "fail"));
+  } catch (e) {
+    errors.push("cetus-v2 " + ((e && e.message) || e));
   }
 
   return Response.json({

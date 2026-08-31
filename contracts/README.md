@@ -7,7 +7,7 @@ Fair launches on Sui. Bonding curve, no presale.
 1. **TOKEN/SUI** — curve quoted in SUI. Graduation at 2,000 SUI.
 2. **TOKEN/XAUM** — same curve, quoted in Matrixdock gold. Bluefin Spot lists this as **XAUM**, not GOLD.
 3. **Reflection** — same 1% swap fee, split 50/20/20/10 reflections/creator/pit/platform.
-4. **Instadex** — skip the curve. Create uses Instant: 100% of the token, **0 real quote**, price from a platform virtual quote (default 1 SUI / 0.01 XAUM). `launch_instadex` remains as the two-sided seed.
+4. **Instadex** — skip the curve. Create uses Instant: 100% of the token, **0 real quote**, price from a platform virtual quote (default 1 SUI / 10_000_000 base units for any other Q: 10 USDY or 0.01 XAGM). Create quotes are SUI, USDY, XAGM. Leftover XAUM pairs still work. `launch_instadex` remains as the two-sided seed. AdminCap `set_instant_virtual_quote<Q>` and `register_pit<Q>` after `create_pit`.
 
 ## Gold quote is XAUM
 

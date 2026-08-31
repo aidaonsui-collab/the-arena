@@ -1,5 +1,9 @@
 export const XAUM =
   "0x9d297676e7a4b771ab023291377b2adfaa4938fb9080b8d12430e4b108b836a9::xaum::XAUM";
+export const USDY =
+  "0x960b531667636f39e85867775f52f6b1f220a058c4de786905bdf761e06a56bb::usdy::USDY";
+export const XAGM =
+  "0x64bddec0f898ccaa022b8a6e0a5f75d80f53177b87a9795dd15aefe9ac12ee6c::xagm::XAGM";
 
 export const SUI = "0x2::sui::SUI";
 
@@ -22,7 +26,9 @@ export function env() {
   const rpc = process.env.SUI_RPC ?? "https://fullnode.mainnet.sui.io:443";
   const pitSui = process.env.ARENA_PIT_SUI ?? "";
   const pitXaum = process.env.ARENA_PIT_XAUM ?? "";
-  return { packageId, rpc, pitSui, pitXaum };
+  const pitUsdy = process.env.ARENA_PIT_USDY ?? "";
+  const pitXagm = process.env.ARENA_PIT_XAGM ?? "";
+  return { packageId, rpc, pitSui, pitXaum, pitUsdy, pitXagm };
 }
 
 export function eventType(mod: string, name: string, packageId = env().packageId) {

@@ -50,7 +50,7 @@ export type ReflectionIndex = {
   pools: Record<
     string,
     {
-      quote: "SUI" | "XAUM";
+      quote: "SUI" | "XAUM" | "USDY" | "XAGM";
       reflection: boolean;
       holders: Record<string, HolderSnapshot>;
       totalReflectionFees: string;

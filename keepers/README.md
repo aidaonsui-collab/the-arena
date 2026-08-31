@@ -32,7 +32,7 @@ Package `P`. Subscribe:
 - `P::events::LockEvent` / `LpClaimEvent` — graduated LP time vault
 - Latest published-at `::events::InstadexMintLockEvent` — `{ lock_id, mint_lock_id }` (Compatible parallel event)
 
-Gold quote type: `0x9d297676e7a4b771ab023291377b2adfaa4938fb9080b8d12430e4b108b836a9::xaum::XAUM`
+Instant Create quotes: SUI, USDY (`0x960b…::usdy::USDY`, 6 decimals), XAGM (`0x64bd…::xagm::XAGM`, 9 decimals). Leftover XAUM: `0x9d297676e7a4b771ab023291377b2adfaa4938fb9080b8d12430e4b108b836a9::xaum::XAUM`
 
 Snapshot file (default `./data/reflections.json`) is the shape the token page can read for unpaid quote.
 
@@ -42,6 +42,7 @@ Snapshot file (default `./data/reflections.json`) is the shape the token page ca
 - `SUI_RPC`
 - `ARENA_PIT_SUI`=`0x8ec38e9bcac0838bf474680e71d0c3f302f4ea2f757d759b7b399701f904389c`
 - `ARENA_PIT_XAUM`=`0xa8a391bf380914c04be5deb478474b42754a5aa8c29c0955f267d73190a98783`
+- `ARENA_PIT_USDY` / `ARENA_PIT_XAGM` after `create_pit` + `register_pit`
 - `ARENA_CONFIG`=`0xcd527cb2389d806e5285ae708ee28df30a841ec5df7508ebfebaa0c9660b5d2c`
 - `ARENA_KEEPER_PHRASE` optional. If unset, collect/ring/settle sign with the local Sui keystore (gas only, not AdminCap).
 - `CRON_SECRET` required on Vercel so `/api/{ring,settle,collect,reflections}` are not public.

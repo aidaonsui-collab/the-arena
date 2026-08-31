@@ -12,7 +12,6 @@ const BF_CONFIG = "0x03db251ba509a8d5d8777b6338836082335d93eecbdd09a11e190a1cff5
 const CONFIG = "0xcd527cb2389d806e5285ae708ee28df30a841ec5df7508ebfebaa0c9660b5d2c";
 const PIT_SUI = "0x8ec38e9bcac0838bf474680e71d0c3f302f4ea2f757d759b7b399701f904389c";
 const PIT_XAUM = "0xa8a391bf380914c04be5deb478474b42754a5aa8c29c0955f267d73190a98783";
-const XAUM = "0x9d297676e7a4b771ab023291377b2adfaa4938fb9080b8d12430e4b108b836a9::xaum::XAUM";
 const CALL_PKG =
   process.env.ARENA_CALL_PACKAGE ??
   "0x5175c397e0f70475dcc4ae3d60e1d5984a35f1b762c941275ab7bb09aabd94fe";
@@ -46,8 +45,12 @@ function asId(v: unknown): string {
   return String(v ?? "");
 }
 
-function isXaum(quote: string): boolean {
-  return /xaum/i.test(quote);
+function pitFor(quote: string): string | null {
+  const s = quote || "";
+  if (/usdy/i.test(s)) return process.env.ARENA_PIT_USDY || "";
+  if (/xagm/i.test(s)) return process.env.ARENA_PIT_XAGM || "";
+  if (/xaum/i.test(s)) return process.env.ARENA_PIT_XAUM || PIT_XAUM;
+  return process.env.ARENA_PIT_SUI || PIT_SUI;
 }
 
 async function gql(query: string, variables: Record<string, unknown>) {
@@ -183,7 +186,11 @@ export async function runCollectInstadex() {
       results.push({ lockId: L.lockId, skipped: true, reason: "no accrued fees", fees });
       continue;
     }
-    const pit = isXaum(L.quote) ? (process.env.ARENA_PIT_XAUM || PIT_XAUM) : (process.env.ARENA_PIT_SUI || PIT_SUI);
+    const pit = pitFor(L.quote);
+    if (!pit) {
+      results.push({ lockId: L.lockId, skipped: true, reason: "no Pit<" + (L.quote || "Q") + "> registered" });
+      continue;
+    }
     const tx = new Transaction();
     tx.moveCall({
       target: `${CALL_PKG}::launch::collect_instadex_fees`,

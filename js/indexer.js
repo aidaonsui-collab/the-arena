@@ -4,20 +4,24 @@
  * Instant fills: Bluefin AssetSwap on each Instadex pool (transactions where
  * affectedObject = bluefin_pool_id). Do not scan global AssetSwap.
  * Curve leftovers: P::events::TradeEvent + ClaimEvent (kind=0 reflection, kind=1 pit).
- * LaunchEvent.quote / index.pools[id].quote → SUI or XAUM (gold quote type is XAUM).
+ * LaunchEvent.quote / index.pools[id].quote → SUI, USDY, XAGM, or leftover XAUM.
  * toCandles(trades, intervalMs) → TVBar { time: unix ms, open, high, low, close, volume }.
  * volume on candles is mist (1e9); the token page converts with fromMist for TV.
  *
  * packageId unset → demo TradeEvents so the chart still has candles.
  *
  * Instant is Pool<T,Q> (coin A = token, B = quote). a2b false = buy, true = sell.
- * Curve quote fee is 1% (100 bps). Gold quote type is XAUM.
+ * Curve quote fee is 1% (100 bps). Instant Create quotes are SUI, USDY, XAGM.
  */
 (function (root) {
   "use strict";
 
   var XAUM_TYPE =
     "0x9d297676e7a4b771ab023291377b2adfaa4938fb9080b8d12430e4b108b836a9::xaum::XAUM";
+  var USDY_TYPE =
+    "0x960b531667636f39e85867775f52f6b1f220a058c4de786905bdf761e06a56bb::usdy::USDY";
+  var XAGM_TYPE =
+    "0x64bddec0f898ccaa022b8a6e0a5f75d80f53177b87a9795dd15aefe9ac12ee6c::xagm::XAGM";
   var SUI_TYPE = "0x2::sui::SUI";
   var CLAIM_REFLECTION = 0;
   var CLAIM_PIT = 1;
@@ -42,8 +46,24 @@
   function quoteLabel(quote) {
     if (!quote) return "SUI";
     var s = String(quote);
+    if (s === "USDY" || s === USDY_TYPE || /usdy/i.test(s)) return "USDY";
+    if (s === "XAGM" || s === XAGM_TYPE || /xagm/i.test(s)) return "XAGM";
     if (s === "XAUM" || s === XAUM_TYPE || /xaum/i.test(s)) return "XAUM";
-    return "SUI";
+    if (s === "SUI" || s === SUI_TYPE || /::sui::sui$/i.test(s)) return "SUI";
+    return s.indexOf("::") >= 0 ? s.split("::").pop() : s;
+  }
+
+  function quoteDecimals(quote) {
+    return quoteLabel(quote) === "USDY" ? 6 : 9;
+  }
+
+  function quoteType(quote) {
+    var lab = quoteLabel(quote);
+    if (lab === "USDY") return USDY_TYPE;
+    if (lab === "XAGM") return XAGM_TYPE;
+    if (lab === "XAUM") return XAUM_TYPE;
+    if (lab === "SUI") return SUI_TYPE;
+    return SUI_TYPE;
   }
 
   function fromMist(s) {
@@ -566,7 +586,7 @@
 
   /**
    * InstadexLaunchEvent — no Arena pool_id. unlock_ms 0 = permanent lock.
-   * quoteLabel maps quote TypeName to SUI / XAUM. Missing event types are ignored by collect().
+   * quoteLabel maps quote TypeName to SUI / USDY / XAGM / XAUM. Missing event types are ignored by collect().
    */
   function parseInstadexLaunch(ev) {
     var p = ev.parsedJson || {};
@@ -853,11 +873,15 @@
 
   var api = {
     XAUM_TYPE: XAUM_TYPE,
+    USDY_TYPE: USDY_TYPE,
+    XAGM_TYPE: XAGM_TYPE,
     SUI_TYPE: SUI_TYPE,
     CLAIM_REFLECTION: CLAIM_REFLECTION,
     CLAIM_PIT: CLAIM_PIT,
     DEMO_WALLET: DEMO_WALLET,
     quoteLabel: quoteLabel,
+    quoteDecimals: quoteDecimals,
+    quoteType: quoteType,
     fromMist: fromMist,
     toMist: toMist,
     tradePrice: tradePrice,
