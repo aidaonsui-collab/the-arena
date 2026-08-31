@@ -145,24 +145,31 @@ a.btn-trade{display:block;text-align:center;text-decoration:none;box-sizing:bord
 .ticket .swap-err{color:#FF6640;font-size:12px;text-align:center;margin-top:8px}
 
 .tape-tabs{display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap}
-.tape-row{display:grid;grid-template-columns:28px minmax(0,1fr) minmax(72px,.7fr) 40px;gap:8px;align-items:center;padding:12px 2px;border-bottom:1px solid var(--line);cursor:pointer}
-.tape-row>div:nth-child(2){min-width:0}
+.tape-wrap{overflow-x:auto}
+.tape-head,.tape-row{display:grid;grid-template-columns:56px 52px 72px minmax(64px,.9fr) minmax(96px,1fr) minmax(140px,1.3fr);gap:8px;align-items:center;padding:10px 8px}
+.tape-head{color:var(--muted);font-size:11px;font-weight:650;letter-spacing:.04em;text-transform:uppercase;padding:4px 8px 10px;border-bottom:1px solid var(--line)}
+.tape-hbtn{border:0;background:transparent;color:inherit;font:inherit;letter-spacing:inherit;text-transform:inherit;padding:0;cursor:pointer}
+.tape-hbtn:hover{color:var(--ink)}
+.tape-row{border-bottom:1px solid var(--line);font-variant-numeric:tabular-nums}
 .tape-row:hover{background:var(--lift)}
-.tape-row.open{background:rgba(41,141,255,.08);border-radius:12px;border-bottom-color:transparent}
-.tape-arrow{width:22px;height:22px;border-radius:6px;display:grid;place-items:center;font-size:12px;font-weight:700}
-.tape-arrow.buy{background:rgba(41,141,255,.18);color:#298DFF}
-.tape-arrow.sell{background:rgba(255,102,64,.16);color:#FF6640}
+.tape-age{color:var(--muted);font-size:13px}
+.tape-type{font-weight:650;font-size:13px}
+.tape-type.buy,.tape-total.buy{color:#3ECF8E}
+.tape-type.sell,.tape-total.sell{color:#FF6640}
+.tape-mc,.tape-amt{font-size:13px;white-space:nowrap}
+.tape-total{display:inline-flex;align-items:center;gap:6px;font-weight:650;font-size:13px;white-space:nowrap}
+.sui-mark{width:12px;height:12px;flex:none}
+.tape-who{display:flex;align-items:center;justify-content:flex-end;gap:7px;min-width:0}
+.tape-av{width:18px;height:18px;border-radius:99px;background:#101211;color:var(--muted);font-size:10px;font-weight:700;display:grid;place-items:center;flex:none}
+.tape-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;color:var(--ink)}
+.tape-n{font-size:11px;background:#101211;border-radius:6px;padding:2px 6px;color:var(--muted);flex:none}
+.tape-ico{border:0;background:transparent;color:var(--muted);padding:2px;display:grid;place-items:center;flex:none;line-height:0}
+.tape-ico:hover{color:var(--ink)}
 .tape-sz{font-size:14px;font-weight:650;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .tape-sub{font-size:12px;color:var(--muted);margin-top:2px;font-family:"IBM Plex Mono",monospace}
 .tape-quote{text-align:right}
-.tape-quote .tape-sz{font-family:"IBM Plex Mono",ui-monospace,monospace}
 .tape-ago{text-align:right;color:var(--muted);font-size:12px}
-.tape-fees{grid-column:1/-1;display:none;flex-wrap:wrap;gap:6px;padding:2px 0 4px}
-.tape-row.open .tape-fees{display:flex}
 .tape-count{margin-left:auto}
-.tape-sum{font-size:12px;color:var(--muted);margin:0 0 10px;display:flex;flex-wrap:wrap;gap:8px 14px}
-.tape-sum b{color:var(--ink);font-weight:650}
-.tape-who{font-family:inherit;letter-spacing:-.01em}
 .tape-pager{display:flex;align-items:center;justify-content:center;gap:10px;margin-top:10px}
 .tape-pager button{border:1px solid var(--line);background:#16171A;color:var(--ink);border-radius:999px;padding:6px 12px;font-size:12px;font-weight:650;cursor:pointer}
 .tape-pager button:disabled{opacity:.4;cursor:not-allowed}
@@ -260,7 +267,8 @@ html[data-route="pit"] .search-row,html[data-route="launch"] .search-row,html[da
 }
 @media (max-width:720px){
   .nav-item{padding:8px 12px;font-size:13px}
-  .tape-row{grid-template-columns:22px minmax(0,1fr) minmax(72px,auto) 32px;gap:6px;padding:10px 0}
+  .tape-head .tape-mc,.tape-row .tape-mc{display:none}
+  .tape-head,.tape-row{grid-template-columns:44px 48px minmax(56px,.8fr) minmax(78px,1fr) minmax(110px,1.2fr);gap:6px;padding:10px 4px}
   .tape-sz{font-size:13px}
   .q-mark{width:12px;height:12px;margin-left:4px}
   .holder-row{grid-template-columns:22px minmax(0,1fr) minmax(40px,auto) minmax(56px,auto);gap:6px}
@@ -372,7 +380,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   let bshift = 0, pot = 31.94, prevPot = "", roundNo = 128, secs = ROUND_SECONDS;
   let balance = 48.60;
   let xaumBal = 2.40;
-  const state = {route:"explore", sym:"VOLT", filter:"All", sort:"Market cap", time:"All", side:"Buy", amt:"1", connected:false, search:"", lName:"", lTick:"", lQuote:"SUI", lPath:"instadex", lMode:"Holders", lTokenAmt:"", lQuoteAmt:"", lFirstBuy:"", lCap:"", lTokenCoin:"", lQuoteCoin:"", lCoinMode:"create", lDecimals:"9", lSupply:"1000000000", lDesc:"", lX:"", lTg:"", lWeb:"", lPublishedType:"", metricsWindow:"All", tapeTab:"trades", tapeOpen:"", tapePage:0, lFile:null, lArtUrl:"", lArtPreview:"", payWith:"SUI"};
+  const state = {route:"explore", sym:"VOLT", filter:"All", sort:"Market cap", time:"All", side:"Buy", amt:"1", connected:false, search:"", lName:"", lTick:"", lQuote:"SUI", lPath:"instadex", lMode:"Holders", lTokenAmt:"", lQuoteAmt:"", lFirstBuy:"", lCap:"", lTokenCoin:"", lQuoteCoin:"", lCoinMode:"create", lDecimals:"9", lSupply:"1000000000", lDesc:"", lX:"", lTg:"", lWeb:"", lPublishedType:"", metricsWindow:"All", tapeTab:"trades", tapeOpen:"", tapePage:0, tapeAge:"age", lFile:null, lArtUrl:"", lArtPreview:"", payWith:"SUI"};
   let hashLock = false;
   const hop = { suiPerXaum: null, usd: null, suiUsd: null, source: "" };
 
@@ -1044,6 +1052,43 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     if (!(Math.abs(n) > 0)) return "0";
     return n.toLocaleString("en-US");
   }
+  function fmtAmt(n){
+    n = Math.round(Number(n) || 0);
+    const a = Math.abs(n);
+    if (!(a > 0)) return "0";
+    if (a >= 1e6) return (n / 1e6).toFixed(2).replace(/\.00$/, "") + "M";
+    if (a >= 1e3) return Math.round(n / 1e3) + "K";
+    return String(n);
+  }
+  function fmtSui(n){
+    n = Number(n) || 0;
+    const a = Math.abs(n);
+    if (!(a > 0)) return "0";
+    if (a >= 1000) return (n / 1000).toFixed(2) + "k";
+    if (a >= 1) return n.toFixed(2);
+    if (a >= 0.01) return n.toFixed(3).replace(/0+$/, "").replace(/\.$/, "");
+    return n.toFixed(4);
+  }
+  function suiMark(){
+    return '<svg class="sui-mark" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M17.636 10.009a7.16 7.16 0 0 1 1.565 4.474 7.2 7.2 0 0 1-1.608 4.53l-.087.106-.023-.135a7 7 0 0 0-.07-.349c-.502-2.21-2.142-4.106-4.84-5.642-1.823-1.034-2.866-2.278-3.14-3.693-.177-.915-.046-1.834.209-2.62.254-.787.631-1.446.953-1.843l1.05-1.284a.46.46 0 0 1 .713 0l5.28 6.456zm1.66-1.283L12.26.123a.336.336 0 0 0-.52 0L4.704 8.726l-.023.029a9.33 9.33 0 0 0-2.07 5.872C2.612 19.803 6.816 24 12 24s9.388-4.197 9.388-9.373a9.32 9.32 0 0 0-2.07-5.871zM6.389 9.981l.63-.77.018.142q.023.17.055.34c.408 2.136 1.862 3.917 4.294 5.297 2.114 1.203 3.345 2.586 3.7 4.103a5.3 5.3 0 0 1 .109 1.801l-.004.034-.03.014A7.2 7.2 0 0 1 12 21.67c-3.976 0-7.2-3.218-7.2-7.188 0-1.705.594-3.27 1.587-4.503z"/></svg>';
+  }
+  function shortTapeAddr(a){
+    a = String(a || "");
+    if (!a) return "0x…";
+    if (a.length <= 11) return a;
+    return a.slice(0, 4) + "..." + a.slice(-3);
+  }
+  function tapeClock(ts){
+    const d = new Date(ts || 0);
+    if (!isFinite(d.getTime())) return "—";
+    return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  }
+  function fillMcUsd(r, q){
+    const px = r && Index ? Index.tradePrice(r) : 0;
+    const u = quoteUsd(q);
+    if (!(px > 0) || !(u > 0)) return 0;
+    return px * VIRTUAL_SUPPLY * u;
+  }
   function fmtUsd(n){
     n = Number(n)||0;
     if (!(n > 0)) return "—";
@@ -1486,38 +1531,46 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     const start = state.tapePage * TAPE_PAGE;
     const rows = all.slice(start, start + TAPE_PAGE);
     resolveSuins(rows.map(function(r){ return r.trader; }));
-    let boughtSui = 0, soldSui = 0, boughtN = 0, soldN = 0;
+    const counts = {};
     all.forEach(function(r){
-      const quote = fromMist(r.quote_amount);
-      const sui = quoteSuiAmt(quote, q);
-      if (r.is_buy){ boughtSui += sui; boughtN += 1; }
-      else { soldSui += sui; soldN += 1; }
+      const k = String(r.trader || "").toLowerCase();
+      if (k) counts[k] = (counts[k] || 0) + 1;
     });
     const suiReady = q === "SUI" || hop.suiPerXaum > 0;
-    const sum = '<div class="tape-sum">'+
-      '<span>Bought <b>'+boughtN+'</b>'+(suiReady ? " · ≈ "+fmt(boughtSui)+" SUI" : "")+'</span>'+
-      '<span>Sold <b>'+soldN+'</b>'+(suiReady ? " · ≈ "+fmt(soldSui)+" SUI" : "")+'</span>'+
-    '</div>';
+    const ageOn = state.tapeAge !== "time";
+    const copyIco = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5h10"/></svg>';
+    const extIco = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 5h5v5"/><path d="M10 14L19 5"/><path d="M19 13v6H5V5h6"/></svg>';
+    const head = '<div class="tape-head">'+
+      '<button type="button" class="tape-hbtn" data-tape-sort="age">'+(ageOn ? "Age ↓" : "Time")+'</button>'+
+      '<div>Type</div><div class="tape-mc">MC</div><div>Amount</div><div>Total SUI</div><div></div></div>';
     const body = rows.map(function(r){
       const bought = !!r.is_buy;
       const quote = fromMist(r.quote_amount);
       const tok = fromMist(r.token_amount);
-      const key = tapeKey(r);
-      const open = state.tapeOpen === key;
-      const tick = (findT(r.pool_id) && findT(r.pool_id).t) || shortAddr(r.pool_id);
-      const name = traderLabel(r.trader);
-      const named = !!suinsOf(r.trader);
+      const side = bought ? "buy" : "sell";
+      const name = suinsOf(r.trader) || shortTapeAddr(r.trader);
+      const letter = String(name || "0").replace(/^0x/i, "").charAt(0).toUpperCase() || "?";
+      const n = counts[String(r.trader || "").toLowerCase()] || 1;
       const sui = quoteSuiAmt(quote, q);
-      const suiLine = q === "SUI"
-        ? quoteUsdAmt(quote, q)
-        : (suiReady ? "≈ "+fmt(sui)+" SUI" : "≈ — SUI");
-      const usdLine = q === "XAUM" ? quoteUsdAmt(quote, q) : "";
-      return '<div class="tape-row'+(open?" open":"")+'" data-tape="'+key+'">'+
-        '<div class="tape-arrow '+(bought?"buy":"sell")+'">'+(bought?"↗":"↙")+'</div>'+
-        '<div><div class="tape-sz">'+fmtTok(tok)+' '+tick+'</div><div class="tape-sub'+(named?" tape-who":"")+'">'+escHtml(name)+'</div></div>'+
-        '<div class="tape-quote"><div class="tape-sz">'+fmt(quote)+quoteMark(q)+'</div><div class="tape-sub">'+suiLine+'</div>'+(usdLine ? '<div class="tape-sub">'+usdLine+'</div>' : '')+'</div>'+
-        '<div class="tape-ago">'+agoOf(r.ts)+'</div>'+
-        '<div class="tape-fees">'+tapeFeeChips(r)+'</div></div>';
+      const mc = fillMcUsd(r, q);
+      const when = ageOn ? agoOf(r.ts) : tapeClock(r.ts);
+      const digest = r.digest ? String(r.digest) : "";
+      const tx = digest
+        ? '<a class="tape-ico" href="https://suiscan.xyz/mainnet/tx/'+escAttr(digest)+'" target="_blank" rel="noopener" title="Open on Suiscan">'+extIco+'</a>'
+        : "";
+      return '<div class="tape-row">'+
+        '<div class="tape-age" title="'+escAttr(new Date(r.ts||0).toISOString())+'">'+when+'</div>'+
+        '<div class="tape-type '+side+'">'+(bought ? "Buy" : "Sell")+'</div>'+
+        '<div class="tape-mc">'+(mc > 0 ? fmtUsd(mc) : "—")+'</div>'+
+        '<div class="tape-amt">'+fmtAmt(tok)+'</div>'+
+        '<div class="tape-total '+side+'">'+suiMark()+(suiReady ? fmtSui(sui) : "—")+'</div>'+
+        '<div class="tape-who">'+
+          '<span class="tape-av">'+escHtml(letter)+'</span>'+
+          '<span class="tape-name" title="'+escAttr(r.trader || "")+'">'+escHtml(name)+'</span>'+
+          '<span class="tape-n">'+n+'</span>'+
+          '<button type="button" class="tape-ico" data-copy="'+escAttr(r.trader || "")+'" title="Copy">'+copyIco+'</button>'+
+          tx+
+        '</div></div>';
     }).join("");
     const pager = pages > 1
       ? '<div class="tape-pager">'+
@@ -1526,7 +1579,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
           '<button type="button" data-tape-page="next"'+(state.tapePage>=pages-1?" disabled":"")+'>Next</button>'+
         '</div>'
       : "";
-    return sum + body + pager;
+    return '<div class="tape-wrap">'+head+body+'</div>'+pager;
   }
   function sparkSVG(k){
     const d = spark(k.ch>=0?0.7:0.32);
@@ -3437,6 +3490,12 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       const inp = $("#amt"); if (inp) inp.value = state.amt;
       paintTicket();
       if (state.route === "token" && isDexBout(findT(state.sym))) scheduleSwapQuote();
+      return;
+    }
+    const tapeSortBtn = e.target.closest("[data-tape-sort]");
+    if (tapeSortBtn){
+      state.tapeAge = state.tapeAge === "time" ? "age" : "time";
+      paintTape();
       return;
     }
     const tapePageBtn = e.target.closest("[data-tape-page]");
