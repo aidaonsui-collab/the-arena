@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>ai.arena.keepers</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/bash</string>
+    <string>__KEEPERS__/run-local.sh</string>
+  </array>
+  <key>WorkingDirectory</key>
+  <string>__KEEPERS__</string>
+  <key>StartInterval</key>
+  <integer>300</integer>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>Nice</key>
+  <integer>5</integer>
+  <key>StandardOutPath</key>
+  <string>__HOME__/Library/Logs/arena-keepers.log</string>
+  <key>StandardErrorPath</key>
+  <string>__HOME__/Library/Logs/arena-keepers.log</string>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>HOME</key>
+    <string>__HOME__</string>
+    <key>PATH</key>
+    <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+    <key>ARENA_APP_URL</key>
+    <string>https://the-arena-vert.vercel.app</string>
+    <key>SUI_RPC</key>
+    <string>https://mainnet.suiet.app</string>
+  </dict>
+</dict>
+</plist>

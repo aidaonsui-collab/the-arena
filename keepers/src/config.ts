@@ -24,7 +24,7 @@ export const CLAIM_PIT = 1;
 
 export function env() {
   const packageId = process.env.ARENA_PACKAGE_ID ?? "";
-  const rpc = process.env.SUI_RPC ?? "https://fullnode.mainnet.sui.io:443";
+  const rpc = process.env.SUI_RPC ?? "https://mainnet.suiet.app";
   const pitSui = process.env.ARENA_PIT_SUI ?? "";
   const pitXaum = process.env.ARENA_PIT_XAUM ?? "";
   const pitUsdy = process.env.ARENA_PIT_USDY ?? "";

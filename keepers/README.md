@@ -13,11 +13,36 @@ Cron jobs for The Arena launchpad. Reflection payouts **accrue on every fill** i
 
 HTTP cron routes require `Authorization: Bearer $CRON_SECRET` (Vercel Cron sends this). The CLI (`npx tsx src/cli.ts …`) does not.
 
-Local:
+## Home Mac (no Vercel cron)
+
+The keepers are meant to run on the platform Mac, not as a paid Vercel cron. This machine's Sui keystore is the AdminCap wallet (`0x92a32ac7…`).
 
 ```
-ARENA_PACKAGE_ID=0x... npx tsx src/cli.ts reflections
-ARENA_KEEPER_PHRASE='…' npx tsx src/cli.ts collect
+cd keepers
+./install-local.sh
+```
+
+That installs a LaunchAgent (`ai.arena.keepers`) which ticks every 5 minutes: Instant buy/burn (`instadex`), and LP `collect` about every 10 minutes. Leftover curve `ring`/`settle` stay off unless `ARENA_KEEPER_CURVE=1` in `.env.local`. Logs: `~/Library/Logs/arena-keepers.log`.
+
+```
+launchctl bootout gui/$(id -u)/ai.arena.keepers   # stop
+./install-local.sh                                # start again
+tail -f ~/Library/Logs/arena-keepers.log
+```
+
+The Air must be **awake and on Wi‑Fi** when the 24h bell rings (lid open, plugged in, System Settings → Battery → Options → prevent sleep on adapter). Lid closed sleeps the Mac and the bell is missed until the next tick after wake.
+
+Optional `keepers/.env.local` (gitignored) if you want Past-bell tx links written back to the site:
+
+```
+CRON_SECRET=same-value-as-the-arena-vercel-project
+```
+
+Manual one-shot (no LaunchAgent):
+
+```
+npx tsx src/cli.ts instadex
+npx tsx src/cli.ts collect
 ```
 
 ## Events for the UI indexer
@@ -39,7 +64,7 @@ Snapshot file (default `./data/reflections.json`) is the shape the token page ca
 ## Env
 
 - `ARENA_PACKAGE_ID`=`0x5cfddf8ba23be6835644a8ea22482ff6ebb0081e42cc1bc052b5f770ca8bbdea`
-- `SUI_RPC`
+- `SUI_RPC` (default `https://mainnet.suiet.app` — public `fullnode.mainnet.sui.io` JSON-RPC is off)
 - `ARENA_PIT_SUI`=`0x8ec38e9bcac0838bf474680e71d0c3f302f4ea2f757d759b7b399701f904389c`
 - `ARENA_PIT_XAUM`=`0xa8a391bf380914c04be5deb478474b42754a5aa8c29c0955f267d73190a98783`
 - `ARENA_PIT_USDY` / `ARENA_PIT_XAGM` after `create_pit` + `register_pit`
