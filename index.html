@@ -563,10 +563,27 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   function flattenObjectChanges(result){
     if (!result) return [];
     if (Array.isArray(result.objectChanges)) return result.objectChanges;
+    if (result.result && Array.isArray(result.result.objectChanges)) return result.result.objectChanges;
     var fx = result.effects || {};
     if (Array.isArray(fx.objectChanges)) return fx.objectChanges;
     if (fx.objectChanges && Array.isArray(fx.objectChanges.nodes)) return fx.objectChanges.nodes;
     return [];
+  }
+  async function rpcJson(method, params){
+    var last = null;
+    for (var i = 0; i < RPC_EXEC.length; i++){
+      try {
+        var r = await fetch(RPC_EXEC[i], {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: method, params: params })
+        });
+        var j = await r.json();
+        if (j && j.result != null) return j.result;
+        last = new Error((j && j.error && j.error.message) || (method + " failed"));
+      } catch (e) { last = e; }
+    }
+    throw last || new Error(method + " failed");
   }
   /// Pull the objects the coin's `init` created out of a publish result.
   /// Accepts wallet JSON-RPC objectChanges and GraphQL transaction effects.
@@ -612,6 +629,10 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   }
   function sleep(ms){ return new Promise(function(ok){ setTimeout(ok, ms); }); }
   async function fetchPublishTx(digest){
+    try {
+      var rpc = await rpcJson("sui_getTransactionBlock", [digest, { showEffects: true, showObjectChanges: true, showEvents: true }]);
+      if (rpc && (rpc.objectChanges || rpc.effects)) return rpc;
+    } catch (e) {}
     var data = await gql(
       "query($d:String!){ transaction(digest:$d){ digest effects { status objectChanges(first:50){ nodes { address idCreated outputState { asMovePackage { address } asMoveObject { contents { type { repr } } } } } } } } }",
       { d: digest }
@@ -620,17 +641,19 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   }
   async function waitForPublish(digest, ident){
     var last = "";
-    for (var i = 0; i < 15; i++){
+    for (var i = 0; i < 20; i++){
       try {
         var tx = await fetchPublishTx(digest);
-        if (tx && tx.effects){
-          var st = String(tx.effects.status || "");
+        if (tx){
+          var st = (tx.effects && tx.effects.status && (tx.effects.status.status || tx.effects.status)) || "";
+          st = String(st);
           if (st && st !== "SUCCESS" && st !== "success"){
             throw new Error("Publish failed on-chain (" + st + "). Digest " + digest);
           }
           var made = readPublishResult(tx, ident);
           made.digest = digest;
-          if (made.packageId) return made;
+          if (made.packageId && made.capId && made.coinId) return made;
+          if (made.packageId) last = "package "+made.packageId.slice(0,10)+" indexed, waiting on TreasuryCap/Coin";
         }
       } catch (e) {
         last = (e && e.message) ? e.message : String(e);
@@ -946,18 +969,47 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     if (!(n > 0)) return 0;
     return Math.round(n * Math.pow(10, d));
   }
-  async function moveObject(id){
-    var data = await gql(
-      "query($id:SuiAddress!){ object(address:$id){ address asMoveObject { contents { type { repr } json } } } }",
-      { id: id }
-    );
-    var obj = data && data.object;
-    if (!obj || !obj.asMoveObject) throw new Error("Object not found");
+  function with0x(id){
+    var s = String(id || "");
+    if (!s) return s;
+    return s.indexOf("0x") === 0 ? s : ("0x" + s);
+  }
+  async function moveObjectRpc(id){
+    var d = await rpcJson("sui_getObject", [with0x(id), { showContent: true, showType: true }]);
+    var data = d && d.data;
+    if (!data) throw new Error("Object not found");
+    var content = data.content || {};
+    var fields = content.fields || content;
     return {
-      address: obj.address,
-      type: obj.asMoveObject.contents && obj.asMoveObject.contents.type && obj.asMoveObject.contents.type.repr,
-      json: obj.asMoveObject.contents && obj.asMoveObject.contents.json
+      address: data.objectId || with0x(id),
+      type: data.type || content.type || "",
+      json: fields
     };
+  }
+  async function moveObject(id){
+    id = with0x(id);
+    var last = null;
+    for (var i = 0; i < 8; i++){
+      try {
+        var data = await gql(
+          "query($id:SuiAddress!){ object(address:$id){ address asMoveObject { contents { type { repr } json } } } }",
+          { id: id }
+        );
+        var obj = data && data.object;
+        if (obj && obj.asMoveObject){
+          return {
+            address: obj.address,
+            type: obj.asMoveObject.contents && obj.asMoveObject.contents.type && obj.asMoveObject.contents.type.repr,
+            json: obj.asMoveObject.contents && obj.asMoveObject.contents.json
+          };
+        }
+      } catch (e) { last = e; }
+      try {
+        return await moveObjectRpc(id);
+      } catch (e) { last = e; }
+      await sleep(300 + i * 200);
+    }
+    throw new Error((last && last.message) || "Object not found");
   }
   async function metadataFor(coinType){
     var t = normType(coinType);
@@ -973,6 +1025,20 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     if (t === window.ARENA_XAGM_TYPE){
       return { id: window.ARENA_XAGM_METADATA, name: "Matrixdock Silver", symbol: "XAGM", decimals: 9, type: t };
     }
+    try {
+      var rpcMeta = await rpcJson("suix_getCoinMetadata", [t]);
+      if (rpcMeta && rpcMeta.id){
+        return {
+          id: rpcMeta.id,
+          name: rpcMeta.name || "",
+          symbol: rpcMeta.symbol || "",
+          decimals: rpcMeta.decimals != null ? rpcMeta.decimals : 9,
+          type: t,
+          description: rpcMeta.description || "",
+          icon: rpcMeta.iconUrl || rpcMeta.icon_url || ""
+        };
+      }
+    } catch (e) {}
     var data = await gql(
       "query($t:String!){ objects(first:5, filter:{ type:$t }){ nodes { address asMoveObject { contents { json } } } } }",
       { t: "0x2::coin::CoinMetadata<" + t + ">" }
@@ -2965,7 +3031,11 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
         }
       }
 
-      if (creating){
+      if (creating && state.lCap && state.lTokenCoin){
+        capId = state.lCap;
+        tokenCoinId = state.lTokenCoin;
+        setLaunchNote("Coin already published. Seeding the pair — do not publish again.", false);
+      } else if (creating){
         // Sui gives every coin type its own module, so the coin has to be
         // published before it can be launched. The new package id is not known
         // until this lands, and a PTB needs its type arguments up front, so
