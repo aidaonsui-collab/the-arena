@@ -424,10 +424,10 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   var TOKEN_DECIMALS = 9;
   var TOKEN_SUPPLY = "1000000000";
   var QUOTES = {
-    SUI: { label:"SUI", type:SUI_TYPE, metadata:window.ARENA_SUI_METADATA, decimals:9, name:"Sui", what:"Native Sui", create:true, chips:["0.5","1","5","10","Max"], virtualHuman:"10 SUI", pit:window.ARENA_PIT_SUI, color:"#4DA2FF" },
-    USDY: { label:"USDY", type:window.ARENA_USDY_TYPE, metadata:window.ARENA_USDY_METADATA, decimals:6, name:"Ondo US Dollar Yield", what:"Ondo tokenized US Treasury bills", create:true, chips:["1","5","10","25","Max"], virtualHuman:"10 USDY", pit:window.ARENA_PIT_USDY, color:"#3ECF8E" },
-    XAGM: { label:"XAGM", type:window.ARENA_XAGM_TYPE, metadata:window.ARENA_XAGM_METADATA, decimals:9, name:"Matrixdock Silver", what:"Matrixdock silver, 1 oz", create:true, chips:["0.01","0.05","0.1","0.25","Max"], virtualHuman:"0.1 XAGM", pit:window.ARENA_PIT_XAGM, color:"#C0C7D1" },
-    XAUM: { label:"XAUM", type:window.ARENA_XAUM_TYPE, metadata:window.ARENA_XAUM_METADATA, decimals:9, name:"Matrixdock Gold", what:"Matrixdock gold, 1 oz", create:false, chips:["0.01","0.05","0.1","0.25","Max"], virtualHuman:"0.01 XAUM", pit:window.ARENA_PIT_XAUM, hopPool:window.ARENA_XAUM_SUI_POOL, color:"#C9A97E" }
+    SUI: { label:"SUI", type:SUI_TYPE, metadata:window.ARENA_SUI_METADATA, decimals:9, name:"Sui", what:"Native Sui", create:true, chips:["0.5","1","5","10","Max"], virtualHuman:"≈ $500", pit:window.ARENA_PIT_SUI, color:"#4DA2FF" },
+    USDY: { label:"USDY", type:window.ARENA_USDY_TYPE, metadata:window.ARENA_USDY_METADATA, decimals:6, name:"Ondo US Dollar Yield", what:"Ondo tokenized US Treasury bills", create:true, chips:["1","5","10","25","Max"], virtualHuman:"≈ $500", pit:window.ARENA_PIT_USDY, color:"#3ECF8E" },
+    XAGM: { label:"XAGM", type:window.ARENA_XAGM_TYPE, metadata:window.ARENA_XAGM_METADATA, decimals:9, name:"Matrixdock Silver", what:"Matrixdock silver, 1 oz", create:true, chips:["0.01","0.05","0.1","0.25","Max"], virtualHuman:"≈ $500", pit:window.ARENA_PIT_XAGM, color:"#C0C7D1" },
+    XAUM: { label:"XAUM", type:window.ARENA_XAUM_TYPE, metadata:window.ARENA_XAUM_METADATA, decimals:9, name:"Matrixdock Gold", what:"Matrixdock gold, 1 oz", create:false, chips:["0.01","0.05","0.1","0.25","Max"], virtualHuman:"≈ $500", pit:window.ARENA_PIT_XAUM, hopPool:window.ARENA_XAUM_SUI_POOL, color:"#C9A97E" }
   };
   var CREATE_QUOTES = ["SUI","USDY","XAGM"];
   function quoteRec(q){
@@ -438,7 +438,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   function lpBlurb(){
     var rec = quoteRec(state.lQuote);
     var q = rec.label;
-    return "1,000,000,000 supply, 9 decimals. All of it locks in a single-sided TOKEN/"+q+" Bluefin position. 0 "+q+" in LP. Price from "+rec.virtualHuman+" virtual. You pay 1 SUI launch fee. First buy is SUI (hopped through "+q+" if needed) so you do not need "+q+" in the wallet. The Position NFT never unlocks.";
+    return "1,000,000,000 supply, 9 decimals. All of it locks in a single-sided TOKEN/"+q+" Bluefin position. 0 "+q+" in LP. Every quote starts at the same ≈ $500 market cap. You pay 1 SUI launch fee. First buy is SUI (hopped through "+q+" if needed) so you do not need "+q+" in the wallet. The Position NFT never unlocks.";
   }
   var SDK_URLS = [
     "https://esm.sh/@mysten/sui@1.45.2/transactions",
@@ -2131,7 +2131,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
             : '<div><label>TreasuryCap object</label><input id="l-cap" spellcheck="false" placeholder="0x… TreasuryCap" value="'+escAttr(state.lCap)+'"></div>'+
               '<div><label>Token coin object</label><input id="l-token-coin" spellcheck="false" placeholder="0x… Coin&lt;T&gt;" value="'+escAttr(state.lTokenCoin)+'"></div>')+
           '<div><label>Quote</label><div class="toggle">'+CREATE_QUOTES.map(function(q){ return tog("lQuote",q,q); }).join("")+'</div>'+
-            '<div style="font-size:12px;color:var(--muted);margin-top:6px">'+quoteRec(state.lQuote).what+'. TOKEN/'+state.lQuote+'. Starting price from '+quoteRec(state.lQuote).virtualHuman+' virtual. No '+state.lQuote+' required for LP.</div></div>'+
+            '<div style="font-size:12px;color:var(--muted);margin-top:6px">'+quoteRec(state.lQuote).what+'. TOKEN/'+state.lQuote+'. Starting market cap ≈ $500, same for every quote. No '+state.lQuote+' required for LP.</div></div>'+
           '<div><label>First buy · SUI</label><input id="l-first-buy" inputmode="decimal" placeholder="1" value="'+escAttr(state.lFirstBuy)+'"></div>'+
             '<div style="font-size:12px;color:var(--muted);margin-top:-4px">'+(state.lQuote==="SUI"
               ? "SUI swapped into TOKEN/SUI right after seed. Puts quote in the pool so the first sell can land. 0 skips."
