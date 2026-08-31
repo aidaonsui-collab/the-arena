@@ -1442,6 +1442,18 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   function chColor(k){ return k.ch>=0 ? "#298DFF" : "#FF6640"; }
   function rank(i){ return String(i+1).padStart(2,"0"); }
   function sortedT(){ return T.filter(function(k){ return !k.graduated && k.st !== "Graduated"; }).sort(function(a,b){return b.cap-a.cap;}); }
+  function pitContenders(){
+    return T.filter(function(k){
+      if (!k || k.missing || !k.t || k.t === "—") return false;
+      if (k.instadex || k.st === "Instadex" || k.bluefinPool) return true;
+      return !k.graduated && k.st !== "Graduated";
+    }).sort(function(a,b){
+      const ca = usdCap(a) || Number(a.cap) || 0;
+      const cb = usdCap(b) || Number(b.cap) || 0;
+      if (cb !== ca) return cb - ca;
+      return Number(b.ts || 0) - Number(a.ts || 0);
+    }).slice(0, 5);
+  }
   function vol(k){ return k.buckets.reduce(function(a,b){return a+b;},0); }
   function findT(sym){
     const raw = (sym && sym.t) ? sym.t : String(sym || "");
@@ -2177,7 +2189,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     paintPitVotes();
   }
   function pitHTML(){
-    const rows = sortedT().slice(0, 5).map(function(k,i){
+    const rows = pitContenders().map(function(k,i){
       hydrateTokenMeta(k);
       const mine = pitVotes.mine === k.t;
       return '<div class="pit-row'+(i===0?" lead":"")+'" data-go="token:'+k.t+'">'+
