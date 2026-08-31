@@ -1,16 +1,17 @@
 /**
  * Arena client indexer (window.ArenaIndex).
  *
- * Subscribe: P::events::TradeEvent + P::events::ClaimEvent (kind=0 reflection, kind=1 pit).
+ * Instant fills: Bluefin AssetSwap on each Instadex pool (transactions where
+ * affectedObject = bluefin_pool_id). Do not scan global AssetSwap.
+ * Curve leftovers: P::events::TradeEvent + ClaimEvent (kind=0 reflection, kind=1 pit).
  * LaunchEvent.quote / index.pools[id].quote → SUI or XAUM (gold quote type is XAUM).
  * toCandles(trades, intervalMs) → TVBar { time: unix ms, open, high, low, close, volume }.
  * volume on candles is mist (1e9); the token page converts with fromMist for TV.
  *
  * packageId unset → demo TradeEvents so the chart still has candles.
  *
- * Quote fee is 1% (100 bps). Reflection 50/20/20/10 reflections/creator/pit/platform.
- * Non-reflection 60/10/30 creator/platform/pit (reflection_fee 0). pit_fee is always
- * non-zero on fills. Gold quote type is XAUM.
+ * Instant is Pool<T,Q> (coin A = token, B = quote). a2b false = buy, true = sell.
+ * Curve quote fee is 1% (100 bps). Gold quote type is XAUM.
  */
 (function (root) {
   "use strict";
@@ -22,6 +23,9 @@
   var CLAIM_PIT = 1;
   var MIST = 1e9;
   var DEFAULT_RPC = "https://fullnode.mainnet.sui.io:443";
+  var BLUEFIN_ORIGIN =
+    "0x3492c874c1e3b3e2984e8c41b589e642d4d0a5d6459e5a9cfc2d52fd7c89c267";
+  var BLUEFIN_ASSET_SWAP = BLUEFIN_ORIGIN + "::events::AssetSwap";
   var DEMO_WALLET = "0x8f2a00000000000000000000000000000000000000000000000000000000ab71";
   var ADDRS = [
     DEMO_WALLET,
@@ -343,6 +347,121 @@
     });
   }
 
+  function isAssetSwapType(t) {
+    return /::events::AssetSwap$/i.test(String(t || ""));
+  }
+
+  function normId(id) {
+    return String(id || "").toLowerCase();
+  }
+
+  /**
+   * Instant is Pool<T,Q>: coin A = token, coin B = quote.
+   * a2b false = quote in / token out (buy). a2b true = token in / quote out (sell).
+   * Hop AssetSwaps in the same tx have a different pool_id — drop them.
+   */
+  function parseAssetSwap(ev, poolId) {
+    var p = (ev && ev.parsedJson) || {};
+    var pid = String(p.pool_id || "");
+    if (poolId && normId(pid) !== normId(poolId)) return null;
+    if (!pid) return null;
+    var isBuy = !p.a2b;
+    var amountIn = mistStr(p.amount_in);
+    var amountOut = mistStr(p.amount_out);
+    var tokenAmt = isBuy ? amountOut : amountIn;
+    var quoteAmt = isBuy ? amountIn : amountOut;
+    var tokenRes = mistStr(p.pool_coin_a_amount);
+    var quoteRes = mistStr(p.pool_coin_b_amount);
+    var digest = (ev.id && (ev.id.txDigest || ev.id.tx_digest)) || ev.digest || "";
+    var out = asTrade({
+      pool_id: pid,
+      trader: ev.sender || "",
+      is_buy: isBuy,
+      quote_amount: quoteAmt,
+      token_amount: tokenAmt,
+      pit_fee: "0",
+      reflection_fee: "0",
+      creator_fee: "0",
+      platform_fee: "0",
+      raised: quoteRes,
+      token_reserve: tokenRes,
+      quote_real: quoteRes,
+      ts: num(ev.timestampMs) || Date.now()
+    });
+    out.bluefin = true;
+    out.a2b = !!p.a2b;
+    out.fee = mistStr(p.fee);
+    out.digest = String(digest || "");
+    out.seq = mistStr(p.sequence_number);
+    var tok = num(tokenAmt);
+    var qAmt = num(quoteAmt);
+    if (tok > 0 && qAmt > 0) out.price = qAmt / tok;
+    return out;
+  }
+
+  function queryPoolTxsGql(gql, poolId, before, limit) {
+    var q =
+      "query($o:SuiAddress!,$last:Int!,$before:String){ transactions(last:$last, before:$before, filter:{ affectedObject:$o }){ pageInfo { hasPreviousPage startCursor } nodes { digest sender { address } effects { timestamp events(first: 40) { nodes { timestamp sender { address } contents { type { repr } json } } } } } } }";
+    return fetch(gql || DEFAULT_GQL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        query: q,
+        variables: { o: poolId, last: limit || 50, before: before || null }
+      })
+    }).then(function (r) { return r.json(); }).then(function (j) {
+      if (j.errors && j.errors.length) throw new Error(j.errors[0].message || "graphql");
+      var conn = (j.data && j.data.transactions) || {};
+      var nodes = conn.nodes || [];
+      var info = conn.pageInfo || {};
+      var data = [];
+      for (var i = 0; i < nodes.length; i++) {
+        var n = nodes[i];
+        var effects = n.effects || {};
+        var evs = (effects.events && effects.events.nodes) || [];
+        var ts = Date.parse(effects.timestamp) || Date.now();
+        var sender = n.sender && n.sender.address;
+        for (var k = 0; k < evs.length; k++) {
+          var e = evs[k];
+          data.push({
+            parsedJson: (e.contents && e.contents.json) || {},
+            timestampMs: Date.parse(e.timestamp) || ts,
+            sender: sender,
+            digest: n.digest,
+            id: { txDigest: n.digest },
+            type: (e.contents && e.contents.type && e.contents.type.repr) || ""
+          });
+        }
+      }
+      return {
+        data: data,
+        hasNextPage: !!info.hasPreviousPage,
+        nextCursor: info.startCursor || null
+      };
+    });
+  }
+
+  function collectPoolSwaps(gql, poolId, pages, limit) {
+    var out = [];
+    var cursor = null;
+    var n = pages || 1;
+    function step(i) {
+      if (i >= n) return Promise.resolve(out);
+      return queryPoolTxsGql(gql, poolId, cursor, limit || 50).then(function (page) {
+        var rows = page.data || [];
+        for (var j = 0; j < rows.length; j++) {
+          if (!isAssetSwapType(rows[j].type) && rows[j].type !== BLUEFIN_ASSET_SWAP) continue;
+          var t = parseAssetSwap(rows[j], poolId);
+          if (t) out.push(t);
+        }
+        if (!page.hasNextPage || !page.nextCursor) return out;
+        cursor = page.nextCursor;
+        return step(i + 1);
+      });
+    }
+    return step(0);
+  }
+
   function parseTrade(ev) {
     var p = ev.parsedJson || {};
     return asTrade({
@@ -501,10 +620,11 @@
   /**
    * subscribe({ packageId, callPackage, instadexPackages, lockPackages, rpc, tokens, live, demoMs, onTrade, onLaunch, onInstadex })
    * InstadexLaunchEvent originated on v4 (callPackage / ARENA_INSTADEX_PACKAGE). Query that package.
-   * Do not only query the original types package (0x5cfd) — the type does not exist there.
+   * Instant fills: watchBluefinPool(bluefin_pool_id) → AssetSwap for that pool only.
+   * Curve leftovers still collect TradeEvent once.
    * Fires onInstadex, or onLaunch with instadex:true if that callback is omitted.
    * Missing event types are ignored.
-   * Returns { trades, claims, push, refreshInstadex, stop }. trades is a live array.
+   * Returns { trades, claims, push, refreshInstadex, watchBluefinPool, refreshBluefin, stop }.
    */
   function subscribe(opts) {
     opts = opts || {};
@@ -512,13 +632,56 @@
     var claims = [];
     var timer = null;
     var instaTimer = null;
+    var bluefinTimer = null;
     var refreshInstadex = function () {};
+    var seenTrades = {};
+    var bluefinPools = {};
+    var gql = (typeof window !== "undefined" && window.SUI_GRAPHQL) || DEFAULT_GQL;
+
+    function tradeKey(ev) {
+      if (ev.digest) return String(ev.digest) + ":" + String(ev.seq || "") + ":" + normId(ev.pool_id);
+      return String(ev.ts || "") + ":" + String(ev.pool_id || "") + ":" + String(ev.trader || "") + ":" + String(ev.token_amount || "") + ":" + String(ev.is_buy ? 1 : 0);
+    }
 
     function push(ev) {
       if (!ev) return ev;
+      var key = tradeKey(ev);
+      if (seenTrades[key]) return ev;
+      seenTrades[key] = 1;
       trades.push(ev);
       if (opts.onTrade) opts.onTrade(ev);
       return ev;
+    }
+
+    function pullBluefinPool(poolId) {
+      poolId = String(poolId || "");
+      var id = normId(poolId);
+      if (!id || id === "0x0") return Promise.resolve();
+      var rec = bluefinPools[id];
+      if (!rec) {
+        rec = { pulling: false };
+        bluefinPools[id] = rec;
+      }
+      if (rec.pulling) return Promise.resolve();
+      rec.pulling = true;
+      return collectPoolSwaps(gql, poolId, 1, 50).then(function (rows) {
+        rec.pulling = false;
+        (rows || []).forEach(function (t) { push(t); });
+      }).catch(function () { rec.pulling = false; });
+    }
+
+    function watchBluefinPool(poolId) {
+      poolId = String(poolId || "");
+      var id = normId(poolId);
+      if (!id || id === "0x0") return;
+      var first = !bluefinPools[id];
+      if (first) bluefinPools[id] = { pulling: false };
+      if (first) pullBluefinPool(poolId);
+    }
+
+    function refreshBluefin(poolId) {
+      if (poolId) return pullBluefinPool(poolId);
+      return Promise.all(Object.keys(bluefinPools).map(function (id) { return pullBluefinPool(id); }));
     }
 
     if (!opts.packageId) {
@@ -564,6 +727,7 @@
         }).catch(function () {});
       });
       function emitInstadex(l) {
+        if (l && l.bluefin_pool_id) watchBluefinPool(l.bluefin_pool_id);
         if (opts.onInstadex) opts.onInstadex(l);
         else if (opts.onLaunch) opts.onLaunch(l);
       }
@@ -608,6 +772,7 @@
       if (opts.live) {
         instaTimer = setInterval(refreshInstadex, opts.instadexMs || 12000);
         setInterval(function () { burnPkgs.forEach(pullBurn); mintPkgs.forEach(pullMintLock); }, opts.instadexMs || 12000);
+        bluefinTimer = setInterval(function () { refreshBluefin(); }, opts.bluefinMs || 8000);
       }
     }
 
@@ -616,9 +781,12 @@
       claims: claims,
       push: push,
       refreshInstadex: refreshInstadex,
+      watchBluefinPool: watchBluefinPool,
+      refreshBluefin: refreshBluefin,
       stop: function () {
         if (timer) { clearInterval(timer); timer = null; }
         if (instaTimer) { clearInterval(instaTimer); instaTimer = null; }
+        if (bluefinTimer) { clearInterval(bluefinTimer); bluefinTimer = null; }
       },
     };
   }
@@ -687,6 +855,8 @@
     parseInstadexLaunch: parseInstadexLaunch,
     parseInstadexBurn: parseInstadexBurn,
     parseInstadexMintLock: parseInstadexMintLock,
+    parseAssetSwap: parseAssetSwap,
+    BLUEFIN_ASSET_SWAP: BLUEFIN_ASSET_SWAP,
     subscribe: subscribe,
     loadSnapshot: loadSnapshot,
     loadIndex: loadIndex,

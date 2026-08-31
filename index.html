@@ -1012,7 +1012,16 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
 
   function $(s,r){ return (r||document).querySelector(s); }
   function $$(s,r){ return Array.prototype.slice.call((r||document).querySelectorAll(s)); }
-  function fmt(n){ return n >= 1000 ? (n/1000).toFixed(2)+"k" : (n >= 1 ? n.toFixed(2) : n.toFixed(n>=0.1?2:3)); }
+  function fmt(n){
+    n = Number(n)||0;
+    const a = Math.abs(n);
+    if (a >= 1000) return (n/1000).toFixed(2)+"k";
+    if (a >= 1) return n.toFixed(2);
+    if (a >= 0.1) return n.toFixed(3);
+    if (a >= 1e-8) return n.toFixed(6);
+    if (a > 0) return n.toExponential(2);
+    return "0";
+  }
   function money(n, q){ return fmt(n)+" "+(q||"SUI"); }
   function fmtBig(n){
     n = Number(n)||0;
@@ -1070,6 +1079,12 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     return 0;
   }
   function curveCap(tk){
+    if (isDexBout(tk)){
+      const last = tapeItems(1, tk.t)[0];
+      const px = last && Index ? Index.tradePrice(last) : 0;
+      if (px > 0) return px * VIRTUAL_SUPPLY;
+      return tk.cap;
+    }
     const last = tapeItems(1, tk.t)[0];
     const launch = bus.launches[tk.t] || (tk.pool && bus.launches[tk.pool]) || {};
     const vq = fromMist(last && last.virtual_quote != null ? last.virtual_quote : (tk.virtual_quote || launch.virtual_quote));
@@ -1187,7 +1202,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   function lastPx(sym){
     const id = (sym && sym.t) ? sym.t : (sym || state.sym);
     const rows = bus.trades.filter(function(t){ return matchesPool(t, id); });
-    if (!rows.length) return 4.65e-6;
+    if (!rows.length) return isDexBout(findT(id)) ? 0 : 4.65e-6;
     rows.sort(function(a,b){ return (a.ts||0)-(b.ts||0); });
     const last = rows[rows.length-1];
     if (Index) return Index.tradePrice(last);
@@ -1385,6 +1400,9 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     return '<span class="fee-chip" style="color:'+color+'">'+txt+' '+label+'</span>';
   }
   function tapeFeeChips(r){
+    if (r && r.bluefin){
+      return tapeChip(fromMist(r.fee), r.is_buy ? "fee" : "fee tok", "#9CA3AF");
+    }
     const refl = fromMist(r.reflection_fee);
     const creator = fromMist(r.creator_fee);
     const plat = fromMist(r.platform_fee);
@@ -1394,7 +1412,10 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     }
     return tapeChip(creator,"creator","#6B7280")+tapeChip(plat,"plat","#9CA3AF")+tapeChip(pit,"pit","#298DFF");
   }
-  function tapeKey(r){ return String(r.ts||"")+"|"+String(r.pool_id||"")+"|"+String(r.trader||""); }
+  function tapeKey(r){
+    if (r && r.digest) return String(r.digest)+"|"+String(r.seq||"")+"|"+String(r.pool_id||"");
+    return String(r.ts||"")+"|"+String(r.pool_id||"")+"|"+String(r.trader||"");
+  }
   function tapeHTML(pool){
     const q = poolQuote(pool);
     const rows = tapeItems(24, pool);
@@ -1506,7 +1527,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       const tb = (lb && lb.ts) || b.ts || 0;
       return tb - ta;
     });
-    else out.sort(function(a,b){ return b.cap-a.cap; });
+    else out.sort(function(a,b){ return curveCap(b)-curveCap(a); });
     return out;
   }
   function launchPool(){
@@ -1675,13 +1696,15 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     }
     const bars = m.hours.length
       ? m.hours.map(function(h){ return '<i style="height:'+h.pct+'%" title="'+fmt(h.v)+'"></i>'; }).join("")
-      : '<div class="empty" style="width:100%">No TradeEvent fills in this window.</div>';
+      : '<div class="empty" style="width:100%">No fills in this window.</div>';
     const rows = top.map(function(r,i){
-      const tk = T.find(function(k){ return k.t === r.id; }) || GRADS.find(function(g){ return g.t === r.id; }) || {n:r.id,t:r.id,c:"#298DFF"};
+      const tk = T.find(function(k){
+        return k.t === r.id || (k.bluefinPool && k.bluefinPool.toLowerCase() === String(r.id).toLowerCase());
+      }) || GRADS.find(function(g){ return g.t === r.id; }) || {n:r.id,t:r.id,c:"#298DFF"};
       return '<tr data-go="token:'+r.id+'"><td class="mono" style="color:var(--muted)">'+rank(i)+'</td><td><div class="feat-name">'+tk.n+'</div><div class="feat-tick">$'+r.id+'</div></td><td class="mono">'+r.fills+'</td><td class="mono" style="text-align:right">'+fmt(r.vol)+' '+r.q+'</td></tr>';
     }).join("");
     const src = (window.ARENA_PACKAGE_ID)
-      ? "Indexed from on-chain TradeEvent, ClaimEvent, BellEvent, GraduationEvent."
+      ? "Indexed from Bluefin AssetSwap (Instant) and leftover curve TradeEvent, ClaimEvent, BellEvent, GraduationEvent."
       : "Demo tape until ARENA_PACKAGE_ID is published. Same TradeEvent fields the keepers emit.";
     return '<div data-screen-label="Metrics">'+
       '<div class="explore-head"><div><h1>Metrics</h1><p>Volume, fees, the pit, and graduates — rolled up from events, not a dashboard guess.</p></div>'+
@@ -1694,7 +1717,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
         '<div class="mstat"><div class="k">On the curve</div><div class="v">'+m.launches+'</div><div class="s">'+m.grads+' graduated</div></div>'+
         '<div class="mstat"><div class="k">Bells rung</div><div class="v">'+m.bells+'</div><div class="s">'+fmt(m.bellPaid)+' SUI paid</div></div>'+
         '<div class="mstat"><div class="k">Claims</div><div class="v">'+m.claims+'</div><div class="s">'+m.reflClaims+' reflection · '+m.pitClaims+' pit</div></div>'+
-        '<div class="mstat"><div class="k">Pit from fills</div><div class="v">'+fmt(m.pit)+'</div><div class="s">pit_fee on TradeEvent</div></div>'+
+        '<div class="mstat"><div class="k">Pit from fills</div><div class="v">'+fmt(m.pit)+'</div><div class="s">curve pit_fee · Instant fees are LP collect</div></div>'+
       '</div>'+
       '<div class="card" style="padding:20px 22px;margin-bottom:14px"><div class="sec-label" style="margin-top:0">Volume <span>last '+Math.max(m.hours.length,1)+' hours with fills</span></div>'+
         '<div class="vol-bars">'+bars+'</div></div>'+
@@ -1709,7 +1732,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
         '<div class="card" style="padding:20px 22px"><div class="sec-label" style="margin-top:0">Top by volume <span>'+win+'</span></div>'+
           (rows ? '<table class="m-table"><thead><tr><th>#</th><th>Token</th><th>Fills</th><th style="text-align:right">Volume</th></tr></thead><tbody>'+rows+'</tbody></table>' : '<div class="empty">No fills yet.</div>')+
         '</div></div>'+
-      '<p class="m-note">'+src+' Keepers: TradeEvent (volume + four fee slices + raised), BellEvent / PitSettleEvent, GraduationEvent, ClaimEvent.</p>'+
+      '<p class="m-note">'+src+' Instant volume is Bluefin AssetSwap per pool. Curve keepers still use TradeEvent.</p>'+
       footerHTML()+'</div>';
   }
   function launchHTML(){
@@ -1873,7 +1896,10 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       (tk.bluefinPool ? '<a class="about-link" href="https://trade.bluefin.io/swap?pool='+tk.bluefinPool+'" target="_blank" rel="noopener">Bluefin</a>' : '')+
       (tk.lockId ? '<button type="button" class="about-link" data-copy="'+tk.lockId+'">Vault</button>' : '');
     const tapeBody = dexBout
-      ? '<div id="tape"><div class="empty">Live on Bluefin. No Arena tape.</div></div>'
+      ? '<div class="tape-tabs">'+
+          '<button type="button" class="pill on" data-set="tapeTab" data-val="trades">Trades</button>'+
+          '<span class="count-pill tape-count">'+bus.trades.filter(function(t){ return matchesPool(t, tk); }).length+'</span></div>'+
+        '<div id="tape">'+(tapeHTML(tk.t))+'</div>'
       : '<div class="tape-tabs">'+
           '<button type="button" class="pill on" data-set="tapeTab" data-val="holders">Holders</button>'+
           '<span class="count-pill tape-count">'+holdersOf(tk).list.length+'</span></div>'+
@@ -1972,8 +1998,9 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
         el.textContent = el.classList.contains("feat-mcap") ? txt+" MC" : txt;
       });
       $$('[data-cap="'+k.t+'"]').forEach(function(el){
-        if (el.closest("#contenders")) el.textContent = fmt(k.cap);
-        else el.textContent = money(k.cap, poolQuote(k));
+        const cap = isDexBout(k) ? curveCap(k) : k.cap;
+        if (el.closest("#contenders")) el.textContent = fmt(cap);
+        else el.textContent = money(cap, poolQuote(k));
       });
       $$('[data-bar="'+k.t+'"]').forEach(function(el){ el.style.width = barPct(k); });
     });
@@ -2181,9 +2208,11 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     if (!tapeEl) return;
     const tk = findT(state.sym);
     if (isDexBout(tk)){
-      tapeEl.innerHTML = '<div class="empty">Live on Bluefin. No Arena tape.</div>';
+      const n = bus.trades.filter(function(t){ return matchesPool(t, tk); }).length;
       const count = document.querySelector(".tape-count");
-      if (count) count.textContent = "";
+      if (count) count.textContent = n;
+      tapeEl.innerHTML = tapeHTML(tk.t);
+      if (tk.bluefinPool && bus.sub && bus.sub.watchBluefinPool) bus.sub.watchBluefinPool(tk.bluefinPool);
       return;
     }
     const n = holdersOf(tk).list.length;
@@ -2499,6 +2528,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       if (state.lArtUrl && !tk.img) tk.img = state.lArtUrl;
     }
     hydrateTokenMeta(tk);
+    if (bf && bus.sub && bus.sub.watchBluefinPool) bus.sub.watchBluefinPool(bf);
     if (state.route === "explore" || state.route === "token" || state.route === "pit" || state.route === "launch") renderScreen();
   }
   function renderScreen(){
@@ -2540,6 +2570,11 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     const amt = fromMist(ev.quote_amount);
     const gold = poolQuote(k) === "XAUM";
     k.buckets[11] += gold ? amt * 40 : amt; k.fbuckets[11] += 1;
+    if (isDexBout(k)){
+      const px = Index ? Index.tradePrice(ev) : 0;
+      if (px > 0) k.cap = px * VIRTUAL_SUPPLY;
+      return;
+    }
     if (!gold) pot += fromMist(ev.pit_fee);
     if (gold){
       k.cap = Math.max(0.02, Math.min(0.95, k.cap + (ev.is_buy ? Math.min(0.04, amt*0.12) : -Math.min(0.03, amt*0.09))));
@@ -2804,6 +2839,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
           swapping = true;
           try {
             await swapViaBluefin(buyTk, firstBuy, 1n);
+            if (bus.sub && bus.sub.refreshBluefin) bus.sub.refreshBluefin(launched.bluefin_pool_id);
             setLaunchNote("Launched with first buy.", false);
           } catch (buyErr){
             var buyMsg = (buyErr && buyErr.message) ? buyErr.message : String(buyErr);
@@ -3170,6 +3206,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       }
       swapping = false;
       await refreshSwapBals(tk);
+      if (tk.bluefinPool && bus.sub && bus.sub.refreshBluefin) bus.sub.refreshBluefin(tk.bluefinPool);
       scheduleSwapQuote();
     } catch (err2){
       swapping = false;
@@ -3440,8 +3477,17 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       onTrade: function(ev){
         if (hydrating) return;
         if (Date.now() - (ev.ts||0) < 8000) applyLiveTrade(ev);
+        else if (ev && ev.bluefin){
+          const k = T.find(function(t){ return matchesPool(ev, t); });
+          if (k && Index){
+            const last = tapeItems(1, k.t)[0];
+            const px = last ? Index.tradePrice(last) : Index.tradePrice(ev);
+            if (px > 0) k.cap = px * VIRTUAL_SUPPLY;
+          }
+        }
         paintTape();
         paintPx();
+        paintCaps();
         updateChartLive();
       },
       onLaunch: function(l){
