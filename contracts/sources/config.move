@@ -50,6 +50,12 @@ public struct StoredQuote<phantom Q> has store {
 /// Compatible upgrade: no new Config field; AdminCap registers after publish.
 public struct OfficialPitKey<phantom Q> has copy, drop, store {}
 
+/// Dynamic-field key for Instant virtual quote (price only; 0 real quote is deposited).
+public struct InstantVirtualQuoteKey<phantom Q> has copy, drop, store {}
+
+const DEFAULT_INSTANT_VIRTUAL_SUI: u64 = 1_000_000_000;
+const DEFAULT_INSTANT_VIRTUAL_XAUM: u64 = 10_000_000;
+
 public struct Config has key {
     id: UID,
     launch_fee_sui: u64,
@@ -150,6 +156,28 @@ public fun official_pit_id<Q>(config: &Config): ID {
 
 public fun assert_official_pit<Q>(config: &Config, pit: &Pit<Q>) {
     assert!(object::id(pit) == official_pit_id<Q>(config), errors::wrong_pit());
+}
+
+/// Virtual quote used only to pick Instant sqrt-price / tick. No real quote is deposited.
+public fun instant_virtual_quote<Q>(config: &Config): u64 {
+    let key = InstantVirtualQuoteKey<Q> {};
+    if (df::exists(&config.id, key)) {
+        *df::borrow(&config.id, key)
+    } else if (type_name::with_defining_ids<Q>() == type_name::with_defining_ids<SUI>()) {
+        DEFAULT_INSTANT_VIRTUAL_SUI
+    } else {
+        DEFAULT_INSTANT_VIRTUAL_XAUM
+    }
+}
+
+public fun set_instant_virtual_quote<Q>(config: &mut Config, _: &AdminCap, v: u64) {
+    assert!(v > 0, errors::zero_amount());
+    let key = InstantVirtualQuoteKey<Q> {};
+    if (df::exists(&config.id, key)) {
+        *df::borrow_mut(&mut config.id, key) = v;
+    } else {
+        df::add(&mut config.id, key, v);
+    }
 }
 
 public fun take_platform<Q>(config: &mut Config, fee: Balance<Q>) {

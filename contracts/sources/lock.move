@@ -8,8 +8,9 @@
 ///    pool, seed full-range liquidity at the curve spot, share the pool, and
 ///    time-lock the Bluefin Position NFT to the Arena creator for `Config.lp_lock_ms`
 ///    (default 180 days).
-/// 3. Instadex (`launch::launch_instadex`) reuses `seed_and_lock_internal` with no
-///    Arena `Pool`. `unlock_ms = 0` (permanent; claim aborts). Fees via `launch::collect_instadex_fees`.
+/// 3. Instadex Instant (`launch::launch_instant`) reuses `seed_and_lock_instant`:
+///    100% token / 0 quote, init at tickLower. `unlock_ms = 0` (permanent; claim aborts).
+///    Two-sided `launch_instadex` still calls `seed_and_lock_internal`. Fees via `launch::collect_instadex_fees`.
 ///
 /// Graduate PTB (SUI quote):
 ///   Pool<T, SUI>, Config, Clock, Bluefin GlobalConfig,
@@ -260,6 +261,78 @@ public(package) fun seed_and_lock_internal<T, Q>(
     send_residual(rem_a, beneficiary, ctx);
     send_residual(rem_b, beneficiary, ctx);
 
+    vault_position(pool_id, bf_pool_id, position, beneficiary, unlock_ms, token_amount, quote_amount, ctx)
+}
+
+/// Instant DEX: 100% token, 0 quote. Price from `virtual_quote` / token amount (Robinpad Instant).
+/// Token is Bluefin coin A so collect still burns A and splits B.
+public(package) fun seed_and_lock_instant<T, Q>(
+    beneficiary: address,
+    clock: &Clock,
+    bf_config: &mut GlobalConfig,
+    meta_t: &CoinMetadata<T>,
+    meta_q: &CoinMetadata<Q>,
+    creation_fee: Balance<SUI>,
+    token: Balance<T>,
+    virtual_quote: u64,
+    ctx: &mut TxContext,
+): (ID, ID, ID, u64) {
+    let token_amount = token.value();
+    assert!(token_amount > 0 && virtual_quote > 0, errors::insufficient_liquidity());
+    let ideal_sqrt = math::sqrt_price_x64(token_amount, virtual_quote);
+    let (lower_bits, upper_bits, init_sqrt) = bluefin::instant_range(bf_config, ideal_sqrt);
+
+    let mut name = *meta_t.get_symbol().as_bytes();
+    name.append(b"-");
+    name.append(*meta_q.get_symbol().as_bytes());
+
+    let (bf_pool_id, position, _paid_a, paid_b, rem_a, rem_b) =
+        bluefin::create_and_seed<T, Q, SUI>(
+            clock,
+            bf_config,
+            name,
+            metadata_url(meta_t),
+            *meta_t.get_symbol().as_bytes(),
+            meta_t.get_decimals(),
+            metadata_url(meta_t),
+            *meta_q.get_symbol().as_bytes(),
+            meta_q.get_decimals(),
+            metadata_url(meta_q),
+            init_sqrt,
+            creation_fee,
+            lower_bits,
+            upper_bits,
+            token,
+            sui::balance::zero<Q>(),
+            token_amount,
+            true,
+            ctx,
+        );
+    assert!(paid_b == 0, errors::invalid_fee());
+    send_residual(rem_a, beneficiary, ctx);
+    send_residual(rem_b, beneficiary, ctx);
+    vault_position(
+        object::id_from_address(@0x0),
+        bf_pool_id,
+        position,
+        beneficiary,
+        0,
+        token_amount,
+        0,
+        ctx,
+    )
+}
+
+fun vault_position(
+    pool_id: ID,
+    bf_pool_id: ID,
+    position: Position,
+    beneficiary: address,
+    unlock_ms: u64,
+    token_amount: u64,
+    quote_amount: u64,
+    ctx: &mut TxContext,
+): (ID, ID, ID, u64) {
     let position_id = object::id(&position);
     let lock = BluefinPositionLock {
         id: object::new(ctx),

@@ -598,6 +598,36 @@ fun test_sqrt_and_tick_align() {
     assert!(math::align_tick_bits(443636, 60) == 443580, 7);
     assert!(math::align_tick_bits(4294523660, 60) == 4294523716, 8);
     assert!(math::align_tick_bits(443636, 1) == 443636, 9);
+    // Instant tick math: tick 0 → Q64. Cetus/Bluefin min tick. Floor toward −∞.
+    assert!(math::sqrt_price_x64_at_tick_bits(0) == math::q64(), 10);
+    // Cetus: get_sqrt_price_at_tick(-443636) == 4295048016. bits = 4294523660.
+    assert!(math::sqrt_price_x64_at_tick_bits(4294523660) == math::min_sqrt_price_x64(), 11);
+    assert!(math::floor_tick_bits(207232, 60) == 207180, 12);
+    // -207232 bits = 4294760064. Floor toward −∞ is -207240 = 4294760056.
+    assert!(math::floor_tick_bits(4294760064, 60) == 4294760056, 13);
+    // Already aligned negative tick stays.
+    assert!(math::floor_tick_bits(4294760056, 60) == 4294760056, 14);
+    let p = math::sqrt_price_x64(1_000_000_000_000_000_000, 1_000_000_000);
+    let t = math::tick_bits_at_sqrt_price_x64(p);
+    assert!(math::sqrt_price_x64_at_tick_bits(t) <= p, 15);
+    // Round-trip a few ticks through Bluefin Q64 tables.
+    assert!(math::tick_bits_at_sqrt_price_x64(math::q64()) == 0, 16);
+    assert!(math::tick_bits_at_sqrt_price_x64(math::sqrt_price_x64_at_tick_bits(60)) == 60, 17);
+    assert!(math::tick_bits_at_sqrt_price_x64(math::sqrt_price_x64_at_tick_bits(4294760056)) == 4294760056, 18);
+    let lower = math::floor_tick_bits(t, 60);
+    assert!(math::sqrt_price_x64_at_tick_bits(lower) <= p, 19);
+}
+
+#[test]
+fun test_instant_virtual_quote_defaults() {
+    let mut scenario = ts::begin(ADMIN);
+    setup(&mut scenario);
+    scenario.next_tx(ADMIN);
+    let config = scenario.take_shared<Config>();
+    assert!(config.instant_virtual_quote<SUI>() == 1_000_000_000, 0);
+    assert!(config.instant_virtual_quote<QCOIN>() == 10_000_000, 1);
+    ts::return_shared(config);
+    scenario.end();
 }
 
 #[test]

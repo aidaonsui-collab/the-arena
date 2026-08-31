@@ -3,9 +3,10 @@
 /// Curve: the creator publishes Coin<T> (TreasuryCap + metadata), then calls
 /// `launch` to mint curve supply into a shared Pool<T, Q> and pay the SUI fee.
 ///
-/// Instadex: same published Coin<T>, but the creator brings both LP sides
-/// (Coin<T> + Coin<Q>) and `launch_instadex` seeds a Bluefin Spot pool, vaults the Position NFT
-/// forever (`unlock_ms = 0`), and permanently locks TreasuryCap so nobody can mint after.
+/// Instadex: same published Coin<T>. Create uses `launch_instant` (Robinpad Instant):
+/// 100% of Coin<T>, 0 real quote, price from Config.instant_virtual_quote. `launch_instadex`
+/// remains the two-sided seed. Both vault the Position NFT forever (`unlock_ms = 0`) and
+/// lock TreasuryCap so nobody can mint after.
 module arena::launch;
 
 use arena::config::Config;
@@ -151,6 +152,87 @@ public fun launch_instadex<T, Q>(
     );
     events::emit_instadex_mint_lock(lock_id, mint_id);
     lock_id
+}
+
+/// Robinpad Instant: 100% token, 0 real quote. Price from Config.instant_virtual_quote.
+/// Creator pays the 1 SUI launch fee only. LP NFT locked forever.
+public fun launch_instant<T, Q>(
+    config: &mut Config,
+    clock: &Clock,
+    bf_config: &mut GlobalConfig,
+    treasury_cap: TreasuryCap<T>,
+    meta_t: &CoinMetadata<T>,
+    meta_q: &CoinMetadata<Q>,
+    token: Coin<T>,
+    fee_sui: Coin<SUI>,
+    creation_fee: Coin<SUI>,
+    ctx: &mut TxContext,
+): ID {
+    config.take_launch_fee(fee_sui);
+    let token_amount = token.value();
+    assert!(token_amount > 0, errors::zero_amount());
+    let virtual_quote = config.instant_virtual_quote<Q>();
+    let fee = lock::take_creation_fee(bf_config, creation_fee, ctx.sender(), ctx);
+    let (lock_id, bf_pool_id, position_id, _) = lock::seed_and_lock_instant(
+        ctx.sender(),
+        clock,
+        bf_config,
+        meta_t,
+        meta_q,
+        fee,
+        token.into_balance(),
+        virtual_quote,
+        ctx,
+    );
+
+    let mint = InstadexMintLock<T> {
+        id: object::new(ctx),
+        cap: treasury_cap,
+    };
+    let mint_id = object::id(&mint);
+    transfer::share_object(mint);
+
+    events::emit_instadex_launch(
+        lock_id,
+        bf_pool_id,
+        position_id,
+        type_name::with_defining_ids<T>(),
+        type_name::with_defining_ids<Q>(),
+        ctx.sender(),
+        token_amount,
+        0,
+        0,
+        meta_t.get_name(),
+        meta_t.get_symbol(),
+    );
+    events::emit_instadex_mint_lock(lock_id, mint_id);
+    lock_id
+}
+
+public entry fun launch_instant_entry<T, Q>(
+    config: &mut Config,
+    clock: &Clock,
+    bf_config: &mut GlobalConfig,
+    treasury_cap: TreasuryCap<T>,
+    meta_t: &CoinMetadata<T>,
+    meta_q: &CoinMetadata<Q>,
+    token: Coin<T>,
+    fee_sui: Coin<SUI>,
+    creation_fee: Coin<SUI>,
+    ctx: &mut TxContext,
+) {
+    launch_instant<T, Q>(
+        config,
+        clock,
+        bf_config,
+        treasury_cap,
+        meta_t,
+        meta_q,
+        token,
+        fee_sui,
+        creation_fee,
+        ctx,
+    );
 }
 
 /// Entry wrapper: same as `launch_instadex`, discards the returned lock id.

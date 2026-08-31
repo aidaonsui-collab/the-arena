@@ -372,16 +372,11 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   var LAUNCH_FEE = 1000000000;
   var TOKEN_DECIMALS = 9;
   var TOKEN_SUPPLY = "1000000000";
-  var QUOTE_SEED_SUI = "1";
-  var QUOTE_SEED_XAUM = "0.01";
-  function quoteSeedHuman(){
-    return state.lQuote === "XAUM" ? QUOTE_SEED_XAUM : QUOTE_SEED_SUI;
-  }
   function lpBlurb(){
     if (state.lQuote === "XAUM"){
-      return "1,000,000,000 supply, 9 decimals. All of it locks in Bluefin with 0.01 XAUM. You pay 1 SUI launch fee plus 0.01 XAUM LP. The Position NFT never unlocks.";
+      return "1,000,000,000 supply, 9 decimals. All of it locks in a single-sided TOKEN/XAUM Bluefin position. 0 XAUM in LP. Price from 0.01 XAUM virtual. You pay 1 SUI launch fee. The Position NFT never unlocks.";
     }
-    return "1,000,000,000 supply, 9 decimals. All of it locks in Bluefin with 1 SUI. You pay 1 SUI launch fee plus 1 SUI LP (2 SUI total). The Position NFT never unlocks.";
+    return "1,000,000,000 supply, 9 decimals. All of it locks in a single-sided TOKEN/SUI Bluefin position. 0 SUI in LP. Price from 1 SUI virtual. You pay 1 SUI launch fee. The Position NFT never unlocks.";
   }
   var SDK_URLS = [
     "https://esm.sh/@mysten/sui/transactions",
@@ -1423,10 +1418,9 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
           '<div><label>Quote</label><div class="toggle">'+tog("lQuote","SUI","SUI")+tog("lQuote","XAUM","XAUM")+'</div>'+
             '<div style="font-size:12px;color:var(--muted);margin-top:6px">'+
               (state.lQuote==="XAUM"
-                ? "TOKEN/XAUM. Arena sets LP at 0.01 XAUM vs 100% of the token."
-                : "TOKEN/SUI. Arena sets LP at 1 SUI vs 100% of the token.")+
+                ? "TOKEN/XAUM. Starting price from 0.01 XAUM virtual. No XAUM required."
+                : "TOKEN/SUI. Starting price from 1 SUI virtual. No extra SUI for LP.")+
             '</div></div>'+
-          (state.lQuote==="XAUM" ? '<div><label>XAUM coin · optional</label><input id="l-quote-coin" spellcheck="false" placeholder="0x… Coin&lt;XAUM&gt; or pick from wallet" value="'+escAttr(state.lQuoteCoin)+'"></div>' : '')+
           '<div><label>Name</label><input id="l-name" placeholder="'+(state.lCoinMode==="create"?"Gladius Token":"From CoinMetadata")+'" value="'+escAttr(state.lName)+'"></div>'+
           '<div><label>Ticker</label><input id="l-tick" placeholder="'+(state.lCoinMode==="create"?"GLADIUS":"From CoinMetadata")+'" maxlength="12" value="'+escAttr(state.lTick)+'"></div>'+
           (state.lCoinMode==="create" && tickerToIdent(state.lTick)
@@ -1434,7 +1428,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
             : (state.lCoinMode==="create" ? '<div id="l-type-hint" style="font-size:12px;color:var(--muted);margin-top:-4px"></div>' : ''))+
           '<button type="button" class="btn-trade" id="launch-go">'+launchBtnLabel()+'</button>'+
           '<div id="launch-note" style="font-size:12px;color:var(--muted);margin-top:8px;text-align:center">'+
-            (state.lQuote==="XAUM" ? "Pay 1 SUI fee + 0.01 XAUM LP." : "Pay 2 SUI total · 1 fee + 1 LP.")+
+            "Pay 1 SUI launch fee. 0 quote LP."+
           '</div>'+
         '</div></div>'+
       footerHTML()+'</div>';
@@ -2103,11 +2097,10 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       var tokenCoinId = (state.lTokenCoin || "").trim();
       var quoteIsXaum = state.lQuote === "XAUM";
       var creating = state.lCoinMode === "create";
-      var quoteHuman = quoteSeedHuman();
       var tokenHuman = "";
       state.lDecimals = String(TOKEN_DECIMALS);
       state.lSupply = TOKEN_SUPPLY;
-      state.lQuoteAmt = quoteHuman;
+      state.lQuoteAmt = "0";
       state.lTokenAmt = "";
       if (!creating){
         if (!capId) throw new Error("TreasuryCap object id required");
@@ -2191,10 +2184,6 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       var metaQ = await metadataFor(Qtype);
       if (metaT.name) { state.lName = metaT.name; var nEl = $("#l-name"); if (nEl) nEl.value = metaT.name; }
       if (metaT.symbol) { state.lTick = String(metaT.symbol).toUpperCase(); var tEl = $("#l-tick"); if (tEl) tEl.value = state.lTick; }
-      var tokenDecimals = metaT.decimals != null ? metaT.decimals : TOKEN_DECIMALS;
-      var quoteDecimals = metaQ.decimals != null ? metaQ.decimals : 9;
-      var quoteAmt = toSmallest(quoteHuman, quoteDecimals);
-      if (!(quoteAmt > 0)) throw new Error("Quote LP must be > 0");
       var tokenWhole = coinValue(tokenObj.json);
       var tokenAmt = tokenWhole;
       if (!(tokenAmt > 0)) throw new Error("Token coin is empty");
@@ -2202,7 +2191,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       var CALL = window.ARENA_CALL_PACKAGE || window.ARENA_COLLECT_PACKAGE;
       if (!CALL) throw new Error("ARENA_INSTADEX_PACKAGE missing");
       if (CALL.indexOf("067136624c5bec5221247e9b0a0a1afbd77a79aadbabdac18a95a10bc186cc74") >= 0){
-        throw new Error("Refusing v3 package for launch_instadex");
+        throw new Error("Refusing v3 package for launch_instant");
       }
       var tx = new Transaction();
       tx.setSender(suiSession.address);
@@ -2212,21 +2201,6 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
         var sp = tx.splitCoins(tx.object(tokenCoinId), [tokenAmt]);
         tokenArg = Array.isArray(sp) ? sp[0] : sp;
       }
-      var quoteArg;
-      if (quoteIsXaum){
-        var xaumCoins;
-        var qid = (state.lQuoteCoin || "").trim();
-        if (qid){
-          var qObj = await moveObject(qid);
-          xaumCoins = [{ id: qid, value: coinValue(qObj.json) }];
-        } else {
-          xaumCoins = await coinsOf(suiSession.address, Qtype);
-        }
-        quoteArg = takeCoin(tx, xaumCoins, quoteAmt);
-      } else {
-        var qSplit = tx.splitCoins(tx.gas, [quoteAmt]);
-        quoteArg = Array.isArray(qSplit) ? qSplit[0] : qSplit;
-      }
       var feeSplit = tx.splitCoins(tx.gas, [LAUNCH_FEE]);
       var feeArg = Array.isArray(feeSplit) ? feeSplit[0] : feeSplit;
       var creationArg = tx.moveCall({
@@ -2234,9 +2208,9 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
         typeArguments: [SUI_TYPE],
         arguments: []
       });
-      // v4 published-at only. Never curve launch. Never 0x0671::launch::launch_instadex_entry.
+      // Instant: 100% token, 0 quote. Never curve launch. Never launch_instadex_entry (two-sided).
       tx.moveCall({
-        target: CALL + "::launch::launch_instadex_entry",
+        target: CALL + "::launch::launch_instant_entry",
         typeArguments: [Ttype, Qtype],
         arguments: [
           tx.object(window.ARENA_CONFIG),
@@ -2246,7 +2220,6 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
           tx.object(metaT.id),
           tx.object(metaQ.id),
           tokenArg,
-          quoteArg,
           feeArg,
           creationArg
         ]

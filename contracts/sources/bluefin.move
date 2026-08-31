@@ -106,6 +106,17 @@ public(package) fun create_and_seed<CoinA, CoinB, CoinFee>(
     (pool_id, position, paid_a, paid_b, rem_a, rem_b)
 }
 
+/// Instant DEX range (token is coin A): 100% token / 0 quote.
+/// tickLower = floor(ideal, spacing), tickUpper = max usable, init AT tickLower.
+public(package) fun instant_range(protocol_config: &GlobalConfig, ideal_sqrt: u128): (u32, u32, u128) {
+    let (_min_bits, max_bits) = full_range_tick_bits(protocol_config);
+    let ideal_bits = arena::math::tick_bits_at_sqrt_price_x64(ideal_sqrt);
+    let lower = arena::math::floor_tick_bits(ideal_bits, TICK_SPACING);
+    let upper = max_bits;
+    let init_sqrt = arena::math::sqrt_price_x64_at_tick_bits(lower);
+    (lower, upper, init_sqrt)
+}
+
 /// Collect accrued swap fees for a position. Returns amounts plus Coin A/B balances.
 public(package) fun collect_fee<A, B>(
     clock: &Clock,
