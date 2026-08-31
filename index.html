@@ -147,7 +147,7 @@ a.btn-trade{display:block;text-align:center;text-decoration:none;box-sizing:bord
 
 .tape-tabs{display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap}
 .tape-wrap{overflow-x:auto}
-.tape-head,.tape-row{display:grid;grid-template-columns:56px 52px 72px minmax(64px,.9fr) minmax(96px,1fr) minmax(140px,1.3fr);gap:8px;align-items:center;padding:10px 8px}
+.tape-head,.tape-row{display:grid;grid-template-columns:56px 52px 72px minmax(64px,.9fr) minmax(118px,1.15fr) minmax(140px,1.3fr);gap:8px;align-items:center;padding:10px 8px}
 .tape-head{color:var(--muted);font-size:11px;font-weight:650;letter-spacing:.04em;text-transform:uppercase;padding:4px 8px 10px;border-bottom:1px solid var(--line)}
 .tape-hbtn{border:0;background:transparent;color:inherit;font:inherit;letter-spacing:inherit;text-transform:inherit;padding:0;cursor:pointer}
 .tape-hbtn:hover{color:var(--ink)}
@@ -155,10 +155,12 @@ a.btn-trade{display:block;text-align:center;text-decoration:none;box-sizing:bord
 .tape-row:hover{background:var(--lift)}
 .tape-age{color:var(--muted);font-size:13px}
 .tape-type{font-weight:650;font-size:13px}
-.tape-type.buy,.tape-total.buy{color:#3ECF8E}
-.tape-type.sell,.tape-total.sell{color:#FF6640}
+.tape-type.buy,.tape-total.buy .tape-sz{color:#3ECF8E}
+.tape-type.sell,.tape-total.sell .tape-sz{color:#FF6640}
 .tape-mc,.tape-amt{font-size:13px;white-space:nowrap}
-.tape-total{display:inline-flex;align-items:center;gap:6px;font-weight:650;font-size:13px;white-space:nowrap}
+.tape-total{display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:0;font-weight:650;font-size:13px;white-space:nowrap;min-width:0}
+.tape-total .tape-sz{display:inline-flex;align-items:center;gap:6px;font-size:13px;max-width:100%}
+.tape-total .q-mark,.tape-total .sui-mark{margin-left:0}
 .sui-mark{width:12px;height:12px;flex:none}
 .tape-who{display:flex;align-items:center;justify-content:flex-end;gap:7px;min-width:0}
 .tape-av{width:18px;height:18px;border-radius:99px;background:#101211;color:var(--muted);font-size:10px;font-weight:700;display:grid;place-items:center;flex:none}
@@ -269,7 +271,7 @@ html[data-route="pit"] .search-row,html[data-route="launch"] .search-row,html[da
 @media (max-width:720px){
   .nav-item{padding:8px 12px;font-size:13px}
   .tape-head .tape-mc,.tape-row .tape-mc{display:none}
-  .tape-head,.tape-row{grid-template-columns:44px 48px minmax(56px,.8fr) minmax(78px,1fr) minmax(110px,1.2fr);gap:6px;padding:10px 4px}
+  .tape-head,.tape-row{grid-template-columns:44px 48px minmax(56px,.8fr) minmax(96px,1fr) minmax(110px,1.2fr);gap:6px;padding:10px 4px}
   .tape-sz{font-size:13px}
   .q-mark{width:12px;height:12px;margin-left:4px}
   .holder-row{grid-template-columns:22px minmax(0,1fr) minmax(40px,auto) minmax(56px,auto);gap:6px}
@@ -1320,8 +1322,19 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     const a = Math.abs(n);
     if (a >= 1e6) return "$"+(n/1e6).toFixed(2)+"M";
     if (a >= 1e3) return "$"+(n/1e3).toFixed(1)+"k";
-    if (a >= 1) return "$"+n.toFixed(2);
-    return "$"+n.toFixed(3);
+    if (a >= 0.01) return "$"+n.toFixed(2);
+    return "$"+n.toFixed(4);
+  }
+  /** Quote per token using each coin's decimals (USDY is 6dp; raw/raw is 1000× small). */
+  function tradeQuotePx(r, q){
+    if (!r) return 0;
+    q = q || poolQuote(r.pool_id);
+    const tok = fromMist(r.token_amount);
+    const quote = fromQuoteAmt(r.quote_amount, q);
+    if (tok > 0 && quote > 0) return quote / tok;
+    if (Index) return Index.tradePrice(r) || 0;
+    const tr = Number(r.token_reserve);
+    return tr > 0 ? Number(r.quote_real) / tr : 0;
   }
   function quoteUsd(q){
     if (q === "USDY") return hop.usdyUsd > 0 ? hop.usdyUsd : 1;
@@ -1368,7 +1381,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   function curveCap(tk){
     if (isDexBout(tk)){
       const last = tapeItems(1, tk.t)[0];
-      const px = last && Index ? Index.tradePrice(last) : 0;
+      const px = tradeQuotePx(last, poolQuote(tk));
       if (px > 0) return px * VIRTUAL_SUPPLY;
       return tk.cap;
     }
@@ -1493,10 +1506,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     const rows = bus.trades.filter(function(t){ return matchesPool(t, id); });
     if (!rows.length) return isDexBout(findT(id)) ? 0 : 4.65e-6;
     rows.sort(function(a,b){ return (a.ts||0)-(b.ts||0); });
-    const last = rows[rows.length-1];
-    if (Index) return Index.tradePrice(last);
-    const tr = Number(last.token_reserve);
-    return tr > 0 ? Number(last.quote_real)/tr : 0;
+    return tradeQuotePx(rows[rows.length-1], poolQuote(id));
   }
   function fromMist(s){ return Index ? Index.fromMist(s) : Number(s||0)/1e9; }
   const TAPE_PAGE = 25;
@@ -1777,7 +1787,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     const extIco = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 5h5v5"/><path d="M10 14L19 5"/><path d="M19 13v6H5V5h6"/></svg>';
     const head = '<div class="tape-head">'+
       '<button type="button" class="tape-hbtn" data-tape-sort="age">'+(ageOn ? "Age ↓" : "Time")+'</button>'+
-      '<div>Type</div><div class="tape-mc">MC</div><div>Amount</div><div>Total SUI</div><div></div></div>';
+      '<div>Type</div><div class="tape-mc">MC</div><div>Amount</div><div>Total</div><div></div></div>';
     const body = rows.map(function(r){
       const bought = !!r.is_buy;
       const quote = fromQuoteAmt(r.quote_amount, q);
@@ -1787,18 +1797,26 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       const letter = String(name || "0").replace(/^0x/i, "").charAt(0).toUpperCase() || "?";
       const n = counts[String(r.trader || "").toLowerCase()] || 1;
       const sui = quoteSuiAmt(quote, q);
+      const usdN = quote * (quoteUsd(q) || 0);
+      const usdTxt = usdN > 0 ? fmtUsd(usdN) : "—";
+      const sub = (q !== "SUI" && suiReady && sui > 0)
+        ? usdTxt + " · " + fmtSui(sui) + " SUI"
+        : usdTxt;
       const mc = fillMcUsd(r, q);
       const when = ageOn ? agoOf(r.ts) : tapeClock(r.ts);
       const digest = r.digest ? String(r.digest) : "";
       const tx = digest
         ? '<a class="tape-ico" href="https://suiscan.xyz/mainnet/tx/'+escAttr(digest)+'" target="_blank" rel="noopener" title="Open on Suiscan">'+extIco+'</a>'
         : "";
+      const totalSz = quote > 0
+        ? quoteMark(q)+'<span>'+fmtSui(quote)+' '+escHtml(q)+'</span>'
+        : "—";
       return '<div class="tape-row">'+
         '<div class="tape-age" title="'+escAttr(new Date(r.ts||0).toISOString())+'">'+when+'</div>'+
         '<div class="tape-type '+side+'">'+(bought ? "Buy" : "Sell")+'</div>'+
         '<div class="tape-mc">'+(mc > 0 ? fmtUsd(mc) : "—")+'</div>'+
         '<div class="tape-amt">'+fmtAmt(tok)+'</div>'+
-        '<div class="tape-total '+side+'">'+suiMark()+(suiReady ? fmtSui(sui) : "—")+'</div>'+
+        '<div class="tape-total '+side+'"><div class="tape-sz">'+totalSz+'</div><div class="tape-sub">'+sub+'</div></div>'+
         '<div class="tape-who">'+
           '<span class="tape-av">'+escHtml(letter)+'</span>'+
           '<span class="tape-name" title="'+escAttr(r.trader || "")+'">'+escHtml(name)+'</span>'+
@@ -2275,7 +2293,11 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       (tk.bluefinPool ? '<a class="about-link" href="https://trade.bluefin.io/swap?pool='+tk.bluefinPool+'" target="_blank" rel="noopener">Bluefin</a>' : '')+
       (tk.lockId ? '<button type="button" class="about-link" data-copy="'+tk.lockId+'">Vault</button>' : '');
     const tapeBody = dexBout
-      ? ""
+      ? '<div class="card" style="padding:18px;margin-top:12px">'+
+          '<div class="tape-tabs">'+
+            '<span style="font-weight:650">Trades</span>'+
+            '<span class="count-pill tape-count">'+tapeItems(TAPE_CAP, tk.t).length+'</span></div>'+
+          '<div id="tape">'+tapeHTML(tk.t)+'</div></div>'
       : '<div class="card" style="padding:18px;margin-top:12px">'+
           '<div class="tape-tabs">'+
             '<button type="button" class="pill on" data-set="tapeTab" data-val="holders">Holders</button>'+
@@ -2969,7 +2991,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     const gold = poolQuote(k) !== "SUI";
     k.buckets[11] += gold ? amt * 40 : amt; k.fbuckets[11] += 1;
     if (isDexBout(k)){
-      const px = Index ? Index.tradePrice(ev) : 0;
+      const px = tradeQuotePx(ev, poolQuote(k));
       if (px > 0) k.cap = px * VIRTUAL_SUPPLY;
       return;
     }
@@ -4095,9 +4117,9 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
         if (Date.now() - (ev.ts||0) < 8000) applyLiveTrade(ev);
         else if (ev && ev.bluefin){
           const k = T.find(function(t){ return matchesPool(ev, t); });
-          if (k && Index){
+          if (k){
             const last = tapeItems(1, k.t)[0];
-            const px = last ? Index.tradePrice(last) : Index.tradePrice(ev);
+            const px = tradeQuotePx(last || ev, poolQuote(k));
             if (px > 0) k.cap = px * VIRTUAL_SUPPLY;
           }
         }
