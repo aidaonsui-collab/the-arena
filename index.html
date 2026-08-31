@@ -424,9 +424,9 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   var TOKEN_DECIMALS = 9;
   var TOKEN_SUPPLY = "1000000000";
   var QUOTES = {
-    SUI: { label:"SUI", type:SUI_TYPE, metadata:window.ARENA_SUI_METADATA, decimals:9, name:"Sui", what:"Native Sui", create:true, chips:["0.5","1","5","10","Max"], virtualHuman:"1 SUI", pit:window.ARENA_PIT_SUI, color:"#4DA2FF" },
+    SUI: { label:"SUI", type:SUI_TYPE, metadata:window.ARENA_SUI_METADATA, decimals:9, name:"Sui", what:"Native Sui", create:true, chips:["0.5","1","5","10","Max"], virtualHuman:"10 SUI", pit:window.ARENA_PIT_SUI, color:"#4DA2FF" },
     USDY: { label:"USDY", type:window.ARENA_USDY_TYPE, metadata:window.ARENA_USDY_METADATA, decimals:6, name:"Ondo US Dollar Yield", what:"Ondo tokenized US Treasury bills", create:true, chips:["1","5","10","25","Max"], virtualHuman:"10 USDY", pit:window.ARENA_PIT_USDY, color:"#3ECF8E" },
-    XAGM: { label:"XAGM", type:window.ARENA_XAGM_TYPE, metadata:window.ARENA_XAGM_METADATA, decimals:9, name:"Matrixdock Silver", what:"Matrixdock silver, 1 oz", create:true, chips:["0.01","0.05","0.1","0.25","Max"], virtualHuman:"0.01 XAGM", pit:window.ARENA_PIT_XAGM, color:"#C0C7D1" },
+    XAGM: { label:"XAGM", type:window.ARENA_XAGM_TYPE, metadata:window.ARENA_XAGM_METADATA, decimals:9, name:"Matrixdock Silver", what:"Matrixdock silver, 1 oz", create:true, chips:["0.01","0.05","0.1","0.25","Max"], virtualHuman:"0.1 XAGM", pit:window.ARENA_PIT_XAGM, color:"#C0C7D1" },
     XAUM: { label:"XAUM", type:window.ARENA_XAUM_TYPE, metadata:window.ARENA_XAUM_METADATA, decimals:9, name:"Matrixdock Gold", what:"Matrixdock gold, 1 oz", create:false, chips:["0.01","0.05","0.1","0.25","Max"], virtualHuman:"0.01 XAUM", pit:window.ARENA_PIT_XAUM, hopPool:window.ARENA_XAUM_SUI_POOL, color:"#C9A97E" }
   };
   var CREATE_QUOTES = ["SUI","USDY","XAGM"];
@@ -3855,8 +3855,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       state.side = side.getAttribute("data-side");
       if (state.route === "token" && isDexBout(findT(state.sym))){
         var qSide = poolQuote(state.sym);
-        if (state.side === "Sell" && qSide !== "SUI") state.payWith = qSide;
-        if (state.side === "Buy" && qSide !== "SUI" && !state.payWith) state.payWith = "SUI";
+        if (qSide !== "SUI") state.payWith = "SUI";
         if (!state.amt) state.amt = (qSide !== "SUI" && state.payWith !== "SUI" && state.side === "Buy") ? quoteRec(qSide).chips[0] : "1";
         const inpS = $("#amt"); if (inpS) inpS.value = state.amt;
         paintTicket();
