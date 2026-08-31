@@ -121,7 +121,8 @@ main{padding:18px 0 72px}
 .stat{background:var(--card);border-radius:20px;padding:14px 16px;box-shadow:var(--shadow)}
 .stat .k{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
 .stat .v{font-size:18px;font-weight:650;margin-top:6px;font-variant-numeric:tabular-nums}
-.tv-host{height:520px;width:100%;position:relative;background:#1C1D21;border-radius:16px;overflow:hidden}
+.tv-host{height:580px;width:100%;position:relative;background:#1C1D21;border-radius:0;overflow:hidden}
+.chart-card{padding:0;overflow:hidden}
 .tv-host iframe{border:0;display:block;width:100%;height:100%}
 .ticket{background:var(--card);border-radius:28px;padding:18px;box-shadow:var(--shadow);position:sticky;top:84px}
 .sides{display:flex;background:#16171A;border-radius:999px;padding:4px}
@@ -296,7 +297,7 @@ html.shot,html.shot *{animation:none!important;transition:none!important}
   .btn-create{flex:none;padding:12px 14px}
   .featured,.launches{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
   .kbd{display:none}
-  .tv-host{height:400px}
+  .tv-host{height:460px}
   .explore-head h1{font-size:36px}
   .footer{padding:22px}
   .pit-right{text-align:left}
@@ -2309,8 +2310,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
                   '<div class="about-s">'+burnSub+'</div></div>')+
             '</div>'+
           '<div class="about-links">'+aboutLinks+'</div></div>'+
-          '<div class="card" style="padding:18px;margin-top:12px">'+
-            '<div style="display:flex;justify-content:space-between;margin-bottom:8px"><span class="stat k">Chart</span><span class="feat-tick">'+tk.t+' / '+q+'</span></div>'+
+          '<div class="card chart-card" style="margin-top:12px">'+
             dexEmbed(tk.bluefinPool)+'</div>'+
           tapeBody+'</div>'+
         pairTicket(tk, q, insta)+'</div>'+
