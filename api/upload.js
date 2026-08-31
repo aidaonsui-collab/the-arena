@@ -30,17 +30,26 @@ function sniff(buf) {
   return null;
 }
 
+function vercelHost(v) {
+  if (!v) return "";
+  return v.startsWith("http") ? v.replace(/\/$/, "") : `https://${v}`;
+}
+
 function originOk(request) {
+  const origin = (request.headers.get("origin") || "").replace(/\/$/, "");
+  if (!origin) return true;
+  // Production is served on aliases (the-arena-vert.vercel.app). VERCEL_URL is the
+  // unique deployment host, so it must not be the only allowed origin.
+  if (/the-arena|\.vercel\.app$/i.test(origin)) return true;
   const allow = (process.env.ARENA_ORIGIN || "")
     .split(",")
-    .map((s) => s.trim())
+    .map((s) => vercelHost(s.trim()))
     .filter(Boolean);
-  const host = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "";
-  if (host) allow.push(host);
-  const origin = request.headers.get("origin") || "";
-  if (!origin) return true;
-  if (!allow.length) return /the-arena|\.vercel\.app$/i.test(origin);
-  return allow.some((a) => origin === a || origin.startsWith(a));
+  for (const key of ["VERCEL_URL", "VERCEL_BRANCH_URL", "VERCEL_PROJECT_PRODUCTION_URL"]) {
+    const host = vercelHost(process.env[key] || "");
+    if (host) allow.push(host);
+  }
+  return allow.some((a) => origin === a || origin.startsWith(a + "/"));
 }
 
 function corsHeaders(request) {
