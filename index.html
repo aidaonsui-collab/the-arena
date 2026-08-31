@@ -2840,7 +2840,8 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       return;
     }
     tk.instadexBurn = (Number(tk.instadexBurn) || 0) + n;
-    if (state.route === "token" || state.route === "explore") renderScreen();
+    if (state.route === "token") paintLive();
+    else if (state.route === "explore") renderScreen();
   }
   function upsertInstadex(l){
     if (!l) return;
@@ -2912,13 +2913,24 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     hydrateTokenMeta(tk);
     if (bf && bus.sub && bus.sub.watchBluefinPool) bus.sub.watchBluefinPool(bf);
     if (launching && state.route === "launch") return;
-    if (state.route === "explore" || state.route === "token" || state.route === "pit" || state.route === "launch") renderScreen();
+    if (state.route === "token"){
+      paintLive();
+      return;
+    }
+    if (state.route === "explore" || state.route === "pit" || state.route === "launch") renderScreen();
   }
   function renderScreen(){
-    dropTv();
     const host = $("#screens");
+    var keep = host && host.querySelector(".tv-host iframe");
+    var keepSrc = keep ? (keep.getAttribute("src") || "") : "";
+    dropTv();
     const map = {explore:exploreHTML, pit:pitHTML, token:tokenHTML, launch:launchHTML, metrics:metricsHTML};
     host.innerHTML = (map[state.route] || exploreHTML)();
+    if (keep && keepSrc){
+      var slot = host.querySelector(".tv-host");
+      var fresh = slot && slot.querySelector("iframe");
+      if (slot && fresh && (fresh.getAttribute("src") || "") === keepSrc) slot.replaceChild(keep, fresh);
+    }
     document.documentElement.setAttribute("data-route", state.route);
     paintNav();
     paintWallet();
