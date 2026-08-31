@@ -2,6 +2,7 @@ import { readFileSync } from "fs";
 import { createRequire } from "module";
 import { dirname, join } from "path";
 import { fileURLToPath } from "url";
+import { Transaction } from "@mysten/sui/transactions";
 
 const require = createRequire(import.meta.url);
 const tpl = require("@mysten/move-bytecode-template");
@@ -79,7 +80,21 @@ function build(body) {
 export async function POST(req) {
   try {
     const body = await req.json();
-    return Response.json(build(body || {}));
+    const mod = build(body || {});
+    let txJson = null;
+    const sender = String(body.sender || "");
+    if (sender) {
+      const tx = new Transaction();
+      tx.setSender(sender);
+      const cap = tx.publish({
+        modules: [mod.b64],
+        dependencies: ["0x1", "0x2"],
+      });
+      tx.transferObjects([cap], sender);
+      txJson = await tx.toJSON();
+      if (typeof txJson !== "string") txJson = JSON.stringify(txJson);
+    }
+    return Response.json({ ...mod, txJson });
   } catch (e) {
     return Response.json({ error: e instanceof Error ? e.message : String(e) }, { status: 400 });
   }

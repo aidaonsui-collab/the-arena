@@ -897,12 +897,16 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     var w = suiSession.wallet;
     var account = suiSession.account;
     if (!w) throw new Error("No Sui wallet found");
-    if (typeof tx.setSender === "function") tx.setSender(suiSession.address);
     var payload = tx;
-    if (asJson){
-      try {
-        if (typeof tx.toJSON === "function") payload = await tx.toJSON();
-      } catch (e) { payload = tx; }
+    if (typeof tx === "string"){
+      payload = tx;
+    } else {
+      if (typeof tx.setSender === "function") tx.setSender(suiSession.address);
+      if (asJson){
+        try {
+          if (typeof tx.toJSON === "function") payload = await tx.toJSON();
+        } catch (e) { payload = tx; }
+      }
     }
     var feats = w.features || {};
     var opts = { showEffects: true, showEvents: true, showObjectChanges: true };
@@ -3080,12 +3084,13 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
               decimals: decimals,
               supply: String(supplyWhole),
               description: metaDesc,
-              icon: state.lArtUrl || ""
+              icon: state.lArtUrl || "",
+              sender: suiSession.address
             })
           });
           var modJson = await modRes.json();
           if (!modRes.ok || !modJson.b64) throw new Error(modJson.error || "coin-module failed");
-          built = { bytes: b64ToBytes(modJson.b64), ident: modJson.ident, upper: modJson.upper, b64: modJson.b64 };
+          built = { bytes: b64ToBytes(modJson.b64), ident: modJson.ident, upper: modJson.upper, b64: modJson.b64, txJson: modJson.txJson || "" };
         } catch (modErr) {
           var tplLib = await loadMoveTemplate();
           built = buildCoinModule(tplLib, {
@@ -3100,16 +3105,20 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
         }
         if (!built.b64) built.b64 = bytesToB64(built.bytes);
 
-        var TransactionP = await loadTransaction();
-        var ptx = new TransactionP();
-        ptx.setSender(suiSession.address);
-        var pub = ptx.publish({ modules: [built.b64], dependencies: ["0x1", "0x2"] });
-        var upgradeCap = Array.isArray(pub) ? pub[0] : pub;
-        ptx.transferObjects([upgradeCap], suiSession.address);
+        var pubPayload = built.txJson;
+        if (!pubPayload){
+          var TransactionP = await loadTransaction();
+          var ptx = new TransactionP();
+          ptx.setSender(suiSession.address);
+          var pub = ptx.publish({ modules: [built.b64], dependencies: ["0x1", "0x2"] });
+          var upgradeCap = Array.isArray(pub) ? pub[0] : pub;
+          ptx.transferObjects([upgradeCap], suiSession.address);
+          pubPayload = ptx;
+        }
 
         if (btn) btn.textContent = "Sign 1 of 2 · publish coin…";
         setLaunchNote("Publishing " + built.upper + ". Signature 1 of 2.", false);
-        var pubRes = await walletExec(ptx);
+        var pubRes = await walletExec(pubPayload, true);
         var digest = txDigest(pubRes);
         var made = readPublishResult(pubRes, built.ident);
         if (!made.packageId){
