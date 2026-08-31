@@ -1461,10 +1461,16 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   function chText(k){ return (k.ch>=0?"+":"")+k.ch.toFixed(1)+"%"; }
   function chColor(k){ return k.ch>=0 ? "#298DFF" : "#FF6640"; }
   function rank(i){ return String(i+1).padStart(2,"0"); }
-  function sortedT(){ return T.filter(function(k){ return !k.graduated && k.st !== "Graduated"; }).sort(function(a,b){return b.cap-a.cap;}); }
+  function isHiddenToken(k){
+    const t = String((k && k.t) || "").toUpperCase();
+    if (t === "BFLN" || t === "GRAD" || t === "SMOKE") return true;
+    const n = String((k && k.n) || "");
+    return /^Arena (Bluefin|Grad|Smoke)$/i.test(n);
+  }
+  function sortedT(){ return T.filter(function(k){ return !isHiddenToken(k) && !k.graduated && k.st !== "Graduated"; }).sort(function(a,b){return b.cap-a.cap;}); }
   function pitContenders(){
     return T.filter(function(k){
-      if (!k || k.missing || !k.t || k.t === "—") return false;
+      if (!k || k.missing || !k.t || k.t === "—" || isHiddenToken(k)) return false;
       if (k.instadex || k.st === "Instadex" || k.bluefinPool) return true;
       return !k.graduated && k.st !== "Graduated";
     }).sort(function(a,b){
@@ -1989,7 +1995,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   }
   function launchPool(){
     const q = (state.search||"").trim().toLowerCase();
-    let list = T.slice();
+    let list = T.filter(function(k){ return !isHiddenToken(k); });
     if (q) list = list.filter(function(k){ return (k.t+" "+k.n+" "+k.b).toLowerCase().indexOf(q) >= 0; });
     const f = state.filter;
     if (f === "Trending") list = list.filter(function(k){ return k.ch >= 12 || vol(k) > vol(T[0])*0.4; });
