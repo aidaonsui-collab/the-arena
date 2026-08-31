@@ -484,10 +484,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       try {
         var mod = await import(TPL_URLS[i]);
         var init = mod.default || mod.init || mod.initSync;
-        if (typeof init === "function"){
-          try { await init({ module_or_path: TPL_WASM }); }
-          catch (e1) { await init(TPL_WASM); }
-        }
+        if (typeof init === "function") await init(TPL_WASM);
         if (typeof mod.update_identifiers === "function"){ MoveTpl = mod; return mod; }
       } catch (e) { lastErr = e; }
     }
@@ -501,9 +498,9 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     return out;
   }
   function bytesToB64(bytes){
-    var u8 = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
-    var bin = Array.from(u8, function(b){ return String.fromCharCode(b); }).join("");
-    return btoa(bin);
+    var s = "";
+    for (var i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]);
+    return btoa(s);
   }
   // BCS encoders for the three constant shapes the template uses. Hand-rolled so
   // the page does not need a second CDN dependency for six values.
@@ -900,41 +897,38 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     var account = suiSession.account;
     if (!w) throw new Error("No Sui wallet found");
     if (typeof tx.setSender === "function") tx.setSender(suiSession.address);
-    var json = asJson ? await txAsJson(tx) : tx;
+    var payload = tx;
+    if (asJson){
+      try {
+        if (typeof tx.toJSON === "function") payload = await tx.toJSON();
+      } catch (e) { payload = tx; }
+    }
     var feats = w.features || {};
     var opts = { showEffects: true, showEvents: true, showObjectChanges: true };
-    async function sign(payload){
-      if (feats["sui:signAndExecuteTransaction"] && feats["sui:signAndExecuteTransaction"].signAndExecuteTransaction){
-        return feats["sui:signAndExecuteTransaction"].signAndExecuteTransaction({
+    if (feats["sui:signAndExecuteTransaction"] && feats["sui:signAndExecuteTransaction"].signAndExecuteTransaction){
+      try {
+        return await feats["sui:signAndExecuteTransaction"].signAndExecuteTransaction({
           transaction: payload, account: account, chain: "sui:mainnet", options: opts
         });
-      }
-      if (feats["sui:signAndExecuteTransactionBlock"] && feats["sui:signAndExecuteTransactionBlock"].signAndExecuteTransactionBlock){
-        return feats["sui:signAndExecuteTransactionBlock"].signAndExecuteTransactionBlock({
-          transactionBlock: payload, account: account, chain: "sui:mainnet", options: opts
+      } catch (e1) {
+        if (payload === tx) throw e1;
+        return feats["sui:signAndExecuteTransaction"].signAndExecuteTransaction({
+          transaction: tx, account: account, chain: "sui:mainnet", options: opts
         });
       }
-      if (typeof w.signAndExecuteTransaction === "function"){
-        return w.signAndExecuteTransaction({ transaction: payload, options: opts });
-      }
-      if (typeof w.signAndExecuteTransactionBlock === "function"){
-        return w.signAndExecuteTransactionBlock({ transactionBlock: payload, options: opts });
-      }
-      throw new Error("Wallet cannot sign and execute");
     }
-    try {
-      return await sign(json);
-    } catch (e1) {
-      if (json !== tx) {
-        try { return await sign(tx); } catch (e2) { throw e1; }
-      }
-      var msg = walletErrText(e1);
-      if (/unable to process|could not be processed|serialize|structured clone|bigint/i.test(msg)){
-        var alt = await txAsJson(tx);
-        if (alt !== tx) return await sign(alt);
-      }
-      throw e1;
+    if (feats["sui:signAndExecuteTransactionBlock"] && feats["sui:signAndExecuteTransactionBlock"].signAndExecuteTransactionBlock){
+      return feats["sui:signAndExecuteTransactionBlock"].signAndExecuteTransactionBlock({
+        transactionBlock: payload, account: account, chain: "sui:mainnet", options: opts
+      });
     }
+    if (typeof w.signAndExecuteTransaction === "function"){
+      return w.signAndExecuteTransaction({ transaction: payload, options: opts });
+    }
+    if (typeof w.signAndExecuteTransactionBlock === "function"){
+      return w.signAndExecuteTransactionBlock({ transactionBlock: payload, options: opts });
+    }
+    throw new Error("Wallet cannot sign and execute");
   }
   function normType(t){
     if (t == null || t === "") return "";
@@ -3087,13 +3081,12 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
         var TransactionP = await loadTransaction();
         var ptx = new TransactionP();
         ptx.setSender(suiSession.address);
-        if (typeof ptx.setGasBudget === "function") ptx.setGasBudget(300000000);
         var pub = ptx.publish({ modules: [bytesToB64(built.bytes)], dependencies: ["0x1", "0x2"] });
         var upgradeCap = Array.isArray(pub) ? pub[0] : pub;
         ptx.transferObjects([upgradeCap], suiSession.address);
 
         if (btn) btn.textContent = "Sign 1 of 2 · publish coin…";
-        setLaunchNote("Publishing " + built.upper + ". Sign in Slush. If it says Unable to process, Reject — that preview is a bad publish.", false);
+        setLaunchNote("Publishing " + built.upper + ". Signature 1 of 2.", false);
         var pubRes = await walletExec(ptx);
         var digest = txDigest(pubRes);
         var made = readPublishResult(pubRes, built.ident);
