@@ -946,6 +946,27 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     var frac = s.slice(s.length - d).replace(/0+$/, "");
     return Number(frac ? whole + "." + frac.slice(0, 8) : whole);
   }
+  function fromBaseStr(raw, decimals){
+    var d = decimals == null ? 9 : Number(decimals);
+    var s = (typeof raw === "bigint" ? raw : BigInt(String(raw == null ? "0" : raw))).toString();
+    if (s === "0") return "0";
+    if (s.length <= d) s = s.padStart(d + 1, "0");
+    var whole = s.slice(0, s.length - d).replace(/^0+(?=\d)/, "") || "0";
+    var frac = s.slice(s.length - d).replace(/0+$/, "");
+    return frac ? whole + "." + frac : whole;
+  }
+  function swapPctHuman(tk, pct){
+    var raw = balForPay(tk);
+    var n = BigInt(pct);
+    if (n < 0n) n = 0n;
+    if (n > 100n) n = 100n;
+    var take = (raw * n) / 100n;
+    if (state.side === "Buy" && swapPayType(tk) === SUI_TYPE){
+      var gas = 50000000n;
+      if (n === 100n && take > gas) take -= gas;
+    }
+    return fromBaseStr(take, swapPayDecimals(tk));
+  }
   function fmtSwapAmt(n){
     n = Number(n) || 0;
     if (!(n > 0)) return "0";
@@ -1061,10 +1082,12 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     return tk.cap;
   }
   function demoTypeId(tk){
-    const launch = bus.launches[tk.t] || (tk.pool && bus.launches[tk.pool]);
-    if (launch && launch.token) return String(launch.token);
-    if (tk.token) return tk.token;
-    return "0xarena::"+String(tk.t||"tok").toLowerCase()+"::"+tk.t;
+    const launch = bus.launches[tk.t] || (tk.pool && bus.launches[tk.pool]) || (tk.bluefinPool && bus.launches[tk.bluefinPool]);
+    var raw = "";
+    if (launch && launch.token) raw = typeNameStr(launch.token);
+    else if (tk.token) raw = typeNameStr(tk.token);
+    else raw = "0xarena::"+String(tk.t||"tok").toLowerCase()+"::"+tk.t;
+    return normType(raw);
   }
 
   function gradTarget(k){ return poolQuote(k) === "XAUM" ? 1 : GRAD; }
@@ -1845,7 +1868,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       (escUrl(tk.telegram) ? '<a class="about-link" href="'+escUrl(tk.telegram)+'" target="_blank" rel="noopener">Telegram</a>' : '')+
       '<a class="about-link" href="'+dex+'" target="_blank" rel="noopener">Dexscreener</a>'+
       '<a class="about-link" href="'+gecko+'" target="_blank" rel="noopener">GeckoTerminal</a>'+
-      '<button type="button" class="about-link" data-copy="'+demoTypeId(tk)+'">Contract</button>'+
+      '<button type="button" class="about-link" data-copy="'+escAttr(demoTypeId(tk))+'">Contract</button>'+
       '<button type="button" class="about-link" data-copy="'+(tk.bluefinPool||tk.pool||tk.t)+'">Pool</button>'+
       (tk.bluefinPool ? '<a class="about-link" href="https://trade.bluefin.io/swap?pool='+tk.bluefinPool+'" target="_blank" rel="noopener">Bluefin</a>' : '')+
       (tk.lockId ? '<button type="button" class="about-link" data-copy="'+tk.lockId+'">Vault</button>' : '');
@@ -2048,7 +2071,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     const chipHost = $("#amt-chips");
     if (chipHost){
       const vals = state.side === "Sell"
-        ? ["1000","10000","100000","1m","Max"]
+        ? ["25%","50%","75%","100%"]
         : (payAsset === "XAUM" ? ["0.01","0.05","0.1","0.25","Max"] : ["0.5","1","5","10","Max"]);
       chipHost.innerHTML = vals.map(function(c){ return '<div data-chip="'+c+'">'+c+'</div>'; }).join("");
     }
@@ -3247,10 +3270,15 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     const chip = e.target.closest("[data-chip]");
     if (chip){
       const v = chip.getAttribute("data-chip");
-      if (v === "Max"){
+      var pct = /^(\d+)%$/.exec(v);
+      if (pct){
+        var tkChip = findT(state.sym);
+        state.amt = (state.route === "token" && isDexBout(tkChip))
+          ? swapPctHuman(tkChip, pct[1])
+          : v;
+      } else if (v === "Max" || v === "100%"){
         if (state.route === "token" && isDexBout(findT(state.sym))){
-          var mx = swapMaxHuman(findT(state.sym));
-          state.amt = mx > 0 ? String(mx) : "0";
+          state.amt = swapPctHuman(findT(state.sym), 100);
         } else {
           state.amt = (payingSui() ? balance : walletBal(poolQuote(state.sym))).toFixed(2);
         }
