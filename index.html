@@ -3004,14 +3004,19 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     }
     throw last || new Error("Could not load 7k aggregator SDK");
   }
+  function nested0(res){
+    if (res == null) return res;
+    if (typeof res === "object" && res[0] !== undefined) return res[0];
+    return res;
+  }
   function coinIntoBalance(tx, type, coin){
-    return tx.moveCall({ target: "0x2::coin::into_balance", typeArguments: [type], arguments: [coin] });
+    return nested0(tx.moveCall({ target: "0x2::coin::into_balance", typeArguments: [type], arguments: [coin] }));
   }
   function zeroBalance(tx, type){
-    return tx.moveCall({ target: "0x2::balance::zero", typeArguments: [type] });
+    return nested0(tx.moveCall({ target: "0x2::balance::zero", typeArguments: [type], arguments: [] }));
   }
   function coinFromBalance(tx, type, bal){
-    return tx.moveCall({ target: "0x2::coin::from_balance", typeArguments: [type], arguments: [bal] });
+    return nested0(tx.moveCall({ target: "0x2::coin::from_balance", typeArguments: [type], arguments: [bal] }));
   }
   async function takeSwapCoin(tx, type, amount){
     if (normType(type) === SUI_TYPE){
@@ -3032,11 +3037,11 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   function bluefinHop(tx, snap, fromType, coinIn, minOut){
     if (!snap || !snap.a || !snap.b) throw new Error("Pool coin types missing");
     var a2b = a2bFor(snap, fromType);
-    var amountArg = tx.moveCall({
+    var amountArg = nested0(tx.moveCall({
       target: "0x2::coin::value",
       typeArguments: [fromType],
       arguments: [coinIn]
-    });
+    }));
     var inBal = coinIntoBalance(tx, fromType, coinIn);
     var outType = a2b ? snap.b : snap.a;
     var z = zeroBalance(tx, outType);
@@ -3072,13 +3077,21 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     if (typeof tx.setGasBudget === "function") tx.setGasBudget(100000000);
     var insta = await poolSnap(tk.bluefinPool);
     var fromType = swapPayType(tk);
+    if (state.side === "Sell" && !(Number(insta.coinB) > 0)){
+      throw new Error("No quote in the pool yet. A buy has to land first.");
+    }
     var coinIn = await takeSwapCoin(tx, fromType, amount);
     var outCoin;
     if (swapNeedsHop(tk)){
       var hopP = await loadHopPool();
       var midType = window.ARENA_XAUM_TYPE;
-      var mid = bluefinHop(tx, hopP, fromType, coinIn, 0);
-      outCoin = bluefinHop(tx, insta, midType, mid, minOut);
+      if (state.side === "Buy"){
+        var mid = bluefinHop(tx, hopP, fromType, coinIn, 0);
+        outCoin = bluefinHop(tx, insta, midType, mid, minOut);
+      } else {
+        var midSell = bluefinHop(tx, insta, fromType, coinIn, 0);
+        outCoin = bluefinHop(tx, hopP, midType, midSell, minOut);
+      }
     } else {
       outCoin = bluefinHop(tx, insta, fromType, coinIn, minOut);
     }
@@ -3236,6 +3249,8 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     if (side){
       state.side = side.getAttribute("data-side");
       if (state.route === "token" && isDexBout(findT(state.sym))){
+        if (state.side === "Sell" && poolQuote(state.sym) === "XAUM") state.payWith = "XAUM";
+        if (state.side === "Buy" && poolQuote(state.sym) === "XAUM" && !state.payWith) state.payWith = "SUI";
         if (!state.amt) state.amt = (poolQuote(state.sym) === "XAUM" && state.payWith !== "SUI" && state.side === "Buy") ? "0.01" : "1";
         const inpS = $("#amt"); if (inpS) inpS.value = state.amt;
         paintTicket();
