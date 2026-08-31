@@ -3548,7 +3548,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     return a2b ? "4295048017" : "79226673515401279992447579054";
   }
   function cetusSqrtLimit(a2b){
-    return a2b ? "4295046557" : "79226673515401279992447579054";
+    return sqrtLimit(a2b);
   }
   /// One CLMM hop via pool::swap (not gateway entry). Returns the output Coin.
   function bluefinHop(tx, snap, fromType, coinIn, minOut){
@@ -3591,7 +3591,6 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     var Transaction = await loadTransaction();
     var tx = new Transaction();
     tx.setSender(suiSession.address);
-    if (typeof tx.setGasBudget === "function") tx.setGasBudget(100000000);
     var insta = await poolSnap(tk.bluefinPool);
     var fromType = swapPayType(tk);
     if (state.side === "Sell" && !(Number(insta.coinB) > 0)){
@@ -3687,7 +3686,6 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     var Transaction = await loadTransaction();
     var tx = new Transaction();
     tx.setSender(suiSession.address);
-    if (typeof tx.setGasBudget === "function") tx.setGasBudget(200000000);
     var insta = await poolSnap(tk.bluefinPool);
     if (state.side === "Sell" && !(Number(insta.coinB) > 0)){
       throw new Error("No quote in the pool yet. A buy has to land first.");
