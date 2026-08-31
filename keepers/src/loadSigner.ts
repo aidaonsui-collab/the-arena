@@ -19,7 +19,11 @@ export function loadSigner(): Ed25519Keypair {
   const home = process.env.HOME || homedir();
   const store = process.env.SUI_KEYSTORE || `${home}/.sui/sui_config/sui.keystore`;
   const yaml = readFileSync(`${home}/.sui/sui_config/client.yaml`, "utf8");
-  const want = yaml.match(/active_address:\s*"?(0x[0-9a-fA-F]+)/)?.[1]?.toLowerCase();
+  const want = (
+    process.env.ARENA_KEEPER_ADDRESS ||
+    yaml.match(/active_address:\s*"?(0x[0-9a-fA-F]+)/)?.[1] ||
+    ""
+  ).toLowerCase();
   const entries = JSON.parse(readFileSync(store, "utf8")) as string[];
   for (const entry of entries) {
     const kp = fromStoreEntry(entry);

@@ -15,10 +15,11 @@ HTTP cron routes require `Authorization: Bearer $CRON_SECRET` (Vercel Cron sends
 
 ## Home Mac (no Vercel cron)
 
-The keepers are meant to run on the platform Mac, not as a paid Vercel cron. This machine's Sui keystore is the AdminCap wallet (`0x92a32ac7…`).
+The keepers run on the home Mac Air (Jessicas-MacBook-Air / `jessica-m1`), next to `com.eve.arc-sniper` and `com.eve.awake`. Not Vercel, and not the office Mac.
 
 ```
-cd keepers
+ssh jessica-m1
+cd ~/arena-keepers/keepers
 ./install-local.sh
 ```
 
