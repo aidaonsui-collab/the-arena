@@ -354,7 +354,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   let bshift = 0, pot = 31.94, prevPot = "", roundNo = 128, secs = ROUND_SECONDS;
   let balance = 48.60;
   let xaumBal = 2.40;
-  const state = {route:"explore", sym:"VOLT", filter:"All", sort:"Market cap", time:"All", side:"Buy", amt:"1", connected:false, search:"", lName:"", lTick:"", lQuote:"SUI", lPath:"instadex", lMode:"Holders", lTokenAmt:"", lQuoteAmt:"", lCap:"", lTokenCoin:"", lQuoteCoin:"", metricsWindow:"All", tapeTab:"trades", tapeOpen:"", lFile:null, lArtUrl:"", lArtPreview:"", payWith:"SUI"};
+  const state = {route:"explore", sym:"VOLT", filter:"All", sort:"Market cap", time:"All", side:"Buy", amt:"1", connected:false, search:"", lName:"", lTick:"", lQuote:"SUI", lPath:"instadex", lMode:"Holders", lTokenAmt:"", lQuoteAmt:"", lCap:"", lTokenCoin:"", lQuoteCoin:"", lCoinMode:"create", lDecimals:"9", lSupply:"1000000000", lDesc:"", lPublishedType:"", metricsWindow:"All", tapeTab:"trades", tapeOpen:"", lFile:null, lArtUrl:"", lArtPreview:"", payWith:"SUI"};
   let hashLock = false;
   const hop = { suiPerXaum: null, usd: null, suiUsd: null, source: "" };
 
@@ -374,6 +374,141 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     "https://esm.sh/@mysten/sui/transactions",
     "https://esm.sh/@mysten/sui@1.37.2/transactions"
   ];
+
+  // ---------------------------------------------------------------------------
+  // Coin publishing
+  //
+  // Sui gives every coin type its own Move module with a one-time witness, so a
+  // coin cannot be minted into existence by an already-deployed package. A
+  // launchpad has to publish a module per token. This is the compiled bytecode
+  // of `sources/coin_template.move`, with the identifiers and the six constants
+  // patched in the browser before it is published.
+  //
+  // The OTW rule is that the witness struct is the module name uppercased, so
+  // ticker `gladius` gives module `gladius` and struct `GLADIUS`.
+  // ---------------------------------------------------------------------------
+  var COIN_TEMPLATE_B64 = "oRzrCwcAAAUKAQAMAgwkAzAzBGMOBXF8B+0B2wEIyANgBqgEUAr4BAUM/QReABMBDgIHAhQCFQIWAAMCAAECBwEAAAIADAEAAQIBDAEAAQIEDAEAAQQFAgAFBgcAAAoAAQABDQEFAQABEgcFAQACCAkKAQICCwsMAQADDwcBAQwDEBABAQwEEQ0OAAUMBgQAAQQCBAMIBAgGDwURBhICCAAHCAUABQoCCwEBCAYLAQEIBgsDAQgACwQBCAABAgEIBgELAQEJAAEKAgEJAAEIAAcJAAIKAgoCCgILAQEIBgcIBQILBAEJAAsDAQkAAwcLBAEJAAMHCAUBCwIBCQABBggFAQUBCwIBCAACCQAFAQsDAQgAAQsEAQgABENvaW4MQ29pbk1ldGFkYXRhBk9wdGlvbghURU1QTEFURQtUcmVhc3VyeUNhcAlUeENvbnRleHQDVXJsBGNvaW4PY3JlYXRlX2N1cnJlbmN5C2R1bW15X2ZpZWxkBGluaXQEbWludBVuZXdfdW5zYWZlX2Zyb21fYnl0ZXMEbm9uZQZvcHRpb24UcHVibGljX2ZyZWV6ZV9vYmplY3QPcHVibGljX3RyYW5zZmVyBnNlbmRlcgRzb21lCHRlbXBsYXRlCHRyYW5zZmVyCnR4X2NvbnRleHQDdXJsAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACAgEJAwgAgMakfo0DAAoCBQRUTVBMCgIJCFRlbXBsYXRlCgIYF0RFU0NSSVBUSU9OX1BMQUNFSE9MREVSCgIREElDT05fUExBQ0VIT0xERVIAAgEJAQAAAAACKgcFDAIOAkEDBgAAAAAAAAAAIQQKOAAMAwUOBwURCDgBDAMLAwwECwAHAAcCBwMHBAsECgE4AgwFDAYNBgcBCgE4AwoBLhEHOAQLBTgFCwYLAS4RBzgGAgAA";
+  var TPL_VERSION = "0.4.1";
+  var TPL_URLS = [
+    "https://esm.sh/@mysten/move-bytecode-template@" + TPL_VERSION,
+    "https://esm.sh/@mysten/move-bytecode-template"
+  ];
+  var TPL_WASM = "https://esm.sh/@mysten/move-bytecode-template@" + TPL_VERSION + "/web/move_bytecode_template_bg.wasm";
+  var MoveTpl = null;
+
+  // Placeholder values compiled into the template. `update_constants` matches on
+  // the existing bytes, so these must stay in step with coin_template.move.
+  var TPL_DEFAULTS = {
+    decimals: 9,
+    supply: "1000000000000000",
+    symbol: "TMPL",
+    name: "Template",
+    description: "DESCRIPTION_PLACEHOLDER",
+    icon: "ICON_PLACEHOLDER"
+  };
+
+  async function loadMoveTemplate(){
+    if (MoveTpl) return MoveTpl;
+    var lastErr = null;
+    for (var i = 0; i < TPL_URLS.length; i++){
+      try {
+        var mod = await import(TPL_URLS[i]);
+        var init = mod.default || mod.init || mod.initSync;
+        if (typeof init === "function") await init(TPL_WASM);
+        if (typeof mod.update_identifiers === "function"){ MoveTpl = mod; return mod; }
+      } catch (e) { lastErr = e; }
+    }
+    throw lastErr || new Error("Could not load @mysten/move-bytecode-template");
+  }
+
+  function b64ToBytes(b64){
+    var bin = atob(b64);
+    var out = new Uint8Array(bin.length);
+    for (var i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+    return out;
+  }
+  function bytesToB64(bytes){
+    var s = "";
+    for (var i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]);
+    return btoa(s);
+  }
+  // BCS encoders for the three constant shapes the template uses. Hand-rolled so
+  // the page does not need a second CDN dependency for six values.
+  function bcsU8(n){ return new Uint8Array([n & 0xff]); }
+  function bcsU64(v){
+    var x = BigInt(v), out = new Uint8Array(8);
+    for (var i = 0; i < 8; i++){ out[i] = Number(x & 0xffn); x >>= 8n; }
+    return out;
+  }
+  function uleb128(n){
+    var out = [];
+    do { var b = n & 0x7f; n >>>= 7; if (n) b |= 0x80; out.push(b); } while (n);
+    return out;
+  }
+  function bcsString(str){
+    var body = new TextEncoder().encode(str);
+    var len = uleb128(body.length);
+    var out = new Uint8Array(len.length + body.length);
+    out.set(len, 0); out.set(body, len.length);
+    return out;
+  }
+
+  /// A Move module name must be a valid identifier: letters, digits and
+  /// underscores, not starting with a digit. Tickers are not, so they are
+  /// sanitised and the result is what the on-chain type will read as.
+  function tickerToIdent(ticker){
+    var id = String(ticker || "").replace(/[^A-Za-z0-9_]/g, "").toLowerCase();
+    if (!id) return "";
+    if (/^[0-9]/.test(id)) id = "c" + id;
+    return id.slice(0, 24);
+  }
+
+  function buildCoinModule(tpl, opts){
+    var ident = tickerToIdent(opts.ticker);
+    if (!ident) throw new Error("Ticker must contain at least one letter or digit");
+    var upper = ident.toUpperCase();
+
+    var bytes = tpl.update_identifiers(b64ToBytes(COIN_TEMPLATE_B64), {
+      TEMPLATE: upper,
+      template: ident
+    });
+    bytes = tpl.update_constants(bytes, bcsU8(opts.decimals), bcsU8(TPL_DEFAULTS.decimals), "U8");
+    bytes = tpl.update_constants(bytes, bcsU64(opts.supply), bcsU64(TPL_DEFAULTS.supply), "U64");
+    // opts.supply is a BigInt; bcsU64 normalises both sides through BigInt.
+    bytes = tpl.update_constants(bytes, bcsString(opts.symbol), bcsString(TPL_DEFAULTS.symbol), "Vector(U8)");
+    bytes = tpl.update_constants(bytes, bcsString(opts.name), bcsString(TPL_DEFAULTS.name), "Vector(U8)");
+    bytes = tpl.update_constants(bytes, bcsString(opts.description || ""), bcsString(TPL_DEFAULTS.description), "Vector(U8)");
+    bytes = tpl.update_constants(bytes, bcsString(opts.icon || ""), bcsString(TPL_DEFAULTS.icon), "Vector(U8)");
+    return { bytes: bytes, ident: ident, upper: upper };
+  }
+
+  /// Pull the objects the coin's `init` created out of a publish result.
+  function readPublishResult(result, ident){
+    var changes = (result && (result.objectChanges || (result.effects && result.effects.objectChanges))) || [];
+    var out = { packageId: "", capId: "", coinId: "", metaId: "", coinType: "" };
+
+    for (var i = 0; i < changes.length; i++){
+      if (changes[i].type === "published"){ out.packageId = changes[i].packageId; break; }
+    }
+    if (!out.packageId) return out;
+    if (ident) out.coinType = out.packageId + "::" + ident + "::" + ident.toUpperCase();
+
+    // Only objects this transaction created, and only ones parameterised by the
+    // coin type just published. objectChanges also reports the mutated gas coin,
+    // which is a Coin<0x2::sui::SUI> and would otherwise be mistaken for the
+    // freshly minted supply.
+    var mine = out.packageId.replace(/^0x0*/, "");
+    for (var j = 0; j < changes.length; j++){
+      var c = changes[j];
+      if (c.type !== "created") continue;
+      var t = String(c.objectType || "");
+      if (t.replace(/0x0*/g, "").indexOf(mine) < 0) continue;
+      if (t.indexOf("::coin::TreasuryCap<") >= 0) out.capId = c.objectId;
+      else if (t.indexOf("::coin::CoinMetadata<") >= 0) out.metaId = c.objectId;
+      else if (t.indexOf("::coin::Coin<") >= 0) out.coinId = c.objectId;
+    }
+    return out;
+  }
 
   function gql(query, variables){
     return fetch(window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graphql", {
@@ -541,6 +676,20 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     if (b && typeof b === "object") b = b.value;
     var n = Number(b);
     return isFinite(n) ? n : 0;
+  }
+  /// Exact human -> base units, as BigInt. `toSmallest` below rounds through a
+  /// double, which is fine for trade sizes but silently wrong for a total
+  /// supply: 123456789 tokens at 9 decimals is 1.23e17, past the 2^53 mark
+  /// where doubles stop representing every integer.
+  function toSmallestBig(human, decimals){
+    var d = decimals == null ? 9 : Number(decimals);
+    var str = String(human == null ? "" : human).trim();
+    if (!/^[0-9]*\.?[0-9]*$/.test(str) || str === "" || str === ".") return 0n;
+    var parts = str.split(".");
+    var whole = parts[0] || "0";
+    var frac = (parts[1] || "").slice(0, d);
+    while (frac.length < d) frac += "0";
+    return BigInt(whole + frac);
   }
   function toSmallest(human, decimals){
     var d = decimals == null ? 9 : Number(decimals);
@@ -820,6 +969,13 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     return rows.slice(0, limit == null ? 8 : limit);
   }
   function barPct(k){ return Math.min(100, k.cap/gradTarget(k)*100).toFixed(0)+"%"; }
+  function escHtml(v){
+    return String(v == null ? "" : v)
+      .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  }
+  function escAttr(v){
+    return escHtml(v).replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+  }
   function escUrl(u){
     u = String(u || "");
     if (u.indexOf("https://") !== 0 && u.indexOf("blob:") !== 0) return "";
@@ -1241,17 +1397,31 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
             '<div class="art-preview" id="l-art-preview">'+(state.lArtPreview?'<img src="'+escUrl(state.lArtPreview)+'" alt="">':(state.lTick?state.lTick.charAt(0):"?"))+'</div>'+
             '<div><input id="l-art" type="file" accept="image/png,image/jpeg,image/webp,image/gif">'+
             '<div class="art-note" id="l-art-note">'+(state.lArtUrl?"Ready · Blob URL set":"png, jpeg, webp, or gif · 2MB")+'</div></div></div></div>'+
-          '<div><label>TreasuryCap object</label><input id="l-cap" spellcheck="false" placeholder="0x… TreasuryCap" value="'+state.lCap+'"></div>'+
-          '<div><label>Token coin object</label><input id="l-token-coin" spellcheck="false" placeholder="0x… Coin&lt;T&gt;" value="'+state.lTokenCoin+'"></div>'+
-          '<div><label>Token seed</label><input id="l-token-amt" inputmode="decimal" placeholder="Amount to split · blank uses the whole coin" value="'+state.lTokenAmt+'"></div>'+
+          '<div><label>Coin</label><div class="toggle">'+tog("lCoinMode","create","Create new")+tog("lCoinMode","existing","I have one")+'</div>'+
+            '<div style="font-size:12px;color:var(--muted);margin-top:6px">'+
+              (state.lCoinMode==="create"
+                ? "Publishes a coin module for you, then seeds the pair. Two signatures."
+                : "For a coin you published yourself. Paste its TreasuryCap and a Coin&lt;T&gt;.")+
+            '</div></div>'+
+          (state.lCoinMode==="create"
+            ? '<div><label>Decimals</label><input id="l-decimals" inputmode="numeric" placeholder="9" value="'+escAttr(state.lDecimals)+'"></div>'+
+              '<div><label>Total supply</label><input id="l-supply" inputmode="decimal" placeholder="1000000000" value="'+escAttr(state.lSupply)+'"></div>'+
+              '<div><label>Description · optional</label><input id="l-desc" placeholder="One line about the token" value="'+escAttr(state.lDesc)+'"></div>'+
+              '<div><label>Token seed</label><input id="l-token-amt" inputmode="decimal" placeholder="Supply into LP · blank uses all of it" value="'+escAttr(state.lTokenAmt)+'"></div>'
+            : '<div><label>TreasuryCap object</label><input id="l-cap" spellcheck="false" placeholder="0x… TreasuryCap" value="'+escAttr(state.lCap)+'"></div>'+
+              '<div><label>Token coin object</label><input id="l-token-coin" spellcheck="false" placeholder="0x… Coin&lt;T&gt;" value="'+escAttr(state.lTokenCoin)+'"></div>'+
+              '<div><label>Token seed</label><input id="l-token-amt" inputmode="decimal" placeholder="Amount to split · blank uses the whole coin" value="'+escAttr(state.lTokenAmt)+'"></div>')+
           '<div><label>Quote</label><div class="toggle">'+tog("lQuote","SUI","SUI")+tog("lQuote","XAUM","XAUM")+'</div>'+
             '<div style="font-size:12px;color:var(--muted);margin-top:6px">Both sides seed the Bluefin pair. '+state.lQuote+' is coin B. No bonding-curve Create.</div></div>'+
           '<div><label>Quote seed · '+state.lQuote+'</label><input id="l-quote-amt" inputmode="decimal" placeholder="'+(state.lQuote==="XAUM"?"XAUM amount":"SUI amount")+'" value="'+state.lQuoteAmt+'"></div>'+
           (state.lQuote==="XAUM" ? '<div><label>Quote coin object · optional</label><input id="l-quote-coin" spellcheck="false" placeholder="0x… Coin&lt;XAUM&gt; or pick from wallet" value="'+state.lQuoteCoin+'"></div>' : '')+
-          '<div><label>Name</label><input id="l-name" placeholder="From CoinMetadata" value="'+state.lName+'"></div>'+
-          '<div><label>Ticker</label><input id="l-tick" placeholder="From CoinMetadata" maxlength="12" value="'+state.lTick+'"></div>'+
+          '<div><label>Name</label><input id="l-name" placeholder="'+(state.lCoinMode==="create"?"Gladius Token":"From CoinMetadata")+'" value="'+escAttr(state.lName)+'"></div>'+
+          '<div><label>Ticker</label><input id="l-tick" placeholder="'+(state.lCoinMode==="create"?"GLADIUS":"From CoinMetadata")+'" maxlength="12" value="'+escAttr(state.lTick)+'"></div>'+
+          (state.lCoinMode==="create" && tickerToIdent(state.lTick)
+            ? '<div id="l-type-hint" style="font-size:12px;color:var(--muted);margin-top:-4px">Coin type will be <code>…::'+escHtml(tickerToIdent(state.lTick))+'::'+escHtml(tickerToIdent(state.lTick).toUpperCase())+'</code></div>'
+            : (state.lCoinMode==="create" ? '<div id="l-type-hint" style="font-size:12px;color:var(--muted);margin-top:-4px"></div>' : ''))+
           '<button type="button" class="btn-trade" id="launch-go">'+launchBtnLabel()+'</button>'+
-          '<div id="launch-note" style="font-size:12px;color:var(--muted);margin-top:8px;text-align:center">1 SUI launch fee from gas. Creation fee 0. Calls v6 launch_instadex_entry. No curve.</div>'+
+          '<div id="launch-note" style="font-size:12px;color:var(--muted);margin-top:8px;text-align:center">'+(state.lCoinMode==="create" ? "Publish the coin, then seed the pair. 1 SUI launch fee from gas. Creation fee 0. No curve." : "1 SUI launch fee from gas. Creation fee 0. Calls v6 launch_instadex_entry. No curve.")+'</div>'+
         '</div></div>'+
       footerHTML()+'</div>';
   }
@@ -1896,13 +2066,83 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       var quoteHuman = state.lQuoteAmt;
       var tokenHuman = state.lTokenAmt;
       var quoteIsXaum = state.lQuote === "XAUM";
-      if (!capId) throw new Error("TreasuryCap object id required");
-      if (!tokenCoinId) throw new Error("Token coin object id required");
+      var creating = state.lCoinMode === "create";
+
       if (!(Number(quoteHuman) > 0)) throw new Error("Quote seed amount required");
-      if (btn) btn.textContent = "Building PTB…";
-      if (state.lFile && !state.lArtUrl){
-        try { state.lArtUrl = await uploadArt(state.lFile); } catch (e) {}
+      if (!creating){
+        if (!capId) throw new Error("TreasuryCap object id required");
+        if (!tokenCoinId) throw new Error("Token coin object id required");
       }
+
+      // Art is uploaded first either way: in create mode the URL is baked into
+      // the coin's own CoinMetadata, so it has to exist before the publish.
+      if (state.lFile && !state.lArtUrl){
+        if (btn) btn.textContent = "Uploading art…";
+        try {
+          state.lArtUrl = await uploadArt(state.lFile);
+        } catch (e) {
+          // In create mode the URL is baked into a CoinMetadata that is frozen
+          // at publish, so a silent failure here is permanent. Say so and stop
+          // rather than minting a coin that can never show its art.
+          if (creating) throw new Error("Art upload failed, and the icon cannot be changed after publish. Retry, or clear the file to launch without art.");
+        }
+      }
+
+      if (creating){
+        // Sui gives every coin type its own module, so the coin has to be
+        // published before it can be launched. The new package id is not known
+        // until this lands, and a PTB needs its type arguments up front, so
+        // this cannot be folded into the launch transaction.
+        var wantName = (state.lName || "").trim();
+        var wantTick = (state.lTick || "").trim();
+        if (!wantName) throw new Error("Name required");
+        if (!wantTick) throw new Error("Ticker required");
+        var ident = tickerToIdent(wantTick);
+        if (!ident) throw new Error("Ticker needs at least one letter or digit");
+        var decimals = Number(state.lDecimals);
+        if (!(decimals >= 0 && decimals <= 18) || String(state.lDecimals).indexOf(".") >= 0){
+          throw new Error("Decimals must be a whole number from 0 to 18");
+        }
+        var supplyWhole = toSmallestBig(state.lSupply, decimals);
+        if (!(supplyWhole > 0n)) throw new Error("Total supply must be > 0");
+        if (supplyWhole > 18446744073709551615n) throw new Error("Total supply overflows u64 at that many decimals");
+
+        if (btn) btn.textContent = "Building coin…";
+        var tplLib = await loadMoveTemplate();
+        var built = buildCoinModule(tplLib, {
+          ticker: wantTick,
+          symbol: wantTick.toUpperCase(),
+          name: wantName,
+          decimals: decimals,
+          supply: supplyWhole,
+          description: state.lDesc || "",
+          icon: state.lArtUrl || ""
+        });
+
+        var TransactionP = await loadTransaction();
+        var ptx = new TransactionP();
+        ptx.setSender(suiSession.address);
+        var pub = ptx.publish({ modules: [bytesToB64(built.bytes)], dependencies: ["0x1", "0x2"] });
+        var upgradeCap = Array.isArray(pub) ? pub[0] : pub;
+        ptx.transferObjects([upgradeCap], suiSession.address);
+
+        if (btn) btn.textContent = "Sign 1 of 2 · publish coin…";
+        setLaunchNote("Publishing " + built.upper + ". Signature 1 of 2.", false);
+        var pubRes = await walletExec(ptx);
+        var made = readPublishResult(pubRes, built.ident);
+        if (!made.packageId) throw new Error("Publish did not report a package id. Check your wallet history before retrying — the coin may already exist.");
+        if (!made.capId || !made.coinId){
+          throw new Error("Coin published at " + made.packageId + " but the TreasuryCap or minted coin was not returned. Switch to \"I have one\" and paste them rather than publishing again.");
+        }
+        capId = made.capId;
+        tokenCoinId = made.coinId;
+        state.lCap = capId;
+        state.lTokenCoin = tokenCoinId;
+        state.lPublishedType = made.coinType;
+        setLaunchNote("Coin live at " + made.packageId.slice(0, 10) + "…. Signature 2 of 2 seeds the pair.", false);
+      }
+
+      if (btn) btn.textContent = "Building PTB…";
       var capObj = await moveObject(capId);
       var Ttype = innerType(capObj.type);
       if (!Ttype || String(capObj.type).indexOf("TreasuryCap") < 0) throw new Error("That object is not a TreasuryCap");
@@ -2155,12 +2395,22 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       }
     }
     if (e.target && e.target.id === "l-name") state.lName = e.target.value;
-    if (e.target && e.target.id === "l-tick") state.lTick = e.target.value.toUpperCase();
+    if (e.target && e.target.id === "l-tick"){
+      state.lTick = e.target.value.toUpperCase();
+      if (state.lCoinMode === "create"){
+        var hint = $("#l-type-hint");
+        var id = tickerToIdent(state.lTick);
+        if (hint) hint.innerHTML = id ? ("Coin type will be <code>…::"+escHtml(id)+"::"+escHtml(id.toUpperCase())+"</code>") : "";
+      }
+    }
     if (e.target && e.target.id === "l-token-amt") state.lTokenAmt = e.target.value;
     if (e.target && e.target.id === "l-quote-amt") state.lQuoteAmt = e.target.value;
     if (e.target && e.target.id === "l-cap") state.lCap = e.target.value.trim();
     if (e.target && e.target.id === "l-token-coin") state.lTokenCoin = e.target.value.trim();
     if (e.target && e.target.id === "l-quote-coin") state.lQuoteCoin = e.target.value.trim();
+    if (e.target && e.target.id === "l-decimals") state.lDecimals = e.target.value.trim();
+    if (e.target && e.target.id === "l-supply") state.lSupply = e.target.value.trim();
+    if (e.target && e.target.id === "l-desc") state.lDesc = e.target.value;
   });
   document.addEventListener("change", function(e){
     if (e.target && e.target.id === "l-cap"){
