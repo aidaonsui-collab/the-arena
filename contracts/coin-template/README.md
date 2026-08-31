@@ -43,3 +43,39 @@ refuses to publish when the art upload failed rather than silently going without
 `create_currency` is deprecated in favour of `coin_registry`, but the deployed
 arena package takes a classic `&CoinMetadata<T>`, which the registry does not
 produce. It stays until the contract moves.
+
+## Testnet proof (2026-08-30)
+
+The patched bytecode was published to testnet to prove it passes the Move
+verifier on a real network, not just that it deserialises. Built by the same
+`buildCoinModule` the browser calls, signed through `sui keytool sign` so the
+key stayed in the keystore, submitted with `sui client execute-signed-tx`.
+
+- Digest: `EErb4rFYqxE7UdMHR6w3HnBG1rSQu72PKbweuYD5GWCe`
+- Package: `0x87f00659ed43166fc7811a808d1297a90d5d64d370c434e5c1b27571d8db1bb1`
+- Inputs: ticker `ARNTEST`, name `Arena Template Test`, 6 decimals, 1,000,000 supply
+
+Created exactly what `launch_instadex` needs, and nothing stray:
+
+| Object | Result |
+| --- | --- |
+| `Coin<ARNTEST>` | 1000000000000 = 1,000,000 at 6dp, to the sender |
+| `TreasuryCap<ARNTEST>` | to the sender, ready to be consumed by the launch |
+| `CoinMetadata<ARNTEST>` | owner `Immutable` — the freeze works |
+| `UpgradeCap` | to the sender |
+
+On-chain metadata read back as `name: Arena Template Test`, `symbol: ARNTEST`,
+`decimals: 6`, plus the description and icon URL — every patched constant
+survived the round trip.
+
+Cost was ~0.0169 SUI (1M computation + 16.9M storage − 0.98M rebate), so a
+mainnet publish is roughly two cents of gas.
+
+One thing the run confirmed: `objectChanges` reported the gas coin as a
+`mutated 0x2::coin::Coin<0x2::sui::SUI>`. `readPublishResult` filters to created
+objects parameterised by the new package precisely so that coin is not mistaken
+for the minted supply — this was a real hazard, not a theoretical one.
+
+**Still unproven:** a mainnet publish, and the second transaction that seeds the
+Bluefin pair. The launch call takes a 1 SUI fee and locks the position forever,
+so it wants a funded throwaway wallet rather than the platform admin key.
