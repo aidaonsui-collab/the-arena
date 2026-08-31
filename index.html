@@ -835,7 +835,16 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     var node = data && data.objects && data.objects.nodes && data.objects.nodes[0];
     if (!node) throw new Error("CoinMetadata not found for " + t);
     var json = (node.asMoveObject && node.asMoveObject.contents && node.asMoveObject.contents.json) || {};
-    return { id: node.address, name: json.name || "", symbol: json.symbol || "", decimals: json.decimals != null ? json.decimals : 9, type: t, description: json.description || "" };
+    return { id: node.address, name: json.name || "", symbol: json.symbol || "", decimals: json.decimals != null ? json.decimals : 9, type: t, description: json.description || "", icon: metaIcon(json) };
+  }
+  function metaIcon(json){
+    var u = json && json.icon_url;
+    if (!u) return "";
+    if (typeof u === "string") return u;
+    if (typeof u.url === "string") return u.url;
+    if (typeof u.some === "string") return u.some;
+    if (u.some && typeof u.some.url === "string") return u.some.url;
+    return "";
   }
   async function coinsOf(owner, coinType){
     var t = "0x2::coin::Coin<" + normType(coinType) + ">";
@@ -1184,8 +1193,9 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       tk.telegram = parsed.tg || tk.telegram || "";
       tk.website = parsed.web || tk.website || "";
       if (meta.name) tk.n = meta.name;
-      if (state.route === "token" && findT(state.sym) === tk) renderScreen();
-    }).catch(function(){});
+      if (meta.icon) tk.img = meta.icon;
+      if (state.route === "token" || state.route === "explore" || state.route === "pit") renderScreen();
+    }).catch(function(){ tk.metaHydrated = false; });
   }
   function avatar(k, sz){
     sz = sz || 42;
@@ -2157,7 +2167,8 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
         unlockMs: l.unlock_ms,
         token: l.token,
         creator: l.creator,
-        ts: l.ts
+        ts: l.ts,
+        img: state.lArtUrl || ""
       };
       const base = Math.max(2.4, (tk.cap || 1) / 34);
       tk.buckets = Array.from({length:12}, function(){ return +base.toFixed(2); });
@@ -2186,6 +2197,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       if (l.token) tk.token = l.token;
       if (l.creator) tk.creator = l.creator;
       if (l.ts) tk.ts = l.ts;
+      if (state.lArtUrl && !tk.img) tk.img = state.lArtUrl;
     }
     hydrateTokenMeta(tk);
     if (LIVE && state.sym && !T.some(function(k){ return k.t === state.sym; })) state.sym = tk.t;
