@@ -793,43 +793,55 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     }
     throw lastErr || new Error("Could not load @mysten/sui Transaction");
   }
+  function walletErrText(err){
+    if (!err) return "";
+    if (typeof err === "string") return err;
+    return err.message || err.cause && err.cause.message || String(err);
+  }
+  async function txAsJson(tx){
+    if (!tx || typeof tx.toJSON !== "function") return tx;
+    try { return await tx.toJSON(); } catch (e) { return tx; }
+  }
   async function walletExec(tx, asJson){
     var w = suiSession.wallet;
     var account = suiSession.account;
     if (!w) throw new Error("No Sui wallet found");
     if (typeof tx.setSender === "function") tx.setSender(suiSession.address);
-    var payload = tx;
-    if (asJson){
-      try {
-        if (typeof tx.toJSON === "function") payload = await tx.toJSON();
-      } catch (e) { payload = tx; }
-    }
+    var json = asJson ? await txAsJson(tx) : tx;
     var feats = w.features || {};
     var opts = { showEffects: true, showEvents: true, showObjectChanges: true };
-    if (feats["sui:signAndExecuteTransaction"] && feats["sui:signAndExecuteTransaction"].signAndExecuteTransaction){
-      try {
-        return await feats["sui:signAndExecuteTransaction"].signAndExecuteTransaction({
+    async function sign(payload){
+      if (feats["sui:signAndExecuteTransaction"] && feats["sui:signAndExecuteTransaction"].signAndExecuteTransaction){
+        return feats["sui:signAndExecuteTransaction"].signAndExecuteTransaction({
           transaction: payload, account: account, chain: "sui:mainnet", options: opts
         });
-      } catch (e1) {
-        if (payload === tx) throw e1;
-        return feats["sui:signAndExecuteTransaction"].signAndExecuteTransaction({
-          transaction: tx, account: account, chain: "sui:mainnet", options: opts
+      }
+      if (feats["sui:signAndExecuteTransactionBlock"] && feats["sui:signAndExecuteTransactionBlock"].signAndExecuteTransactionBlock){
+        return feats["sui:signAndExecuteTransactionBlock"].signAndExecuteTransactionBlock({
+          transactionBlock: payload, account: account, chain: "sui:mainnet", options: opts
         });
       }
+      if (typeof w.signAndExecuteTransaction === "function"){
+        return w.signAndExecuteTransaction({ transaction: payload, options: opts });
+      }
+      if (typeof w.signAndExecuteTransactionBlock === "function"){
+        return w.signAndExecuteTransactionBlock({ transactionBlock: payload, options: opts });
+      }
+      throw new Error("Wallet cannot sign and execute");
     }
-    if (feats["sui:signAndExecuteTransactionBlock"] && feats["sui:signAndExecuteTransactionBlock"].signAndExecuteTransactionBlock){
-      return feats["sui:signAndExecuteTransactionBlock"].signAndExecuteTransactionBlock({
-        transactionBlock: payload, account: account, chain: "sui:mainnet", options: opts
-      });
+    try {
+      return await sign(json);
+    } catch (e1) {
+      if (json !== tx) {
+        try { return await sign(tx); } catch (e2) { throw e1; }
+      }
+      var msg = walletErrText(e1);
+      if (/unable to process|could not be processed|serialize|structured clone|bigint/i.test(msg)){
+        var alt = await txAsJson(tx);
+        if (alt !== tx) return await sign(alt);
+      }
+      throw e1;
     }
-    if (typeof w.signAndExecuteTransaction === "function"){
-      return w.signAndExecuteTransaction({ transaction: payload, options: opts });
-    }
-    if (typeof w.signAndExecuteTransactionBlock === "function"){
-      return w.signAndExecuteTransactionBlock({ transactionBlock: payload, options: opts });
-    }
-    throw new Error("Wallet cannot sign and execute");
   }
   function normType(t){
     if (t == null || t === "") return "";
@@ -2921,12 +2933,13 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
         var TransactionP = await loadTransaction();
         var ptx = new TransactionP();
         ptx.setSender(suiSession.address);
+        if (typeof ptx.setGasBudget === "function") ptx.setGasBudget(300000000);
         var pub = ptx.publish({ modules: [bytesToB64(built.bytes)], dependencies: ["0x1", "0x2"] });
-        var upgradeCap = Array.isArray(pub) ? pub[0] : pub;
+        var upgradeCap = nested0(Array.isArray(pub) ? pub[0] : pub);
         ptx.transferObjects([upgradeCap], suiSession.address);
 
         if (btn) btn.textContent = "Sign 1 of 2 · publish coin…";
-        setLaunchNote("Publishing " + built.upper + ". Signature 1 of 2.", false);
+        setLaunchNote("Publishing " + built.upper + ". Signature 1 of 2. Yellow Slush banner is unverified .vercel.app — not the tx.", false);
         var pubRes = await walletExec(ptx);
         var digest = txDigest(pubRes);
         var made = readPublishResult(pubRes, built.ident);
@@ -2963,9 +2976,8 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       var metaQ = await metadataFor(Qtype);
       if (metaT.name) { state.lName = metaT.name; var nEl = $("#l-name"); if (nEl) nEl.value = metaT.name; }
       if (metaT.symbol) { state.lTick = String(metaT.symbol).toUpperCase(); var tEl = $("#l-tick"); if (tEl) tEl.value = state.lTick; }
-      var tokenWhole = coinValue(tokenObj.json);
-      var tokenAmt = tokenWhole;
-      if (!(tokenAmt > 0)) throw new Error("Token coin is empty");
+      var tokenWhole = coinValueBig(tokenObj.json);
+      if (!(tokenWhole > 0n)) throw new Error("Token coin is empty");
       var Transaction = await loadTransaction();
       var CALL = window.ARENA_CALL_PACKAGE || window.ARENA_COLLECT_PACKAGE;
       if (!CALL) throw new Error("ARENA_INSTADEX_PACKAGE missing");
@@ -2974,19 +2986,15 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       }
       var tx = new Transaction();
       tx.setSender(suiSession.address);
-      var tokenArg;
-      if (tokenAmt === tokenWhole) tokenArg = tx.object(tokenCoinId);
-      else {
-        var sp = tx.splitCoins(tx.object(tokenCoinId), [tokenAmt]);
-        tokenArg = Array.isArray(sp) ? sp[0] : sp;
-      }
-      var feeSplit = tx.splitCoins(tx.gas, [LAUNCH_FEE]);
-      var feeArg = Array.isArray(feeSplit) ? feeSplit[0] : feeSplit;
-      var creationArg = tx.moveCall({
+      if (typeof tx.setGasBudget === "function") tx.setGasBudget(200000000);
+      var tokenArg = tx.object(tokenCoinId);
+      var feeSplit = tx.splitCoins(tx.gas, [txAmt(LAUNCH_FEE)]);
+      var feeArg = nested0(Array.isArray(feeSplit) ? feeSplit[0] : feeSplit);
+      var creationArg = nested0(tx.moveCall({
         target: "0x2::coin::zero",
         typeArguments: [SUI_TYPE],
         arguments: []
-      });
+      }));
       // Instant: 100% token, 0 quote. Never curve launch. Never launch_instadex_entry (two-sided).
       tx.moveCall({
         target: CALL + "::launch::launch_instant_entry",
