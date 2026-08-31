@@ -365,7 +365,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   let bshift = 0, pot = 31.94, prevPot = "", roundNo = 128, secs = ROUND_SECONDS;
   let balance = 48.60;
   let xaumBal = 2.40;
-  const state = {route:"explore", sym:"VOLT", filter:"All", sort:"Market cap", time:"All", side:"Buy", amt:"1", connected:false, search:"", lName:"", lTick:"", lQuote:"SUI", lPath:"instadex", lMode:"Holders", lTokenAmt:"", lQuoteAmt:"", lCap:"", lTokenCoin:"", lQuoteCoin:"", lCoinMode:"create", lDecimals:"9", lSupply:"1000000000", lDesc:"", lX:"", lTg:"", lWeb:"", lPublishedType:"", metricsWindow:"All", tapeTab:"trades", tapeOpen:"", lFile:null, lArtUrl:"", lArtPreview:"", payWith:"SUI"};
+  const state = {route:"explore", sym:"VOLT", filter:"All", sort:"Market cap", time:"All", side:"Buy", amt:"1", connected:false, search:"", lName:"", lTick:"", lQuote:"SUI", lPath:"instadex", lMode:"Holders", lTokenAmt:"", lQuoteAmt:"", lFirstBuy:"", lCap:"", lTokenCoin:"", lQuoteCoin:"", lCoinMode:"create", lDecimals:"9", lSupply:"1000000000", lDesc:"", lX:"", lTg:"", lWeb:"", lPublishedType:"", metricsWindow:"All", tapeTab:"trades", tapeOpen:"", lFile:null, lArtUrl:"", lArtPreview:"", payWith:"SUI"};
   let hashLock = false;
   const hop = { suiPerXaum: null, usd: null, suiUsd: null, source: "" };
 
@@ -383,6 +383,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   var swapQuote = null;
   var swapBals = { sui: 0n, quote: 0n, tok: 0n };
   var SWAP_SLIP = 0.02;
+  var swapping = false;
   var BLUEFIN_MIN_SQRT = "4295048016";
   var BLUEFIN_MAX_SQRT = "79226673515401279992447579055";
   var SEVENK_URLS = [
@@ -398,13 +399,13 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   var TOKEN_SUPPLY = "1000000000";
   function lpBlurb(){
     if (state.lQuote === "XAUM"){
-      return "1,000,000,000 supply, 9 decimals. All of it locks in a single-sided TOKEN/XAUM Bluefin position. 0 XAUM in LP. Price from 0.01 XAUM virtual. You pay 1 SUI launch fee. The Position NFT never unlocks.";
+      return "1,000,000,000 supply, 9 decimals. All of it locks in a single-sided TOKEN/XAUM Bluefin position. 0 XAUM in LP. Price from 0.01 XAUM virtual. You pay 1 SUI launch fee. Optional first buy is extra XAUM into the pair. The Position NFT never unlocks.";
     }
-    return "1,000,000,000 supply, 9 decimals. All of it locks in a single-sided TOKEN/SUI Bluefin position. 0 SUI in LP. Price from 1 SUI virtual. You pay 1 SUI launch fee. The Position NFT never unlocks.";
+    return "1,000,000,000 supply, 9 decimals. All of it locks in a single-sided TOKEN/SUI Bluefin position. 0 SUI in LP. Price from 1 SUI virtual. You pay 1 SUI launch fee. Optional first buy is extra SUI into the pair. The Position NFT never unlocks.";
   }
   var SDK_URLS = [
-    "https://esm.sh/@mysten/sui/transactions",
-    "https://esm.sh/@mysten/sui@1.37.2/transactions"
+    "https://esm.sh/@mysten/sui@1.37.2/transactions",
+    "https://esm.sh/@mysten/sui/transactions"
   ];
 
   // ---------------------------------------------------------------------------
@@ -755,28 +756,41 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     }
     throw lastErr || new Error("Could not load @mysten/sui Transaction");
   }
-  async function walletExec(tx){
+  async function walletExec(tx, asJson){
     var w = suiSession.wallet;
     var account = suiSession.account;
     if (!w) throw new Error("No Sui wallet found");
     if (typeof tx.setSender === "function") tx.setSender(suiSession.address);
+    var payload = tx;
+    if (asJson){
+      try {
+        if (typeof tx.toJSON === "function") payload = await tx.toJSON();
+      } catch (e) { payload = tx; }
+    }
     var feats = w.features || {};
     var opts = { showEffects: true, showEvents: true, showObjectChanges: true };
     if (feats["sui:signAndExecuteTransaction"] && feats["sui:signAndExecuteTransaction"].signAndExecuteTransaction){
-      return feats["sui:signAndExecuteTransaction"].signAndExecuteTransaction({
-        transaction: tx, account: account, chain: "sui:mainnet", options: opts
-      });
+      try {
+        return await feats["sui:signAndExecuteTransaction"].signAndExecuteTransaction({
+          transaction: payload, account: account, chain: "sui:mainnet", options: opts
+        });
+      } catch (e1) {
+        if (payload === tx) throw e1;
+        return feats["sui:signAndExecuteTransaction"].signAndExecuteTransaction({
+          transaction: tx, account: account, chain: "sui:mainnet", options: opts
+        });
+      }
     }
     if (feats["sui:signAndExecuteTransactionBlock"] && feats["sui:signAndExecuteTransactionBlock"].signAndExecuteTransactionBlock){
       return feats["sui:signAndExecuteTransactionBlock"].signAndExecuteTransactionBlock({
-        transactionBlock: tx, account: account, chain: "sui:mainnet", options: opts
+        transactionBlock: payload, account: account, chain: "sui:mainnet", options: opts
       });
     }
     if (typeof w.signAndExecuteTransaction === "function"){
-      return w.signAndExecuteTransaction({ transaction: tx, options: opts });
+      return w.signAndExecuteTransaction({ transaction: payload, options: opts });
     }
     if (typeof w.signAndExecuteTransactionBlock === "function"){
-      return w.signAndExecuteTransactionBlock({ transactionBlock: tx, options: opts });
+      return w.signAndExecuteTransactionBlock({ transactionBlock: payload, options: opts });
     }
     throw new Error("Wallet cannot sign and execute");
   }
@@ -889,7 +903,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     if (exact) return tx.object(exact.id);
     var one = coins.find(function(c){ return val(c) > need; });
     if (one){
-      var split = tx.splitCoins(tx.object(one.id), [need]);
+      var split = tx.splitCoins(tx.object(one.id), [txAmt(need)]);
       return Array.isArray(split) ? split[0] : split;
     }
     var total = 0n;
@@ -902,7 +916,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     var primary = tx.object(ids[0]);
     if (ids.length > 1) tx.mergeCoins(primary, ids.slice(1).map(function(id){ return tx.object(id); }));
     if (total === need) return primary;
-    var parts = tx.splitCoins(primary, [need]);
+    var parts = tx.splitCoins(primary, [txAmt(need)]);
     return Array.isArray(parts) ? parts[0] : parts;
   }
   function coinValueBig(json){
@@ -942,8 +956,16 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   }
   function txPure(tx, kind, v){
     if (tx.pure && typeof tx.pure[kind] === "function") return tx.pure[kind](v);
-    if (typeof tx.pure === "function") return tx.pure(v, kind);
+    if (typeof tx.pure === "function") return tx.pure(kind, v);
     throw new Error("Transaction.pure." + kind + " missing");
+  }
+  /// Wallet JSON cannot carry BigInt. u64 values that fit Number stay numbers;
+  /// anything bigger is a decimal string, which @mysten/sui BCS accepts.
+  function txAmt(v){
+    var n = typeof v === "bigint" ? v : BigInt(String(v == null ? "0" : v));
+    if (n < 0n) n = 0n;
+    if (n <= BigInt(Number.MAX_SAFE_INTEGER)) return Number(n);
+    return n.toString();
   }
   async function lookupCapMeta(capId){
     if (!capId) return;
@@ -1697,9 +1719,15 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
           '<div><label>Quote</label><div class="toggle">'+tog("lQuote","SUI","SUI")+tog("lQuote","XAUM","XAUM")+'</div>'+
             '<div style="font-size:12px;color:var(--muted);margin-top:6px">'+
               (state.lQuote==="XAUM"
-                ? "TOKEN/XAUM. Starting price from 0.01 XAUM virtual. No XAUM required."
+                ? "TOKEN/XAUM. Starting price from 0.01 XAUM virtual. No XAUM required for LP."
                 : "TOKEN/SUI. Starting price from 1 SUI virtual. No extra SUI for LP.")+
             '</div></div>'+
+          '<div><label>First buy · optional</label><input id="l-first-buy" inputmode="decimal" placeholder="0" value="'+escAttr(state.lFirstBuy)+'"></div>'+
+            '<div style="font-size:12px;color:var(--muted);margin-top:-4px">'+
+              (state.lQuote==="XAUM"
+                ? "Extra XAUM swapped into the pair after seed. Puts quote in the pool so the first sell can land. Leave 0 to skip."
+                : "Extra SUI swapped into the pair after seed, on top of the 1 SUI launch fee. Puts quote in the pool so the first sell can land. Leave 0 to skip.")+
+            '</div>'+
           '<div><label>Name</label><input id="l-name" placeholder="'+(state.lCoinMode==="create"?"Gladius Token":"From CoinMetadata")+'" value="'+escAttr(state.lName)+'"></div>'+
           '<div><label>Ticker</label><input id="l-tick" placeholder="'+(state.lCoinMode==="create"?"GLADIUS":"From CoinMetadata")+'" maxlength="12" value="'+escAttr(state.lTick)+'"></div>'+
           (state.lCoinMode==="create" && tickerToIdent(state.lTick)
@@ -1707,7 +1735,9 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
             : (state.lCoinMode==="create" ? '<div id="l-type-hint" style="font-size:12px;color:var(--muted);margin-top:-4px"></div>' : ''))+
           '<button type="button" class="btn-trade" id="launch-go">'+launchBtnLabel()+'</button>'+
           '<div id="launch-note" style="font-size:12px;color:var(--muted);margin-top:8px;text-align:center">'+
-            "Pay 1 SUI launch fee. 0 quote LP."+
+            (Number(state.lFirstBuy)>0
+              ? ("Pay 1 SUI launch fee, then a first buy of "+state.lFirstBuy+" "+state.lQuote+".")
+              : "Pay 1 SUI launch fee. 0 quote LP.")+
           '</div>'+
         '</div></div>'+
       footerHTML()+'</div>';
@@ -2042,9 +2072,15 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     const tr = $("#trade-btn");
     if (tr){
       tr.className = "btn-trade" + (buyOn ? "" : " sell");
-      if (!suiSession.address) tr.textContent = "Connect wallet";
-      else if (swapQuote && swapQuote.quoting) tr.textContent = "Quoting…";
-      else tr.textContent = buyOn ? ("Buy " + tk.t) : ("Sell " + tk.t);
+      if (swapping){
+        tr.disabled = true;
+        tr.textContent = "Swapping…";
+      } else {
+        tr.disabled = false;
+        if (!suiSession.address) tr.textContent = "Connect wallet";
+        else if (swapQuote && swapQuote.quoting) tr.textContent = "Quoting…";
+        else tr.textContent = buyOn ? ("Buy " + tk.t) : ("Sell " + tk.t);
+      }
     }
   }
   function paintTicket(){
@@ -2718,6 +2754,33 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       var launched = digest ? await waitForInstadexLaunch(digest) : null;
       if (launched){
         upsertInstadex(launched);
+        var firstBuy = toSmallestBig(state.lFirstBuy, 9);
+        if (firstBuy > 0n && launched.bluefin_pool_id){
+          if (btn) btn.textContent = "Sign first buy…";
+          setLaunchNote("Pair live. Sign the first buy into the pool.", false);
+          var buyTk = {
+            t: String(launched.symbol || state.lTick || "").toUpperCase(),
+            token: launched.token || Ttype,
+            bluefinPool: launched.bluefin_pool_id,
+            q: quoteIsXaum ? "XAUM" : "SUI",
+            instadex: true
+          };
+          var prevSide = state.side, prevPay = state.payWith;
+          state.side = "Buy";
+          state.payWith = quoteIsXaum ? "XAUM" : "SUI";
+          swapping = true;
+          try {
+            await swapViaBluefin(buyTk, firstBuy, 1n);
+            setLaunchNote("Launched with first buy.", false);
+          } catch (buyErr){
+            var buyMsg = (buyErr && buyErr.message) ? buyErr.message : String(buyErr);
+            setLaunchNote("Launched. First buy failed: "+buyMsg, true);
+          } finally {
+            swapping = false;
+            state.side = prevSide;
+            state.payWith = prevPay;
+          }
+        }
         var sym = String(launched.symbol || state.lTick || "").toUpperCase();
         if (sym) go("token", sym);
         else go("explore");
@@ -2913,13 +2976,14 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   }
   async function takeSwapCoin(tx, type, amount){
     if (normType(type) === SUI_TYPE){
-      var sp = tx.splitCoins(tx.gas, [amount]);
+      var sp = tx.splitCoins(tx.gas, [txAmt(amount)]);
       return Array.isArray(sp) ? sp[0] : sp;
     }
     var coins = await coinsOfExact(suiSession.address, type);
     return takeCoin(tx, coins, amount);
   }
   function bluefinSwapCall(tx, poolId, typeA, typeB, coinA, coinB, a2b, amount, minOut, middle){
+    if (!typeA || !typeB) throw new Error("Pool coin types missing");
     var sqrt = a2b ? BLUEFIN_MIN_SQRT : BLUEFIN_MAX_SQRT;
     var target = window.ARENA_BLUEFIN_SPOT + "::gateway::" + (middle != null ? "route_swap" : "swap_assets");
     var args = [
@@ -2932,8 +2996,8 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       txPure(tx, "bool", true)
     ];
     if (middle != null) args.push(txPure(tx, "bool", !!middle));
-    args.push(txPure(tx, "u64", BigInt(amount)));
-    args.push(txPure(tx, "u64", BigInt(minOut)));
+    args.push(txPure(tx, "u64", txAmt(amount)));
+    args.push(txPure(tx, "u64", txAmt(minOut)));
     args.push(txPure(tx, "u128", sqrt));
     return tx.moveCall({
       target: target,
@@ -2950,6 +3014,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     tx.setSender(suiSession.address);
     var insta = await poolSnap(tk.bluefinPool);
     var fromType = swapPayType(tk);
+    if (typeof tx.setGasBudget === "function") tx.setGasBudget(100000000);
     if (swapNeedsHop(tk)){
       var hopP = await loadHopPool();
       var firstFrom = state.side === "Buy" ? SUI_TYPE : tokenTypeOf(tk);
@@ -2978,7 +3043,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       var coinB = a2b ? coinZero(tx, snap.b) : coinIn;
       bluefinSwapCall(tx, snap.id, snap.a, snap.b, coinA, coinB, a2b, amount, minOut, null);
     }
-    return walletExec(tx);
+    return walletExec(tx, true);
   }
   async function swapVia7k(tk, amount){
     var sdk = await loadSevenK();
@@ -3003,7 +3068,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     });
     var outTx = (built && built.tx) || tx;
     if (built && built.coinOut) outTx.transferObjects([built.coinOut], suiSession.address);
-    return walletExec(outTx);
+    return walletExec(outTx, true);
   }
   async function doSwap(){
     var btn = $("#trade-btn");
@@ -3024,6 +3089,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       }
       var amount = humanToBase(state.amt, swapPayDecimals(tk));
       if (amount <= 0n) throw new Error("Enter an amount");
+      swapping = true;
       if (btn){ btn.disabled = true; btn.textContent = "Swapping…"; }
       if (err) err.textContent = "";
       var minOut = 1n;
@@ -3049,9 +3115,11 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
         btn.disabled = false;
         btn.textContent = digest ? ("Swapped · " + String(digest).slice(0, 8)) : "Swapped";
       }
+      swapping = false;
       await refreshSwapBals(tk);
       scheduleSwapQuote();
     } catch (err2){
+      swapping = false;
       var msg = (err2 && err2.message) ? err2.message : String(err2 || "Swap failed");
       if (btn){ btn.disabled = false; btn.textContent = msg.length > 32 ? "Swap failed" : msg; }
       if (err) err.textContent = msg;
@@ -3232,6 +3300,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
         const c = $("#launch-count"); if (c) c.textContent = pool.length+" live";
       }
     }
+    if (e.target && e.target.id === "l-first-buy") state.lFirstBuy = e.target.value.trim();
     if (e.target && e.target.id === "l-name") state.lName = e.target.value;
     if (e.target && e.target.id === "l-tick"){
       state.lTick = e.target.value.toUpperCase();
