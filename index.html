@@ -391,7 +391,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   let bshift = 0, pot = 31.94, prevPot = "", roundNo = 128, secs = ROUND_SECONDS;
   let balance = 48.60;
   let xaumBal = 2.40;
-  const state = {route:"explore", sym:"VOLT", filter:"All", sort:"Market cap", time:"All", side:"Buy", amt:"1", connected:false, search:"", lName:"", lTick:"", lQuote:"SUI", lPath:"instadex", lMode:"Holders", lTokenAmt:"", lQuoteAmt:"", lFirstBuy:"1", lCap:"", lTokenCoin:"", lQuoteCoin:"", lCoinMode:"create", lDecimals:"9", lSupply:"1000000000", lDesc:"", lX:"", lTg:"", lWeb:"", lPublishedType:"", metricsWindow:"All", tapeTab:"trades", tapeOpen:"", tapePage:0, tapeAge:"age", lFile:null, lArtUrl:"", lArtPreview:"", payWith:"SUI"};
+  const state = {route:"explore", sym:"VOLT", filter:"All", sort:"Market cap", time:"All", side:"Buy", amt:"1", connected:false, search:"", lName:"", lTick:"", lQuote:"SUI", lPath:"instadex", lMode:"Holders", lTokenAmt:"", lQuoteAmt:"", lFirstBuy:"1", lCap:"", lTokenCoin:"", lQuoteCoin:"", lCoinMode:"create", lDecimals:"9", lSupply:"1000000000", lDesc:"", lX:"", lTg:"", lWeb:"", lPublishedType:"", metricsWindow:"All", tapeTab:"trades", tapeOpen:"", tapePage:0, tapeAge:"age", lFile:null, lArtUrl:"", lArtPreview:"", payWith:"SUI", lNote:"", lNoteErr:false};
   let hashLock = false;
   const hop = { suiPerXaum: null, suiPerUsdy: null, suiPerXagm: null, usd: null, suiUsd: null, usdyUsd: null, xagmUsd: null, xaumUsd: null, source: "" };
 
@@ -796,11 +796,67 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   function walletErrText(err){
     if (!err) return "";
     if (typeof err === "string") return err;
-    return err.message || err.cause && err.cause.message || String(err);
+    return err.message || (err.cause && err.cause.message) || String(err);
   }
   async function txAsJson(tx){
     if (!tx || typeof tx.toJSON !== "function") return tx;
     try { return await tx.toJSON(); } catch (e) { return tx; }
+  }
+  var RPC_EXEC = [
+    "https://sui-mainnet-endpoint.blockvision.org",
+    "https://mainnet.suiet.app",
+    "https://rpc-mainnet.suiscan.xyz:443"
+  ];
+  async function executeSigned(bytes, signature){
+    var sigs = Array.isArray(signature) ? signature : [signature];
+    var last = null;
+    for (var i = 0; i < RPC_EXEC.length; i++){
+      try {
+        var r = await fetch(RPC_EXEC[i], {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            jsonrpc: "2.0",
+            id: 1,
+            method: "sui_executeTransactionBlock",
+            params: [bytes, sigs, { showEffects: true, showEvents: true, showObjectChanges: true }, "WaitForLocalExecution"]
+          })
+        });
+        var j = await r.json();
+        if (j && j.result) return j.result;
+        last = new Error((j && j.error && (j.error.message || JSON.stringify(j.error))) || ("execute failed at "+RPC_EXEC[i]));
+      } catch (e) { last = e; }
+    }
+    throw last || new Error("Could not execute signed transaction");
+  }
+  async function walletExecSigned(tx){
+    var w = suiSession.wallet;
+    var account = suiSession.account;
+    if (!w) throw new Error("No Sui wallet found");
+    if (typeof tx.setSender === "function") tx.setSender(suiSession.address);
+    var feats = w.features || {};
+    var signTx = (feats["sui:signTransaction"] && feats["sui:signTransaction"].signTransaction)
+      || (typeof w.signTransaction === "function" ? function(req){ return w.signTransaction(req); } : null);
+    var payloads = [];
+    var json = await txAsJson(tx);
+    if (json && json !== tx) payloads.push(json);
+    payloads.push(tx);
+    var last = null;
+    if (signTx){
+      for (var i = 0; i < payloads.length; i++){
+        try {
+          var signed = await signTx({ transaction: payloads[i], account: account, chain: "sui:mainnet" });
+          var bytes = signed && (signed.bytes || signed.transactionBlockBytes);
+          var sig = signed && signed.signature;
+          if (bytes && sig) return await executeSigned(bytes, sig);
+        } catch (e) { last = e; }
+      }
+    }
+    try {
+      return await walletExec(tx, true);
+    } catch (e) {
+      throw last || e;
+    }
   }
   async function walletExec(tx, asJson){
     var w = suiSession.wallet;
@@ -1055,6 +1111,8 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     } catch (e) {}
   }
   function setLaunchNote(text, err){
+    state.lNote = text || "";
+    state.lNoteErr = !!err;
     var note = $("#launch-note");
     if (!note) return;
     note.textContent = text;
@@ -1982,10 +2040,10 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
             ? '<div id="l-type-hint" style="font-size:12px;color:var(--muted);margin-top:-4px">Coin type will be <code>…::'+escHtml(tickerToIdent(state.lTick))+'::'+escHtml(tickerToIdent(state.lTick).toUpperCase())+'</code></div>'
             : (state.lCoinMode==="create" ? '<div id="l-type-hint" style="font-size:12px;color:var(--muted);margin-top:-4px"></div>' : ''))+
           '<button type="button" class="btn-trade" id="launch-go">'+launchBtnLabel()+'</button>'+
-          '<div id="launch-note" style="font-size:12px;color:var(--muted);margin-top:8px;text-align:center">'+
-            (Number(state.lFirstBuy)>0
+          '<div id="launch-note" style="font-size:12px;color:'+(state.lNoteErr?"#FF6640":"var(--muted)")+';margin-top:8px;text-align:center">'+
+            escHtml(state.lNote || (Number(state.lFirstBuy)>0
               ? ("Pay 1 SUI launch fee, then a first buy of "+state.lFirstBuy+" SUI"+(state.lQuote==="SUI"?"":" hopped through "+state.lQuote)+".")
-              : "Pay 1 SUI launch fee. 0 quote LP.")+
+              : "Pay 1 SUI launch fee. 0 quote LP."))+
           '</div>'+
         '</div></div>'+
       footerHTML()+'</div>';
@@ -2733,6 +2791,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     }
     hydrateTokenMeta(tk);
     if (bf && bus.sub && bus.sub.watchBluefinPool) bus.sub.watchBluefinPool(bf);
+    if (launching && state.route === "launch") return;
     if (state.route === "explore" || state.route === "token" || state.route === "pit" || state.route === "launch") renderScreen();
   }
   function renderScreen(){
@@ -2946,12 +3005,12 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
         ptx.setSender(suiSession.address);
         if (typeof ptx.setGasBudget === "function") ptx.setGasBudget(300000000);
         var pub = ptx.publish({ modules: [bytesToB64(built.bytes)], dependencies: ["0x1", "0x2"] });
-        var upgradeCap = nested0(Array.isArray(pub) ? pub[0] : pub);
+        var upgradeCap = Array.isArray(pub) ? pub[0] : pub;
         ptx.transferObjects([upgradeCap], suiSession.address);
 
         if (btn) btn.textContent = "Sign 1 of 2 · publish coin…";
-        setLaunchNote("Publishing " + built.upper + ". Signature 1 of 2. Yellow Slush banner is unverified .vercel.app — not the tx.", false);
-        var pubRes = await walletExec(ptx);
+        setLaunchNote("Publishing " + built.upper + ". Sign in Slush — yellow unverified-site banner is .vercel.app, not a failed tx.", false);
+        var pubRes = await walletExecSigned(ptx);
         var digest = txDigest(pubRes);
         var made = readPublishResult(pubRes, built.ident);
         if (!made.packageId){
@@ -3000,12 +3059,12 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       if (typeof tx.setGasBudget === "function") tx.setGasBudget(200000000);
       var tokenArg = tx.object(tokenCoinId);
       var feeSplit = tx.splitCoins(tx.gas, [txAmt(LAUNCH_FEE)]);
-      var feeArg = nested0(Array.isArray(feeSplit) ? feeSplit[0] : feeSplit);
-      var creationArg = nested0(tx.moveCall({
+      var feeArg = Array.isArray(feeSplit) ? feeSplit[0] : feeSplit;
+      var creationArg = tx.moveCall({
         target: "0x2::coin::zero",
         typeArguments: [SUI_TYPE],
         arguments: []
-      }));
+      });
       // Instant: 100% token, 0 quote. Never curve launch. Never launch_instadex_entry (two-sided).
       tx.moveCall({
         target: CALL + "::launch::launch_instant_entry",
@@ -3023,7 +3082,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
         ]
       });
       if (btn) btn.textContent = "Sign in wallet…";
-      var result = await walletExec(tx);
+      var result = await walletExecSigned(tx);
       var digest = txDigest(result);
       launchedOk = true;
       if (btn){ btn.disabled = true; btn.textContent = digest ? ("Launched · " + String(digest).slice(0, 8)) : "Launched"; }
