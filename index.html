@@ -583,6 +583,42 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     }
     throw new Error("Publish sent (" + digest.slice(0, 8) + "…) but the package id is not indexed yet. Check wallet history before retrying." + (last ? " " + last : ""));
   }
+  async function waitForInstadexLaunch(digest){
+    for (var i = 0; i < 15; i++){
+      try {
+        var data = await gql(
+          "query($d:String!){ transaction(digest:$d){ effects { status events(first:10){ nodes { contents { json } } } } } }",
+          { d: digest }
+        );
+        var nodes = (((data && data.transaction && data.transaction.effects && data.transaction.effects.events) || {}).nodes) || [];
+        for (var j = 0; j < nodes.length; j++){
+          var js = nodes[j].contents && nodes[j].contents.json;
+          if (js && js.lock_id && js.bluefin_pool_id){
+            var quoteRaw = js.quote;
+            return {
+              lock_id: js.lock_id,
+              bluefin_pool_id: js.bluefin_pool_id,
+              position_id: js.position_id,
+              token: js.token,
+              quote: quoteRaw,
+              quoteLabel: Index ? Index.quoteLabel(quoteRaw) : (/xaum/i.test(String(quoteRaw || "")) ? "XAUM" : "SUI"),
+              creator: js.creator,
+              token_amount: js.token_amount,
+              quote_amount: js.quote_amount,
+              unlock_ms: js.unlock_ms,
+              permanent: Number(js.unlock_ms) === 0,
+              name: js.name,
+              symbol: js.symbol || "",
+              instadex: true,
+              ts: Date.now()
+            };
+          }
+        }
+      } catch (e) {}
+      await sleep(400 + i * 150);
+    }
+    return null;
+  }
 
   function gql(query, variables){
     return fetch(window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graphql", {
@@ -2153,7 +2189,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     }
     hydrateTokenMeta(tk);
     if (LIVE && state.sym && !T.some(function(k){ return k.t === state.sym; })) state.sym = tk.t;
-    if (state.route === "explore" || state.route === "token" || state.route === "pit") renderScreen();
+    if (state.route === "explore" || state.route === "token" || state.route === "pit" || state.route === "launch") renderScreen();
   }
   function renderScreen(){
     dropTv();
@@ -2426,13 +2462,22 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       });
       if (btn) btn.textContent = "Sign in wallet…";
       var result = await walletExec(tx);
-      var digest = result && (result.digest || (result.effects && result.effects.transactionDigest) || result.transactionDigest);
+      var digest = txDigest(result);
       launchedOk = true;
       if (btn){ btn.disabled = true; btn.textContent = digest ? ("Launched · " + String(digest).slice(0, 8)) : "Launched"; }
-      setLaunchNote("Waiting on InstadexLaunchEvent to paint the card.", false);
-      if (bus.sub && typeof bus.sub.refreshInstadex === "function"){
-        setTimeout(function(){ bus.sub.refreshInstadex(); }, 1500);
-        setTimeout(function(){ bus.sub.refreshInstadex(); }, 5000);
+      setLaunchNote(digest ? ("Launched. Confirming " + String(digest).slice(0, 8) + "…") : "Launched. Loading the pair…", false);
+      var launched = digest ? await waitForInstadexLaunch(digest) : null;
+      if (launched){
+        upsertInstadex(launched);
+        var sym = String(launched.symbol || state.lTick || "").toUpperCase();
+        if (sym) go("token", sym);
+        else go("explore");
+      } else {
+        setLaunchNote("Launched, but the card is still indexing. Open Explore in a few seconds." + (digest ? " " + digest : ""), false);
+        if (bus.sub && typeof bus.sub.refreshInstadex === "function"){
+          setTimeout(function(){ bus.sub.refreshInstadex(); }, 1500);
+          setTimeout(function(){ bus.sub.refreshInstadex(); }, 5000);
+        }
       }
     } catch (err){
       var msg = (err && err.message) ? err.message : String(err || "Launch failed");
@@ -2698,7 +2743,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       onInstadexBurn: function(b){ applyInstadexBurn(b); },
       burnPackages: [window.ARENA_COLLECT_PACKAGE].filter(Boolean),
       callPackage: window.ARENA_INSTADEX_PACKAGE,
-      instadexPackages: [window.ARENA_INSTADEX_PACKAGE].filter(Boolean),
+      instadexPackages: [window.ARENA_INSTADEX_PACKAGE, window.ARENA_CALL_PACKAGE, window.ARENA_COLLECT_PACKAGE].filter(Boolean),
       lockPackages: [window.ARENA_INSTADEX_PACKAGE, window.ARENA_LOCK_PACKAGE, window.ARENA_BLUEFIN_EVENT_PACKAGE].filter(Boolean)
     });
     bus.trades = bus.sub.trades;
