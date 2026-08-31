@@ -833,6 +833,12 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     if (!tx || typeof tx.toJSON !== "function") return tx;
     try { return await tx.toJSON(); } catch (e) { return tx; }
   }
+  function asWalletTx(json){
+    var s = typeof json === "string" ? json : JSON.stringify(json);
+    return {
+      toJSON: function(){ return Promise.resolve(s); }
+    };
+  }
   var RPC_EXEC = [
     "https://mainnet.suiet.app",
     "https://rpc-mainnet.suiscan.xyz:443",
@@ -897,16 +903,11 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     var w = suiSession.wallet;
     var account = suiSession.account;
     if (!w) throw new Error("No Sui wallet found");
+    if (typeof tx === "string") tx = asWalletTx(tx);
+    if (typeof tx.setSender === "function") tx.setSender(suiSession.address);
     var payload = tx;
-    if (typeof tx === "string"){
-      payload = tx;
-    } else {
-      if (typeof tx.setSender === "function") tx.setSender(suiSession.address);
-      if (asJson){
-        try {
-          if (typeof tx.toJSON === "function") payload = await tx.toJSON();
-        } catch (e) { payload = tx; }
-      }
+    if (asJson && typeof tx.toJSON === "function" && typeof tx.setSender === "function"){
+      try { payload = await tx.toJSON(); } catch (e) { payload = tx; }
     }
     var feats = w.features || {};
     var opts = { showEffects: true, showEvents: true, showObjectChanges: true };
@@ -3105,8 +3106,10 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
         }
         if (!built.b64) built.b64 = bytesToB64(built.bytes);
 
-        var pubPayload = built.txJson;
-        if (!pubPayload){
+        var pubPayload;
+        if (built.txJson){
+          pubPayload = asWalletTx(built.txJson);
+        } else {
           var TransactionP = await loadTransaction();
           var ptx = new TransactionP();
           ptx.setSender(suiSession.address);
@@ -3118,7 +3121,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
 
         if (btn) btn.textContent = "Sign 1 of 2 · publish coin…";
         setLaunchNote("Publishing " + built.upper + ". Signature 1 of 2.", false);
-        var pubRes = await walletExec(pubPayload, true);
+        var pubRes = await walletExec(pubPayload);
         var digest = txDigest(pubRes);
         var made = readPublishResult(pubRes, built.ident);
         if (!made.packageId){
