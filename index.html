@@ -348,6 +348,7 @@ window.ARENA_XAGM_METADATA = "0xd50657ed786b220c4bcf558cdd0ef94be77b3cf2e097642e
 window.ARENA_USDC_TYPE = "0xdba34672e30cb065b1f93e3ab55318768fd6fef66c15942c9f7cb846e2f900e7::usdc::USDC";
 window.ARENA_USDY_USDC_POOL = "0xdcd762ad374686fa890fc4f3b9bbfe2a244e713d7bffbfbd1b9221cb290da2ed";
 window.ARENA_XAGM_USDC_POOL = "0x4d3cc875e334440ad3485d4455d7ee072ea01b18c526ad64f9ebe2aa0a4f01b9";
+window.ARENA_USDC_SUI_POOL = "0x51e883ba7c0b566a26cbc8a94cd33eb0abd418a77cc1e60ad22fd9b1f29cd2ab";
 window.ARENA_CETUS_CLMM = "0x25ebb9a7c50eb17b3fa9c5a30fb8b5ad8f97caaf4928943acbcff7153dfee5e3";
 window.ARENA_CETUS_CONFIG = "0xdaa46292632c3c4d8f31f23ea0f9b36a28ff3677e9684980e4438403a67a3d8f";
 window.ARENA_PIT_SUI = "0x8ec38e9bcac0838bf474680e71d0c3f302f4ea2f757d759b7b399701f904389c";
@@ -3371,6 +3372,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     };
   }
   var cetusUsdySnap = null;
+  var cetusUsdcSuiSnap = null;
   async function loadHopPool(){
     if (hopPoolSnap && hopPoolSnap.a) return hopPoolSnap;
     hopPoolSnap = await poolSnap(window.ARENA_XAUM_SUI_POOL);
@@ -3380,6 +3382,11 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     if (cetusUsdySnap && cetusUsdySnap.a) return cetusUsdySnap;
     cetusUsdySnap = await poolSnap(window.ARENA_USDY_USDC_POOL);
     return cetusUsdySnap;
+  }
+  async function loadUsdcSuiPool(){
+    if (cetusUsdcSuiSnap && cetusUsdcSuiSnap.a) return cetusUsdcSuiSnap;
+    cetusUsdcSuiSnap = await poolSnap(window.ARENA_USDC_SUI_POOL);
+    return cetusUsdcSuiSnap;
   }
   function asBigAmt(v){
     if (typeof v === "bigint") return v;
@@ -3540,6 +3547,9 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   function sqrtLimit(a2b){
     return a2b ? "4295048017" : "79226673515401279992447579054";
   }
+  function cetusSqrtLimit(a2b){
+    return a2b ? "4295046557" : "79226673515401279992447579054";
+  }
   /// One CLMM hop via pool::swap (not gateway entry). Returns the output Coin.
   function bluefinHop(tx, snap, fromType, coinIn, minOut){
     if (!snap || !snap.a || !snap.b) throw new Error("Pool coin types missing");
@@ -3623,7 +3633,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
         txPure(tx, "bool", a2b),
         txPure(tx, "bool", true),
         amountArg,
-        txPure(tx, "u128", sqrtLimit(a2b)),
+        txPure(tx, "u128", cetusSqrtLimit(a2b)),
         tx.object(window.ARENA_CLOCK || "0x6")
       ]
     });
@@ -3697,15 +3707,8 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
         var tokCoin = await takeSwapCoin(tx, tokenTypeOf(tk), amount);
         var usdyOut = bluefinHop(tx, insta, tokenTypeOf(tk), tokCoin, 0);
         var usdcOut = cetusHop(tx, cetus, Qtype, usdyOut);
-        var estUsdy = estimateQuoteOut(insta, amount);
-        var estUsdc = estUsdy;
-        if (hop.usdyUsd > 0){
-          estUsdc = (estUsdy * BigInt(Math.round(hop.usdyUsd * 1000))) / 1000n;
-        }
-        if (estUsdc < 1n) estUsdc = 1n;
-        var toSui = await sevenkOnto(tx, usdcOut, usdc, SUI_TYPE, estUsdc);
-        tx = toSui.tx;
-        outCoin = toSui.coinOut;
+        var usdcSui = await loadUsdcSuiPool();
+        outCoin = cetusHop(tx, usdcSui, usdc, usdcOut);
       }
     } else {
       if (state.side === "Buy"){
@@ -3716,15 +3719,14 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       } else {
         var tokIn = await takeSwapCoin(tx, tokenTypeOf(tk), amount);
         var qOut = bluefinHop(tx, insta, tokenTypeOf(tk), tokIn, 0);
-        var estQ = estimateQuoteOut(insta, amount);
-        if (estQ < 1n) throw new Error("Could not size the SUI hop");
-        var midSell = await sevenkOnto(tx, qOut, Qtype, SUI_TYPE, estQ);
-        tx = midSell.tx;
-        outCoin = midSell.coinOut;
+        var xagmUsdc = await poolSnap(window.ARENA_XAGM_USDC_POOL);
+        var usdcOut = bluefinHop(tx, xagmUsdc, Qtype, qOut, 0);
+        var usdcSui = await loadUsdcSuiPool();
+        outCoin = cetusHop(tx, usdcSui, window.ARENA_USDC_TYPE, usdcOut);
       }
     }
     tx.transferObjects([outCoin], suiSession.address);
-    return walletExec(tx, true);
+    return walletExec(tx);
   }
   async function swapVia7k(tk, amount){
     var sdk = await loadSevenK();
