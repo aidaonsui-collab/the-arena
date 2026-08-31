@@ -26,6 +26,7 @@
   var BLUEFIN_ORIGIN =
     "0x3492c874c1e3b3e2984e8c41b589e642d4d0a5d6459e5a9cfc2d52fd7c89c267";
   var BLUEFIN_ASSET_SWAP = BLUEFIN_ORIGIN + "::events::AssetSwap";
+  var BLUEFIN_TRADE_CAP = 50;
   var DEMO_WALLET = "0x8f2a00000000000000000000000000000000000000000000000000000000ab71";
   var ADDRS = [
     DEMO_WALLET,
@@ -442,19 +443,24 @@
   }
 
   function collectPoolSwaps(gql, poolId, pages, limit) {
+    var cap = BLUEFIN_TRADE_CAP;
     var out = [];
     var cursor = null;
     var n = pages || 1;
     function step(i) {
       if (i >= n) return Promise.resolve(out);
-      return queryPoolTxsGql(gql, poolId, cursor, limit || 50).then(function (page) {
+      return queryPoolTxsGql(gql, poolId, cursor, limit || cap).then(function (page) {
         var rows = page.data || [];
         for (var j = 0; j < rows.length; j++) {
           if (!isAssetSwapType(rows[j].type) && rows[j].type !== BLUEFIN_ASSET_SWAP) continue;
           var t = parseAssetSwap(rows[j], poolId);
           if (t) out.push(t);
         }
-        if (!page.hasNextPage || !page.nextCursor) return out;
+        if (out.length >= cap || !page.hasNextPage || !page.nextCursor) {
+          out.sort(function (a, b) { return num(b.ts) - num(a.ts); });
+          if (out.length > cap) out = out.slice(0, cap);
+          return out;
+        }
         cursor = page.nextCursor;
         return step(i + 1);
       });
@@ -664,9 +670,10 @@
       }
       if (rec.pulling) return Promise.resolve();
       rec.pulling = true;
-      return collectPoolSwaps(gql, poolId, 1, 50).then(function (rows) {
+      return collectPoolSwaps(gql, poolId, 1, BLUEFIN_TRADE_CAP).then(function (rows) {
         rec.pulling = false;
         (rows || []).forEach(function (t) { push(t); });
+        capBluefinPool(poolId);
       }).catch(function () { rec.pulling = false; });
     }
 
@@ -677,6 +684,25 @@
       var first = !bluefinPools[id];
       if (first) bluefinPools[id] = { pulling: false };
       if (first) pullBluefinPool(poolId);
+    }
+
+    function capBluefinPool(poolId) {
+      var id = normId(poolId);
+      if (!id) return;
+      var mine = [];
+      for (var i = 0; i < trades.length; i++) {
+        if (trades[i] && trades[i].bluefin && normId(trades[i].pool_id) === id) mine.push(i);
+      }
+      if (mine.length <= BLUEFIN_TRADE_CAP) return;
+      mine.sort(function (a, b) { return num(trades[a].ts) - num(trades[b].ts); });
+      var drop = {};
+      for (var d = 0; d < mine.length - BLUEFIN_TRADE_CAP; d++) drop[mine[d]] = 1;
+      var kept = [];
+      for (var i = 0; i < trades.length; i++) {
+        if (!drop[i]) kept.push(trades[i]);
+      }
+      trades.length = 0;
+      for (var i = 0; i < kept.length; i++) trades.push(kept[i]);
     }
 
     function refreshBluefin(poolId) {
@@ -857,6 +883,7 @@
     parseInstadexMintLock: parseInstadexMintLock,
     parseAssetSwap: parseAssetSwap,
     BLUEFIN_ASSET_SWAP: BLUEFIN_ASSET_SWAP,
+    BLUEFIN_TRADE_CAP: BLUEFIN_TRADE_CAP,
     subscribe: subscribe,
     loadSnapshot: loadSnapshot,
     loadIndex: loadIndex,

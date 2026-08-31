@@ -160,6 +160,13 @@ a.btn-trade{display:block;text-align:center;text-decoration:none;box-sizing:bord
 .tape-fees{grid-column:1/-1;display:none;flex-wrap:wrap;gap:6px;padding:2px 0 4px}
 .tape-row.open .tape-fees{display:flex}
 .tape-count{margin-left:auto}
+.tape-sum{font-size:12px;color:var(--muted);margin:0 0 10px;display:flex;flex-wrap:wrap;gap:8px 14px}
+.tape-sum b{color:var(--ink);font-weight:650}
+.tape-who{font-family:inherit;letter-spacing:-.01em}
+.tape-pager{display:flex;align-items:center;justify-content:center;gap:10px;margin-top:10px}
+.tape-pager button{border:1px solid var(--line);background:#16171A;color:var(--ink);border-radius:999px;padding:6px 12px;font-size:12px;font-weight:650;cursor:pointer}
+.tape-pager button:disabled{opacity:.4;cursor:not-allowed}
+.tape-pager span{font-size:12px;color:var(--muted);font-family:"IBM Plex Mono",ui-monospace,monospace}
 .q-mark{width:14px;height:14px;display:inline-block;vertical-align:-2px;margin-left:5px;flex:none}
 .tape-quote .tape-sz{display:inline-flex;align-items:center;justify-content:flex-end}
 .holder-row{display:grid;grid-template-columns:28px minmax(0,1fr) minmax(48px,auto) minmax(64px,auto);gap:8px;align-items:center;padding:10px 2px;border-bottom:1px solid var(--line)}
@@ -365,7 +372,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   let bshift = 0, pot = 31.94, prevPot = "", roundNo = 128, secs = ROUND_SECONDS;
   let balance = 48.60;
   let xaumBal = 2.40;
-  const state = {route:"explore", sym:"VOLT", filter:"All", sort:"Market cap", time:"All", side:"Buy", amt:"1", connected:false, search:"", lName:"", lTick:"", lQuote:"SUI", lPath:"instadex", lMode:"Holders", lTokenAmt:"", lQuoteAmt:"", lFirstBuy:"", lCap:"", lTokenCoin:"", lQuoteCoin:"", lCoinMode:"create", lDecimals:"9", lSupply:"1000000000", lDesc:"", lX:"", lTg:"", lWeb:"", lPublishedType:"", metricsWindow:"All", tapeTab:"trades", tapeOpen:"", lFile:null, lArtUrl:"", lArtPreview:"", payWith:"SUI"};
+  const state = {route:"explore", sym:"VOLT", filter:"All", sort:"Market cap", time:"All", side:"Buy", amt:"1", connected:false, search:"", lName:"", lTick:"", lQuote:"SUI", lPath:"instadex", lMode:"Holders", lTokenAmt:"", lQuoteAmt:"", lFirstBuy:"", lCap:"", lTokenCoin:"", lQuoteCoin:"", lCoinMode:"create", lDecimals:"9", lSupply:"1000000000", lDesc:"", lX:"", lTg:"", lWeb:"", lPublishedType:"", metricsWindow:"All", tapeTab:"trades", tapeOpen:"", tapePage:0, lFile:null, lArtUrl:"", lArtPreview:"", payWith:"SUI"};
   let hashLock = false;
   const hop = { suiPerXaum: null, usd: null, suiUsd: null, source: "" };
 
@@ -1018,6 +1025,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     if (a >= 1000) return (n/1000).toFixed(2)+"k";
     if (a >= 1) return n.toFixed(2);
     if (a >= 0.1) return n.toFixed(3);
+    if (a >= 0.01) return n.toFixed(3);
     if (a >= 1e-8) return n.toFixed(6);
     if (a > 0) return n.toExponential(2);
     return "0";
@@ -1030,6 +1038,11 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     if (a >= 1e3) return (n/1e3).toFixed(2)+"k";
     if (a >= 1) return n.toFixed(2);
     return n.toFixed(4);
+  }
+  function fmtTok(n){
+    n = Math.round(Number(n) || 0);
+    if (!(Math.abs(n) > 0)) return "0";
+    return n.toLocaleString("en-US");
   }
   function fmtUsd(n){
     n = Number(n)||0;
@@ -1210,11 +1223,58 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     return tr > 0 ? Number(last.quote_real)/tr : 0;
   }
   function fromMist(s){ return Index ? Index.fromMist(s) : Number(s||0)/1e9; }
+  const TAPE_PAGE = 25;
+  const TAPE_CAP = (Index && Index.BLUEFIN_TRADE_CAP) || 50;
+  const suins = { cache: {}, pending: false };
   function tapeItems(limit, pool){
     let rows = bus.trades.slice();
     if (pool) rows = rows.filter(function(t){ return matchesPool(t, pool); });
     rows.sort(function(a,b){ return (b.ts||0)-(a.ts||0); });
-    return rows.slice(0, limit == null ? 8 : limit);
+    const cap = limit == null ? 8 : limit;
+    return rows.slice(0, cap);
+  }
+  function quoteSuiAmt(amt, q){
+    amt = Number(amt) || 0;
+    if (q === "SUI") return amt;
+    if (q === "XAUM" && hop.suiPerXaum > 0) return amt * hop.suiPerXaum;
+    return 0;
+  }
+  function suinsOf(addr){
+    const k = String(addr || "").toLowerCase();
+    if (!k) return "";
+    const v = suins.cache[k];
+    return v ? v : "";
+  }
+  function traderLabel(addr){
+    const name = suinsOf(addr);
+    if (name) return name;
+    return shortAddr(addr);
+  }
+  function resolveSuins(addrs){
+    const need = [];
+    const seen = {};
+    (addrs || []).forEach(function(a){
+      const k = String(a || "").toLowerCase();
+      if (!k || k in suins.cache || seen[k]) return;
+      seen[k] = 1;
+      need.push(k);
+    });
+    if (!need.length || suins.pending) return;
+    suins.pending = true;
+    const parts = need.map(function(a, i){
+      return "a"+i+": address(address:\""+a+"\"){ defaultNameRecord { domain } }";
+    });
+    gql("{"+parts.join(" ")+"}").then(function(data){
+      need.forEach(function(a, i){
+        const rec = data && data["a"+i] && data["a"+i].defaultNameRecord;
+        suins.cache[a] = (rec && rec.domain) ? String(rec.domain) : "";
+      });
+      suins.pending = false;
+      if (state.route === "token") paintTape();
+    }).catch(function(){
+      need.forEach(function(a){ if (!(a in suins.cache)) suins.cache[a] = ""; });
+      suins.pending = false;
+    });
   }
   function barPct(k){ return Math.min(100, k.cap/gradTarget(k)*100).toFixed(0)+"%"; }
   function escHtml(v){
@@ -1418,22 +1478,55 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   }
   function tapeHTML(pool){
     const q = poolQuote(pool);
-    const rows = tapeItems(24, pool);
-    if (!rows.length) return '<div class="empty">No fills yet.</div>';
-    return rows.map(function(r){
+    const all = tapeItems(TAPE_CAP, pool);
+    if (!all.length) return '<div class="empty">No fills yet.</div>';
+    const pages = Math.max(1, Math.ceil(all.length / TAPE_PAGE));
+    if (state.tapePage >= pages) state.tapePage = pages - 1;
+    if (state.tapePage < 0) state.tapePage = 0;
+    const start = state.tapePage * TAPE_PAGE;
+    const rows = all.slice(start, start + TAPE_PAGE);
+    resolveSuins(rows.map(function(r){ return r.trader; }));
+    let boughtSui = 0, soldSui = 0, boughtN = 0, soldN = 0;
+    all.forEach(function(r){
+      const quote = fromMist(r.quote_amount);
+      const sui = quoteSuiAmt(quote, q);
+      if (r.is_buy){ boughtSui += sui; boughtN += 1; }
+      else { soldSui += sui; soldN += 1; }
+    });
+    const suiReady = q === "SUI" || hop.suiPerXaum > 0;
+    const sum = '<div class="tape-sum">'+
+      '<span>Bought <b>'+boughtN+'</b>'+(suiReady ? " · ≈ "+fmt(boughtSui)+" SUI" : "")+'</span>'+
+      '<span>Sold <b>'+soldN+'</b>'+(suiReady ? " · ≈ "+fmt(soldSui)+" SUI" : "")+'</span>'+
+    '</div>';
+    const body = rows.map(function(r){
       const bought = !!r.is_buy;
       const quote = fromMist(r.quote_amount);
       const tok = fromMist(r.token_amount);
       const key = tapeKey(r);
       const open = state.tapeOpen === key;
       const tick = (findT(r.pool_id) && findT(r.pool_id).t) || shortAddr(r.pool_id);
+      const name = traderLabel(r.trader);
+      const named = !!suinsOf(r.trader);
+      const sui = quoteSuiAmt(quote, q);
+      const suiLine = q === "SUI"
+        ? quoteUsdAmt(quote, q)
+        : (suiReady ? "≈ "+fmt(sui)+" SUI" : "≈ — SUI");
+      const usdLine = q === "XAUM" ? quoteUsdAmt(quote, q) : "";
       return '<div class="tape-row'+(open?" open":"")+'" data-tape="'+key+'">'+
         '<div class="tape-arrow '+(bought?"buy":"sell")+'">'+(bought?"↗":"↙")+'</div>'+
-        '<div><div class="tape-sz">'+fmtBig(tok)+' '+tick+'</div><div class="tape-sub">'+shortAddr(r.trader)+'</div></div>'+
-        '<div class="tape-quote"><div class="tape-sz">'+fmt(quote)+quoteMark(q)+'</div><div class="tape-sub">'+quoteUsdAmt(quote,q)+'</div></div>'+
+        '<div><div class="tape-sz">'+fmtTok(tok)+' '+tick+'</div><div class="tape-sub'+(named?" tape-who":"")+'">'+escHtml(name)+'</div></div>'+
+        '<div class="tape-quote"><div class="tape-sz">'+fmt(quote)+quoteMark(q)+'</div><div class="tape-sub">'+suiLine+'</div>'+(usdLine ? '<div class="tape-sub">'+usdLine+'</div>' : '')+'</div>'+
         '<div class="tape-ago">'+agoOf(r.ts)+'</div>'+
         '<div class="tape-fees">'+tapeFeeChips(r)+'</div></div>';
     }).join("");
+    const pager = pages > 1
+      ? '<div class="tape-pager">'+
+          '<button type="button" data-tape-page="prev"'+(state.tapePage<=0?" disabled":"")+'>Prev</button>'+
+          '<span>'+(state.tapePage+1)+' / '+pages+'</span>'+
+          '<button type="button" data-tape-page="next"'+(state.tapePage>=pages-1?" disabled":"")+'>Next</button>'+
+        '</div>'
+      : "";
+    return sum + body + pager;
   }
   function sparkSVG(k){
     const d = spark(k.ch>=0?0.7:0.32);
@@ -1898,7 +1991,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     const tapeBody = dexBout
       ? '<div class="tape-tabs">'+
           '<button type="button" class="pill on" data-set="tapeTab" data-val="trades">Trades</button>'+
-          '<span class="count-pill tape-count">'+bus.trades.filter(function(t){ return matchesPool(t, tk); }).length+'</span></div>'+
+          '<span class="count-pill tape-count">'+tapeItems(TAPE_CAP, tk.t).length+'</span></div>'+
         '<div id="tape">'+(tapeHTML(tk.t))+'</div>'
       : '<div class="tape-tabs">'+
           '<button type="button" class="pill on" data-set="tapeTab" data-val="holders">Holders</button>'+
@@ -2208,7 +2301,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     if (!tapeEl) return;
     const tk = findT(state.sym);
     if (isDexBout(tk)){
-      const n = bus.trades.filter(function(t){ return matchesPool(t, tk); }).length;
+      const n = tapeItems(TAPE_CAP, tk.t).length;
       const count = document.querySelector(".tape-count");
       if (count) count.textContent = n;
       tapeEl.innerHTML = tapeHTML(tk.t);
@@ -2555,6 +2648,8 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     if (sym && nextSym !== state.sym){
       swapQuote = null;
       swapBals = { sui: 0n, quote: 0n, tok: 0n };
+      state.tapePage = 0;
+      state.tapeOpen = "";
     }
     state.route = route;
     if (sym) state.sym = nextSym;
@@ -3342,6 +3437,14 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       const inp = $("#amt"); if (inp) inp.value = state.amt;
       paintTicket();
       if (state.route === "token" && isDexBout(findT(state.sym))) scheduleSwapQuote();
+      return;
+    }
+    const tapePageBtn = e.target.closest("[data-tape-page]");
+    if (tapePageBtn && !tapePageBtn.disabled){
+      const dir = tapePageBtn.getAttribute("data-tape-page");
+      if (dir === "next") state.tapePage += 1;
+      else if (dir === "prev") state.tapePage = Math.max(0, state.tapePage - 1);
+      paintTape();
       return;
     }
     const tapeRow = e.target.closest("[data-tape]");
