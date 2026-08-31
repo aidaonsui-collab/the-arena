@@ -1088,9 +1088,14 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     const raw = (sym && sym.t) ? sym.t : String(sym || "");
     const up = raw.toUpperCase();
     const low = raw.toLowerCase();
-    return T.find(function(k){
+    const found = T.find(function(k){
       return k.t === up || (k.pool && k.pool.toLowerCase() === low) || (k.bluefinPool && k.bluefinPool.toLowerCase() === low);
-    }) || T[0] || {t:"—",n:"—",cap:0,ch:0,h:0,st:"Live",mode:"Buy & burn",q:"SUI",c:"#298DFF",buckets:[1],fbuckets:[1],pool:""};
+    });
+    if (found) return found;
+    if (up && (state.route === "token" || raw)) {
+      return {t:up,n:up,b:"",cap:0,ch:0,h:0,st:"Live",mode:"Instadex",q:"SUI",c:"#298DFF",buckets:[1],fbuckets:[1],pool:"",missing:true,instadex:true};
+    }
+    return T[0] || {t:"—",n:"—",cap:0,ch:0,h:0,st:"Live",mode:"Buy & burn",q:"SUI",c:"#298DFF",buckets:[1],fbuckets:[1],pool:""};
   }
   function poolKeys(tk){
     tk = tk && tk.t ? tk : findT(tk);
@@ -1804,6 +1809,13 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   }
   function tokenHTML(){
     const tk = findT(state.sym);
+    if (tk && tk.missing){
+      return '<div data-screen-label="Token">'+
+        '<div class="back" data-go="explore">← Explore</div>'+
+        '<div class="token-head"><div><h1>'+escHtml(tk.t)+'</h1><div class="feat-tick" style="margin-top:6px">Loading pair…</div></div></div>'+
+        '<div class="card" style="padding:28px;margin-top:14px;color:var(--muted)">Waiting on the indexer for this Instadex launch. Refresh in a few seconds if this stays empty.</div>'+
+        footerHTML()+'</div>';
+    }
     hydrateTokenMeta(tk);
     const q = poolQuote(tk);
     const insta = isInstadex(tk);
@@ -2336,7 +2348,6 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       tk.virtual_quote = l.virtual_quote;
       tk.virtual_token = l.virtual_token;
     }
-    if (LIVE && state.sym && !T.some(function(k){ return k.t === state.sym; })) state.sym = tk.t;
     const pending = bus.bluefinLocks && bus.bluefinLocks[l.pool_id];
     if (pending) applyBluefinLock(pending);
     if (state.route === "explore" || state.route === "token" || state.route === "pit") renderScreen();
@@ -2465,7 +2476,6 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       if (state.lArtUrl && !tk.img) tk.img = state.lArtUrl;
     }
     hydrateTokenMeta(tk);
-    if (LIVE && state.sym && !T.some(function(k){ return k.t === state.sym; })) state.sym = tk.t;
     if (state.route === "explore" || state.route === "token" || state.route === "pit" || state.route === "launch") renderScreen();
   }
   function renderScreen(){
@@ -2971,8 +2981,14 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     }
     throw last || new Error("Could not load 7k aggregator SDK");
   }
-  function coinZero(tx, type){
-    return tx.moveCall({ target: "0x2::coin::zero", typeArguments: [type], arguments: [] });
+  function coinIntoBalance(tx, type, coin){
+    return tx.moveCall({ target: "0x2::coin::into_balance", typeArguments: [type], arguments: [coin] });
+  }
+  function zeroBalance(tx, type){
+    return tx.moveCall({ target: "0x2::balance::zero", typeArguments: [type] });
+  }
+  function coinFromBalance(tx, type, bal){
+    return tx.moveCall({ target: "0x2::coin::from_balance", typeArguments: [type], arguments: [bal] });
   }
   async function takeSwapCoin(tx, type, amount){
     if (normType(type) === SUI_TYPE){
@@ -2982,68 +2998,69 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     var coins = await coinsOfExact(suiSession.address, type);
     return takeCoin(tx, coins, amount);
   }
-  function bluefinSwapCall(tx, poolId, typeA, typeB, coinA, coinB, a2b, amount, minOut, middle){
-    if (!typeA || !typeB) throw new Error("Pool coin types missing");
-    var sqrt = a2b ? BLUEFIN_MIN_SQRT : BLUEFIN_MAX_SQRT;
-    var target = window.ARENA_BLUEFIN_SPOT + "::gateway::" + (middle != null ? "route_swap" : "swap_assets");
-    var args = [
-      tx.object(window.ARENA_CLOCK || "0x6"),
-      tx.object(window.ARENA_BLUEFIN_CONFIG),
-      tx.object(poolId),
-      coinA,
-      coinB,
-      txPure(tx, "bool", !!a2b),
-      txPure(tx, "bool", true)
-    ];
-    if (middle != null) args.push(txPure(tx, "bool", !!middle));
-    args.push(txPure(tx, "u64", txAmt(amount)));
-    args.push(txPure(tx, "u64", txAmt(minOut)));
-    args.push(txPure(tx, "u128", sqrt));
-    return tx.moveCall({
-      target: target,
-      typeArguments: [typeA, typeB],
-      arguments: args
-    });
-  }
   function a2bFor(snap, fromType){
     return normType(fromType) === snap.a;
+  }
+  /// Bluefin rejects exact MIN/MAX sqrt. Same offset the 7k SDK uses.
+  function sqrtLimit(a2b){
+    return a2b ? "4295048017" : "79226673515401279992447579054";
+  }
+  /// One CLMM hop via pool::swap (not gateway entry). Returns the output Coin.
+  function bluefinHop(tx, snap, fromType, coinIn, minOut){
+    if (!snap || !snap.a || !snap.b) throw new Error("Pool coin types missing");
+    var a2b = a2bFor(snap, fromType);
+    var amountArg = tx.moveCall({
+      target: "0x2::coin::value",
+      typeArguments: [fromType],
+      arguments: [coinIn]
+    });
+    var inBal = coinIntoBalance(tx, fromType, coinIn);
+    var outType = a2b ? snap.b : snap.a;
+    var z = zeroBalance(tx, outType);
+    var res = tx.moveCall({
+      target: window.ARENA_BLUEFIN_SPOT + "::pool::swap",
+      typeArguments: [snap.a, snap.b],
+      arguments: [
+        tx.object(window.ARENA_CLOCK || "0x6"),
+        tx.object(window.ARENA_BLUEFIN_CONFIG),
+        tx.object(snap.id),
+        a2b ? inBal : z,
+        a2b ? z : inBal,
+        txPure(tx, "bool", a2b),
+        txPure(tx, "bool", true),
+        amountArg,
+        txPure(tx, "u64", txAmt(minOut)),
+        txPure(tx, "u128", sqrtLimit(a2b))
+      ]
+    });
+    var outA = coinFromBalance(tx, snap.a, res[0]);
+    var outB = coinFromBalance(tx, snap.b, res[1]);
+    if (a2b){
+      tx.transferObjects([outA], suiSession.address);
+      return outB;
+    }
+    tx.transferObjects([outB], suiSession.address);
+    return outA;
   }
   async function swapViaBluefin(tk, amount, minOut){
     var Transaction = await loadTransaction();
     var tx = new Transaction();
     tx.setSender(suiSession.address);
+    if (typeof tx.setGasBudget === "function") tx.setGasBudget(100000000);
     var insta = await poolSnap(tk.bluefinPool);
     var fromType = swapPayType(tk);
-    if (typeof tx.setGasBudget === "function") tx.setGasBudget(100000000);
+    var coinIn = await takeSwapCoin(tx, fromType, amount);
+    var outCoin;
     if (swapNeedsHop(tk)){
       var hopP = await loadHopPool();
-      var firstFrom = state.side === "Buy" ? SUI_TYPE : tokenTypeOf(tk);
       var midType = window.ARENA_XAUM_TYPE;
-      var firstPool = state.side === "Buy" ? hopP : insta;
-      var secondPool = state.side === "Buy" ? insta : hopP;
-      var coinIn = await takeSwapCoin(tx, firstFrom, amount);
-      var a2b1 = a2bFor(firstPool, firstFrom);
-      var coinA1 = a2b1 ? coinIn : coinZero(tx, firstPool.a);
-      var coinB1 = a2b1 ? coinZero(tx, firstPool.b) : coinIn;
-      var hop1 = bluefinSwapCall(tx, firstPool.id, firstPool.a, firstPool.b, coinA1, coinB1, a2b1, amount, 0, false);
-      var midCoin = a2b1 ? hop1[1] : hop1[0];
-      var dust = a2b1 ? hop1[0] : hop1[1];
-      var a2b2 = a2bFor(secondPool, midType);
-      var coinA2 = a2b2 ? midCoin : coinZero(tx, secondPool.a);
-      var coinB2 = a2b2 ? coinZero(tx, secondPool.b) : midCoin;
-      var hop2 = bluefinSwapCall(tx, secondPool.id, secondPool.a, secondPool.b, coinA2, coinB2, a2b2, 0, minOut, true);
-      var outCoin = a2b2 ? hop2[1] : hop2[0];
-      var dust2 = a2b2 ? hop2[0] : hop2[1];
-      tx.transferObjects([outCoin, dust, dust2], suiSession.address);
+      var mid = bluefinHop(tx, hopP, fromType, coinIn, 0);
+      outCoin = bluefinHop(tx, insta, midType, mid, minOut);
     } else {
-      var snap = insta;
-      var a2b = a2bFor(snap, fromType);
-      var coinIn = await takeSwapCoin(tx, fromType, amount);
-      var coinA = a2b ? coinIn : coinZero(tx, snap.a);
-      var coinB = a2b ? coinZero(tx, snap.b) : coinIn;
-      bluefinSwapCall(tx, snap.id, snap.a, snap.b, coinA, coinB, a2b, amount, minOut, null);
+      outCoin = bluefinHop(tx, insta, fromType, coinIn, minOut);
     }
-    return walletExec(tx, true);
+    tx.transferObjects([outCoin], suiSession.address);
+    return walletExec(tx);
   }
   async function swapVia7k(tk, amount){
     var sdk = await loadSevenK();
