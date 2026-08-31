@@ -484,7 +484,10 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       try {
         var mod = await import(TPL_URLS[i]);
         var init = mod.default || mod.init || mod.initSync;
-        if (typeof init === "function") await init(TPL_WASM);
+        if (typeof init === "function"){
+          try { await init({ module_or_path: TPL_WASM }); }
+          catch (e1) { await init(TPL_WASM); }
+        }
         if (typeof mod.update_identifiers === "function"){ MoveTpl = mod; return mod; }
       } catch (e) { lastErr = e; }
     }
@@ -549,6 +552,10 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     bytes = tpl.update_constants(bytes, bcsString(opts.name), bcsString(TPL_DEFAULTS.name), "Vector(U8)");
     bytes = tpl.update_constants(bytes, bcsString(opts.description || ""), bcsString(TPL_DEFAULTS.description), "Vector(U8)");
     bytes = tpl.update_constants(bytes, bcsString(opts.icon || ""), bcsString(TPL_DEFAULTS.icon), "Vector(U8)");
+    bytes = bytes instanceof Uint8Array ? new Uint8Array(bytes) : new Uint8Array(bytes);
+    if (bytes.length < 64 || bytes[0] !== 0xa1 || bytes[1] !== 0x1c || bytes[2] !== 0xeb || bytes[3] !== 0x0b){
+      throw new Error("Patched coin bytecode is not a valid Move module. Reload and try again.");
+    }
     return { bytes: bytes, ident: ident, upper: upper };
   }
 
@@ -578,6 +585,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
           headers: { "content-type": "application/json" },
           body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: method, params: params })
         });
+        if (r.status === 429) { last = new Error("rpc 429"); continue; }
         var j = await r.json();
         if (j && j.result != null) return j.result;
         last = new Error((j && j.error && j.error.message) || (method + " failed"));
@@ -828,9 +836,9 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     try { return await tx.toJSON(); } catch (e) { return tx; }
   }
   var RPC_EXEC = [
-    "https://sui-mainnet-endpoint.blockvision.org",
     "https://mainnet.suiet.app",
-    "https://rpc-mainnet.suiscan.xyz:443"
+    "https://rpc-mainnet.suiscan.xyz:443",
+    "https://sui-mainnet-endpoint.blockvision.org"
   ];
   async function executeSigned(bytes, signature){
     var sigs = Array.isArray(signature) ? signature : [signature];
@@ -847,6 +855,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
             params: [bytes, sigs, { showEffects: true, showEvents: true, showObjectChanges: true }, "WaitForLocalExecution"]
           })
         });
+        if (r.status === 429) { last = new Error("rpc 429"); continue; }
         var j = await r.json();
         if (j && j.result) return j.result;
         last = new Error((j && j.error && (j.error.message || JSON.stringify(j.error))) || ("execute failed at "+RPC_EXEC[i]));
@@ -3079,7 +3088,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
         var ptx = new TransactionP();
         ptx.setSender(suiSession.address);
         if (typeof ptx.setGasBudget === "function") ptx.setGasBudget(300000000);
-        var pub = ptx.publish({ modules: [bytesToB64(built.bytes)], dependencies: ["0x1", "0x2"] });
+        var pub = ptx.publish({ modules: [Array.from(built.bytes)], dependencies: ["0x1", "0x2"] });
         var upgradeCap = Array.isArray(pub) ? pub[0] : pub;
         ptx.transferObjects([upgradeCap], suiSession.address);
 
