@@ -1463,9 +1463,9 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   function rank(i){ return String(i+1).padStart(2,"0"); }
   function isHiddenToken(k){
     const t = String((k && k.t) || "").toUpperCase();
-    if (t === "BFLN" || t === "GRAD" || t === "SMOKE") return true;
+    if (t === "BFLN" || t === "GRAD" || t === "SMOKE" || t === "IDEX") return true;
     const n = String((k && k.n) || "");
-    return /^Arena (Bluefin|Grad|Smoke)$/i.test(n);
+    return /^Arena (Bluefin|Grad|Smoke)$/i.test(n) || /^INSTA$/i.test(n);
   }
   function sortedT(){ return T.filter(function(k){ return !isHiddenToken(k) && !k.graduated && k.st !== "Graduated"; }).sort(function(a,b){return b.cap-a.cap;}); }
   function pitContenders(){
