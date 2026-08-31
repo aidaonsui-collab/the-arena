@@ -26,6 +26,10 @@ const E_ALREADY_LOCKED: u64 = 21;
 const E_NOT_BENEFICIARY: u64 = 22;
 const E_USE_SPLIT_COLLECT: u64 = 23;
 const E_USE_INSTADEX_COLLECT: u64 = 24;
+const E_WRONG_PIT: u64 = 25;
+const E_PIT_NOT_REGISTERED: u64 = 26;
+const E_WRONG_POOL: u64 = 27;
+const E_STILL_BURNABLE: u64 = 28;
 
 public fun paused(): u64 { E_PAUSED }
 public fun invalid_fee(): u64 { E_INVALID_FEE }
@@ -51,3 +55,7 @@ public fun already_locked(): u64 { E_ALREADY_LOCKED }
 public fun not_beneficiary(): u64 { E_NOT_BENEFICIARY }
 public fun use_split_collect(): u64 { E_USE_SPLIT_COLLECT }
 public fun use_instadex_collect(): u64 { E_USE_INSTADEX_COLLECT }
+public fun wrong_pit(): u64 { E_WRONG_PIT }
+public fun pit_not_registered(): u64 { E_PIT_NOT_REGISTERED }
+public fun wrong_pool(): u64 { E_WRONG_POOL }
+public fun still_burnable(): u64 { E_STILL_BURNABLE }

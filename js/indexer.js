@@ -432,8 +432,9 @@
     if (v == null || v === "") return "";
     if (typeof v === "string") return v;
     if (typeof v === "object") {
-      if (v.name) return String(v.name);
       if (v.address && v.module) return String(v.address) + "::" + v.module + "::" + (v.name || "");
+      if (v.name && String(v.name).indexOf("::") >= 0) return String(v.name);
+      if (v.name) return String(v.name);
     }
     return String(v);
   }
@@ -470,6 +471,15 @@
     return {
       lock_id: String(p.lock_id || ""),
       amount: p.amount,
+      ts: num(ev.timestampMs) || Date.now()
+    };
+  }
+
+  function parseInstadexMintLock(ev) {
+    var p = ev.parsedJson || {};
+    return {
+      lock_id: String(p.lock_id || ""),
+      mint_lock_id: String(p.mint_lock_id || ""),
       ts: num(ev.timestampMs) || Date.now()
     };
   }
@@ -578,15 +588,26 @@
           rows.forEach(emitBurn);
         }).catch(function () {});
       }
+      function emitMintLock(m) {
+        if (opts.onInstadexMintLock) opts.onInstadexMintLock(m);
+      }
+      function pullMintLock(pkg) {
+        if (!pkg || pkg === "0x0") return;
+        collect(rpc, pkg + "::events::InstadexMintLockEvent", parseInstadexMintLock, 2, 50).then(function (rows) {
+          rows.forEach(emitMintLock);
+        }).catch(function () {});
+      }
       var burnPkgs = (opts.burnPackages || []).slice();
       if (typeof window !== "undefined") {
         var bp = window.ARENA_COLLECT_PACKAGE || window.ARENA_CALL_PACKAGE;
         if (bp && burnPkgs.indexOf(bp) < 0) burnPkgs.push(bp);
       }
       burnPkgs.forEach(pullBurn);
+      var mintPkgs = (opts.mintLockPackages || burnPkgs).slice();
+      mintPkgs.forEach(pullMintLock);
       if (opts.live) {
         instaTimer = setInterval(refreshInstadex, opts.instadexMs || 12000);
-        setInterval(function () { burnPkgs.forEach(pullBurn); }, opts.instadexMs || 12000);
+        setInterval(function () { burnPkgs.forEach(pullBurn); mintPkgs.forEach(pullMintLock); }, opts.instadexMs || 12000);
       }
     }
 
@@ -665,6 +686,7 @@
     parseBluefinLock: parseBluefinLock,
     parseInstadexLaunch: parseInstadexLaunch,
     parseInstadexBurn: parseInstadexBurn,
+    parseInstadexMintLock: parseInstadexMintLock,
     subscribe: subscribe,
     loadSnapshot: loadSnapshot,
     loadIndex: loadIndex,

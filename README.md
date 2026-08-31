@@ -1,8 +1,8 @@
 # The Arena
 
-Fair launches on Sui. Bonding curves, no presale. Graduation at 2,000 SUI (or 1 XAUM for gold). 1% swap fee on every fill, split 60/10/30 creator/platform/pit (reflection: 50/20/20/10 reflections/creator/pit/platform).
+Fair launches on Sui. Instadex seeds Bluefin in block one (SUI or XAUM). LP is locked forever. Curve launches still exist on-chain. Graduation at 2,000 SUI (or 1 XAUM for gold). 1% swap fee on curve fills, split 60/10/30 creator/platform/pit (reflection: 50/20/20/10 reflections/creator/pit/platform). Bluefin pair fee is 1% (protocol keeps 20%); remaining quote LP share is 60/10/30; token-side LP fees burn.
 
-Vanilla HTML/CSS/JS SPA (`index.html`). Hash routes: `#/` Explore, `#/pit`, `#/launch`, `#/token/VOLT`. Token page mounts TradingView Advanced on `#tv-host` from static OHLC via `ArenaIndex.toCandles`.
+Vanilla HTML/CSS/JS SPA (`index.html`). Hash routes: `#/` Explore, `#/pit`, `#/launch`, `#/token/TICKER`. Token page embeds Dexscreener for Bluefin pools.
 
 ## Contracts
 
@@ -21,10 +21,22 @@ Cron jobs (pit bell, pit settle, reflection index) live in [`keepers/`](keepers/
 Store `arena-art` is linked to this project. Create POSTs the image bytes to `/api/upload` with `Content-Type: image/png` (or jpeg/webp/gif) and optional `x-filename`. Response `{ url }` is the public HTTPS URL for the card.
 
 ```
+Upload requires a wallet signature of `arena-upload:<unix-ms>` (fresh within 10 minutes), plus 8/hour quota. Bytes are sniffed (png/jpeg/webp/gif), not trusted from `Content-Type`.
+
+```
+const ts = Date.now();
+const { signature } = await wallet.signPersonalMessage({ message: new TextEncoder().encode("arena-upload:" + ts) });
 const res = await fetch('/api/upload', {
   method: 'POST',
-  headers: { 'content-type': file.type, 'x-filename': file.name },
+  headers: {
+    'content-type': file.type,
+    'x-filename': file.name,
+    'x-sui-address': address,
+    'x-sui-signature': signature,
+    'x-sui-ts': String(ts),
+  },
   body: file,
 });
 const { url } = await res.json();
+```
 ```

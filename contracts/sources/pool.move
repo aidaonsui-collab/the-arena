@@ -328,9 +328,21 @@ public fun settle_pit<T, Q>(pool: &mut Pool<T, Q>, pit: &mut Pit<Q>, ctx: &mut T
         distribute_pit(pool, amt);
     } else {
         assert!(pool.pit_mode == PIT_BUY_AND_BURN, errors::invalid_pit_mode());
+        if (pool.lp_locked || pool.token_reserve.value() == 0) {
+            pit::forfeit(pit, id);
+            return
+        };
         let bal = pit::settle_burn_quote(pit, id);
         burn_from_pit(pool, bal, ctx);
     }
+}
+
+/// Permissionless unstick: burn-mode winner already locked or empty cannot settle.
+/// Marks the pit settled so the next `ring` can run. Pot stays.
+public fun forfeit_unburnable<T, Q>(pool: &Pool<T, Q>, pit: &mut Pit<Q>) {
+    assert!(pool.pit_mode == PIT_BUY_AND_BURN, errors::invalid_pit_mode());
+    assert!(pool.lp_locked || pool.token_reserve.value() == 0, errors::still_burnable());
+    pit::forfeit(pit, object::id(pool));
 }
 
 /// Spend quote as a fee-less curve buy and burn the tokens off supply.

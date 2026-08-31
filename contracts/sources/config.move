@@ -6,13 +6,14 @@ module arena::config;
 
 use arena::errors;
 use arena::math;
-use arena::pit;
+use arena::pit::{Self, Pit};
 use std::type_name;
 use sui::bag::{Self, Bag};
 use sui::balance::{Self, Balance};
 use sui::coin::{Self, Coin};
+use sui::dynamic_field as df;
 use sui::sui::SUI;
-use sui::object::{Self, UID};
+use sui::object::{Self, ID, UID};
 use sui::transfer;
 use sui::tx_context::TxContext;
 
@@ -44,6 +45,10 @@ public struct AdminCap has key, store {
 public struct StoredQuote<phantom Q> has store {
     inner: Balance<Q>,
 }
+
+/// Dynamic-field key on Config for the official `Pit<Q>` object id.
+/// Compatible upgrade: no new Config field; AdminCap registers after publish.
+public struct OfficialPitKey<phantom Q> has copy, drop, store {}
 
 public struct Config has key {
     id: UID,
@@ -121,6 +126,30 @@ public fun fee_split(config: &Config, reflection: bool, quote_amount: u64): (u64
         let pit = math::mul_div(fee, config.std_pit_bps, BPS);
         (creator, platform, pit, 0)
     }
+}
+
+fun set_official_pit<Q>(config: &mut Config, pit_id: ID) {
+    let key = OfficialPitKey<Q> {};
+    if (df::exists(&config.id, key)) {
+        *df::borrow_mut(&mut config.id, key) = pit_id;
+    } else {
+        df::add(&mut config.id, key, pit_id);
+    }
+}
+
+/// Bind `Pit<Q>` as the only pit `collect_instadex_fees` may credit. AdminCap.
+public fun register_pit<Q>(config: &mut Config, _: &AdminCap, pit: &Pit<Q>) {
+    set_official_pit<Q>(config, object::id(pit));
+}
+
+public fun official_pit_id<Q>(config: &Config): ID {
+    let key = OfficialPitKey<Q> {};
+    assert!(df::exists(&config.id, key), errors::pit_not_registered());
+    *df::borrow(&config.id, key)
+}
+
+public fun assert_official_pit<Q>(config: &Config, pit: &Pit<Q>) {
+    assert!(object::id(pit) == official_pit_id<Q>(config), errors::wrong_pit());
 }
 
 public fun take_platform<Q>(config: &mut Config, fee: Balance<Q>) {
@@ -274,6 +303,16 @@ public fun withdraw_treasury(
 #[test_only]
 public fun init_for_testing(ctx: &mut TxContext) {
     init(ctx)
+}
+
+#[test_only]
+public fun register_pit_for_testing<Q>(config: &mut Config, pit: &Pit<Q>) {
+    set_official_pit<Q>(config, object::id(pit));
+}
+
+#[test_only]
+public fun set_official_pit_id_for_testing<Q>(config: &mut Config, pit_id: ID) {
+    set_official_pit<Q>(config, pit_id);
 }
 
 /// Tiny defaults used by unit tests (fee 1_000, swap 100 bps, graduation 50_000, …).

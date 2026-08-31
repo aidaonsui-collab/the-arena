@@ -102,6 +102,16 @@ public fun settle_burn_quote<Q>(pit: &mut Pit<Q>, pool_id: ID): Balance<Q> {
     take_pot(pit, pool_id, 1)
 }
 
+/// Mark the current winner settled without paying the pot. Pot stays for the next round.
+/// `mode` on PitSettleEvent is 2. Caller must have checked the winner cannot burn.
+public(package) fun forfeit<Q>(pit: &mut Pit<Q>, pool_id: ID) {
+    assert!(pit.winner_id.is_some(), errors::not_winner());
+    assert!(*pit.winner_id.borrow() == pool_id, errors::not_winner());
+    assert!(!pit.settled, errors::already_settled());
+    pit.settled = true;
+    events::emit_pit_settle(pool_id, 0, 2);
+}
+
 fun take_pot<Q>(pit: &mut Pit<Q>, pool_id: ID, mode: u8): Balance<Q> {
     assert!(pit.winner_id.is_some(), errors::not_winner());
     assert!(*pit.winner_id.borrow() == pool_id, errors::not_winner());

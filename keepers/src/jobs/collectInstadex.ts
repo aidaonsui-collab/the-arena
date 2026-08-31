@@ -90,6 +90,42 @@ async function listLaunches(): Promise<Launch[]> {
   return out;
 }
 
+async function listMintLocks(): Promise<Map<string, string>> {
+  const types = [
+    `${CALL_PKG}::events::InstadexMintLockEvent`,
+    process.env.ARENA_MINTLOCK_PACKAGE
+      ? `${process.env.ARENA_MINTLOCK_PACKAGE}::events::InstadexMintLockEvent`
+      : "",
+  ].filter(Boolean);
+  const map = new Map<string, string>();
+  const q = `query($t:String!,$first:Int!,$after:String){ events(first:$first, after:$after, filter:{ type:$t }){ pageInfo { hasNextPage endCursor } nodes { contents { json } } } }`;
+  for (const type of types) {
+    let after: string | null = null;
+    for (let i = 0; i < 20; i++) {
+      let data: {
+        events?: {
+          pageInfo?: { hasNextPage?: boolean; endCursor?: string };
+          nodes?: { contents?: { json?: Record<string, unknown> } }[];
+        };
+      };
+      try {
+        data = (await gql(q, { t: type, first: 50, after })) as typeof data;
+      } catch {
+        break;
+      }
+      for (const n of data.events?.nodes ?? []) {
+        const p = n.contents?.json ?? {};
+        const lockId = asId(p.lock_id);
+        const mintId = asId(p.mint_lock_id);
+        if (lockId && mintId) map.set(lockId, mintId);
+      }
+      if (!data.events?.pageInfo?.hasNextPage || !data.events.pageInfo.endCursor) break;
+      after = data.events.pageInfo.endCursor;
+    }
+  }
+  return map;
+}
+
 async function mintLockFromTx(digest: string, token: string): Promise<string | null> {
   const c = client();
   const tx = await c.getTransactionBlock({ digest, options: { showObjectChanges: true } });
@@ -132,10 +168,12 @@ async function accrued(lockId: string): Promise<{ a: number; b: number }> {
 export async function runCollectInstadex() {
   const kp = loadSigner();
   const launches = await listLaunches();
+  const mintByLock = await listMintLocks();
   const results: unknown[] = [];
   for (const L of launches) {
     if (!L.lockId || !L.poolId || !L.token || !L.digest) continue;
-    const mintId = L.mintLockId ?? (await mintLockFromTx(L.digest, L.token));
+    const mintId =
+      L.mintLockId ?? mintByLock.get(L.lockId) ?? (await mintLockFromTx(L.digest, L.token));
     if (!mintId) {
       results.push({ lockId: L.lockId, skipped: true, reason: "no InstadexMintLock in launch tx" });
       continue;

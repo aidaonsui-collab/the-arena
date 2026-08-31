@@ -352,6 +352,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   const ADDR = ["0x8f2a…ab71","0xa91c…d012","0x11c0…012f","0x70bb…4410","0xcc81…e203","0x5d0e…c801","0x09ae…3290","0xbb21…aa13"];
   const ROUND_SECONDS = 96;
   let bshift = 0, pot = 31.94, prevPot = "", roundNo = 128, secs = ROUND_SECONDS;
+  var pitLive = { round: 1, endMs: 0, potMist: 0, settled: true };
   let balance = 48.60;
   let xaumBal = 2.40;
   const state = {route:"explore", sym:"VOLT", filter:"All", sort:"Market cap", time:"All", side:"Buy", amt:"1", connected:false, search:"", lName:"", lTick:"", lQuote:"SUI", lPath:"instadex", lMode:"Holders", lTokenAmt:"", lQuoteAmt:"", lCap:"", lTokenCoin:"", lQuoteCoin:"", metricsWindow:"All", tapeTab:"trades", tapeOpen:"", lFile:null, lArtUrl:"", lArtPreview:"", payWith:"SUI"};
@@ -631,8 +632,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     note.style.color = err ? "#FF6640" : "";
   }
 
-  let tvWidget = null;
-  let tvSeq = 0;
+
   let hydrating = true;
 
   function $(s,r){ return (r||document).querySelector(s); }
@@ -715,7 +715,14 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
 
   function gradTarget(k){ return poolQuote(k) === "XAUM" ? 1 : GRAD; }
   function walletBal(q){ return (q === "XAUM" ? xaumBal : balance); }
-  function clockStr(){ return Math.floor(secs/60)+":"+String(secs%60).padStart(2,"0"); }
+  function clockStr(){
+    if (LIVE) {
+      if (!(pitLive.endMs > 0)) return "—";
+      var s = Math.max(0, Math.floor((pitLive.endMs - Date.now()) / 1000));
+      return Math.floor(s / 60)+":"+String(s % 60).padStart(2, "0");
+    }
+    return Math.floor(secs/60)+":"+String(secs%60).padStart(2,"0");
+  }
   function spark(seed){
     let p = "", y = 18;
     for (let i=0;i<=24;i++){
@@ -769,7 +776,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   }
   function dexEmbed(pool){
     if (!pool) return '<div class="tv-host" style="display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:13px">Bluefin pool pending</div>';
-    const src = "https://dexscreener.com/sui/"+pool+"?embed=1&theme=dark&info=0";
+    const src = "https://dexscreener.com/sui/"+encodeURIComponent(pool)+"?embed=1&theme=dark&info=0";
     return '<div class="tv-host"><iframe src="'+src+'" title="Dexscreener" allow="clipboard-write" allowfullscreen></iframe></div>';
   }
 
@@ -824,6 +831,9 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     u = String(u || "");
     if (u.indexOf("https://") !== 0 && u.indexOf("blob:") !== 0) return "";
     return u.replace(/"/g, "").replace(/</g, "");
+  }
+  function escHtml(s){
+    return String(s ?? "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");
   }
   function avatar(k, sz){
     sz = sz || 42;
@@ -1048,34 +1058,34 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     const src = escUrl(k.img);
     const inner = src
       ? '<img src="'+src+'" alt="">'
-      : '<span class="art-letter">'+k.t.charAt(0)+'</span>';
+      : '<span class="art-letter">'+escHtml((k.t||"?").charAt(0))+'</span>';
     return '<div class="lcard-art" style="background:'+(src?"#101211":(hot?"#111":k.c))+'">'+
-      '<span class="chip">'+badge+'</span>'+inner+'</div>';
+      '<span class="chip">'+escHtml(badge)+'</span>'+inner+'</div>';
   }
   function featCard(k){ return launchCard(k, 0); }
   function launchRow(k, i){
     const q = poolQuote(k);
     const cls = k.st === "Graduating" ? "grad" : (k.st === "Graduated" ? "" : "live");
     const go = "token:"+k.t;
-    return '<div class="row" data-go="'+go+'">'+
+    return '<div class="row" data-go="'+escHtml(go)+'">'+
       '<span class="mono" style="color:#9CA3AF">'+rank(i)+'</span>'+
       '<div style="display:flex;align-items:center;gap:10px;min-width:0">'+
-        '<div style="width:10px;height:10px;transform:rotate(45deg);background:'+k.c+';flex:none"></div>'+
-        '<div style="min-width:0"><div class="feat-name">'+k.n+' <span class="feat-tick">'+k.t+'</span></div></div></div>'+
+        '<div style="width:10px;height:10px;transform:rotate(45deg);background:'+escHtml(k.c)+';flex:none"></div>'+
+        '<div style="min-width:0"><div class="feat-name">'+escHtml(k.n)+' <span class="feat-tick">'+escHtml(k.t)+'</span></div></div></div>'+
       sparkSVG(k)+
       '<span class="chg" style="color:'+chColor(k)+';text-align:right">'+chText(k)+'</span>'+
-      '<div data-usd-cap="'+k.t+'" class="mono" style="text-align:right;font-weight:650">'+usdCapText(k)+'</div>'+
-      '<span class="chip '+cls+' st-col">'+k.st+'</span></div>';
+      '<div data-usd-cap="'+escHtml(k.t)+'" class="mono" style="text-align:right;font-weight:650">'+usdCapText(k)+'</div>'+
+      '<span class="chip '+cls+' st-col">'+escHtml(k.st)+'</span></div>';
   }
   function launchCard(k, i){
     const leader = sortedT()[0];
     const hot = !k.graduated && leader && leader.t === k.t;
     const addr = ADDR[(i||0) % ADDR.length];
     const go = "token:"+k.t;
-    return '<div class="lcard'+(hot?" hot":"")+'" data-go="'+go+'">'+
+    return '<div class="lcard'+(hot?" hot":"")+'" data-go="'+escHtml(go)+'">'+
       artBlock(k, hot)+
-      '<div><div class="feat-name">'+k.n+'</div><div class="feat-tick">$'+k.t+'</div></div>'+
-      '<div class="feat-mcap" data-usd-cap="'+k.t+'" style="font-size:15px">'+usdCapText(k)+' MC</div>'+
+      '<div><div class="feat-name">'+escHtml(k.n)+'</div><div class="feat-tick">$'+escHtml(k.t)+'</div></div>'+
+      '<div class="feat-mcap" data-usd-cap="'+escHtml(k.t)+'" style="font-size:15px">'+usdCapText(k)+' MC</div>'+
       '<div class="lcard-foot"><span class="mono">'+addr+'</span><span class="ago">'+lastAgo(k)+'</span></div></div>';
   }
   function footerHTML(){
@@ -1109,22 +1119,22 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   }
   function pitHTML(){
     const rows = sortedT().map(function(k,i){
-      return '<div class="pit-row'+(i===0?" lead":"")+'" data-go="token:'+k.t+'">'+
+      return '<div class="pit-row'+(i===0?" lead":"")+'" data-go="'+escHtml("token:"+k.t)+'">'+
         '<span class="rank">'+rank(i)+'</span>'+avatar(k,40)+
-        '<div style="min-width:0"><div class="feat-name">'+k.n+'</div><div class="feat-tick">$'+k.t+'</div></div>'+
-        '<span class="feat-tick mode-col">'+k.mode+'</span>'+
+        '<div style="min-width:0"><div class="feat-name">'+escHtml(k.n)+'</div><div class="feat-tick">$'+escHtml(k.t)+'</div></div>'+
+        '<span class="feat-tick mode-col">'+escHtml(k.mode)+'</span>'+
         '<span class="chg" style="color:'+chColor(k)+'">'+chText(k)+'</span>'+
         '<div data-cap="'+k.t+'" class="cap">'+fmt(k.cap)+'</div></div>';
     }).join("");
-    const bells = BELLS.map(function(b){
+    const bells = (LIVE ? [] : BELLS).map(function(b){
       const holders = b.mode === "Holders";
       return '<div class="bell-card">'+
-        '<div class="pit-kicker">'+b.ago+' ago</div>'+
-        '<div class="feat-name">'+b.n+'</div>'+
+        '<div class="pit-kicker">'+escHtml(b.ago)+' ago</div>'+
+        '<div class="feat-name">'+escHtml(b.n)+'</div>'+
         '<div class="pit-pot" style="font-size:28px;margin-top:10px">'+b.amt.toFixed(2)+' SUI</div>'+
-        '<div class="feat-tick" style="margin-top:8px">'+(b.burn?"burned "+b.burn:"split to holders")+'</div>'+
-        '<span class="chip '+(holders?"live":"")+'" style="margin-top:12px;display:inline-block">'+b.mode+'</span></div>';
-    }).join("");
+        '<div class="feat-tick" style="margin-top:8px">'+(b.burn?"burned "+escHtml(b.burn):"split to holders")+'</div>'+
+        '<span class="chip '+(holders?"live":"")+'" style="margin-top:12px;display:inline-block">'+escHtml(b.mode)+'</span></div>';
+    }).join("") || (LIVE ? '<div class="empty">Bells settle on-chain. Keepers call pit::ring / pool::settle_pit.</div>' : "");
     return '<div data-screen-label="Pit">'+
       '<div class="pit-hero">'+
         '<div style="grid-area:pot"><div class="pit-kicker"><span style="display:inline-block;width:7px;height:7px;border-radius:99px;background:var(--sui);margin-right:8px"></span>Round <span data-round>'+roundNo+'</span> · live</div>'+
@@ -1191,7 +1201,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       : '<div class="empty" style="width:100%">No TradeEvent fills in this window.</div>';
     const rows = top.map(function(r,i){
       const tk = T.find(function(k){ return k.t === r.id; }) || GRADS.find(function(g){ return g.t === r.id; }) || {n:r.id,t:r.id,c:"#298DFF"};
-      return '<tr data-go="token:'+r.id+'"><td class="mono" style="color:var(--muted)">'+rank(i)+'</td><td><div class="feat-name">'+tk.n+'</div><div class="feat-tick">$'+r.id+'</div></td><td class="mono">'+r.fills+'</td><td class="mono" style="text-align:right">'+fmt(r.vol)+' '+r.q+'</td></tr>';
+      return '<tr data-go="'+escHtml("token:"+r.id)+'"><td class="mono" style="color:var(--muted)">'+rank(i)+'</td><td><div class="feat-name">'+escHtml(tk.n)+'</div><div class="feat-tick">$'+escHtml(r.id)+'</div></td><td class="mono">'+r.fills+'</td><td class="mono" style="text-align:right">'+fmt(r.vol)+' '+escHtml(r.q)+'</td></tr>';
     }).join("");
     const src = (window.ARENA_PACKAGE_ID)
       ? "Indexed from on-chain TradeEvent, ClaimEvent, BellEvent, GraduationEvent."
@@ -1238,18 +1248,18 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
         '<p style="color:var(--muted);max-width:48ch">Skip the curve. Bring both LP sides and seed Bluefin in the first block. The Position NFT is locked forever.</p>'+
         '<div class="form-grid">'+
           '<div><label>Art</label><div class="art-field">'+
-            '<div class="art-preview" id="l-art-preview">'+(state.lArtPreview?'<img src="'+escUrl(state.lArtPreview)+'" alt="">':(state.lTick?state.lTick.charAt(0):"?"))+'</div>'+
+            '<div class="art-preview" id="l-art-preview">'+(state.lArtPreview?'<img src="'+escUrl(state.lArtPreview)+'" alt="">':escHtml(state.lTick?state.lTick.charAt(0):"?"))+'</div>'+
             '<div><input id="l-art" type="file" accept="image/png,image/jpeg,image/webp,image/gif">'+
             '<div class="art-note" id="l-art-note">'+(state.lArtUrl?"Ready · Blob URL set":"png, jpeg, webp, or gif · 2MB")+'</div></div></div></div>'+
-          '<div><label>TreasuryCap object</label><input id="l-cap" spellcheck="false" placeholder="0x… TreasuryCap" value="'+state.lCap+'"></div>'+
-          '<div><label>Token coin object</label><input id="l-token-coin" spellcheck="false" placeholder="0x… Coin&lt;T&gt;" value="'+state.lTokenCoin+'"></div>'+
-          '<div><label>Token seed</label><input id="l-token-amt" inputmode="decimal" placeholder="Amount to split · blank uses the whole coin" value="'+state.lTokenAmt+'"></div>'+
+          '<div><label>TreasuryCap object</label><input id="l-cap" spellcheck="false" placeholder="0x… TreasuryCap" value="'+escHtml(state.lCap)+'"></div>'+
+          '<div><label>Token coin object</label><input id="l-token-coin" spellcheck="false" placeholder="0x… Coin&lt;T&gt;" value="'+escHtml(state.lTokenCoin)+'"></div>'+
+          '<div><label>Token seed</label><input id="l-token-amt" inputmode="decimal" placeholder="Amount to split · blank uses the whole coin" value="'+escHtml(state.lTokenAmt)+'"></div>'+
           '<div><label>Quote</label><div class="toggle">'+tog("lQuote","SUI","SUI")+tog("lQuote","XAUM","XAUM")+'</div>'+
             '<div style="font-size:12px;color:var(--muted);margin-top:6px">Both sides seed the Bluefin pair. '+state.lQuote+' is coin B. No bonding-curve Create.</div></div>'+
-          '<div><label>Quote seed · '+state.lQuote+'</label><input id="l-quote-amt" inputmode="decimal" placeholder="'+(state.lQuote==="XAUM"?"XAUM amount":"SUI amount")+'" value="'+state.lQuoteAmt+'"></div>'+
-          (state.lQuote==="XAUM" ? '<div><label>Quote coin object · optional</label><input id="l-quote-coin" spellcheck="false" placeholder="0x… Coin&lt;XAUM&gt; or pick from wallet" value="'+state.lQuoteCoin+'"></div>' : '')+
-          '<div><label>Name</label><input id="l-name" placeholder="From CoinMetadata" value="'+state.lName+'"></div>'+
-          '<div><label>Ticker</label><input id="l-tick" placeholder="From CoinMetadata" maxlength="12" value="'+state.lTick+'"></div>'+
+          '<div><label>Quote seed · '+escHtml(state.lQuote)+'</label><input id="l-quote-amt" inputmode="decimal" placeholder="'+(state.lQuote==="XAUM"?"XAUM amount":"SUI amount")+'" value="'+escHtml(state.lQuoteAmt)+'"></div>'+
+          (state.lQuote==="XAUM" ? '<div><label>Quote coin object · optional</label><input id="l-quote-coin" spellcheck="false" placeholder="0x… Coin&lt;XAUM&gt; or pick from wallet" value="'+escHtml(state.lQuoteCoin)+'"></div>' : '')+
+          '<div><label>Name</label><input id="l-name" placeholder="From CoinMetadata" value="'+escHtml(state.lName)+'"></div>'+
+          '<div><label>Ticker</label><input id="l-tick" placeholder="From CoinMetadata" maxlength="12" value="'+escHtml(state.lTick)+'"></div>'+
           '<button type="button" class="btn-trade" id="launch-go">'+launchBtnLabel()+'</button>'+
           '<div id="launch-note" style="font-size:12px;color:var(--muted);margin-top:8px;text-align:center">1 SUI launch fee from gas. Creation fee 0. Calls v6 launch_instadex_entry. No curve.</div>'+
         '</div></div>'+
@@ -1282,7 +1292,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       '<div class="pit-kicker">'+kicker+'</div>'+
       '<div style="font-size:22px;font-weight:700;letter-spacing:-.03em;margin:8px 0 10px">'+title+'</div>'+
       '<p style="color:var(--muted);margin:0 0 14px">'+copy+'</p>'+
-      '<div class="kv"><span style="color:var(--muted)">Pair</span><span class="mono">'+tk.t+' / '+q+'</span></div>'+
+      '<div class="kv"><span style="color:var(--muted)">Pair</span><span class="mono">'+escHtml(tk.t)+' / '+escHtml(q)+'</span></div>'+
       '<div class="kv"><span style="color:var(--muted)">Pool</span><span class="mono">'+(tk.bluefinPool ? shortAddr(tk.bluefinPool) : "—")+'</span></div>'+
       lockRow+
       cta+
@@ -1330,11 +1340,11 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       '<div class="back" data-go="explore">← Explore</div>'+
       '<div class="token-head">'+
         '<div style="display:flex;align-items:center;gap:14px;min-width:0">'+avatar(tk,52)+
-          '<div><h1>'+tk.n+'</h1><div class="feat-tick" style="margin-top:6px">'+tk.t+' / '+q+'</div></div></div>'+
+          '<div><h1>'+escHtml(tk.n)+'</h1><div class="feat-tick" style="margin-top:6px">'+escHtml(tk.t)+' / '+escHtml(q)+'</div></div></div>'+
         '<div class="badges">'+
-          '<span class="badge">'+tk.st+'</span>'+
-          (insta ? '' : '<span class="badge">Pit · '+tk.mode+'</span>')+
-          (tk.bluefinPool ? '<span class="badge">Bluefin · '+tk.t+'/'+q+'</span>' : '')+
+          '<span class="badge">'+escHtml(tk.st)+'</span>'+
+          (insta ? '' : '<span class="badge">Pit · '+escHtml(tk.mode)+'</span>')+
+          (tk.bluefinPool ? '<span class="badge">Bluefin · '+escHtml(tk.t)+'/'+escHtml(q)+'</span>' : '')+
           (tk.bluefinPool ? '<span class="badge">Pool · '+shortAddr(tk.bluefinPool)+'</span>' : '')+
           (tk.lpLocked ? '<span class="badge">'+(insta || Number(tk.unlockMs)===0 ? "Lock · permanent" : ("Vault · "+(tk.unlockMs ? new Date(tk.unlockMs).toLocaleDateString() : "180d")))+'</span>' : '')+
           '<span class="badge">'+q+'</span></div></div>'+
@@ -1342,7 +1352,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
         '<div class="split-main">'+
         '<div class="about-card card">'+
           '<h2>About</h2>'+
-          '<div class="about-desc">'+(tk.b || "No description yet.")+'</div>'+
+          '<div class="about-desc">'+escHtml(tk.b || "No description yet.")+'</div>'+
           '<div class="about-metrics">'+
             '<div><div class="about-k">Market cap</div>'+
               '<div class="about-v"><span data-usd-cap="'+tk.t+'">'+usdCapText(tk)+'</span><span class="tick">mc</span></div>'+
@@ -1504,30 +1514,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     paintPx();
     updateChartLive();
   }
-  function dropTv(){
-    if (tvWidget){
-      try { tvWidget.remove(); } catch (e) {}
-      tvWidget = null;
-    }
-  }
-  function loadTvScript(onLoad, onError){
-    if (window.TradingView){ onLoad(); return; }
-    const candidates = [
-      "./charting_library/charting_library/charting_library.standalone.js",
-      "/charting_library/charting_library/charting_library.standalone.js",
-      "/charting_library/charting_library/charting_library.js"
-    ];
-    let idx = 0;
-    (function tryNext(){
-      if (idx >= candidates.length){ onError(); return; }
-      const el = document.createElement("script");
-      el.src = candidates[idx++];
-      el.async = true;
-      el.onload = function(){ window.TradingView ? onLoad() : tryNext(); };
-      el.onerror = tryNext;
-      document.head.appendChild(el);
-    })();
-  }
+  function dropTv(){}
   function tvBars(sym){
     const id = String(sym || state.sym || '').toUpperCase();
     if (!Index || !Index.toCandles) return [];
@@ -1578,69 +1565,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       getServerTime: function(cb){ cb(Math.floor(Date.now() / 1000)); }
     };
   }
-  function mountTvChart(){
-    dropTv();
-    return; // Dexscreener embed; no TradingView
-    if (state.route !== "token") return;
-    const tk = findT(state.sym);
-    if (isDexBout(tk)) return;
-    const host = document.getElementById("tv-host");
-    if (!host) return;
-    const quote = poolQuote(tk);
-    const ticker = tk.t;
-    const seq = ++tvSeq;
-    host.innerHTML = '<div style="min-height:200px;height:100%;display:flex;align-items:center;justify-content:center;color:#6B7280;font-size:13px">loading chart…</div>';
-    loadTvScript(function(){
-      if (seq !== tvSeq) return;
-      const el = document.getElementById("tv-host");
-      if (!el || !window.TradingView) return;
-      dropTv();
-      el.innerHTML = "";
-      const candles = tvBars(ticker);
-      el.setAttribute("data-tv-bars", String(candles.length));
-      document.documentElement.setAttribute("data-tv-bars", String(candles.length));
-      const px = candles.length ? candles[candles.length - 1].close : 0;
-      const pricescale = px > 0 && px < 1 ? Math.pow(10, Math.min(12, Math.ceil(-Math.log10(px)) + 4)) : 100;
-      const res = "1";
-      tvWidget = new window.TradingView.widget({
-        container: el,
-        datafeed: staticDatafeed(ticker, candles, res, pricescale, quote),
-        library_path: "/charting_library/charting_library/",
-        symbol: ticker,
-        interval: res,
-        timezone: "Etc/UTC",
-        theme: "Dark",
-        style: "1",
-        locale: "en",
-        autosize: true,
-        toolbar_bg: "#26272C",
-        overrides: {
-          "paneProperties.background": "#26272C",
-          "paneProperties.backgroundType": "solid",
-          "paneProperties.vertGridProperties.color": "rgba(237,236,232,.06)",
-          "paneProperties.horzGridProperties.color": "rgba(237,236,232,.06)",
-          "scalesProperties.textColor": "#9A9BA3",
-          "scalesProperties.lineColor": "rgba(237,236,232,.12)",
-          "mainSeriesProperties.candleStyle.upColor": "#298DFF",
-          "mainSeriesProperties.candleStyle.downColor": "#FF6640",
-          "mainSeriesProperties.candleStyle.borderUpColor": "#298DFF",
-          "mainSeriesProperties.candleStyle.borderDownColor": "#FF6640",
-          "mainSeriesProperties.candleStyle.wickUpColor": "#298DFF",
-          "mainSeriesProperties.candleStyle.wickDownColor": "#FF6640"
-        },
-        disabled_features: ["use_localstorage_for_settings","header_symbol_search","header_compare","display_market_status","go_to_date"],
-        enabled_features: ["hide_last_na_study_output","move_logo_to_main_pane","volume_force_overlay"]
-      });
-      try {
-        tvWidget.onChartReady(function(){
-          document.documentElement.setAttribute("data-tv-ready","1");
-        });
-      } catch (e) {}
-    }, function(){
-      const el = document.getElementById("tv-host");
-      if (el) el.innerHTML = '<div style="min-height:200px;height:100%;display:flex;align-items:center;justify-content:center;color:#9A9BA3;font-size:13px">Chart library unavailable.</div>';
-    });
-  }
+  function mountTvChart(){}
   function updateChartLive(){ /* static datafeed */ }
   function upsertLaunch(l){
     if (!l) return;
@@ -1722,6 +1647,16 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   }
   var seenBurns = {};
   var pendingBurns = {};
+  function applyInstadexMintLock(m){
+    if (!m || !m.lock_id || !m.mint_lock_id) return;
+    const tk = T.find(function(k){ return k.lockId === m.lock_id; });
+    if (tk) tk.mintLock = m.mint_lock_id;
+    if (!bus.launches[m.lock_id]) bus.launches[m.lock_id] = { lock_id: m.lock_id };
+    Object.keys(bus.launches).forEach(function(key){
+      var L = bus.launches[key];
+      if (L && (L.lock_id === m.lock_id || key === m.lock_id)) L.mint_lock_id = m.mint_lock_id;
+    });
+  }
   function applyInstadexBurn(b){
     if (!b || !b.lock_id) return;
     const key = b.lock_id + ":" + (b.ts || "") + ":" + (b.amount || "");
@@ -1771,6 +1706,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
         unlockMs: l.unlock_ms,
         token: l.token,
         creator: l.creator,
+        mintLock: l.mint_lock_id || "",
         ts: l.ts
       };
       const base = Math.max(2.4, (tk.cap || 1) / 34);
@@ -1800,6 +1736,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       if (cap > 0) tk.cap = cap;
       if (l.token) tk.token = l.token;
       if (l.creator) tk.creator = l.creator;
+      if (l.mint_lock_id) tk.mintLock = l.mint_lock_id;
       if (l.ts) tk.ts = l.ts;
     }
     if (LIVE && state.sym && !T.some(function(k){ return k.t === state.sym; })) state.sym = tk.t;
@@ -1836,7 +1773,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     const amt = fromMist(ev.quote_amount);
     const gold = poolQuote(k) === "XAUM";
     k.buckets[11] += gold ? amt * 40 : amt; k.fbuckets[11] += 1;
-    if (!gold) pot += fromMist(ev.pit_fee);
+    if (!gold && !LIVE) pot += fromMist(ev.pit_fee);
     if (gold){
       k.cap = Math.max(0.02, Math.min(0.95, k.cap + (ev.is_buy ? Math.min(0.04, amt*0.12) : -Math.min(0.03, amt*0.09))));
     } else {
@@ -1866,11 +1803,35 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     pot = 0.42;
     prevPot = "";
   }
+  async function signUploadTicket(){
+    if (!suiSession.address) await connectWallet();
+    var ts = String(Date.now());
+    var message = new TextEncoder().encode("arena-upload:" + ts);
+    var w = suiSession.wallet;
+    var feats = (w && w.features) || {};
+    var out;
+    if (feats["sui:signPersonalMessage"] && feats["sui:signPersonalMessage"].signPersonalMessage){
+      out = await feats["sui:signPersonalMessage"].signPersonalMessage({ message: message, account: suiSession.account });
+    } else if (typeof w.signPersonalMessage === "function"){
+      out = await w.signPersonalMessage({ message: message, account: suiSession.account });
+    } else {
+      throw new Error("Wallet cannot sign personal messages");
+    }
+    return { ts: ts, sig: out.signature || out, address: suiSession.address };
+  }
   function uploadArt(file){
-    return fetch("/api/upload", {
-      method: "POST",
-      headers: { "content-type": file.type, "x-filename": file.name },
-      body: file
+    return signUploadTicket().then(function(ticket){
+      return fetch("/api/upload", {
+        method: "POST",
+        headers: {
+          "content-type": file.type,
+          "x-filename": file.name,
+          "x-sui-address": ticket.address,
+          "x-sui-signature": ticket.sig,
+          "x-sui-ts": ticket.ts
+        },
+        body: file
+      });
     }).then(function(res){
       return res.json().then(function(j){
         if (!res.ok || !j.url) throw new Error(j.error || "upload failed");
@@ -2000,7 +1961,8 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   }
   async function resolveMintLock(tk, Ttype){
     if (tk.mintLock) return tk.mintLock;
-    if (String(tk.t).toUpperCase() === "IDEX") return "0x38c1667f65f085677a577a48338dd86f6cb8ec1ea4aa0351bbcfb3cb39336e54";
+    var launch = bus.launches[tk.lockId] || bus.launches[tk.t] || bus.launches[tk.bluefinPool];
+    if (launch && launch.mint_lock_id) return launch.mint_lock_id;
     var gql = "https://graphql.mainnet.sui.io/graphql";
     var q = "query($t:String!){ objects(first:5, filter:{ type:$t }){ nodes{ address } } }";
     var res = await fetch(gql, { method:"POST", headers:{ "content-type":"application/json" }, body: JSON.stringify({ query:q, variables:{ t: mintLockType(Ttype) } }) });
@@ -2012,6 +1974,8 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   function typeNameStr(v){
     if (!v) return "";
     if (typeof v === "string") return v;
+    if (v.address && v.module) return String(v.address)+"::"+v.module+"::"+(v.name||"");
+    if (v.name && String(v.name).indexOf("::") >= 0) return String(v.name);
     if (v.name) return String(v.name);
     return String(v);
   }
@@ -2203,15 +2167,46 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     const p = parseHash();
     go(p.route, p.sym);
   });
+  function loadPit(){
+    if (!LIVE || !window.ARENA_PIT_SUI) return;
+    fetch(window.SUI_RPC || "https://fullnode.mainnet.sui.io:443", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: 1,
+        method: "sui_getObject",
+        params: [window.ARENA_PIT_SUI, { showContent: true }]
+      })
+    }).then(function(r){ return r.json(); }).then(function(j){
+      var f = j && j.result && j.result.data && j.result.data.content && j.result.data.content.fields;
+      if (!f) return;
+      pitLive.round = Number(f.round) || 1;
+      pitLive.endMs = Number(f.round_end_ms) || 0;
+      pitLive.settled = !!f.settled;
+      var raw = f.pot && f.pot.value != null ? f.pot.value : f.pot;
+      pitLive.potMist = Number(raw) || 0;
+      roundNo = pitLive.round;
+      pot = fromMist(pitLive.potMist);
+      paintPots();
+      paintClocks();
+    }).catch(function(){});
+  }
   if (!SHOT) setInterval(function(){
-    secs = secs > 0 ? secs - 1 : ROUND_SECONDS;
-    if (secs === ROUND_SECONDS) rollover();
-    if (++bshift >= 20){
-      bshift = 0;
-      T.forEach(function(k){ k.buckets.shift(); k.buckets.push(0); k.fbuckets.shift(); k.fbuckets.push(0); });
+    if (!LIVE) {
+      secs = secs > 0 ? secs - 1 : ROUND_SECONDS;
+      if (secs === ROUND_SECONDS) rollover();
+      if (++bshift >= 20){
+        bshift = 0;
+        T.forEach(function(k){ k.buckets.shift(); k.buckets.push(0); k.fbuckets.shift(); k.fbuckets.push(0); });
+      }
     }
     paintLive();
   }, 1000);
+  if (LIVE && !SHOT){
+    loadPit();
+    setInterval(loadPit, 15000);
+  }
   if (Index){
     hydrating = true;
     bus.index = Index.demoSnapshot(T, DEMO_WALLET);
@@ -2237,7 +2232,9 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       onLock: function(g){ applyLock(g); },
       onBluefinLock: function(g){ applyBluefinLock(g); },
       onInstadexBurn: function(b){ applyInstadexBurn(b); },
+      onInstadexMintLock: function(m){ applyInstadexMintLock(m); },
       burnPackages: [window.ARENA_COLLECT_PACKAGE].filter(Boolean),
+      mintLockPackages: [window.ARENA_COLLECT_PACKAGE].filter(Boolean),
       callPackage: window.ARENA_INSTADEX_PACKAGE,
       instadexPackages: [window.ARENA_INSTADEX_PACKAGE].filter(Boolean),
       lockPackages: [window.ARENA_INSTADEX_PACKAGE, window.ARENA_LOCK_PACKAGE, window.ARENA_BLUEFIN_EVENT_PACKAGE].filter(Boolean)

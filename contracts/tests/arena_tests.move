@@ -24,6 +24,10 @@ fun setup(scenario: &mut Scenario) {
     pit::create_pit<QCOIN>(scenario.ctx());
     scenario.next_tx(ADMIN);
     let mut config = scenario.take_shared<Config>();
+    let pit_sui = scenario.take_shared<Pit<SUI>>();
+    let pit_q = scenario.take_shared<Pit<QCOIN>>();
+    config.register_pit_for_testing(&pit_sui);
+    config.register_pit_for_testing(&pit_q);
     config.set_for_testing(
         1_000,
         100,
@@ -34,6 +38,8 @@ fun setup(scenario: &mut Scenario) {
         1_000_000,
         1_000,
     );
+    ts::return_shared(pit_sui);
+    ts::return_shared(pit_q);
     ts::return_shared(config);
     let mut clock = clock::create_for_testing(scenario.ctx());
     clock.set_for_testing(1);
@@ -431,13 +437,23 @@ fun test_lp_lock() {
         let pay = coin::mint_for_testing<SUI>(60_000, scenario.ctx());
         let tokens = pool::buy(&mut pool, &mut config, &mut pit, pay, 0, &clock, scenario.ctx());
         assert!(pool.is_graduated(), 0);
+        coin::burn_for_testing(tokens);
+        ts::return_shared(config);
+        ts::return_shared(pit);
+        ts::return_shared(pool);
+        ts::return_shared(clock);
+    };
+
+    scenario.next_tx(ADMIN);
+    {
+        let config = scenario.take_shared<Config>();
+        let mut pool = scenario.take_shared<Pool<TCOIN, SUI>>();
+        let clock = scenario.take_shared<Clock>();
         lock::lock_graduated_lp(&mut pool, &config, &clock, scenario.ctx());
         assert!(pool.lp_locked(), 1);
         assert!(pool.token_reserves() == 0, 2);
         assert!(pool.quote_reserves() == 0, 3);
-        coin::burn_for_testing(tokens);
         ts::return_shared(config);
-        ts::return_shared(pit);
         ts::return_shared(pool);
         ts::return_shared(clock);
     };
@@ -478,10 +494,20 @@ fun test_lp_claim_too_early() {
         let clock = scenario.take_shared<Clock>();
         let pay = coin::mint_for_testing<SUI>(60_000, scenario.ctx());
         let tokens = pool::buy(&mut pool, &mut config, &mut pit, pay, 0, &clock, scenario.ctx());
-        lock::lock_graduated_lp(&mut pool, &config, &clock, scenario.ctx());
         coin::burn_for_testing(tokens);
         ts::return_shared(config);
         ts::return_shared(pit);
+        ts::return_shared(pool);
+        ts::return_shared(clock);
+    };
+
+    scenario.next_tx(ADMIN);
+    {
+        let config = scenario.take_shared<Config>();
+        let mut pool = scenario.take_shared<Pool<TCOIN, SUI>>();
+        let clock = scenario.take_shared<Clock>();
+        lock::lock_graduated_lp(&mut pool, &config, &clock, scenario.ctx());
+        ts::return_shared(config);
         ts::return_shared(pool);
         ts::return_shared(clock);
     };
@@ -677,5 +703,166 @@ fun test_legacy_collect_bluefin_fees_aborts() {
 #[expected_failure(abort_code = 24)]
 fun test_collect_lp_fees_aborts() {
     lock::abort_instadex_collect();
+}
+
+#[test]
+fun test_official_pit_register() {
+    let mut scenario = ts::begin(ADMIN);
+    setup(&mut scenario);
+    scenario.next_tx(ADMIN);
+    let config = scenario.take_shared<Config>();
+    let pit = scenario.take_shared<Pit<SUI>>();
+    config::assert_official_pit(&config, &pit);
+    ts::return_shared(config);
+    ts::return_shared(pit);
+    scenario.end();
+}
+
+#[test]
+#[expected_failure(abort_code = 26)]
+fun test_unregistered_pit_aborts() {
+    let mut scenario = ts::begin(ADMIN);
+    config::init_for_testing(scenario.ctx());
+    scenario.next_tx(ADMIN);
+    let config = scenario.take_shared<Config>();
+    let pit = scenario.take_shared<Pit<SUI>>();
+    config::assert_official_pit(&config, &pit);
+    ts::return_shared(config);
+    ts::return_shared(pit);
+    scenario.end();
+}
+
+#[test]
+#[expected_failure(abort_code = 25)]
+fun test_wrong_pit_aborts() {
+    let mut scenario = ts::begin(ADMIN);
+    setup(&mut scenario);
+    scenario.next_tx(ADMIN);
+    let mut config = scenario.take_shared<Config>();
+    let pit = scenario.take_shared<Pit<SUI>>();
+    config.set_official_pit_id_for_testing<SUI>(sui::object::id_from_address(@0x1));
+    config::assert_official_pit(&config, &pit);
+    ts::return_shared(config);
+    ts::return_shared(pit);
+    scenario.end();
+}
+
+#[test]
+#[expected_failure(abort_code = 19)]
+fun test_lock_graduated_lp_not_creator() {
+    let mut scenario = ts::begin(ADMIN);
+    setup(&mut scenario);
+    launch_sui(&mut scenario, ADMIN, pool::pit_holders(), false);
+
+    scenario.next_tx(USER1);
+    let mut config = scenario.take_shared<Config>();
+    let mut pit = scenario.take_shared<Pit<SUI>>();
+    let mut pool = scenario.take_shared<Pool<TCOIN, SUI>>();
+    let clock = scenario.take_shared<Clock>();
+    let pay = coin::mint_for_testing<SUI>(60_000, scenario.ctx());
+    let tokens = pool::buy(&mut pool, &mut config, &mut pit, pay, 0, &clock, scenario.ctx());
+    lock::lock_graduated_lp(&mut pool, &config, &clock, scenario.ctx());
+    coin::burn_for_testing(tokens);
+    ts::return_shared(config);
+    ts::return_shared(pit);
+    ts::return_shared(pool);
+    ts::return_shared(clock);
+    scenario.end();
+}
+
+#[test]
+#[expected_failure(abort_code = 27)]
+fun test_wrong_spot_pool_aborts() {
+    let mut scenario = ts::begin(ADMIN);
+    lock::share_bluefin_lock_for_testing(
+        sui::object::id_from_address(@0x1),
+        sui::object::id_from_address(@0x2),
+        ADMIN,
+        0,
+        scenario.ctx(),
+    );
+    scenario.next_tx(ADMIN);
+    let bf_lock = scenario.take_shared<lock::BluefinPositionLock>();
+    lock::assert_spot_pool(&bf_lock, sui::object::id_from_address(@0x3));
+    ts::return_shared(bf_lock);
+    scenario.end();
+}
+
+#[test]
+fun test_forfeit_unburnable_after_lock() {
+    let mut scenario = ts::begin(ADMIN);
+    setup(&mut scenario);
+    launch_sui(&mut scenario, ADMIN, pool::pit_buy_and_burn(), false);
+
+    scenario.next_tx(USER1);
+    {
+        let mut config = scenario.take_shared<Config>();
+        let mut pit = scenario.take_shared<Pit<SUI>>();
+        let mut pool = scenario.take_shared<Pool<TCOIN, SUI>>();
+        let clock = scenario.take_shared<Clock>();
+        let pay = coin::mint_for_testing<SUI>(60_000, scenario.ctx());
+        let tokens = pool::buy(&mut pool, &mut config, &mut pit, pay, 0, &clock, scenario.ctx());
+        assert!(pool.is_graduated(), 0);
+        coin::burn_for_testing(tokens);
+        ts::return_shared(config);
+        ts::return_shared(pit);
+        ts::return_shared(pool);
+        ts::return_shared(clock);
+    };
+
+    scenario.next_tx(ADMIN);
+    {
+        let config = scenario.take_shared<Config>();
+        let mut pool = scenario.take_shared<Pool<TCOIN, SUI>>();
+        let clock = scenario.take_shared<Clock>();
+        lock::lock_graduated_lp(&mut pool, &config, &clock, scenario.ctx());
+        ts::return_shared(config);
+        ts::return_shared(pool);
+        ts::return_shared(clock);
+    };
+
+    scenario.next_tx(ADMIN);
+    {
+        let mut config = scenario.take_shared<Config>();
+        let mut pit = scenario.take_shared<Pit<SUI>>();
+        let mut pool = scenario.take_shared<Pool<TCOIN, SUI>>();
+        let mut clock = scenario.take_shared<Clock>();
+        let pot_before = pit.pot_value();
+        assert!(pot_before > 0, 1);
+        clock.set_for_testing(2_000);
+        pit::ring(&mut pit, config.round_ms(), &clock);
+        pool::settle_pit(&mut pool, &mut pit, scenario.ctx());
+        assert!(pit.settled(), 2);
+        assert!(pit.pot_value() == pot_before, 3);
+        ts::return_shared(config);
+        ts::return_shared(pit);
+        ts::return_shared(pool);
+        ts::return_shared(clock);
+    };
+
+    scenario.end();
+}
+
+#[test]
+#[expected_failure(abort_code = 28)]
+fun test_forfeit_still_burnable_aborts() {
+    let mut scenario = ts::begin(ADMIN);
+    setup(&mut scenario);
+    launch_sui(&mut scenario, ADMIN, pool::pit_buy_and_burn(), false);
+
+    scenario.next_tx(USER1);
+    let mut config = scenario.take_shared<Config>();
+    let mut pit = scenario.take_shared<Pit<SUI>>();
+    let mut pool = scenario.take_shared<Pool<TCOIN, SUI>>();
+    let clock = scenario.take_shared<Clock>();
+    let pay = coin::mint_for_testing<SUI>(10_000, scenario.ctx());
+    let tokens = pool::buy(&mut pool, &mut config, &mut pit, pay, 0, &clock, scenario.ctx());
+    pool::forfeit_unburnable(&pool, &mut pit);
+    coin::burn_for_testing(tokens);
+    ts::return_shared(config);
+    ts::return_shared(pit);
+    ts::return_shared(pool);
+    ts::return_shared(clock);
+    scenario.end();
 }
 

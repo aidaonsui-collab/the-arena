@@ -3,6 +3,7 @@
   "private": true,
   "type": "module",
   "dependencies": {
+    "@mysten/sui": "^1.45.2",
     "@vercel/blob": "^2.8.0"
   }
 }

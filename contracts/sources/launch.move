@@ -129,10 +129,12 @@ public fun launch_instadex<T, Q>(
         ctx,
     );
 
-    transfer::share_object(InstadexMintLock<T> {
+    let mint = InstadexMintLock<T> {
         id: object::new(ctx),
         cap: treasury_cap,
-    });
+    };
+    let mint_id = object::id(&mint);
+    transfer::share_object(mint);
 
     events::emit_instadex_launch(
         lock_id,
@@ -147,6 +149,7 @@ public fun launch_instadex<T, Q>(
         meta_t.get_name(),
         meta_t.get_symbol(),
     );
+    events::emit_instadex_mint_lock(lock_id, mint_id);
     lock_id
 }
 

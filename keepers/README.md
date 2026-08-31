@@ -7,9 +7,11 @@ Cron jobs for The Arena launchpad. Reflection payouts **accrue on every fill** i
 | Cron | Path | What |
 | --- | --- | --- |
 | `* * * * *` | `/api/reflections` | Ingest `TradeEvent` + `ClaimEvent` (kind=0). Snapshot unpaid/claimed per holder. |
-| `*/5 * * * *` | `/api/ring` | Call `pit::ring` when the round clock is up. |
-| `*/5 * * * *` | `/api/settle` | Call `pool::settle_pit` on the winning pool after `BellEvent`. |
+| `*/5 * * * *` | `/api/ring` | Sign `pit::ring` when Clock >= `round_end_ms` and the previous winner is settled. |
+| `*/5 * * * *` | `/api/settle` | Sign `pool::settle_pit` on the winning pool. Burn-mode winners that already locked LP forfeit (pot stays). |
 | `*/10 * * * *` | `/api/collect` | Poke `launch::collect_instadex_fees` on every Instadex lock with accrued LP fees. Burns coin A, splits quote 60/10/30. |
+
+HTTP cron routes require `Authorization: Bearer $CRON_SECRET` (Vercel Cron sends this). The CLI (`npx tsx src/cli.ts …`) does not.
 
 Local:
 
@@ -28,6 +30,7 @@ Package `P`. Subscribe:
 - `P::events::BellEvent` / `PitSettleEvent` / `PitNudgeEvent`
 - `P::events::GraduationEvent`
 - `P::events::LockEvent` / `LpClaimEvent` — graduated LP time vault
+- Latest published-at `::events::InstadexMintLockEvent` — `{ lock_id, mint_lock_id }` (Compatible parallel event)
 
 Gold quote type: `0x9d297676e7a4b771ab023291377b2adfaa4938fb9080b8d12430e4b108b836a9::xaum::XAUM`
 
@@ -40,7 +43,8 @@ Snapshot file (default `./data/reflections.json`) is the shape the token page ca
 - `ARENA_PIT_SUI`=`0x8ec38e9bcac0838bf474680e71d0c3f302f4ea2f757d759b7b399701f904389c`
 - `ARENA_PIT_XAUM`=`0xa8a391bf380914c04be5deb478474b42754a5aa8c29c0955f267d73190a98783`
 - `ARENA_CONFIG`=`0xcd527cb2389d806e5285ae708ee28df30a841ec5df7508ebfebaa0c9660b5d2c`
-- `ARENA_KEEPER_PHRASE` optional. If unset, collect signs with the local Sui keystore (gas only, not AdminCap).
+- `ARENA_KEEPER_PHRASE` optional. If unset, collect/ring/settle sign with the local Sui keystore (gas only, not AdminCap).
+- `CRON_SECRET` required on Vercel so `/api/{ring,settle,collect,reflections}` are not public.
 - `ARENA_CALL_PACKAGE` (latest published-at, default v6 `0x47ea…`)
 - `ARENA_INSTADEX_PACKAGE` (InstadexLaunchEvent type origin v4 `0xcf78…`)
 - `SUI_GRAPHQL` (default `https://graphql.mainnet.sui.io/graphql`)

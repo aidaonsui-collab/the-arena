@@ -2,6 +2,7 @@ shots/
 build.py
 .vercel/
 .DS_Store
+charting_library/
 
 # Move build cache
 contracts/build/

@@ -21,11 +21,19 @@ Bluefin ticker: `XAUM` (Matrixdock Gold, 1 token = 1 troy oz LBMA gold).
 
 The package does not vendor Matrixdock sources. `Pool<T, Q>` and `Pit<Q>` are generic; pass XAUM as `Q` at the call site.
 
-`Pit<SUI>` is created at publish. After publish, open the gold pit once:
+`Pit<SUI>` is created at publish. After publish, open the gold pit once, then register **both** official pits with AdminCap so Instadex collect cannot divert the 30% cut:
 
 ```
 sui client call --package <ARENA> --module pit --function create_pit \
   --type-args 0x9d297676e7a4b771ab023291377b2adfaa4938fb9080b8d12430e4b108b836a9::xaum::XAUM
+
+sui client call --package <PUBLISHED-AT> --module config --function register_pit \
+  --type-args 0x2::sui::SUI \
+  --args <CONFIG> <ADMIN_CAP> <PIT_SUI>
+
+sui client call --package <PUBLISHED-AT> --module config --function register_pit \
+  --type-args 0x9d297676e7a4b771ab023291377b2adfaa4938fb9080b8d12430e4b108b836a9::xaum::XAUM \
+  --args <CONFIG> <ADMIN_CAP> <PIT_XAUM>
 ```
 
 Graduation for XAUM defaults to **1 XAUM** (not 2,000 units). 2,000 SUI is only ~0.3 oz.
@@ -36,7 +44,7 @@ Graduation for XAUM defaults to **1 XAUM** (not 2,000 units). 2,000 SUI is only 
 - Platform cut (10% of the 1% swap fee) accrues in `Config.platform`. Both that bag and the launch treasury are withdrawn with `AdminCap`, which init sends to Odyssey's platform wallet `0x92a32ac7fd525f8bd37ed359423b8d7d858cad26224854dfbff1914b75ee658b`.
 - 1% (`swap_fee_bps=100`) of every fill (buy quote in, sell quote out).
   - Standard: 60% creator, 10% platform, 30% pit.
-  - Reflection: 50% holders, 25% creator, 25% platform, 0 pit.
+  - Reflection: 50/20/20/10 holders/creator/pit/platform.
 - Highest cap still on the curve when the bell rings wins.
   - Holders: pot is claimable pro-rata via the holder registry.
   - Buy and burn: pot buys the winning token on the curve and burns it.
@@ -48,7 +56,7 @@ Graduation for XAUM defaults to **1 XAUM** (not 2,000 units). 2,000 SUI is only 
 
 ## Instadex (no curve)
 
-Creator already published `Coin<T>` and brings both sides of LP (`Coin<T>` + `Coin<Q>` where Q is SUI or XAUM). One call seeds a Bluefin Spot pool at those amounts, shares it, and vaults the Position NFT in `BluefinPositionLock` forever (`unlock_ms = 0`; `claim_bluefin_position` aborts). Liquidity never comes out. Anyone can poke `launch::collect_instadex_fees`. Bluefin keeps 20% of the 1% swap fee; the remaining LP share of the quote (coin B) splits Config.std_* bps (default 60/10/30 creator/platform/pit). Token (coin A) fees are burned through the vaulted `InstadexMintLock<T>` TreasuryCap (zero A is `destroy_zero`, not burn). `TreasuryCap<T>` stays locked (no extract, no mint).
+Creator already published `Coin<T>` and brings both sides of LP (`Coin<T>` + `Coin<Q>` where Q is SUI or XAUM). One call seeds a Bluefin Spot pool at those amounts, shares it, and vaults the Position NFT in `BluefinPositionLock` forever (`unlock_ms = 0`; `claim_bluefin_position` aborts). Liquidity never comes out. Anyone can poke `launch::collect_instadex_fees`. The pit argument must be the official `Pit<Q>` registered on Config (`config::register_pit` with AdminCap; SUI + XAUM after this upgrade). The Bluefin pool argument must match `BluefinPositionLock.bluefin_pool_id`. Bluefin keeps 20% of the 1% swap fee; the remaining LP share of the quote (coin B) splits Config.std_* bps (default 60/10/30 creator/platform/pit). Token (coin A) fees are burned through the vaulted `InstadexMintLock<T>` TreasuryCap (zero A is `destroy_zero`, not burn). `TreasuryCap<T>` stays locked (no extract, no mint).
 
 **PTB** — `launch::launch_instadex<T, Q>` / `launch_instadex_entry` (returns `lock_id`):
 
@@ -74,7 +82,7 @@ lock_id, bluefin_pool_id, position_id, token, quote, creator,
 token_amount, quote_amount, unlock_ms, name, symbol
 ```
 
-`token` / `quote` are `TypeName` via `type_name::with_defining_ids`. `unlock_ms` is always 0. Does not emit `LaunchEvent`, `LockEvent`, `BluefinLockEvent`, or `GraduationEvent`.
+`token` / `quote` are `TypeName` via `type_name::with_defining_ids`. `unlock_ms` is always 0. Also emits `InstadexMintLockEvent { lock_id, mint_lock_id }` (Compatible parallel event; do not add fields to `InstadexLaunchEvent`). Does not emit `LaunchEvent`, `LockEvent`, `BluefinLockEvent`, or `GraduationEvent`.
 
 Anyone can poke `launch::collect_instadex_fees<A, B>` — Bluefin LP fees accrue on the vaulted NFT. Quote (coin B) splits 60/10/30 creator/platform/pit via `config::take_platform` and `pit::take_fee` (remainder dust to creator). Token (coin A) is burned via `InstadexMintLock.cap`. Emits `CollectLpFeesEvent` (quote split) plus `InstadexBurnEvent` (A amount). `collect_lp_fees` aborts `use_instadex_collect` (24). `collect_bluefin_fees` aborts `use_split_collect` (23). `claim_bluefin_position` aborts (`still_locked`) while `unlock_ms == 0`.
 
@@ -113,7 +121,7 @@ Creation fee is taken from `quote_reserve` (aborts if short). No extra SUI coin.
 
 The Bluefin pool is named `SYM-SUI` / `SYM-XAUM`, fee 1% (`fee_rate=10_000` in 1e6), tick spacing 60, full-range ticks snapped from GlobalConfig min/max (`−443636` / `443636` bits `4294523660` / `443636`) inward to spacing 60. Initial `sqrtPriceX64` is the curve spot `(virtual_quote + real_quote) / token_reserve`. The Position NFT sits in a shared `BluefinPositionLock` for `Config.lp_lock_ms` (180 days); the creator calls `claim_bluefin_position` after `unlock_ms`.
 
-`lock::lock_graduated_lp` remains as the raw-coin vault for tests and as a fallback.
+`lock::lock_graduated_lp` remains as the raw-coin vault for tests and as a fallback. Only the pool creator can call it (so a searcher cannot grief the Bluefin seed). Buy-and-burn pit winners that already locked (or have an empty token reserve) `forfeit` instead of aborting, so the next `ring` can run. The pot stays.
 
 Types (`GlobalConfig`, `Pool`, `Position`) stay on the original Bluefin package `0x3492c874c1e3b3e2984e8c41b589e642d4d0a5d6459e5a9cfc2d52fd7c89c267`. The official interface CALLs published-at `0xd075338d105482f1527cbfd363d6413558f184dec36d9138a70261e87f486e9c`. Unit tests never invoke `arena::bluefin`.
 

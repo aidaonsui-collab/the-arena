@@ -128,6 +128,13 @@ public struct InstadexBurnEvent has copy, drop {
     amount: u64,
 }
 
+/// Parallel to InstadexLaunchEvent (Compatible: cannot add fields to the old event).
+/// `mint_lock_id` is the shared InstadexMintLock object.
+public struct InstadexMintLockEvent has copy, drop {
+    lock_id: ID,
+    mint_lock_id: ID,
+}
+
 public fun emit_launch(
     pool_id: ID,
     token: TypeName,
@@ -308,4 +315,8 @@ public fun emit_collect_lp_fees(
 
 public fun emit_instadex_burn(lock_id: ID, amount: u64) {
     sui::event::emit(InstadexBurnEvent { lock_id, amount })
+}
+
+public fun emit_instadex_mint_lock(lock_id: ID, mint_lock_id: ID) {
+    sui::event::emit(InstadexMintLockEvent { lock_id, mint_lock_id })
 }

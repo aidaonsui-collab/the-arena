@@ -69,6 +69,7 @@ public fun lock_graduated_lp<T, Q>(
 ) {
     let pool_id = object::id(pool);
     let beneficiary = pool.creator();
+    assert!(ctx.sender() == beneficiary, errors::not_creator());
     let (token, quote) = pool::take_reserves_for_lock(pool);
     let token_amount = token.value();
     let quote_amount = quote.value();
@@ -330,6 +331,8 @@ public(package) fun collect_lp_fees_return_token<A, B>(
     ctx: &mut TxContext,
 ): Balance<A> {
     assert!(lock.position.is_some(), errors::nothing_to_claim());
+    assert!(object::id(bf_pool) == lock.bluefin_pool_id, errors::wrong_pool());
+    config::assert_official_pit(config, pit);
     let beneficiary = lock.beneficiary;
     let position = option::borrow_mut(&mut lock.position);
     let (_amt_a, _amt_b, bal_a, mut bal_b) = bluefin::collect_fee(clock, bf_config, bf_pool, position);
@@ -426,6 +429,10 @@ public fun bluefin_lock_spot_id(lock: &BluefinPositionLock): ID { lock.bluefin_p
 public fun bluefin_lock_beneficiary(lock: &BluefinPositionLock): address { lock.beneficiary }
 public fun bluefin_lock_unlock_ms(lock: &BluefinPositionLock): u64 { lock.unlock_ms }
 public fun bluefin_lock_has_position(lock: &BluefinPositionLock): bool { lock.position.is_some() }
+
+public(package) fun assert_spot_pool(lock: &BluefinPositionLock, pool_id: ID) {
+    assert!(lock.bluefin_pool_id == pool_id, errors::wrong_pool());
+}
 
 #[test_only]
 public fun share_bluefin_lock_for_testing(
