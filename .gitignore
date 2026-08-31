@@ -6,6 +6,7 @@ charting_library/
 
 # Move build cache
 contracts/build/
+contracts/coin-template/build/
 
 keepers/node_modules/
 keepers/dist/

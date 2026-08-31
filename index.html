@@ -458,7 +458,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   // The OTW rule is that the witness struct is the module name uppercased, so
   // ticker `gladius` gives module `gladius` and struct `GLADIUS`.
   // ---------------------------------------------------------------------------
-  var COIN_TEMPLATE_B64 = "oRzrCwcAAAUKAQAMAgwkAzAzBGMOBXF8B+0B2wEIyANgBqgEUAr4BAUM/QReABMBDgIHAhQCFQIWAAMCAAECBwEAAAIADAEAAQIBDAEAAQIEDAEAAQQFAgAFBgcAAAoAAQABDQEFAQABEgcFAQACCAkKAQICCwsMAQADDwcBAQwDEBABAQwEEQ0OAAUMBgQAAQQCBAMIBAgGDwURBhICCAAHCAUABQoCCwEBCAYLAQEIBgsDAQgACwQBCAABAgEIBgELAQEJAAEKAgEJAAEIAAcJAAIKAgoCCgILAQEIBgcIBQILBAEJAAsDAQkAAwcLBAEJAAMHCAUBCwIBCQABBggFAQUBCwIBCAACCQAFAQsDAQgAAQsEAQgABENvaW4MQ29pbk1ldGFkYXRhBk9wdGlvbghURU1QTEFURQtUcmVhc3VyeUNhcAlUeENvbnRleHQDVXJsBGNvaW4PY3JlYXRlX2N1cnJlbmN5C2R1bW15X2ZpZWxkBGluaXQEbWludBVuZXdfdW5zYWZlX2Zyb21fYnl0ZXMEbm9uZQZvcHRpb24UcHVibGljX2ZyZWV6ZV9vYmplY3QPcHVibGljX3RyYW5zZmVyBnNlbmRlcgRzb21lCHRlbXBsYXRlCHRyYW5zZmVyCnR4X2NvbnRleHQDdXJsAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACAgEJAwgAgMakfo0DAAoCBQRUTVBMCgIJCFRlbXBsYXRlCgIYF0RFU0NSSVBUSU9OX1BMQUNFSE9MREVSCgIREElDT05fUExBQ0VIT0xERVIAAgEJAQAAAAACKgcFDAIOAkEDBgAAAAAAAAAAIQQKOAAMAwUOBwURCDgBDAMLAwwECwAHAAcCBwMHBAsECgE4AgwFDAYNBgcBCgE4AwoBLhEHOAQLBTgFCwYLAS4RBzgGAgAA";
+  var COIN_TEMPLATE_B64 = "oRzrCwcAAAUKAQAMAgwkAzAzBGMOBXGBAQfyAdsBCM0DYAatBCAKzQQFDNIEYgATAQ4CBwIUAhUCFgADAgABAgcBAAACAAwBAAECAQwBAAECBAwBAAEEBQIABQYHAAAKAAEAAQ0BBQEAARIHBQEAAggJCgECAgsLDAEAAw8HAQEMAxARAQEMBBEODwAFDAYEAAEEAgQDCAQIBQ0GEAYSAggABwgFAAYKAgsBAQgGCwEBCAYLAwEIAAsCAQgACwQBCAABAgEIBgELAQEJAAEKAgEJAAEIAAcJAAIKAgoCCgILAQEIBgcIBQILBAEJAAsDAQkAAwcLBAEJAAMHCAUBCwIBCQABCwMBCAABBggFAQUBCwQBCAACCQAFAQsCAQgABENvaW4MQ29pbk1ldGFkYXRhBk9wdGlvbghURU1QTEFURQtUcmVhc3VyeUNhcAlUeENvbnRleHQDVXJsBGNvaW4PY3JlYXRlX2N1cnJlbmN5C2R1bW15X2ZpZWxkBGluaXQEbWludBVuZXdfdW5zYWZlX2Zyb21fYnl0ZXMEbm9uZQZvcHRpb24UcHVibGljX2ZyZWV6ZV9vYmplY3QPcHVibGljX3RyYW5zZmVyBnNlbmRlcgRzb21lCHRlbXBsYXRlCHRyYW5zZmVyCnR4X2NvbnRleHQDdXJsAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACAgEJAwgAgMakfo0DAAoCAgFTCgICAU4KAgEACgICAS0AAgEJAQAAAAACLAcFDAIOAkEDBgIAAAAAAAAAIwQKOAAMAwUOBwURCDgBDAMLAwwECwAHAAcCBwMHBAsECgE4AgwFDAcNBwcBCgE4AwwGCwU4BAsHCgEuEQc4BQsGCwEuEQc4BgIAAA==";
   var TPL_VERSION = "0.4.1";
   var TPL_URLS = [
     "https://esm.sh/@mysten/move-bytecode-template@" + TPL_VERSION,
@@ -467,16 +467,38 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   var TPL_WASM = "https://esm.sh/@mysten/move-bytecode-template@" + TPL_VERSION + "/web/move_bytecode_template_bg.wasm";
   var MoveTpl = null;
 
-  // Placeholder values compiled into the template. `update_constants` matches on
-  // the existing bytes, so these must stay in step with coin_template.move.
+  // Placeholder values compiled into contracts/coin-template. `update_constants`
+  // matches on the existing bytes. Vector(U8) pool entries must stay unique or
+  // Sui rejects publish with VMVerificationOrDeserializationError.
   var TPL_DEFAULTS = {
     decimals: 9,
     supply: "1000000000000000",
-    symbol: "TMPL",
-    name: "Template",
-    description: "DESCRIPTION_PLACEHOLDER",
-    icon: "ICON_PLACEHOLDER"
+    symbol: "S",
+    name: "N",
+    description: "",
+    icon: "-"
   };
+
+  function uniquifyVecs(symbol, name, description, icon){
+    var used = {};
+    function take(s, zwsp){
+      var v = String(s == null ? "" : s);
+      while (used[v]) v += zwsp ? "\u200b" : " ";
+      used[v] = 1;
+      return v;
+    }
+    var out = {
+      symbol: take(symbol, false),
+      name: take(name, true),
+      description: take(description, true)
+    };
+    var ic = String(icon || "");
+    if (!ic) ic = TPL_DEFAULTS.icon;
+    while (used[ic]) ic += ic.indexOf("http") === 0 ? "#" : "\u0001";
+    used[ic] = 1;
+    out.icon = ic;
+    return out;
+  }
 
   async function loadMoveTemplate(){
     if (MoveTpl) return MoveTpl;
@@ -545,11 +567,11 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     });
     bytes = tpl.update_constants(bytes, bcsU8(opts.decimals), bcsU8(TPL_DEFAULTS.decimals), "U8");
     bytes = tpl.update_constants(bytes, bcsU64(opts.supply), bcsU64(TPL_DEFAULTS.supply), "U64");
-    // opts.supply is a BigInt; bcsU64 normalises both sides through BigInt.
-    bytes = tpl.update_constants(bytes, bcsString(opts.symbol), bcsString(TPL_DEFAULTS.symbol), "Vector(U8)");
-    bytes = tpl.update_constants(bytes, bcsString(opts.name), bcsString(TPL_DEFAULTS.name), "Vector(U8)");
-    bytes = tpl.update_constants(bytes, bcsString(opts.description || ""), bcsString(TPL_DEFAULTS.description), "Vector(U8)");
-    bytes = tpl.update_constants(bytes, bcsString(opts.icon || ""), bcsString(TPL_DEFAULTS.icon), "Vector(U8)");
+    var vecs = uniquifyVecs(opts.symbol, opts.name, opts.description || "", opts.icon || "");
+    bytes = tpl.update_constants(bytes, bcsString(vecs.symbol), bcsString(TPL_DEFAULTS.symbol), "Vector(U8)");
+    bytes = tpl.update_constants(bytes, bcsString(vecs.name), bcsString(TPL_DEFAULTS.name), "Vector(U8)");
+    bytes = tpl.update_constants(bytes, bcsString(vecs.description), bcsString(TPL_DEFAULTS.description), "Vector(U8)");
+    bytes = tpl.update_constants(bytes, bcsString(vecs.icon), bcsString(TPL_DEFAULTS.icon), "Vector(U8)");
     bytes = bytes instanceof Uint8Array ? new Uint8Array(bytes) : new Uint8Array(bytes);
     if (bytes.length < 64 || bytes[0] !== 0xa1 || bytes[1] !== 0x1c || bytes[2] !== 0xeb || bytes[3] !== 0x0b){
       throw new Error("Patched coin bytecode is not a valid Move module. Reload and try again.");
