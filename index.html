@@ -347,6 +347,7 @@ html.shot,html.shot *{animation:none!important;transition:none!important}
   .ticket{position:static}
   .featured{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
   .launches{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .lcard-art{aspect-ratio:1}
   .row{grid-template-columns:24px 1fr 64px auto; }
   .row .spark,.row .st-col{display:none}
 }
@@ -360,12 +361,15 @@ html.shot,html.shot *{animation:none!important;transition:none!important}
   .btn-create{flex:none;padding:12px 14px}
   .featured{grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
   .launches{gap:8px;grid-template-columns:1fr}
+  .lcard{flex-direction:row;align-items:stretch}
+  .lcard-art{aspect-ratio:1;width:92px;flex:none}
+  .lcard-art .art-letter{font-size:28px}
+  .lcard-body{flex:1;border-top:0;border-left:1px solid var(--line);display:flex;flex-direction:column;justify-content:center;padding:10px 12px;min-width:0}
+  .lcard .feat-name{font-size:15px}
+  .lcard .feat-mcap{font-size:13px}
   .strip-hero{min-height:72vh}
   .night-hero{width:calc(100% - 20px);min-height:420px}
   .night-hero-copy{padding:24px}
-  .lcard .feat-name{font-size:12px}
-  .lcard .feat-mcap{font-size:11px}
-  .lcard-body{padding:7px 8px 8px}
   .kbd{display:none}
   .tv-host{height:460px}
   .explore-head h1{font-size:26px}
