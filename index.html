@@ -113,8 +113,10 @@ main{padding:18px 0 72px}
 .pit-pot{font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:clamp(22px,3.2vw,32px);line-height:1;margin-top:4px;font-weight:500;letter-spacing:-.04em}
 .pit-right{text-align:right}
 .launches{display:grid;grid-template-columns:repeat(auto-fill,minmax(148px,1fr));gap:10px}
-.lcard{background:var(--card);border-radius:14px;padding:6px 6px 4px;border:1px solid rgba(255,255,255,.08);box-shadow:none;cursor:pointer;min-width:0;transition:border-color .18s;display:flex;flex-direction:column;gap:0;overflow:hidden}
+.lcard{background:var(--card);border-radius:14px;padding:6px 6px 4px;border:1px solid rgba(255,255,255,.08);box-shadow:none;cursor:pointer;min-width:0;transition:border-color .18s,transform .42s cubic-bezier(.22,.61,.36,1),opacity .32s ease;display:flex;flex-direction:column;gap:0;overflow:hidden}
 .lcard:hover{border-color:rgba(255,46,166,.4)}
+.lcard.flip-move{z-index:2;will-change:transform}
+.lcard.flip-enter{opacity:0;transform:translateY(-14px) scale(.96)}
 
 .lcard-art img,.avatar img{width:100%;height:100%;object-fit:cover;display:block}
 .art-field{display:flex;align-items:center;gap:14px}
@@ -1411,19 +1413,105 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       else renderScreen();
     }, 180);
   }
+  function exploreListSig(pool){
+    return state.filter + "|" + state.sort + "|" + (state.search || "") + "|" + (pool || []).map(function(k){ return k.t; }).join(",");
+  }
   function paintExploreList(){
     if (state.route !== "explore") return;
     var list = $("#disc-list");
     if (!list) return;
     var pool = launchPool();
-    var sig = state.filter + "|" + state.sort + "|" + (state.search || "") + "|" + pool.map(function(k){ return k.t; }).join(",");
+    var sig = exploreListSig(pool);
     if (list.getAttribute("data-sig") === sig) return;
     list.setAttribute("data-sig", sig);
-    list.innerHTML = pool.length
-      ? pool.map(function(k,i){ return launchCard(k,i); }).join("")
-      : '<div class="empty card" style="grid-column:1/-1">No launches match.</div>';
     var count = document.querySelector("#on-strip .count-pill");
     if (count) count.textContent = String(pool.length);
+    if (!pool.length){
+      list.innerHTML = '<div class="empty card" style="grid-column:1/-1">No launches match.</div>';
+      return;
+    }
+    var reduce = !!(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+    var cards = $$(".lcard", list);
+    var byTick = {};
+    cards.forEach(function(el){
+      var t = String(el.getAttribute("data-tick") || "").toUpperCase();
+      if (t) byTick[t] = el;
+    });
+    var keyed = Object.keys(byTick).length;
+    var animate = !hydrating && !reduce && !SHOT && keyed > 0;
+    cards.forEach(function(el){
+      el.style.transition = "none";
+      el.style.transform = "";
+      el.classList.remove("flip-move", "flip-enter");
+    });
+    if (cards.length) cards[0].offsetWidth;
+    var first = {};
+    if (animate){
+      cards.forEach(function(el){
+        var t = String(el.getAttribute("data-tick") || "").toUpperCase();
+        if (!t) return;
+        var r = el.getBoundingClientRect();
+        first[t] = { x: r.left, y: r.top, el: el };
+      });
+    }
+    var empty = list.querySelector(".empty");
+    if (empty) empty.remove();
+    var keep = {};
+    var entering = [];
+    pool.forEach(function(k, i){
+      var t = String(k.t || "").toUpperCase();
+      keep[t] = 1;
+      var el = byTick[t];
+      var leader = pitWinnerTok() || sortedT()[0];
+      var hot = !k.graduated && leader && leader.t === k.t;
+      if (!el){
+        var wrap = document.createElement("div");
+        wrap.innerHTML = launchCard(k, i);
+        el = wrap.firstElementChild;
+        if (animate){
+          el.classList.add("flip-enter");
+          entering.push(el);
+        }
+        byTick[t] = el;
+      } else {
+        el.classList.toggle("hot", !!hot);
+      }
+      list.appendChild(el);
+    });
+    $$(".lcard", list).forEach(function(el){
+      var t = String(el.getAttribute("data-tick") || "").toUpperCase();
+      if (!keep[t]) el.remove();
+    });
+    list.offsetWidth;
+    if (!animate){
+      entering.forEach(function(el){ el.classList.remove("flip-enter"); });
+      return;
+    }
+    pool.forEach(function(k){
+      var t = String(k.t || "").toUpperCase();
+      var prev = first[t];
+      if (!prev || !prev.el) return;
+      var el = prev.el;
+      var r = el.getBoundingClientRect();
+      var dx = prev.x - r.left;
+      var dy = prev.y - r.top;
+      if (Math.abs(dx) < 1 && Math.abs(dy) < 1) return;
+      el.style.transition = "none";
+      el.style.transform = "translate("+dx.toFixed(1)+"px,"+dy.toFixed(1)+"px)";
+    });
+    requestAnimationFrame(function(){
+      requestAnimationFrame(function(){
+        $$(".lcard", list).forEach(function(el){
+          el.style.transition = "";
+          el.style.transform = "";
+          if (!el.classList.contains("flip-enter")) el.classList.add("flip-move");
+        });
+        entering.forEach(function(el){ el.classList.remove("flip-enter"); });
+        setTimeout(function(){
+          $$(".lcard", list).forEach(function(el){ el.classList.remove("flip-move"); });
+        }, 480);
+      });
+    });
   }
   function scheduleExploreList(){
     if (state.route !== "explore") return;
@@ -2616,7 +2704,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     const leader = pitWinnerTok() || sortedT()[0];
     const hot = !k.graduated && leader && leader.t === k.t;
     const go = "token:"+k.t;
-    return '<div class="lcard'+(hot?" hot":"")+'" data-go="'+go+'">'+
+    return '<div class="lcard'+(hot?" hot":"")+'" data-go="'+go+'" data-tick="'+escAttr(k.t)+'">'+
       artBlock(k, hot)+
       '<div class="lcard-body">'+
         '<div class="lcard-row"><div class="feat-name">'+escHtml(k.n)+'</div><div data-usd-cap="'+k.t+'" class="feat-mcap">'+usdCapText(k)+'</div></div>'+
@@ -2664,7 +2752,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
             '<div class="pills">'+sorts.map(function(s){return pill(s,"sort",s);}).join("")+'</div>'+
             '<div class="pills" id="filters">'+chips.map(function(s){return pill(s,"filter",s);}).join("")+'</div>'+
           '</div></div>'+
-        '<div class="launches" id="disc-list">'+cards+'</div>'+
+        '<div class="launches" id="disc-list" data-sig="'+escAttr(exploreListSig(pool))+'">'+cards+'</div>'+
         footerHTML()+'</div></div>';
   }
   function pitVoteLabel(tick){
@@ -4961,6 +5049,13 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       }
       if (state.route === "launch" || state.route === "metrics") renderScreen();
       else if (state.route === "explore"){
+        if (key === "sort" || key === "filter"){
+          $$('[data-set="'+key+'"]').forEach(function(el){
+            el.classList.toggle("on", el.getAttribute("data-val") === val);
+          });
+          paintExploreList();
+          return;
+        }
         const keepQ = state.search;
         renderScreen();
         state.search = keepQ;
