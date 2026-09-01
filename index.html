@@ -2760,11 +2760,6 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     const q = (state.search||"").trim().toLowerCase();
     let list = T.filter(function(k){ return !isHiddenToken(k); });
     if (q) list = list.filter(function(k){ return (k.t+" "+escHtml(k.n)+" "+k.b).toLowerCase().indexOf(q) >= 0; });
-    const f = state.filter;
-    if (f === "Trending") list = list.filter(function(k){ return k.ch >= 12 || vol(k) > vol(T[0])*0.4; });
-    else if (f === "New") list = list.filter(isNewLaunch);
-    else if (f === "Live") list = list.filter(function(k){ return k.st === "Live" || k.st === "Instadex" || k.instadex || k.bluefinPool; });
-    else list = list;
     return sortPool(list);
   }
   function pill(label, key, val){
@@ -2845,7 +2840,6 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     const pool = launchPool();
     const leader = pitWinnerTok() || sortedT()[0];
     const sorts = ["Recent","Newest","Market cap","Volume"];
-    const chips = ["All","Live","New"];
     let cards = pool.map(function(k,i){ return launchCard(k,i); }).join("");
     if (!cards) cards = '<div class="empty card" style="grid-column:1/-1">No launches match.</div>';
     const count = pool.length;
@@ -2872,7 +2866,6 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
             '<p>Every door is a pair. Walk in, buy, or list your own tonight.</p></div></div>'+
           '<div class="pills-row">'+
             '<div class="pills">'+sorts.map(function(s){return pill(s,"sort",s);}).join("")+'</div>'+
-            '<div class="pills" id="filters">'+chips.map(function(s){return pill(s,"filter",s);}).join("")+'</div>'+
           '</div></div>'+
         '<div class="launches" id="disc-list" data-sig="'+escAttr(exploreListSig(pool))+'">'+cards+'</div>'+
         footerHTML()+'</div></div>';
