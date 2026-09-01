@@ -1866,26 +1866,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     return T.find(function(k){ return k && k.t === t && !isHiddenToken(k); }) || null;
   }
   function pitContenders(){
-    const out = [];
-    const used = {};
-    function pushTok(k){
-      if (!k || !k.t || used[k.t] || isHiddenToken(k)) return;
-      used[k.t] = 1;
-      out.push(k);
-    }
-    pushTok(pitWinnerTok());
-    const stand = (pitState.standing || []).slice().sort(function(a,b){
-      return (Number(b.peakMcUsd) || 0) - (Number(a.peakMcUsd) || 0);
-    });
-    stand.forEach(function(s){
-      if (out.length >= 5) return;
-      pushTok(pitTokByTicker(s.t));
-    });
-    pitRanked().forEach(function(k){
-      if (out.length >= 5) return;
-      pushTok(k);
-    });
-    return out;
+    return pitRanked().slice(0, 5);
   }
   function vol(k){ return k.buckets.reduce(function(a,b){return a+b;},0); }
   function volUsd24h(tk){
@@ -3092,7 +3073,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
         '</div></div>'+
       '<div class="shell">'+
       '<div class="card" style="padding:20px 22px;margin-top:14px">'+
-        '<div class="sec-label" style="margin-top:0">Contenders <span>top 5 · 24h MC</span></div>'+
+        '<div class="sec-label" style="margin-top:0">Contenders <span>top 5 · MC</span></div>'+
         (rows
           ? '<div class="pit-head"><span></span><span></span><span></span><div class="pit-community">Who\'s got the strongest community?</div><span class="pit-tally">Votes</span><span class="cap">CAP</span></div>'
           : "")+
@@ -5473,7 +5454,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       paintTicket();
       paintCaps();
       paintFirstBuyPreview();
-      if (state.route === "metrics") renderScreen();
+      if (state.route === "metrics" || state.route === "pit") renderScreen();
     }
     fetch("/api/hop").then(function(r){ return r.ok ? r.json() : Promise.reject(); }).then(apply).catch(function(){
       Promise.all([
