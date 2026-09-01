@@ -86,7 +86,7 @@ main{padding:18px 0 72px}
 .pit-kicker{font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
 .pit-pot{font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:clamp(22px,3.2vw,32px);line-height:1;margin-top:4px;font-weight:500;letter-spacing:-.04em}
 .pit-right{text-align:right}
-.launches{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.launches{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
 .lcard{background:var(--card);border-radius:14px;padding:0;border:1px solid rgba(255,255,255,.08);box-shadow:none;cursor:pointer;min-width:0;transition:border-color .18s;display:flex;flex-direction:column;gap:0;overflow:hidden}
 .lcard:hover{border-color:rgba(255,46,166,.4)}
 
@@ -346,6 +346,7 @@ html[data-route="launch"] main,html[data-route="token"] main,html[data-route="me
 html.shot,html.shot *{animation:none!important;transition:none!important}
 @media (max-width:1100px){
   .featured{grid-template-columns:repeat(4,minmax(0,1fr))}
+  .launches{grid-template-columns:repeat(3,minmax(0,1fr))}
 }
 @media (max-width:860px){
   .split,.grid-2,.footer,.stats{grid-template-columns:1fr}
@@ -1339,12 +1340,36 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   let tvSeq = 0;
   let hydrating = true;
   var screenTimer = 0;
+  var exploreTimer = 0;
   function scheduleScreen(){
     if (screenTimer) return;
     screenTimer = setTimeout(function(){
       screenTimer = 0;
       if (state.route === "token") paintLive();
       else renderScreen();
+    }, 180);
+  }
+  function paintExploreList(){
+    if (state.route !== "explore") return;
+    var list = $("#disc-list");
+    if (!list) return;
+    var pool = launchPool();
+    var sig = state.filter + "|" + state.sort + "|" + (state.search || "") + "|" + pool.map(function(k){ return k.t; }).join(",");
+    if (list.getAttribute("data-sig") === sig) return;
+    list.setAttribute("data-sig", sig);
+    list.innerHTML = pool.length
+      ? pool.map(function(k,i){ return launchCard(k,i); }).join("")
+      : '<div class="empty card" style="grid-column:1/-1">No launches match.</div>';
+    var count = document.querySelector("#on-strip .count-pill");
+    if (count) count.textContent = String(pool.length);
+  }
+  function scheduleExploreList(){
+    if (state.route !== "explore") return;
+    if (exploreTimer) return;
+    exploreTimer = setTimeout(function(){
+      exploreTimer = 0;
+      paintExploreList();
+      paintCaps();
     }, 180);
   }
 
@@ -2131,15 +2156,30 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     }
     return {receive:receive, fee:fee, tradeLabel:tradeLabel, payLabel:payLabel, quote:q, payAsset:payAsset, parts:parts, note:note, chips:feeChipsHTML(parts), hopLine:hopLine, suiPay:suiPay, gold:altQuote(tk)};
   }
+  function launchTs(k){
+    var t = Number((k && (k.ts || k.born)) || 0);
+    if (t > 1e12) return t;
+    if (t > 1e9) return t * 1000;
+    return 0;
+  }
+  function isNewLaunch(k){
+    var ts = launchTs(k);
+    if (ts) return Date.now() - ts < 86400000;
+    return (k.born || 0) >= Math.max(0, T.length - 5);
+  }
   function sortPool(list){
     const s = state.sort;
     const out = list.slice();
-    if (s === "Newest") out.sort(function(a,b){ return (b.born||0)-(a.born||0); });
+    if (s === "Newest") out.sort(function(a,b){
+      var tb = launchTs(b) || Number(b.born) || 0;
+      var ta = launchTs(a) || Number(a.born) || 0;
+      return tb - ta;
+    });
     else if (s === "Volume") out.sort(function(a,b){ return vol(b)-vol(a); });
     else if (s === "Recent") out.sort(function(a,b){
       const la = tapeItems(1, a.t)[0]; const lb = tapeItems(1, b.t)[0];
-      const ta = (la && la.ts) || a.ts || 0;
-      const tb = (lb && lb.ts) || b.ts || 0;
+      const ta = (la && la.ts) || launchTs(a) || 0;
+      const tb = (lb && lb.ts) || launchTs(b) || 0;
       return tb - ta;
     });
     else out.sort(function(a,b){ return curveCap(b)-curveCap(a); });
@@ -2151,7 +2191,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     if (q) list = list.filter(function(k){ return (k.t+" "+k.n+" "+k.b).toLowerCase().indexOf(q) >= 0; });
     const f = state.filter;
     if (f === "Trending") list = list.filter(function(k){ return k.ch >= 12 || vol(k) > vol(T[0])*0.4; });
-    else if (f === "New") list = list.filter(function(k){ return (k.born||0) >= T.length-5; });
+    else if (f === "New") list = list.filter(isNewLaunch);
     else if (f === "Live") list = list.filter(function(k){ return k.st === "Live" || k.st === "Instadex" || k.instadex || k.bluefinPool; });
     else list = list;
     return sortPool(list);
@@ -2163,7 +2203,8 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   function lastAgo(k){
     const row = tapeItems(1, k.t)[0];
     if (row && row.ts) return agoOf(row.ts)+" ago";
-    if (k.ts) return agoOf(k.ts)+" ago";
+    var ts = launchTs(k);
+    if (ts) return agoOf(ts)+" ago";
     return ((k.born||0)+1)+"h ago";
   }
   function artBlock(k, hot){
@@ -2232,7 +2273,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     const pool = launchPool();
     const leader = pitWinnerTok() || sortedT()[0];
     const sorts = ["Recent","Newest","Market cap","Volume"];
-    const chips = ["All","Live"];
+    const chips = ["All","Live","New"];
     let cards = pool.map(function(k,i){ return launchCard(k,i); }).join("");
     if (!cards) cards = '<div class="empty card" style="grid-column:1/-1">No launches match.</div>';
     const count = pool.length;
@@ -3236,7 +3277,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
         b: l.reflection ? "Reflection bout." : "On the curve.",
         cap: fromMist(l.virtual_quote) || 0,
         ch: 0, h: 1, st: "Live", mode: mode, q: q, c: "#298DFF",
-        born: T.length, pool: l.pool_id || "",
+        born: Number(l.ts) || Date.now(), ts: Number(l.ts) || Date.now(), pool: l.pool_id || "",
         reflection: !!l.reflection,
         token: l.token,
         virtual_quote: l.virtual_quote, virtual_token: l.virtual_token
@@ -3342,7 +3383,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
         st: "Instadex",
         mode: "Instadex",
         q: q, c: "#298DFF",
-        born: T.length,
+        born: Number(l.ts) || Date.now(),
         pool: "",
         instadex: true,
         graduated: true,
@@ -3354,7 +3395,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
         unlockMs: l.unlock_ms,
         token: l.token,
         creator: l.creator,
-        ts: l.ts,
+        ts: Number(l.ts) || Date.now(),
         img: state.lArtUrl || ""
       };
       const base = Math.max(2.4, (tk.cap || 1) / 34);
@@ -3383,7 +3424,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       if (cap > 0) tk.cap = cap;
       if (l.token) tk.token = l.token;
       if (l.creator) tk.creator = l.creator;
-      if (l.ts) tk.ts = l.ts;
+      if (l.ts){ tk.ts = Number(l.ts); if (!tk.born || tk.born < 1e11) tk.born = Number(l.ts); }
       if (state.lArtUrl && !tk.img) tk.img = state.lArtUrl;
     }
     hydrateTokenMeta(tk);
@@ -3393,7 +3434,11 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       paintLive();
       return;
     }
-    if (state.route === "explore" || state.route === "pit" || state.route === "launch") scheduleScreen();
+    if (state.route === "explore"){
+      scheduleExploreList();
+      return;
+    }
+    if (state.route === "pit" || state.route === "launch") scheduleScreen();
   }
   function renderScreen(){
     const host = $("#screens");
@@ -4502,12 +4547,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     if (e.target && e.target.id === "q"){
       state.search = e.target.value;
       if (state.route !== "explore") { go("explore"); return; }
-      const list = $("#disc-list");
-      if (list){
-        const pool = launchPool();
-        list.innerHTML = pool.length ? pool.map(launchRow).join("") : '<div class="empty">No launches match.</div>';
-        const c = $("#launch-count"); if (c) c.textContent = pool.length+" live";
-      }
+      paintExploreList();
     }
     if (e.target && e.target.id === "l-first-buy"){
       state.lFirstBuy = e.target.value.trim();
@@ -4591,6 +4631,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       loadPitState();
     } else if ((state.route === "explore" || state.route === "metrics") && bshift % 8 === 0){
       loadPitState();
+      if (state.route === "explore") paintExploreList();
     }
     paintLive();
   }, 1000);
@@ -4617,6 +4658,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
         paintTape();
         paintPx();
         paintCaps();
+        if (state.route === "explore") scheduleExploreList();
         updateChartLive();
       },
       onLaunch: function(l){
