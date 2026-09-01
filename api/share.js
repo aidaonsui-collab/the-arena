@@ -134,10 +134,10 @@ async function page(request) {
   return htmlPage({
     title: name + " (" + sym + ")",
     description: sym + " / " + quote + " on Vice. Straight to DEX launches.",
-    image: origin + "/og/" + encodeURIComponent(sym) + ".png",
+    image: origin + "/og/" + encodeURIComponent(sym) + ".jpg",
     url: origin + "/t/" + encodeURIComponent(sym),
     dest: "/t/" + encodeURIComponent(sym),
-    imageType: "image/png",
+    imageType: "image/jpeg",
   });
 }
 
