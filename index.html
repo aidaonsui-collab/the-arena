@@ -11,14 +11,14 @@
 <link href="https://fonts.googleapis.com/css2?family=Bagel+Fat+One&family=Grandstander:ital,wght@1,800&family=IBM+Plex+Mono:wght@400;500&family=Instrument+Sans:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
 <style>
 :root{
-  --bg:#0b0c10; --card:#14161c; --ink:#ECE8DC; --muted:#8B8F9A; --line:#2C313C;
-  --lift:#1c2029; --sui:#298DFF; --up:#298DFF; --down:#FF6640; --pink:#FF2EA6;
+  --bg:#120814; --card:#1c101c; --ink:#F4EEF2; --muted:#A898A8; --line:#3A2438;
+  --lift:#261626; --sui:#298DFF; --up:#298DFF; --down:#FF6640; --pink:#FF2EA6;
   --radius:14px; --shadow:0 8px 22px rgba(0,0,0,.38);
 }
 *{box-sizing:border-box}
 html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);-webkit-font-smoothing:antialiased}
 html{overflow-x:hidden}
-body{font-family:"Instrument Sans",ui-sans-serif,system-ui,sans-serif;font-size:15px;line-height:1.5;min-height:100dvh;overflow-x:hidden;background-image:radial-gradient(720px 420px at -8% -12%,rgba(255,46,166,.14),transparent 56%),radial-gradient(900px 480px at 108% -10%,rgba(41,141,255,.16),transparent 58%)}
+body{font-family:"Instrument Sans",ui-sans-serif,system-ui,sans-serif;font-size:15px;line-height:1.5;min-height:100dvh;overflow-x:hidden;background:#120814}
 a{color:var(--sui);text-decoration:none}
 button,input,select{font:inherit;color:inherit}
 button{cursor:pointer}
@@ -26,16 +26,16 @@ button{cursor:pointer}
 .shell{width:min(1180px,calc(100% - 32px));margin:0 auto}
 .serif{font-family:"Instrument Serif",Georgia,serif}
 .mono{font-family:"IBM Plex Mono",ui-monospace,monospace;font-variant-numeric:tabular-nums}
-.topbar{position:sticky;top:0;z-index:40;background:rgba(11,12,16,.88);backdrop-filter:blur(16px);border-bottom:1px solid var(--line)}
-.topbar-inner{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:14px;padding:10px 0;min-height:56px}
+.topbar{position:sticky;top:0;z-index:40;background:rgba(18,8,20,.9);backdrop-filter:blur(16px);border-bottom:1px solid transparent}
+.topbar-inner{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:14px;padding:12px 0;min-height:64px}
 .brand{display:flex;align-items:center;gap:10px;flex:none;cursor:pointer}
-.brand-mark{width:32px;height:32px;border-radius:9px;display:block;object-fit:cover;background:#140818}
-.brand-name{font-family:"Bagel Fat One","Grandstander",system-ui,sans-serif;font-size:30px;font-style:normal;font-weight:400;letter-spacing:.01em;line-height:1;text-transform:none;display:inline-block;background:linear-gradient(90deg,var(--pink) 12%,var(--sui) 88%);-webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-fill-color:transparent}
-.nav-pill{display:flex;align-items:center;gap:2px;margin:0;justify-self:center;background:transparent;border-radius:0;padding:0}
-.nav-item{padding:8px 12px;border-radius:8px;font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:11px;font-weight:500;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);cursor:pointer;transition:background .2s,color .2s;white-space:nowrap}
-.nav-item.on{background:transparent;color:var(--sui);box-shadow:none}
+.brand-mark{width:36px;height:36px;border-radius:10px;display:block;object-fit:cover;background:#140818}
+.brand-name{font-family:"Bagel Fat One","Grandstander",system-ui,sans-serif;font-size:30px;font-style:normal;font-weight:400;letter-spacing:.01em;line-height:1;text-transform:none;display:inline-block;color:var(--pink);-webkit-text-fill-color:var(--pink);-webkit-text-stroke:0.7px var(--sui);paint-order:stroke fill}
+.nav-pill{display:flex;align-items:center;gap:8px;margin:0;justify-self:center;background:transparent;border-radius:0;padding:0}
+.nav-item{padding:10px 12px 12px;border-radius:0;font-size:15px;font-weight:500;letter-spacing:0;text-transform:none;color:var(--muted);cursor:pointer;transition:color .2s;white-space:nowrap;border-bottom:2px solid transparent}
+.nav-item.on{background:transparent;color:var(--ink);box-shadow:none;border-bottom-color:var(--sui)}
 .nav-item:hover{color:var(--ink)}
-.btn-connect{background:var(--sui);color:#fff;border:0;border-radius:8px;padding:9px 14px;font-weight:600;font-size:13px;justify-self:end;transition:filter .15s}
+.btn-connect{background:var(--pink);color:#fff;border:0;border-radius:10px;padding:12px 18px;font-weight:700;font-size:12px;letter-spacing:.14em;text-transform:uppercase;justify-self:end;transition:filter .15s}
 .btn-connect:hover{filter:brightness(.97)}
 .search-row{display:flex;align-items:center;gap:10px;margin:10px auto 4px}
 .search-bar{flex:1;display:flex;align-items:center;gap:10px;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 14px;box-shadow:none;min-width:0}
@@ -52,7 +52,7 @@ main{padding:18px 0 72px}
 .explore-head p{margin:8px 0 0;color:var(--muted);max-width:42ch}
 .pills{display:flex;flex-wrap:wrap;gap:6px}
 .pill{border:1px solid var(--line);background:var(--card);color:var(--muted);border-radius:8px;padding:6px 10px;font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:11px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;transition:background .15s,color .15s,border-color .15s}
-.pill.on{background:rgba(41,141,255,.12);color:var(--sui);border-color:rgba(41,141,255,.45);box-shadow:none}
+.pill.on{background:var(--pink);color:#fff;border-color:var(--pink);box-shadow:none}
 .pill:hover{color:var(--ink)}
 .sec-label{display:flex;align-items:baseline;justify-content:space-between;margin:8px 2px 12px;font-weight:600}
 .sec-label span{color:var(--muted);font-weight:500;font-size:13px}
@@ -68,27 +68,27 @@ main{padding:18px 0 72px}
 .feat-mcap{font-weight:700;font-size:18px;font-variant-numeric:tabular-nums}
 .chg{font-size:13px;font-weight:600;font-variant-numeric:tabular-nums}
 .feat-meta{display:flex;gap:12px;color:var(--muted);font-size:12px;flex-wrap:wrap}
-.lead-tile{margin:0 0 10px;background:var(--card);border-radius:14px;padding:16px 18px;box-shadow:none;cursor:pointer;border:1px solid rgba(41,141,255,.35);transition:border-color .18s}
-.lead-tile:hover{border-color:rgba(41,141,255,.6)}
-.lead-tile-top{display:flex;align-items:center;gap:14px;min-width:0}
+.lead-tile{margin:0 0 12px;background:rgba(28,16,28,.82);border-radius:16px;padding:18px 20px;box-shadow:none;cursor:pointer;border:1px solid rgba(255,255,255,.08);transition:border-color .18s;display:flex;align-items:center;justify-content:space-between;gap:22px;flex-wrap:wrap}
+.lead-tile:hover{border-color:rgba(255,46,166,.4)}
+.lead-tile-top{display:flex;align-items:center;gap:16px;min-width:0}
 .lead-tile-copy{min-width:0}
-.lead-tile-copy .feat-name{font-size:clamp(22px,3.2vw,32px);letter-spacing:-.04em;margin-top:2px}
-.lead-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-top:14px;padding-top:12px;border-top:1px solid var(--line)}
+.lead-tile-copy .feat-name{font-size:clamp(28px,4vw,44px);letter-spacing:-.04em;margin-top:2px;text-transform:uppercase}
+.lead-stats{display:flex;gap:28px;margin:0 0 0 auto;padding:0;border:0;text-align:right}
 .lead-stat .k{font-size:11px;font-weight:650;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
-.lead-stat .v{font-size:clamp(18px,2.4vw,26px);font-weight:700;letter-spacing:-.04em;margin-top:4px;font-variant-numeric:tabular-nums}
+.lead-stat .v{font-size:clamp(20px,2.6vw,28px);font-weight:700;letter-spacing:-.04em;margin-top:4px;font-variant-numeric:tabular-nums}
 @media (max-width:560px){
   .lead-tile{padding:16px}
   .lead-stats{grid-template-columns:1fr 1fr 1fr;gap:10px}
   .lead-stat .v{font-size:20px}
 }
-.pit-strip{margin:0 0 14px;background:var(--card);border-radius:14px;padding:14px 16px;box-shadow:none;border:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;cursor:pointer}
-.pit-strip:hover{border-color:rgba(41,141,255,.4)}
+.pit-strip{margin:0 0 28px;background:rgba(28,16,28,.82);border-radius:16px;padding:18px 22px;box-shadow:none;border:1px solid rgba(255,255,255,.08);display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;cursor:pointer}
+.pit-strip:hover{border-color:rgba(255,46,166,.35)}
 .pit-kicker{font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
 .pit-pot{font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:clamp(22px,3.2vw,32px);line-height:1;margin-top:4px;font-weight:500;letter-spacing:-.04em}
 .pit-right{text-align:right}
-.launches{display:grid;grid-template-columns:repeat(auto-fill,minmax(148px,1fr));gap:8px}
-.lcard{background:var(--card);border-radius:12px;padding:0;border:1px solid var(--line);box-shadow:none;cursor:pointer;min-width:0;transition:border-color .18s;display:flex;flex-direction:column;gap:0;overflow:hidden}
-.lcard:hover{border-color:rgba(41,141,255,.45)}
+.launches{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.lcard{background:var(--card);border-radius:14px;padding:0;border:1px solid rgba(255,255,255,.08);box-shadow:none;cursor:pointer;min-width:0;transition:border-color .18s;display:flex;flex-direction:column;gap:0;overflow:hidden}
+.lcard:hover{border-color:rgba(255,46,166,.4)}
 
 .lcard-art img,.avatar img{width:100%;height:100%;object-fit:cover;display:block}
 .art-field{display:flex;align-items:center;gap:14px}
@@ -96,7 +96,7 @@ main{padding:18px 0 72px}
 .art-preview img{width:100%;height:100%;object-fit:cover}
 .art-field input[type=file]{font-size:13px;color:var(--muted)}
 .art-note{font-size:12px;color:var(--muted);margin-top:6px}
-.lcard-art{position:relative;aspect-ratio:1;border-radius:0;overflow:hidden;display:grid;place-items:center}
+.lcard-art{position:relative;aspect-ratio:2.2/1;border-radius:0;overflow:hidden;display:grid;place-items:center}
 .lcard-art .art-letter{font-family:"Instrument Serif",Georgia,serif;font-size:42px;line-height:1;color:rgba(255,255,255,.92);letter-spacing:-.04em}
 .lcard-art .chip{position:absolute;top:6px;left:6px;margin:0;background:rgba(11,12,16,.62);backdrop-filter:blur(8px);color:#fff;font-size:10px;padding:2px 6px}
 .lcard-body{padding:8px 9px 9px;border-top:1px solid var(--line)}
@@ -105,13 +105,13 @@ main{padding:18px 0 72px}
 .lcard .feat-name{font-size:13px;font-weight:650}
 .lcard .feat-tick{font-size:11px}
 .lcard .feat-mcap{font-size:12px;font-weight:650;font-variant-numeric:tabular-nums;flex:none}
-.lcard.hot{background:var(--card);color:var(--ink);border-color:rgba(41,141,255,.55)}
+.lcard.hot{background:var(--card);color:var(--ink);border-color:rgba(255,46,166,.45)}
 .lcard.hot .feat-tick,.lcard.hot .feat-meta,.lcard.hot .chip{color:var(--muted)}
 .lcard.hot .feat-mcap{color:var(--ink)}
-.lcard.hot .lcard-art .chip{background:rgba(41,141,255,.88);color:#fff}
-.lcard.hot .ago{color:var(--sui)}
+.lcard.hot .lcard-art .chip{background:var(--pink);color:#fff}
+.lcard.hot .ago{color:var(--pink)}
 .lcard-foot{display:none}
-.ago{color:var(--sui);font-weight:650;font-variant-numeric:tabular-nums}
+.ago{color:var(--pink);font-weight:650;font-variant-numeric:tabular-nums}
 .count-pill{display:inline-flex;align-items:center;margin-left:10px;background:#101211;border-radius:999px;padding:4px 10px;font-size:12px;font-weight:600;color:var(--muted);vertical-align:middle}
 .bar-row{display:flex;align-items:center;gap:8px;margin-top:4px}
 .bar-row .bar{flex:1;margin:0}
@@ -254,11 +254,11 @@ a.btn-trade{display:block;text-align:center;text-decoration:none;box-sizing:bord
 .pit-row:hover{background:transparent}
 .pit-row .rank{font-family:"IBM Plex Mono",monospace;color:var(--muted);font-size:13px}
 .pit-row .cap{font-family:"IBM Plex Mono",monospace;font-weight:650;text-align:right}
-.pit-row.lead{background:rgba(41,141,255,.1);border-radius:12px;padding:12px 8px;border-top:0;margin-top:2px}
+.pit-row.lead{background:rgba(255,46,166,.12);border-radius:12px;padding:12px 8px;border-top:0;margin-top:2px}
 .pit-row.sitout{opacity:.62}
 .pit-sit{color:var(--muted);font-weight:600}
 .pit-tally{font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:12px;color:var(--muted);text-align:right;font-variant-numeric:tabular-nums}
-.pit-vote{border:0;background:var(--sui);color:#fff;border-radius:999px;padding:8px 12px;font-weight:650;font-size:12px;white-space:nowrap}
+.pit-vote{border:0;background:var(--pink);color:#fff;border-radius:10px;padding:10px 14px;font-weight:700;font-size:11px;letter-spacing:.08em;text-transform:uppercase;white-space:nowrap}
 .pit-vote:hover{filter:brightness(.97)}
 .pit-vote.mine{background:#16171A;color:var(--ink);box-shadow:inset 0 0 0 1px var(--line)}
 .pit-vote:disabled{opacity:.55;cursor:not-allowed;filter:none}
@@ -268,7 +268,33 @@ a.btn-trade{display:block;text-align:center;text-decoration:none;box-sizing:bord
 .bell-card{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:20px 22px}
 .bell-card .feat-name{font-size:18px;margin-top:8px}
 .bell-card .chip{margin-left:0}
-html[data-route="pit"] .search-row,html[data-route="launch"] .search-row,html[data-route="token"] .search-row,html[data-route="metrics"] .search-row{display:none}
+html[data-route="explore"] .search-row,html[data-route="pit"] .search-row,html[data-route="launch"] .search-row,html[data-route="token"] .search-row,html[data-route="metrics"] .search-row{display:none}
+html[data-route="explore"] main,html[data-route="pit"] main{padding:0 0 72px}
+html[data-route="launch"] main,html[data-route="token"] main,html[data-route="metrics"] main{width:min(1180px,calc(100% - 32px));margin:0 auto;padding:18px 0 72px}
+.ticker{overflow:hidden;background:#0e0710;border-bottom:1px solid rgba(255,255,255,.06);white-space:nowrap}
+.ticker-track{display:inline-flex;align-items:center;gap:32px;padding:9px 0;animation:ticker 42s linear infinite}
+.tick-item{font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:12px;color:var(--ink);letter-spacing:.02em}
+.tick-item .sell{color:#FF6640;margin-right:6px}
+.tick-item .buy{color:var(--sui);margin-right:6px}
+@keyframes ticker{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+.strip-hero,.night-hero{position:relative;min-height:min(72vh,720px);overflow:hidden;display:flex;align-items:flex-end}
+.night-hero{min-height:min(58vh,560px);margin:18px auto 16px;width:min(1180px,calc(100% - 32px));border-radius:18px}
+.strip-hero img,.night-hero img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.strip-hero-shade,.night-hero .shade{position:absolute;inset:0;background:linear-gradient(180deg,rgba(18,8,20,.15) 10%,rgba(18,8,20,.55) 55%,rgba(18,8,20,.92) 100%)}
+.night-hero .shade{background:linear-gradient(90deg,rgba(12,6,14,.82) 0%,rgba(12,6,14,.35) 55%,rgba(12,6,14,.15) 100%),linear-gradient(180deg,rgba(12,6,14,.2),rgba(12,6,14,.55))}
+.strip-hero-copy{position:relative;z-index:1;padding:48px 0 56px}
+.strip-logo{font-family:"Bagel Fat One","Grandstander",system-ui,sans-serif;font-size:clamp(72px,12vw,140px);line-height:.9;color:var(--pink);-webkit-text-fill-color:var(--pink);-webkit-text-stroke:1.5px var(--sui);paint-order:stroke fill;margin:8px 0 12px}
+.strip-hero-copy p{max-width:28ch;font-size:clamp(16px,2vw,20px);color:#ddd;margin:0 0 22px}
+.hero-actions{display:flex;flex-wrap:wrap;gap:12px}
+.btn-pink{background:var(--pink);color:#fff;border:0;border-radius:10px;padding:14px 22px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;font-size:13px}
+.btn-outline{background:transparent;color:var(--sui);border:1.5px solid var(--sui);border-radius:10px;padding:13px 22px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;font-size:13px}
+.live-dot{display:inline-block;width:7px;height:7px;border-radius:99px;background:var(--pink);margin-right:8px;box-shadow:0 0 8px var(--pink)}
+.night-hero-copy{position:relative;z-index:1;padding:36px 40px 40px;max-width:46ch}
+.night-hero-copy .pit-pot{font-size:clamp(48px,7vw,72px);margin:8px 0 10px}
+.strip-body{padding-top:22px}
+.strip-head h1,.books-title{font-size:clamp(32px,5vw,52px);letter-spacing:-.04em;text-transform:uppercase;margin:0}
+.books-title{font-size:clamp(48px,8vw,88px);letter-spacing:-.05em}
+.pills-row{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin:16px 0 14px}
 @media (max-width:860px){
   .pit-hero{grid-template-columns:1fr;grid-template-areas:"pot" "clock" "copy";text-align:left;padding:22px}
   .pit-hero .pit-clock{text-align:left;margin-top:10px}
@@ -286,7 +312,7 @@ html[data-route="pit"] .search-row,html[data-route="launch"] .search-row,html[da
 .mstat .v{font-size:clamp(22px,3vw,32px);font-weight:650;margin-top:8px;font-variant-numeric:tabular-nums;letter-spacing:-.03em;font-family:"IBM Plex Mono",ui-monospace,monospace}
 .mstat .s{margin-top:4px;font-size:12px;color:var(--muted)}
 .vol-bars{display:flex;align-items:flex-end;gap:4px;height:120px;padding:8px 0 0}
-.vol-bars i{flex:1;background:var(--sui);border-radius:4px 4px 0 0;min-height:2px;opacity:.85}
+.vol-bars i{flex:1;background:var(--pink);border-radius:4px 4px 0 0;min-height:2px;opacity:.85}
 .fee-rows{display:grid;gap:10px}
 .fee-row{display:grid;grid-template-columns:88px 1fr 90px;gap:10px;align-items:center;font-size:13px}
 .fee-row b{height:6px;border-radius:99px;background:#101211;overflow:hidden;display:block}
@@ -320,6 +346,7 @@ html.shot,html.shot *{animation:none!important;transition:none!important}
   .split{grid-template-areas:"main" "ticket"}
   .ticket{position:static}
   .featured{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+  .launches{grid-template-columns:repeat(2,minmax(0,1fr))}
   .row{grid-template-columns:24px 1fr 64px auto; }
   .row .spark,.row .st-col{display:none}
 }
@@ -332,7 +359,10 @@ html.shot,html.shot *{animation:none!important;transition:none!important}
   .search-row{gap:8px}
   .btn-create{flex:none;padding:12px 14px}
   .featured{grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
-  .launches{gap:7px;grid-template-columns:repeat(2,minmax(0,1fr))}
+  .launches{gap:8px;grid-template-columns:1fr}
+  .strip-hero{min-height:72vh}
+  .night-hero{width:calc(100% - 20px);min-height:420px}
+  .night-hero-copy{padding:24px}
   .lcard .feat-name{font-size:12px}
   .lcard .feat-mcap{font-size:11px}
   .lcard-body{padding:7px 8px 8px}
@@ -349,7 +379,7 @@ html.shot,html.shot *{animation:none!important;transition:none!important}
 <header class="topbar">
   <div class="shell topbar-inner">
     <div class="brand" data-go="explore">
-      <img class="brand-mark" src="brand/vice-mark.jpg" width="32" height="32" alt="">
+      <img class="brand-mark" src="brand/vice-mark.jpg" width="36" height="36" alt="">
       <span class="brand-name">vice.</span>
     </div>
     <nav class="nav-pill" id="nav-pill"></nav>
@@ -364,7 +394,8 @@ html.shot,html.shot *{animation:none!important;transition:none!important}
   </div>
   <button type="button" class="btn-create" data-go="launch">+ Create</button>
 </div>
-<main class="shell" id="screens"></main>
+<div class="ticker" id="ticker" hidden></div>
+<main id="screens"></main>
 <script>
 window.ARENA_PACKAGE_ID = "0x5cfddf8ba23be6835644a8ea22482ff6ebb0081e42cc1bc052b5f770ca8bbdea";
 window.ARENA_INSTADEX_PACKAGE = "0xcf7835ae4e3f8a3d4eb4bd9d14cb4a3dbdd80e70908feb6c433688a31e119de3";
@@ -2152,14 +2183,14 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     const up = k.ch > 0.05;
     const down = k.ch < -0.05;
     return '<div class="lead-tile" data-go="token:'+k.t+'">'+
-      '<div class="lead-tile-top">'+avatar(k,56)+
+      '<div class="lead-tile-top">'+avatar(k,88)+
         '<div class="lead-tile-copy">'+
-          '<div class="pit-kicker" style="color:var(--sui)">Leading</div>'+
+          '<div class="pit-kicker" style="color:var(--muted)">Headlining tonight</div>'+
           '<div class="feat-name">'+escHtml(k.n)+'</div>'+
           '<div class="feat-tick">$'+escHtml(k.t)+(k.st ? " · "+escHtml(k.st) : "")+'</div></div></div>'+
       '<div class="lead-stats">'+
         '<div class="lead-stat"><div class="k">MC</div><div class="v" data-usd-cap="'+k.t+'">'+usdCapText(k)+'</div></div>'+
-        '<div class="lead-stat"><div class="k">24h</div><div class="v" data-chg="'+k.t+'" style="color:'+(up?chColor(k):(down?chColor(k):"var(--ink)"))+'">'+ch+'</div></div>'+
+        '<div class="lead-stat"><div class="k">24h</div><div class="v" data-chg="'+k.t+'" style="color:'+(up?"var(--sui)":(down?chColor(k):"var(--ink)"))+'">'+ch+'</div></div>'+
         '<div class="lead-stat"><div class="k">Vol</div><div class="v" data-usd-vol="'+k.t+'">'+(volN > 0 ? fmtUsd(volN) : "—")+'</div></div>'+
       '</div></div>';
   }
@@ -2178,7 +2209,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     return '<footer class="footer">'+
       '<div><div class="brand-name" style="margin-bottom:8px">vice.</div>'+
         '<p style="margin:0;max-width:36ch">Fair launches on Sui. Instant seeds Bluefin in block one. Quote is SUI, USDY, or XAGM. LP locked forever.</p></div>'+
-      '<div><h4>Product</h4><div data-go="explore">Explore</div><div data-go="pit">Pot</div><div data-go="metrics">Metrics</div><div data-go="launch">Create</div></div>'+
+      '<div><h4>Product</h4><div data-go="explore">The Strip</div><div data-go="pit">Fight Night</div><div data-go="metrics">Books</div><div data-go="launch">Create</div></div>'+
       '<div><h4>Fees</h4>Bluefin 1% on the pair (keeps 20%).<br>Our 80% quote split 60/10/30 creator/platform/pot.<br>Token-side LP fees burn.</div></footer>';
   }
   function exploreHTML(){
@@ -2190,19 +2221,34 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     let cards = pool.map(function(k,i){ return launchCard(k,i); }).join("");
     if (!cards) cards = '<div class="empty card" style="grid-column:1/-1">No launches match.</div>';
     const count = pool.length;
-    return '<div data-screen-label="Explore">'+
-      '<div class="explore-head"><div><h1>Explore <span class="count-pill">'+count+'</span></h1>'+
-        '<p>Instadex on Bluefin. Quote SUI, USDY, or XAGM.</p></div></div>'+
-      '<div class="pills" style="margin-bottom:8px">'+sorts.map(function(s){return pill(s,"sort",s);}).join("")+'</div>'+
-      '<div class="pills" id="filters" style="margin-bottom:16px">'+chips.map(function(s){return pill(s,"filter",s);}).join("")+'</div>'+
-      leaderTileHTML(leader)+
-      '<div class="pit-strip" data-go="pit">'+
-        '<div><div class="pit-kicker">The pot · round <span data-round>'+roundNo+'</span></div>'+
-          '<div class="pit-pot" data-pot>'+money(pot)+'</div></div>'+
-        '<div class="pit-right"><div class="mono" style="font-size:22px" data-clock>'+clockStr()+'</div>'+
-          '<div style="color:var(--muted);margin-top:4px">'+(leader ? leader.n+' leading on 24h MC · ' : '')+'Watch the pot →</div></div></div>'+
-      '<div class="launches" id="disc-list">'+cards+'</div>'+
-      footerHTML()+'</div>';
+    return '<div data-screen-label="The Strip">'+
+      '<section class="strip-hero">'+
+        '<img src="brand/strip-hero.jpg" alt="">'+
+        '<div class="strip-hero-shade"></div>'+
+        '<div class="shell strip-hero-copy">'+
+          '<div class="pit-kicker">Sui · after hours</div>'+
+          '<div class="strip-logo">vice.</div>'+
+          '<p>Fair launches. Locked LP. Nobody asks permission.</p>'+
+          '<div class="hero-actions">'+
+            '<button type="button" class="btn-pink" data-scroll="on-strip">Enter the strip</button>'+
+            '<button type="button" class="btn-outline" data-go="pit">Open tonight</button>'+
+          '</div></div></section>'+
+      '<div class="shell strip-body">'+
+        leaderTileHTML(leader)+
+        '<div class="pit-strip" data-go="pit">'+
+          '<div><div class="pit-kicker">Fight night · round <span data-round>'+pitRound()+'</span></div>'+
+            '<div class="pit-pot" data-pot>'+money(pot)+'</div></div>'+
+          '<div class="pit-right"><div class="mono" style="font-size:clamp(28px,4vw,40px)" data-clock>'+clockStr()+'</div>'+
+            '<div style="color:var(--muted);margin-top:4px">'+(leader ? escHtml(leader.n)+' on the card · The bell' : 'The bell')+'</div></div></div>'+
+        '<div class="strip-head" id="on-strip">'+
+          '<div class="explore-head" style="margin:0 0 8px"><div><h1 class="strip-head">On the strip <span class="count-pill">'+count+'</span></h1>'+
+            '<p>Every door is a pair. Walk in, buy, or list your own tonight.</p></div></div>'+
+          '<div class="pills-row">'+
+            '<div class="pills">'+sorts.map(function(s){return pill(s,"sort",s);}).join("")+'</div>'+
+            '<div class="pills" id="filters">'+chips.map(function(s){return pill(s,"filter",s);}).join("")+'</div>'+
+          '</div></div>'+
+        '<div class="launches" id="disc-list">'+cards+'</div>'+
+        footerHTML()+'</div></div>';
   }
   function pitVoteLabel(tick){
     if (pitVoteBusy && pitVoteBusy === tick) return "Voting…";
@@ -2370,13 +2416,17 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
         ? ("You picked $"+pitVotes.mine+". Votes are anonymous and do not pick the winner. Pay another 0.1 SUI to switch.")
         : "Votes are anonymous and do not pick the winner. 0.1 SUI still goes in the pot.")
       : "Connect a Sui wallet. 0.1 SUI goes into the pot. Votes are anonymous and do not pick the winner.");
-    return '<div data-screen-label="Pot">'+
-      '<div class="pit-hero">'+
-        '<div style="grid-area:pot"><div class="pit-kicker"><span style="display:inline-block;width:7px;height:7px;border-radius:99px;background:var(--sui);margin-right:8px"></span>Round <span data-round>'+pitRound()+'</span> · live</div>'+
-          '<div class="pit-pot" data-pot>'+money(pot)+'</div></div>'+
-        '<div class="pit-clock" style="grid-area:clock"><span data-clock>'+clockStr()+'</span><span>until the bell</span></div>'+
-        '<p>Highest Instant market cap over 24 hours takes the pot. The pot buys the winner on Bluefin and burns it. Last bell sits out 48 hours. Votes are anonymous and don\'t pick the winner.</p>'+
-      '</div>'+
+    return '<div data-screen-label="Fight Night">'+
+      '<div class="night-hero">'+
+        '<img src="brand/night-hero.jpg" alt="">'+
+        '<div class="shade"></div>'+
+        '<div class="night-hero-copy">'+
+          '<div class="pit-kicker"><span class="live-dot"></span>Fight night · round <span data-round>'+pitRound()+'</span></div>'+
+          '<div class="pit-pot" data-pot>'+money(pot)+'</div>'+
+          '<div class="mono" style="font-size:18px;margin-bottom:10px"><span data-clock>'+clockStr()+'</span> until the bell</div>'+
+          '<p style="margin:0;color:#ddd">Pick who takes the pot. 0.1&nbsp;SUI a vote, paid into the ring.</p>'+
+        '</div></div>'+
+      '<div class="shell">'+
       '<div class="card" style="padding:20px 22px;margin-top:14px">'+
         '<div class="sec-label" style="margin-top:0">Contenders <span>top 5 · 24h MC</span></div>'+
         (rows
@@ -2388,7 +2438,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       '<div class="bells-grid">'+(bells || '<div class="empty card" style="grid-column:1/-1;padding:28px 8px">No bells yet. First 24h round is live.</div>')+'</div>'+
       '<div class="card" style="padding:18px 22px;margin-top:14px;color:var(--muted);font-size:14px">'+
         '<strong style="color:var(--ink)">Buy & burn only.</strong> When the bell rings, the pot buys the winner on Bluefin and those tokens are burned. No airdrop, no holder split.</div>'+
-      footerHTML()+'</div>';
+      footerHTML()+'</div></div>';
   }
   function metricsRollup(){
     const win = state.metricsWindow || "All";
@@ -2454,7 +2504,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       ? "Indexed from Bluefin AssetSwap (Instant) and leftover curve TradeEvent, ClaimEvent, BellEvent, GraduationEvent."
       : "Demo tape until ARENA_PACKAGE_ID is published. Same TradeEvent fields the keepers emit.";
     return '<div data-screen-label="Metrics">'+
-      '<div class="explore-head"><div><h1>Metrics</h1><p>Volume, fees, the pot, and graduates — rolled up from events, not a dashboard guess.</p></div>'+
+      '<div class="explore-head"><div><h1 class="books-title">Metrics</h1><p>Volume, fees, the pot, and graduates — rolled up from the tape, not a dashboard guess.</p></div>'+
         '<div class="pills">'+pill("24h","metricsWindow","24h")+pill("All","metricsWindow","All")+'</div></div>'+
       '<div class="metrics-grid">'+
         '<div class="mstat"><div class="k">Volume · SUI</div><div class="v">'+fmt(m.suiVol)+'</div><div class="s">'+m.fills+' fills · '+win+'</div></div>'+
@@ -2471,7 +2521,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       '<div class="grid-2">'+
         '<div class="card" style="padding:20px 22px"><div class="sec-label" style="margin-top:0">Fee split <span>from TradeEvent</span></div>'+
           '<div class="fee-rows">'+
-            feeBar("Reflections", m.refl, "#298DFF")+
+            feeBar("Reflections", m.refl, "#FF2EA6")+
             feeBar("Creator", m.creator, "#C9BBA3")+
             feeBar("Pot", m.pit, "#298DFF")+
             feeBar("Platform", m.plat, "#9CA3AF")+
@@ -2687,7 +2737,8 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   function hashFor(route, sym){
     if (route === "explore" || route === "floor" || route === "discover") return "#/";
     if (route === "token") return "#/token/"+(sym||state.sym);
-    if (route === "pit") return "#/pot";
+    if (route === "pit") return "#/night";
+    if (route === "metrics") return "#/books";
     return "#/"+route;
   }
   function parseHash(){
@@ -2699,13 +2750,14 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       return {route:"token", sym: raw || state.sym};
     }
     const r = parts[0];
-    if (r === "discover" || r === "floor" || r === "home" || r === "explore") return {route:"explore", sym:state.sym};
-    if (r === "pit" || r === "pot") return {route:"pit", sym:state.sym};
+    if (r === "discover" || r === "floor" || r === "home" || r === "explore" || r === "strip") return {route:"explore", sym:state.sym};
+    if (r === "pit" || r === "pot" || r === "night" || r === "fight") return {route:"pit", sym:state.sym};
+    if (r === "books") return {route:"metrics", sym:state.sym};
     if (r === "launch" || r === "metrics" || r === "analytics") return {route: r==="analytics"?"metrics":r, sym:state.sym};
     return {route:"explore", sym:state.sym};
   }
   function paintNav(){
-    const nav = [["Explore","explore"],["Pot","pit"],["Metrics","metrics"]];
+    const nav = [["The Strip","explore"],["Fight Night","pit"],["Books","metrics"]];
     $("#nav-pill").innerHTML = nav.map(function(n){
       const on = state.route === n[1] || (n[1]==="explore" && state.route==="token");
       return '<div class="nav-item'+(on?" on":"")+'" data-go="'+n[1]+'">'+n[0]+'</div>';
@@ -2980,6 +3032,27 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     if (count) count.textContent = n;
     tapeEl.innerHTML = holderHTML(tk) || '<div class="empty">No holders yet.</div>';
   }
+  function tickerBits(){
+    return tapeItems(18).map(function(r){
+      const tk = listedTok(r.pool_id) || {};
+      const t = tk.t || "—";
+      const q = poolQuote(tk.t ? tk : r.pool_id);
+      const quote = fromQuoteAmt(r.quote_amount, q);
+      const tok = fromMist(r.token_amount);
+      const side = r.is_buy ? "Buy" : "Sell";
+      const tokTxt = tok >= 1e6 ? (tok/1e6).toFixed(2)+"M" : (tok >= 1e3 ? (tok/1e3).toFixed(1)+"k" : (tok >= 1 ? tok.toFixed(2) : tok.toFixed(3)));
+      const qTxt = quote >= 1 ? quote.toFixed(2) : quote.toFixed(2);
+      return '<span class="tick-item"><span class="'+(r.is_buy?"buy":"sell")+'">'+side+'</span> $'+escHtml(t)+' '+tokTxt+' · '+qTxt+' '+escHtml(q||"SUI")+'</span>';
+    }).join("");
+  }
+  function paintTicker(){
+    const el = $("#ticker");
+    if (!el) return;
+    const bits = tickerBits();
+    if (!bits){ el.hidden = true; el.innerHTML = ""; return; }
+    el.hidden = false;
+    el.innerHTML = '<div class="ticker-track">'+bits+bits+'</div>';
+  }
   function paintLive(){
     paintClocks();
     paintPots();
@@ -2988,6 +3061,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     paintTicket();
     paintPx();
     updateChartLive();
+    paintTicker();
     if (state.route === "pit") paintPitVotes();
   }
   function dropTv(){
@@ -3318,6 +3392,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     document.documentElement.setAttribute("data-route", state.route);
     paintNav();
     paintWallet();
+    paintTicker();
     const q = $("#q");
     if (q) q.value = state.search;
     prevPot = money(pot);
@@ -4380,6 +4455,13 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
         state.search = keepQ;
         const qel = $("#q"); if (qel) qel.value = keepQ;
       }
+      return;
+    }
+    const scrollEl = e.target.closest("[data-scroll]");
+    if (scrollEl){
+      const id = scrollEl.getAttribute("data-scroll");
+      const target = document.getElementById(id);
+      if (target) target.scrollIntoView({ behavior: "smooth", block: "start" });
       return;
     }
     const goEl = e.target.closest("[data-go]");
