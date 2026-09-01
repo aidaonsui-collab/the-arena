@@ -290,7 +290,7 @@ export async function POST(request) {
   }
   const ok = loaded.kind === "gql" ? feePaidGql(loaded.tx, address) : feePaidRpc(loaded.tx, address);
   if (!ok) {
-    return json({ error: "transaction did not pay 0.1 SUI into the pit" }, 400, request);
+    return json({ error: "transaction did not pay 0.1 SUI into the pot" }, 400, request);
   }
   const row = {
     address: address,

@@ -399,7 +399,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     {t:"IRON",n:"Ironclad",b:"Object-centric collateral. One vault, many blows.",cap:4380,ch:18.9,h:503,st:"Graduating",mode:"Buy & burn",q:"SUI",c:"#8A99A8"},
     {t:"BRINE",n:"Brine",b:"Spreads so tight they sting. Order-book spray for Sui.",cap:2140,ch:9.6,h:466,st:"Live",mode:"Buy & burn",q:"SUI",c:"#3FA0A8"},
     {t:"HEX",n:"Hexweaver",b:"Compose Move packages like hexes. No mercy for bad bytecode.",cap:1540,ch:22.5,h:328,st:"Live",mode:"Holders",q:"SUI",c:"#9A7FB0"},
-    {t:"SILK",n:"Silk",b:"Gold bout on the curve. Quote is XAUM; the pit for this bout is Pit<XAUM>.",cap:0.62,ch:16.8,h:266,st:"Live",mode:"Holders",q:"XAUM",quote:"XAUM",c:"#C9A97E"},
+    {t:"SILK",n:"Silk",b:"Gold bout on the curve. Quote is XAUM.",cap:0.62,ch:16.8,h:266,st:"Live",mode:"Holders",q:"XAUM",quote:"XAUM",c:"#C9A97E"},
     {t:"NITE",n:"Night Market",b:"After-hours liquidity. The floor never really closes.",cap:1020,ch:-4.7,h:215,st:"Live",mode:"Holders",q:"SUI",c:"#5A6472"},
     {t:"RAZR",n:"Razorfin",b:"Latency as a weapon. Built for the hot path.",cap:769,ch:41.0,h:169,st:"Live",mode:"Holders",q:"SUI",c:"#C9A05A"},
     {t:"GLOW",n:"Glowmoth",b:"Drawn to the light. A moth that refuses to rug.",cap:454,ch:12.7,h:140,st:"Live",mode:"Holders",q:"SUI",c:"#5B9BE8"},
@@ -1875,7 +1875,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     const claimed = h ? fromMist(h.claimedReflection) : 0;
     const who = shortAddr((h && h.address) || DEMO_WALLET);
     return '<div id="holder-refl" class="holder-card">'+
-      '<div><div class="stat k" style="letter-spacing:.08em">Reflection · Pit&lt;'+q+'&gt;</div>'+
+      '<div><div class="stat k" style="letter-spacing:.08em">Reflection · the pot</div>'+
       '<div style="font-size:13px;color:var(--muted);margin-top:4px">'+who+' · Holders mode</div></div>'+
       '<div style="display:flex;gap:28px">'+
         '<div><div class="stat k">Unpaid</div><div data-unpaid style="font-size:18px;font-weight:650;color:#298DFF;margin-top:4px">'+unpaid.toFixed(4)+' '+q+'</div></div>'+
@@ -1917,9 +1917,9 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     const plat = fromMist(r.platform_fee);
     const pit = fromMist(r.pit_fee);
     if (refl > 0){
-      return tapeChip(refl,"refl","#298DFF")+tapeChip(creator,"creator","#6B7280")+tapeChip(pit,"pit","#298DFF")+tapeChip(plat,"plat","#9CA3AF");
+      return tapeChip(refl,"refl","#298DFF")+tapeChip(creator,"creator","#6B7280")+tapeChip(pit,"pot","#298DFF")+tapeChip(plat,"plat","#9CA3AF");
     }
-    return tapeChip(creator,"creator","#6B7280")+tapeChip(plat,"plat","#9CA3AF")+tapeChip(pit,"pit","#298DFF");
+    return tapeChip(creator,"creator","#6B7280")+tapeChip(plat,"plat","#9CA3AF")+tapeChip(pit,"pot","#298DFF");
   }
   function tapeKey(r){
     if (r && r.digest) return String(r.digest)+"|"+String(r.seq||"")+"|"+String(r.pool_id||"");
@@ -2041,9 +2041,9 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   }
   function feeChipsHTML(p){
     if (p.reflectionMode){
-      return feeChip(p.reflection,"refl","#298DFF")+feeChip(p.creator,"creator","#6B7280")+feeChip(p.pit,"pit","#298DFF")+feeChip(p.platform,"plat","#9CA3AF");
+      return feeChip(p.reflection,"refl","#298DFF")+feeChip(p.creator,"creator","#6B7280")+feeChip(p.pit,"pot","#298DFF")+feeChip(p.platform,"plat","#9CA3AF");
     }
-    return feeChip(p.creator,"creator","#6B7280")+feeChip(p.platform,"plat","#9CA3AF")+feeChip(p.pit,"pit","#298DFF");
+    return feeChip(p.creator,"creator","#6B7280")+feeChip(p.platform,"plat","#9CA3AF")+feeChip(p.pit,"pot","#298DFF");
   }
   function ticketMeta(){
     const tk = findT(state.sym);
@@ -2113,7 +2113,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     return ((k.born||0)+1)+"h ago";
   }
   function artBlock(k, hot){
-    const badge = hot ? "Pit lead" : k.st;
+    const badge = hot ? "Leading" : k.st;
     const src = escUrl(k.img);
     const inner = src
       ? '<img src="'+src+'" alt="">'
@@ -2170,8 +2170,8 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     return '<footer class="footer">'+
       '<div><div class="brand-name" style="color:var(--ink);margin-bottom:8px">vice.</div>'+
         '<p style="margin:0;max-width:36ch">Fair launches on Sui. Instant seeds Bluefin in block one. Quote is SUI, USDY, or XAGM. LP locked forever.</p></div>'+
-      '<div><h4>Product</h4><div data-go="explore">Explore</div><div data-go="pit">Pit</div><div data-go="metrics">Metrics</div><div data-go="launch">Create</div></div>'+
-      '<div><h4>Fees</h4>Bluefin 1% on the pair (keeps 20%).<br>Our 80% quote split 60/10/30 creator/platform/pit.<br>Token-side LP fees burn.</div></footer>';
+      '<div><h4>Product</h4><div data-go="explore">Explore</div><div data-go="pit">Pot</div><div data-go="metrics">Metrics</div><div data-go="launch">Create</div></div>'+
+      '<div><h4>Fees</h4>Bluefin 1% on the pair (keeps 20%).<br>Our 80% quote split 60/10/30 creator/platform/pot.<br>Token-side LP fees burn.</div></footer>';
   }
   function exploreHTML(){
     if (state.filter === "Graduating" || state.filter === "Near graduation" || state.filter === "Graduated") state.filter = "All";
@@ -2189,10 +2189,10 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       '<div class="pills" id="filters" style="margin-bottom:16px">'+chips.map(function(s){return pill(s,"filter",s);}).join("")+'</div>'+
       leaderTileHTML(leader)+
       '<div class="pit-strip" data-go="pit">'+
-        '<div><div class="pit-kicker">The pit · round <span data-round>'+roundNo+'</span></div>'+
+        '<div><div class="pit-kicker">The pot · round <span data-round>'+roundNo+'</span></div>'+
           '<div class="pit-pot" data-pot>'+money(pot)+'</div></div>'+
         '<div class="pit-right"><div class="mono" style="font-size:22px" data-clock>'+clockStr()+'</div>'+
-          '<div style="color:var(--muted);margin-top:4px">'+(leader ? leader.n+' leading on 24h MC · ' : '')+'Watch the pit →</div></div></div>'+
+          '<div style="color:var(--muted);margin-top:4px">'+(leader ? leader.n+' leading on 24h MC · ' : '')+'Watch the pot →</div></div></div>'+
       '<div class="launches" id="disc-list">'+cards+'</div>'+
       footerHTML()+'</div>';
   }
@@ -2362,7 +2362,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
         ? ("You picked $"+pitVotes.mine+". Votes are anonymous and do not pick the winner. Pay another 0.1 SUI to switch.")
         : "Votes are anonymous and do not pick the winner. 0.1 SUI still goes in the pot.")
       : "Connect a Sui wallet. 0.1 SUI goes into the pot. Votes are anonymous and do not pick the winner.");
-    return '<div data-screen-label="Pit">'+
+    return '<div data-screen-label="Pot">'+
       '<div class="pit-hero">'+
         '<div style="grid-area:pot"><div class="pit-kicker"><span style="display:inline-block;width:7px;height:7px;border-radius:99px;background:var(--sui);margin-right:8px"></span>Round <span data-round>'+pitRound()+'</span> · live</div>'+
           '<div class="pit-pot" data-pot>'+money(pot)+'</div></div>'+
@@ -2446,17 +2446,17 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       ? "Indexed from Bluefin AssetSwap (Instant) and leftover curve TradeEvent, ClaimEvent, BellEvent, GraduationEvent."
       : "Demo tape until ARENA_PACKAGE_ID is published. Same TradeEvent fields the keepers emit.";
     return '<div data-screen-label="Metrics">'+
-      '<div class="explore-head"><div><h1>Metrics</h1><p>Volume, fees, the pit, and graduates — rolled up from events, not a dashboard guess.</p></div>'+
+      '<div class="explore-head"><div><h1>Metrics</h1><p>Volume, fees, the pot, and graduates — rolled up from events, not a dashboard guess.</p></div>'+
         '<div class="pills">'+pill("24h","metricsWindow","24h")+pill("All","metricsWindow","All")+'</div></div>'+
       '<div class="metrics-grid">'+
         '<div class="mstat"><div class="k">Volume · SUI</div><div class="v">'+fmt(m.suiVol)+'</div><div class="s">'+m.fills+' fills · '+win+'</div></div>'+
         '<div class="mstat"><div class="k">Volume · RWA</div><div class="v">'+fmt(m.rwaVol)+'</div><div class="s">USDY · XAGM · leftover XAUM · in SUI</div></div>'+
         '<div class="mstat"><div class="k">Fees collected</div><div class="v">'+fmt(m.suiFee)+'</div><div class="s">1% of quote · four slices</div></div>'+
-        '<div class="mstat"><div class="k">Pit pot</div><div class="v" data-pot>'+money(pot)+'</div><div class="s">round <span data-round>'+roundNo+'</span> · live</div></div>'+
+        '<div class="mstat"><div class="k">The pot</div><div class="v" data-pot>'+money(pot)+'</div><div class="s">round <span data-round>'+roundNo+'</span> · live</div></div>'+
         '<div class="mstat"><div class="k">On the curve</div><div class="v">'+m.launches+'</div><div class="s">'+m.grads+' graduated</div></div>'+
         '<div class="mstat"><div class="k">Bells rung</div><div class="v">'+m.bells+'</div><div class="s">'+fmt(m.bellPaid)+' SUI paid</div></div>'+
-        '<div class="mstat"><div class="k">Claims</div><div class="v">'+m.claims+'</div><div class="s">'+m.reflClaims+' reflection · '+m.pitClaims+' pit</div></div>'+
-        '<div class="mstat"><div class="k">Pit from fills</div><div class="v">'+fmt(m.pit)+'</div><div class="s">curve pit_fee · Instant fees are LP collect</div></div>'+
+        '<div class="mstat"><div class="k">Claims</div><div class="v">'+m.claims+'</div><div class="s">'+m.reflClaims+' reflection · '+m.pitClaims+' pot</div></div>'+
+        '<div class="mstat"><div class="k">Pot from fills</div><div class="v">'+fmt(m.pit)+'</div><div class="s">from curve fills · Instant fees are LP collect</div></div>'+
       '</div>'+
       '<div class="card" style="padding:20px 22px;margin-bottom:14px"><div class="sec-label" style="margin-top:0">Volume <span>last '+Math.max(m.hours.length,1)+' hours with fills</span></div>'+
         '<div class="vol-bars">'+bars+'</div></div>'+
@@ -2465,7 +2465,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
           '<div class="fee-rows">'+
             feeBar("Reflections", m.refl, "#298DFF")+
             feeBar("Creator", m.creator, "#C9BBA3")+
-            feeBar("Pit", m.pit, "#298DFF")+
+            feeBar("Pot", m.pit, "#298DFF")+
             feeBar("Platform", m.plat, "#9CA3AF")+
           '</div></div>'+
         '<div class="card" style="padding:20px 22px"><div class="sec-label" style="margin-top:0">Top by volume <span>'+win+'</span></div>'+
@@ -2609,7 +2609,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       : fmtBig(capN)+' '+q+' · '+chText(tk)+' · '+tk.h+' holders';
     const burnSub = burnedN > 0
       ? money(burnedQ, q)+' · '+burnedPct.toFixed(2)+'% of supply'
-      : (dexBout || tk.mode === "Buy & burn" ? "No pit burns yet" : "Holders mode · no burn");
+      : (dexBout || tk.mode === "Buy & burn" ? "No pot burns yet" : "Holders mode · no burn");
     const xq = encodeURIComponent("$"+tk.t);
     const dex = tk.bluefinPool
       ? "https://dexscreener.com/sui/"+tk.bluefinPool
@@ -2647,7 +2647,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
           '<div><h1>'+tk.n+'</h1><div class="feat-tick" style="margin-top:6px">'+tk.t+' / '+q+'</div></div></div>'+
         '<div class="badges">'+
           '<span class="badge">'+tk.st+'</span>'+
-          (insta ? '' : '<span class="badge">Pit · '+tk.mode+'</span>')+
+          (insta ? '' : '<span class="badge">Pot · '+tk.mode+'</span>')+
           (tk.bluefinPool ? '<span class="badge">Bluefin · '+tk.t+'/'+q+'</span>' : '')+
           (tk.bluefinPool ? '<span class="badge">Pool · '+shortAddr(tk.bluefinPool)+'</span>' : '')+
           (tk.lpLocked ? '<span class="badge">'+(insta || Number(tk.unlockMs)===0 ? "Lock · permanent" : ("Vault · "+(tk.unlockMs ? new Date(tk.unlockMs).toLocaleDateString() : "180d")))+'</span>' : '')+
@@ -2679,6 +2679,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   function hashFor(route, sym){
     if (route === "explore" || route === "floor" || route === "discover") return "#/";
     if (route === "token") return "#/token/"+(sym||state.sym);
+    if (route === "pit") return "#/pot";
     return "#/"+route;
   }
   function parseHash(){
@@ -2691,11 +2692,12 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     }
     const r = parts[0];
     if (r === "discover" || r === "floor" || r === "home" || r === "explore") return {route:"explore", sym:state.sym};
-    if (r === "pit" || r === "launch" || r === "metrics" || r === "analytics") return {route: r==="analytics"?"metrics":r, sym:state.sym};
+    if (r === "pit" || r === "pot") return {route:"pit", sym:state.sym};
+    if (r === "launch" || r === "metrics" || r === "analytics") return {route: r==="analytics"?"metrics":r, sym:state.sym};
     return {route:"explore", sym:state.sym};
   }
   function paintNav(){
-    const nav = [["Explore","explore"],["Pit","pit"],["Metrics","metrics"]];
+    const nav = [["Explore","explore"],["Pot","pit"],["Metrics","metrics"]];
     $("#nav-pill").innerHTML = nav.map(function(n){
       const on = state.route === n[1] || (n[1]==="explore" && state.route==="token");
       return '<div class="nav-item'+(on?" on":"")+'" data-go="'+n[1]+'">'+n[0]+'</div>';
@@ -4211,7 +4213,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       var rec = quoteRec(q);
       var Qtype = rec.type;
       var pit = rec.pit;
-      if (!pit) throw new Error("Pit<"+q+"> is not registered yet. Collect needs an official pit.");
+      if (!pit) throw new Error("The pot for "+q+" is not registered yet. Collect needs an official pot.");
       var mint = await resolveMintLock(tk, Ttype);
       tk.mintLock = mint;
       var tx = new Transaction();
@@ -4576,6 +4578,11 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   const parsed = parseHash();
   state.route = parsed.route;
   state.sym = parsed.sym;
+  const wantHash = hashFor(state.route, state.sym);
+  if ((location.hash || "#/") !== wantHash){
+    hashLock = true;
+    location.hash = wantHash;
+  }
   renderScreen();
 })();
 </script>
