@@ -2156,13 +2156,13 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     return ((k.born||0)+1)+"h ago";
   }
   function artBlock(k, hot){
-    const badge = hot ? "Leading" : k.st;
+    const badge = hot ? "Leading" : (k.st === "Graduating" || k.st === "Graduated" ? k.st : "");
     const src = escUrl(k.img);
     const inner = src
       ? '<img src="'+src+'" alt="">'
       : '<span class="art-letter">'+k.t.charAt(0)+'</span>';
     return '<div class="lcard-art" style="background:'+(src?"#101211":(hot?"#111":k.c))+'">'+
-      '<span class="chip">'+badge+'</span>'+inner+'</div>';
+      (badge ? '<span class="chip">'+badge+'</span>' : '')+inner+'</div>';
   }
   function featCard(k){ return launchCard(k, 0); }
   function launchRow(k, i){
