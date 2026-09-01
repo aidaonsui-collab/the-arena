@@ -523,10 +523,13 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       if (!Array.isArray(rows)) return;
       rows.forEach(function(l){
         if (!l || !l.t) return;
-        var tick = String(l.t).toUpperCase();
+        // Cached rows are chain data that was written to disk on an earlier
+        // visit, so they get the same clamp as a fresh LaunchEvent.
+        var tick = safeSym(l.t);
+        if (!tick) return;
         if (T.some(function(k){ return k.t === tick; })) return;
         T.push({
-          t: tick, n: l.n || tick, b: l.b || "", cap: 0, ch: 0, h: 1, st: "Instadex", mode: "Instadex",
+          t: tick, n: safeName(l.n) || tick, b: l.b || "", cap: 0, ch: 0, h: 1, st: "Instadex", mode: "Instadex",
           q: l.q || "SUI", c: "#298DFF", born: l.born || l.ts || 0, ts: l.ts || 0, instadex: true, graduated: true,
           lpLocked: true, bluefin: true, bluefinPool: l.bluefinPool || "", lockId: l.lockId || "", token: l.token,
           img: l.img || "", twitter: l.twitter || "", telegram: l.telegram || "", website: l.website || "",
@@ -2167,6 +2170,18 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   }
   function escAttr(v){
     return escHtml(v).replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+  }
+  // Token name and symbol come from the on-chain LaunchEvent, which means the
+  // person who launched the token chose them. Clamp at the boundary as well as
+  // escaping at each sink: the symbol is used as an identifier in attribute
+  // selectors, data-go routes and object lookups, so it has to be safe as a
+  // value, not merely safe to print. safeSym leaves nothing for escAttr to
+  // escape, so markup and querySelector still agree on the same string.
+  function safeSym(v){
+    return String(v == null ? "" : v).toUpperCase().replace(/[^A-Z0-9_.\-]/g, "").slice(0, 16);
+  }
+  function safeName(v){
+    return String(v == null ? "" : v).replace(/[\u0000-\u001f\u007f]/g, "").trim().slice(0, 48);
   }
   function escUrl(u){
     u = String(u || "");
