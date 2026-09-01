@@ -1,5 +1,4 @@
 const GQL = process.env.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graphql";
-const RPC = process.env.SUI_RPC || "https://mainnet.suiet.app";
 const EVENT_PKGS = [
   process.env.ARENA_INSTADEX_PACKAGE || "0xcf7835ae4e3f8a3d4eb4bd9d14cb4a3dbdd80e70908feb6c433688a31e119de3",
   "0xd8531cc8c4e1ee914f0e4e48aea9a796faa0603459cc4665838f688e51bf23d9",
@@ -52,17 +51,6 @@ async function gql(query, variables) {
   return j.data;
 }
 
-async function rpc(method, params) {
-  const r = await fetch(RPC, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }),
-  });
-  const j = await r.json();
-  if (j.error) throw new Error(j.error.message || method);
-  return j.result;
-}
-
 async function findLaunch(sym) {
   const want = String(sym || "").toUpperCase();
   const q =
@@ -89,80 +77,87 @@ async function findLaunch(sym) {
   return null;
 }
 
-async function coinIcon(type) {
-  if (!type) return "";
-  try {
-    const meta = await rpc("suix_getCoinMetadata", [type]);
-    return (meta && (meta.iconUrl || meta.icon_url)) || "";
-  } catch (e) {
-    return "";
-  }
-}
-
-function htmlPage({ origin, title, description, image, card, url, dest }) {
+function htmlPage({ title, description, image, url, dest, imageType }) {
+  const type = imageType || (/\.png(\?|$)/i.test(image) ? "image/png" : "image/jpeg");
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <title>${esc(title)}</title>
 <meta name="description" content="${esc(description)}">
+<meta name="theme-color" content="#FF2EA6">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Vice">
+<meta property="og:locale" content="en_US">
 <meta property="og:title" content="${esc(title)}">
 <meta property="og:description" content="${esc(description)}">
 <meta property="og:url" content="${esc(url)}">
 <meta property="og:image" content="${esc(image)}">
+<meta property="og:image:secure_url" content="${esc(image)}">
+<meta property="og:image:type" content="${esc(type)}">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
 <meta property="og:image:alt" content="${esc(title)}">
-<meta name="twitter:card" content="${esc(card)}">
+<meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="${esc(title)}">
 <meta name="twitter:description" content="${esc(description)}">
 <meta name="twitter:image" content="${esc(image)}">
+<meta name="twitter:image:width" content="1200">
+<meta name="twitter:image:height" content="630">
+<meta name="twitter:image:alt" content="${esc(title)}">
 <link rel="canonical" href="${esc(url)}">
-<meta http-equiv="refresh" content="0;url=${esc(dest)}">
-<script>location.replace(${JSON.stringify(dest)});</script>
 </head>
 <body style="background:#120814;color:#F4EEF2;font-family:sans-serif;padding:40px">
-<a href="${esc(dest)}" style="color:#FF2EA6">${esc(title)} on Vice</a>
+<img src="${esc(image)}" alt="${esc(title)}" width="1200" height="630" style="max-width:100%;height:auto;border-radius:16px">
+<p><a href="${esc(dest)}" style="color:#FF2EA6">${esc(title)} on Vice</a></p>
 </body>
 </html>`;
 }
 
-export async function GET(request) {
+async function page(request) {
   const origin = originOf(request);
   const t = new URL(request.url).searchParams.get("t") || "";
   const sym = String(t).trim().toUpperCase().slice(0, 12);
-  const siteImage = origin + "/brand/og.jpg";
   if (!sym) {
-    return new Response(
-      htmlPage({
-        origin,
-        title: "Vice",
-        description: "Straight to DEX launches. Pair with Sui or RWA's",
-        image: siteImage,
-        card: "summary_large_image",
-        url: origin + "/",
-        dest: "/",
-      }),
-      { headers: { "content-type": "text/html; charset=utf-8", "cache-control": "public, s-maxage=300" } }
-    );
+    return htmlPage({
+      title: "Vice — Fair launches on Sui",
+      description: "Straight to DEX launches. Pair with Sui or RWA's",
+      image: origin + "/brand/og.jpg?v=2",
+      url: origin + "/",
+      dest: "/",
+      imageType: "image/jpeg",
+    });
   }
   const launch = await findLaunch(sym);
-  const icon = launch ? await coinIcon(launch.token) : "";
   const name = (launch && launch.name) || sym;
   const quote = (launch && launch.quote) || "SUI";
-  const title = name + " (" + sym + ")";
-  const description = sym + " / " + quote + " on Vice. Straight to DEX launches.";
-  const image = icon || siteImage;
-  const card = icon ? "summary" : "summary_large_image";
-  const url = origin + "/t/" + encodeURIComponent(sym);
-  const dest = "/#/token/" + encodeURIComponent(sym);
-  return new Response(
-    htmlPage({ origin, title, description, image, card, url, dest }),
-    {
-      headers: {
-        "content-type": "text/html; charset=utf-8",
-        "cache-control": "public, s-maxage=60, stale-while-revalidate=300",
-      },
-    }
-  );
+  return htmlPage({
+    title: name + " (" + sym + ")",
+    description: sym + " / " + quote + " on Vice. Straight to DEX launches.",
+    image: origin + "/og/" + encodeURIComponent(sym) + ".png",
+    url: origin + "/t/" + encodeURIComponent(sym),
+    dest: "/t/" + encodeURIComponent(sym),
+    imageType: "image/png",
+  });
+}
+
+const HEADERS = {
+  "content-type": "text/html; charset=utf-8",
+  "cache-control": "public, s-maxage=120, stale-while-revalidate=86400",
+};
+
+export async function GET(request) {
+  const body = await page(request);
+  return new Response(body, { headers: HEADERS });
+}
+
+export async function HEAD(request) {
+  const body = await page(request);
+  return new Response(null, {
+    status: 200,
+    headers: {
+      ...HEADERS,
+      "content-length": String(new TextEncoder().encode(body).length),
+    },
+  });
 }

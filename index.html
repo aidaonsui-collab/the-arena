@@ -9,14 +9,18 @@
 <meta property="og:site_name" content="Vice">
 <meta property="og:title" content="Vice">
 <meta property="og:description" content="Straight to DEX launches. Pair with Sui or RWA's">
-<meta property="og:image" content="https://vicefun.com/brand/og.jpg">
+<meta property="og:image" content="https://vicefun.com/brand/og.jpg?v=2">
+<meta property="og:image:secure_url" content="https://vicefun.com/brand/og.jpg?v=2">
+<meta property="og:image:type" content="image/jpeg">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta property="og:url" content="https://vicefun.com/">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Vice">
 <meta name="twitter:description" content="Straight to DEX launches. Pair with Sui or RWA's">
-<meta name="twitter:image" content="https://vicefun.com/brand/og.jpg">
+<meta name="twitter:image" content="https://vicefun.com/brand/og.jpg?v=2">
+<meta name="twitter:image:width" content="1200">
+<meta name="twitter:image:height" content="630">
 <link rel="canonical" href="https://vicefun.com/">
 <base href="/">
 <link rel="icon" href="/brand/favicon.png" type="image/png">
@@ -3182,6 +3186,45 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     if (r === "launch" || r === "metrics" || r === "analytics") return {route: r==="analytics"?"metrics":r, sym:state.sym};
     return {route:"explore", sym:state.sym};
   }
+  function paintShareMeta(){
+    var origin = (location.origin || "https://vicefun.com").replace(/\/$/, "");
+    var tk = state.route === "token" ? findT(state.sym) : null;
+    if (tk && tk.missing) tk = null;
+    var title, desc, image, url;
+    if (tk && tk.t){
+      title = (tk.n || tk.t) + " (" + tk.t + ")";
+      desc = tk.t + " / " + poolQuote(tk) + " on Vice. Straight to DEX launches.";
+      image = origin + "/og/" + encodeURIComponent(tk.t) + ".png";
+      url = origin + "/t/" + encodeURIComponent(tk.t);
+    } else {
+      title = "Vice — Fair launches on Sui";
+      desc = "Straight to DEX launches. Pair with Sui or RWA's";
+      image = origin + "/brand/og.jpg?v=2";
+      url = origin + "/";
+    }
+    document.title = title;
+    function set(attr, key, val){
+      var sel = attr === "name" ? 'meta[name="'+key+'"]' : 'meta[property="'+key+'"]';
+      var el = document.head.querySelector(sel);
+      if (!el){
+        el = document.createElement("meta");
+        el.setAttribute(attr, key);
+        document.head.appendChild(el);
+      }
+      el.setAttribute("content", val);
+    }
+    set("property", "og:title", title);
+    set("property", "og:description", desc);
+    set("property", "og:image", image);
+    set("property", "og:image:secure_url", image);
+    set("property", "og:url", url);
+    set("name", "twitter:title", title);
+    set("name", "twitter:description", desc);
+    set("name", "twitter:image", image);
+    set("name", "description", desc);
+    var can = document.head.querySelector('link[rel="canonical"]');
+    if (can) can.setAttribute("href", url);
+  }
   function paintNav(){
     const nav = [["The Strip","explore"],["Fight Night","pit"],["Books","metrics"]];
     $("#nav-pill").innerHTML = nav.map(function(n){
@@ -3849,6 +3892,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       loadPitState();
     }
     paintCaps();
+    paintShareMeta();
     if (state.route === "token") mountDexChart();
   }
   function go(route, sym){
