@@ -126,7 +126,7 @@ async function page(request) {
     return htmlPage({
       origin,
       title: "Vice — Fair launches on Sui",
-      description: "Instant DEX launches. Pair with SUI or RWAs.",
+      description: "Straight to DEX launches. Pair with Sui or RWA's",
       image: origin + "/og.png",
       url: origin,
       dest: "/",

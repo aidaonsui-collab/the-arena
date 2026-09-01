@@ -4,11 +4,11 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Vice — Fair launches on Sui</title>
-<meta name="description" content="Instant DEX launches. Pair with SUI or RWAs.">
+<meta name="description" content="Straight to DEX launches. Pair with Sui or RWA's">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Vice">
 <meta property="og:title" content="Vice — Fair launches on Sui">
-<meta property="og:description" content="Instant DEX launches. Pair with SUI or RWAs.">
+<meta property="og:description" content="Straight to DEX launches. Pair with Sui or RWA's">
 <meta property="og:image" content="https://vicefun.com/og.png">
 <meta property="og:image:secure_url" content="https://vicefun.com/og.png">
 <meta property="og:image:type" content="image/png">
@@ -17,7 +17,7 @@
 <meta property="og:url" content="https://vicefun.com/">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Vice — Fair launches on Sui">
-<meta name="twitter:description" content="Instant DEX launches. Pair with SUI or RWAs.">
+<meta name="twitter:description" content="Straight to DEX launches. Pair with Sui or RWA's">
 <meta name="twitter:image" content="https://vicefun.com/og.png">
 <meta name="twitter:image:width" content="1200">
 <meta name="twitter:image:height" content="630">
@@ -329,6 +329,9 @@ html[data-route="launch"] main,html[data-route="token"] main,html[data-route="me
 .btn-outline{background:transparent;color:var(--sui);border:1.5px solid var(--sui);border-radius:10px;padding:13px 22px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;font-size:13px}
 .live-dot{display:inline-block;width:7px;height:7px;border-radius:99px;background:var(--pink);margin-right:8px;box-shadow:0 0 8px var(--pink)}
 .night-hero-copy{position:relative;z-index:1;padding:36px 40px 40px;max-width:46ch}
+.night-lede{margin:0 0 22px}
+.night-lede strong{display:block;font-size:clamp(22px,3.2vw,30px);letter-spacing:-.03em;font-weight:700;color:#fff;margin:0 0 8px}
+.night-lede p{margin:0;color:#ddd;font-size:clamp(14px,1.8vw,16px);line-height:1.45}
 .night-hero-copy .pit-pot{font-size:clamp(48px,7vw,72px);margin:8px 0 10px}
 .strip-body{padding-top:22px}
 .strip-head h1,.books-title{font-size:clamp(32px,5vw,52px);letter-spacing:-.04em;text-transform:uppercase;margin:0}
@@ -2841,6 +2844,10 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
         '<img src="/brand/night-hero.jpg" alt="">'+
         '<div class="shade"></div>'+
         '<div class="night-hero-copy">'+
+          '<div class="night-lede">'+
+            '<strong>Fight Night</strong>'+
+            '<p>Instant launches go in the ring. Highest USD market cap over the last 24 hours takes the pot. When the bell rings, the pot buys the winner on Bluefin and burns it. A 0.1 SUI vote fills the ring — anonymous, and it does not pick who wins.</p>'+
+          '</div>'+
           '<div class="pit-kicker"><span class="live-dot"></span>Fight night · round <span data-round>'+pitRound()+'</span></div>'+
           '<div class="pit-pot" data-pot>'+money(pot)+'</div>'+
           '<div class="mono" style="font-size:18px;margin-bottom:10px"><span data-clock>'+clockStr()+'</span> until the bell</div>'+
@@ -3198,7 +3205,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       url = origin + "/t/" + encodeURIComponent(tk.t);
     } else {
       title = "Vice — Fair launches on Sui";
-      desc = "Instant DEX launches. Pair with SUI or RWAs.";
+      desc = "Straight to DEX launches. Pair with Sui or RWA's";
       image = origin + "/og.png";
       url = origin + "/";
     }
