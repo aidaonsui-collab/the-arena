@@ -2983,7 +2983,20 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     rows.forEach(function(t){
       const q = poolQuote(t.pool_id);
       const amt = fromQuoteAmt(t.quote_amount, q);
-      const f = fromMist(t.reflection_fee)+fromMist(t.creator_fee)+fromMist(t.pit_fee)+fromMist(t.platform_fee);
+      var instaLp = 0;
+      if (t.bluefin && t.is_buy){
+        var feeQ = fromQuoteAmt(t.fee, q);
+        if (!(feeQ > 0)) feeQ = amt * 0.01;
+        instaLp = feeQ * 0.8;
+        out.creator += instaLp * 0.6;
+        out.plat += instaLp * 0.1;
+        out.pit += instaLp * 0.3;
+      } else if (!t.bluefin){
+        out.creator += fromMist(t.creator_fee);
+        out.pit += fromMist(t.pit_fee);
+        out.plat += fromMist(t.platform_fee);
+      }
+      const f = t.bluefin ? instaLp : (fromMist(t.creator_fee)+fromMist(t.pit_fee)+fromMist(t.platform_fee));
       if (q === "SUI"){ out.suiVol += amt; out.suiFee += f; }
       else {
         out.rwaVol += quoteSuiAmt(amt, q);
@@ -2992,10 +3005,6 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
         out.rwaVolUsd += usd;
         out.rwaFee += f;
       }
-      out.refl += fromMist(t.reflection_fee);
-      out.creator += fromMist(t.creator_fee);
-      out.pit += fromMist(t.pit_fee);
-      out.plat += fromMist(t.platform_fee);
       const tk = listedTok(t.pool_id);
       if (tk){
         const key = tk.t;
@@ -3023,7 +3032,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     const win = state.metricsWindow || "All";
     const top = Object.keys(m.byPool).map(function(k){ return m.byPool[k]; })
       .sort(function(a,b){ return (b.volUsd || 0) - (a.volUsd || 0); }).slice(0,8);
-    const feeTotal = m.refl+m.creator+m.pit+m.plat;
+    const feeTotal = m.creator+m.plat+m.pit;
     function feeBar(label, n, color){
       const pct = feeTotal>0 ? (n/feeTotal*100) : 0;
       return '<div class="fee-row"><span>'+label+'</span><b><i style="width:'+pct.toFixed(1)+'%;background:'+color+'"></i></b><span class="mono">'+fmt(n)+'</span></div>';
@@ -3045,21 +3054,20 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       '<div class="metrics-grid">'+
         '<div class="mstat"><div class="k">Volume · SUI</div><div class="v">'+fmt(m.suiVol)+'</div><div class="s">'+m.fills+' fills · '+win+'</div></div>'+
         '<div class="mstat"><div class="k">Volume · RWA</div><div class="v">'+(m.rwaVolUsd>0?fmtUsd(m.rwaVolUsd):(m.rwaVol>0?"—":"$0"))+'</div><div class="s">USDY · XAGM · XAUM</div></div>'+
-        '<div class="mstat"><div class="k">Fees collected</div><div class="v">'+fmt(m.suiFee)+'</div><div class="s">1% of quote · four slices</div></div>'+
+        '<div class="mstat"><div class="k">Fees collected</div><div class="v">'+fmt(m.suiFee)+'</div><div class="s">1% pair · 60/10/30 of our 80%</div></div>'+
         '<div class="mstat"><div class="k">The pot</div><div class="v" data-pot>'+money(pot)+'</div><div class="s">round <span data-round>'+roundNo+'</span> · live</div></div>'+
         '<div class="mstat"><div class="k">Tokens launched</div><div class="v">'+m.launches+'</div><div class="s">'+m.grads+' graduated</div></div>'+
         '<div class="mstat"><div class="k">Winners paid</div><div class="v">'+m.bells+'</div><div class="s">'+fmt(m.bellPaid)+' SUI paid</div></div>'+
-        '<div class="mstat"><div class="k">Pot from fills</div><div class="v">'+fmt(m.pit)+'</div><div class="s">from curve fills · Instant fees are LP collect</div></div>'+
+        '<div class="mstat"><div class="k">Pot from fills</div><div class="v">'+fmt(m.pit)+'</div><div class="s">30% of our LP share</div></div>'+
       '</div>'+
       '<div class="card" style="padding:20px 22px;margin-bottom:14px"><div class="sec-label" style="margin-top:0">Volume <span>last '+Math.max(m.hours.length,1)+' hours with fills</span></div>'+
         '<div class="vol-bars">'+bars+'</div></div>'+
       '<div class="grid-2">'+
-        '<div class="card" style="padding:20px 22px"><div class="sec-label" style="margin-top:0">Fee split <span>from TradeEvent</span></div>'+
+        '<div class="card" style="padding:20px 22px"><div class="sec-label" style="margin-top:0">Fee split <span>60 / 10 / 30</span></div>'+
           '<div class="fee-rows">'+
-            feeBar("Reflections", m.refl, "#FF2EA6")+
             feeBar("Creator", m.creator, "#C9BBA3")+
-            feeBar("Pot", m.pit, "#298DFF")+
             feeBar("Platform", m.plat, "#9CA3AF")+
+            feeBar("Pot", m.pit, "#298DFF")+
           '</div></div>'+
         '<div class="card" style="padding:20px 22px"><div class="sec-label" style="margin-top:0">Top by volume <span>'+win+'</span></div>'+
           (rows ? '<table class="m-table"><thead><tr><th>#</th><th>Token</th><th>Fills</th><th style="text-align:right">Volume</th></tr></thead><tbody>'+rows+'</tbody></table>' : '<div class="empty">No fills yet.</div>')+
