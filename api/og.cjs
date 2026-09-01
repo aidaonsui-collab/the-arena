@@ -1,5 +1,4 @@
-import { createRequire } from "module";
-const jpeg = createRequire(import.meta.url)("jpeg-js");
+const jpeg = require("jpeg-js");
 
 const GQL = process.env.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graphql";
 const RPC = process.env.SUI_RPC || "https://mainnet.suiet.app";
@@ -8,16 +7,11 @@ const EVENT_PKGS = [
   "0xd8531cc8c4e1ee914f0e4e48aea9a796faa0603459cc4665838f688e51bf23d9",
 ];
 
-const JPG_HEADERS = {
-  "content-type": "image/jpeg",
-  "cache-control": "public, s-maxage=600, stale-while-revalidate=86400",
-};
-
-function originOf(request) {
-  const host = (request.headers.get("x-forwarded-host") || request.headers.get("host") || "vicefun.com")
+function originOf(req) {
+  const host = String(req.headers["x-forwarded-host"] || req.headers.host || "vicefun.com")
     .split(",")[0]
     .trim();
-  const proto = request.headers.get("x-forwarded-proto") || "https";
+  const proto = req.headers["x-forwarded-proto"] || "https";
   return proto + "://" + host.replace(/\/$/, "");
 }
 
@@ -81,7 +75,8 @@ async function fetchBuf(url) {
     const ct = (r.headers.get("content-type") || "").toLowerCase();
     const buf = Buffer.from(await r.arrayBuffer());
     if (buf.length < 32 || buf.length > 3500000) return null;
-    return { buf, jpeg: ct.includes("jpeg") || ct.includes("jpg") || buf[0] === 0xff && buf[1] === 0xd8 };
+    const jpegish = ct.includes("jpeg") || ct.includes("jpg") || (buf[0] === 0xff && buf[1] === 0xd8);
+    return { buf, jpeg: jpegish };
   } catch (e) {
     return null;
   }
@@ -108,7 +103,7 @@ function coverBlit(dst, src, dx, dy, size) {
 }
 
 function strokeRect(dst, x, y, size, rgb, w) {
-  const [r, g, b] = rgb;
+  const r = rgb[0], g = rgb[1], b = rgb[2];
   function px(px, py) {
     if (px < 0 || py < 0 || px >= dst.width || py >= dst.height) return;
     const i = (py * dst.width + px) * 4;
@@ -127,44 +122,52 @@ function strokeRect(dst, x, y, size, rgb, w) {
   }
 }
 
-function jpgResponse(buf) {
-  return new Response(buf, { headers: JPG_HEADERS });
+function sendJpg(req, res, buf) {
+  res.statusCode = 200;
+  res.setHeader("Content-Type", "image/jpeg");
+  res.setHeader("Cache-Control", "public, s-maxage=600, stale-while-revalidate=86400");
+  res.setHeader("Content-Length", String(buf.length));
+  if (req.method === "HEAD") res.end();
+  else res.end(buf);
 }
 
-async function render(request) {
-  const origin = originOf(request);
-  const t = new URL(request.url).searchParams.get("t") || "";
-  const sym = String(t).trim().toUpperCase().slice(0, 12);
-  const bgFile = await fetchBuf(origin + "/brand/og.jpg");
-  if (!bgFile) throw new Error("missing og.jpg");
-  if (!sym) return jpgResponse(bgFile.buf);
-
-  const type = await findToken(sym);
-  const icon = type ? await coinIcon(type) : "";
-  const pfpFile = await fetchBuf(icon);
-  if (!pfpFile || !pfpFile.jpeg) return jpgResponse(bgFile.buf);
-
-  const bg = jpeg.decode(bgFile.buf, { useTArray: true });
-  const pfp = jpeg.decode(pfpFile.buf, { useTArray: true });
-  const size = 248;
-  const dx = 64;
-  const dy = Math.floor((bg.height - size) / 2);
-  coverBlit(bg, pfp, dx, dy, size);
-  strokeRect(bg, dx - 4, dy - 4, size + 8, [255, 46, 166], 4);
-  const out = jpeg.encode(bg, 84);
-  return jpgResponse(out.data);
-}
-
-export async function GET(request) {
+module.exports = async function handler(req, res) {
+  const origin = originOf(req);
   try {
-    return await render(request);
+    const page = new URL(req.url, origin);
+    const sym = String(page.searchParams.get("t") || "").trim().toUpperCase().slice(0, 12);
+    const bgFile = await fetchBuf(origin + "/brand/og.jpg");
+    if (!bgFile) throw new Error("missing og.jpg");
+    if (!sym) {
+      sendJpg(req, res, bgFile.buf);
+      return;
+    }
+    const type = await findToken(sym);
+    const icon = type ? await coinIcon(type) : "";
+    const pfpFile = await fetchBuf(icon);
+    if (!pfpFile || !pfpFile.jpeg) {
+      sendJpg(req, res, bgFile.buf);
+      return;
+    }
+    const bg = jpeg.decode(bgFile.buf, { useTArray: true });
+    const pfp = jpeg.decode(pfpFile.buf, { useTArray: true });
+    const size = 248;
+    const dx = 64;
+    const dy = Math.floor((bg.height - size) / 2);
+    coverBlit(bg, pfp, dx, dy, size);
+    strokeRect(bg, dx - 4, dy - 4, size + 8, [255, 46, 166], 4);
+    const out = jpeg.encode(bg, 84);
+    sendJpg(req, res, out.data);
   } catch (e) {
-    const origin = originOf(request);
-    return Response.redirect(origin + "/brand/og.jpg?v=2", 302);
+    try {
+      const r = await fetch(origin + "/brand/og.jpg");
+      if (r.ok) {
+        sendJpg(req, res, Buffer.from(await r.arrayBuffer()));
+        return;
+      }
+    } catch (e2) {}
+    res.statusCode = 302;
+    res.setHeader("Location", origin + "/brand/og.jpg?v=2");
+    res.end();
   }
-}
-
-export async function HEAD(request) {
-  const res = await GET(request);
-  return new Response(null, { status: res.status, headers: res.headers });
-}
+};
