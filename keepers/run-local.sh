@@ -41,8 +41,24 @@ run_job() {
   fi
 }
 
-# Instant 24h MC winner: pit-state GET writes the bell, this drains Pit<SUI>, hops, buys, burns.
-run_job instadex
+# Cheap GET: writes the 24h MC bell when the round is over. Buy/burn only if a
+# winner is waiting (ticker, no digest, not skipped). Idle ticks stay off-chain.
+APP_URL="${ARENA_APP_URL:-https://the-arena-vert.vercel.app}"
+PIT_JSON="$(curl -fsS --max-time 25 "${APP_URL%/}/api/pit-state" 2>/dev/null || true)"
+if [ -z "$PIT_JSON" ]; then
+  echo "$(date -u +"%Y-%m-%dT%H:%M:%SZ") instadex idle: pit-state unreachable" >> "$LOG"
+elif printf '%s' "$PIT_JSON" | python3 -c '
+import json, sys
+j = json.load(sys.stdin)
+for b in j.get("bells") or []:
+    if b and b.get("t") and not b.get("digest") and not b.get("skipped"):
+        sys.exit(0)
+sys.exit(1)
+' 2>/dev/null; then
+  run_job instadex
+else
+  echo "$(date -u +"%Y-%m-%dT%H:%M:%SZ") instadex idle: no 24h winner yet" >> "$LOG"
+fi
 # Leftover curve ring/settle. Off by default — Instant 24h MC is the product winner.
 if [ "${ARENA_KEEPER_CURVE:-}" = "1" ]; then
   run_job settle

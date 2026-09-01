@@ -1383,17 +1383,6 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     if (n <= BigInt(Number.MAX_SAFE_INTEGER)) return Number(n);
     return n.toString();
   }
-  async function lookupCapMeta(capId){
-    if (!capId) return;
-    try {
-      var obj = await moveObject(capId);
-      var t = innerType(obj.type);
-      if (!t) return;
-      var meta = await metadataFor(t);
-      if (meta.name) { state.lName = meta.name; var n = $("#l-name"); if (n) n.value = meta.name; }
-      if (meta.symbol) { state.lTick = String(meta.symbol).toUpperCase(); var k = $("#l-tick"); if (k) k.value = state.lTick; }
-    } catch (e) {}
-  }
   function setLaunchNote(text, err){
     state.lNote = text || "";
     state.lNoteErr = !!err;
@@ -2632,7 +2621,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   function footerHTML(){
     return '<footer class="footer">'+
       '<div><div class="brand-name" style="margin-bottom:8px">vice.</div>'+
-        '<p style="margin:0;max-width:36ch">Fair launches on Sui. Instant seeds Bluefin in block one. Quote is SUI, USDY, or XAGM. LP locked forever.</p></div>'+
+        '<p style="margin:0;max-width:42ch">Fair launches on Sui. Instant seeds Bluefin in block one. Quote is SUI, USDY, XAGM, or XAUM. LP locked forever.</p></div>'+
       '<div><h4>Product</h4><div data-go="explore">The Strip</div><div data-go="pit">Fight Night</div><div data-go="metrics">Books</div><div data-go="launch">Create</div></div>'+
       '<div><h4>Fees</h4>Bluefin 1% on the pair (keeps 20%).<br>Our 80% quote split 60/10/30 creator/platform/pot.<br>Token-side LP fees burn.</div></footer>';
   }
@@ -2962,6 +2951,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   }
   function launchHTML(){
     state.lPath = "instadex";
+    state.lCoinMode = "create";
     function tog(key, val, label){
       const on = state[key] === val;
       return '<button type="button" class="pill'+(on?" on":"")+'" data-set="'+key+'" data-val="'+val+'">'+label+'</button>';
@@ -2976,22 +2966,15 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
             '<div class="art-preview" id="l-art-preview">'+(state.lArtPreview?'<img src="'+escUrl(state.lArtPreview)+'" alt="">':(state.lTick?state.lTick.charAt(0):"?"))+'</div>'+
             '<div><input id="l-art" type="file" accept="image/png,image/jpeg,image/webp,image/gif">'+
             '<div class="art-note" id="l-art-note">'+(state.lArtUrl?"Ready · Blob URL set":"png, jpeg, webp, or gif · 2MB")+'</div></div></div></div>'+
-          '<div><label>Coin</label><div class="toggle">'+tog("lCoinMode","create","Create new")+tog("lCoinMode","existing","I have one")+'</div>'+
-            '<div style="font-size:12px;color:var(--muted);margin-top:6px">'+
-              (state.lCoinMode==="create"
-                ? "1,000,000,000 supply · 9 decimals. Publish, seed, then first buy in SUI."
-                : "For a coin you published yourself. Paste its TreasuryCap and a Coin&lt;T&gt;. All of that coin goes into LP.")+
-            '</div></div>'+
-          (state.lCoinMode==="create"
-            ? '<div><label>Description · optional</label><input id="l-desc" placeholder="One line about the token" value="'+escAttr(state.lDesc)+'"></div>'+
-              '<div><label>Socials · optional</label><div class="social-row">'+
-                '<input id="l-x" spellcheck="false" placeholder="x.com/handle" value="'+escAttr(state.lX)+'">'+
-                '<input id="l-tg" spellcheck="false" placeholder="t.me/handle" value="'+escAttr(state.lTg)+'">'+
-                '<input id="l-web" spellcheck="false" placeholder="https://site" value="'+escAttr(state.lWeb)+'">'+
-              '</div>'+
-              '<div style="font-size:12px;color:var(--muted);margin-top:6px">Baked into CoinMetadata at publish. Can\'t change later.</div></div>'
-            : '<div><label>TreasuryCap object</label><input id="l-cap" spellcheck="false" placeholder="0x… TreasuryCap" value="'+escAttr(state.lCap)+'"></div>'+
-              '<div><label>Token coin object</label><input id="l-token-coin" spellcheck="false" placeholder="0x… Coin&lt;T&gt;" value="'+escAttr(state.lTokenCoin)+'"></div>')+
+          '<div><label>Coin</label>'+
+            '<div style="font-size:12px;color:var(--muted);margin-top:6px">1,000,000,000 supply · 9 decimals. Publish, seed, then first buy in SUI.</div></div>'+
+          '<div><label>Description · optional</label><input id="l-desc" placeholder="One line about the token" value="'+escAttr(state.lDesc)+'"></div>'+
+          '<div><label>Socials · optional</label><div class="social-row">'+
+            '<input id="l-x" spellcheck="false" placeholder="x.com/handle" value="'+escAttr(state.lX)+'">'+
+            '<input id="l-tg" spellcheck="false" placeholder="t.me/handle" value="'+escAttr(state.lTg)+'">'+
+            '<input id="l-web" spellcheck="false" placeholder="https://site" value="'+escAttr(state.lWeb)+'">'+
+          '</div>'+
+          '<div style="font-size:12px;color:var(--muted);margin-top:6px">Baked into CoinMetadata at publish. Can\'t change later.</div></div>'+
           '<div><label>Quote</label><div class="toggle">'+CREATE_QUOTES.map(function(q){ return tog("lQuote",q,q); }).join("")+'</div>'+
             '<div style="font-size:12px;color:var(--muted);margin-top:6px">'+quoteRec(state.lQuote).what+'. TOKEN/'+state.lQuote+'. Starting market cap ≈ $500, same for every quote. No '+state.lQuote+' required for LP.</div></div>'+
           '<div><label>First buy · SUI</label><input id="l-first-buy" inputmode="decimal" placeholder="1" value="'+escAttr(state.lFirstBuy)+'"></div>'+
@@ -2999,11 +2982,9 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
             '<div style="font-size:12px;color:var(--muted);margin-top:4px">'+(state.lQuote==="SUI"
               ? "SUI swapped into TOKEN/SUI right after seed. Puts quote in the pool so the first sell can land. 0 skips."
               : "Paid in SUI. Hopped SUI → "+state.lQuote+" → TOKEN after seed. You do not need "+state.lQuote+" in the wallet. 0 skips.")+'</div>'+
-          '<div><label>Name</label><input id="l-name" placeholder="'+(state.lCoinMode==="create"?"Gladius Token":"From CoinMetadata")+'" value="'+escAttr(state.lName)+'"></div>'+
-          '<div><label>Ticker</label><input id="l-tick" placeholder="'+(state.lCoinMode==="create"?"GLADIUS":"From CoinMetadata")+'" maxlength="12" value="'+escAttr(state.lTick)+'"></div>'+
-          (state.lCoinMode==="create" && tickerToIdent(state.lTick)
-            ? '<div id="l-type-hint" style="font-size:12px;color:var(--muted);margin-top:-4px">Coin type will be <code>…::'+escHtml(tickerToIdent(state.lTick))+'::'+escHtml(tickerToIdent(state.lTick).toUpperCase())+'</code></div>'
-            : (state.lCoinMode==="create" ? '<div id="l-type-hint" style="font-size:12px;color:var(--muted);margin-top:-4px"></div>' : ''))+
+          '<div><label>Name</label><input id="l-name" placeholder="Gladius Token" value="'+escAttr(state.lName)+'"></div>'+
+          '<div><label>Ticker</label><input id="l-tick" placeholder="GLADIUS" maxlength="12" value="'+escAttr(state.lTick)+'"></div>'+
+          '<div id="l-type-hint" style="font-size:12px;color:var(--muted);margin-top:-4px">'+(tickerToIdent(state.lTick) ? "Coin type will be <code>…::"+escHtml(tickerToIdent(state.lTick))+"::"+escHtml(tickerToIdent(state.lTick).toUpperCase())+"</code>" : "")+'</div>'+
           '<button type="button" class="btn-trade" id="launch-go">'+launchBtnLabel()+'</button>'+
           '<div id="launch-note" style="font-size:12px;color:'+(state.lNoteErr?"#FF6640":"var(--muted)")+';margin-top:8px;text-align:center">'+
             escHtml(state.lNote || (Number(state.lFirstBuy)>0
@@ -4036,7 +4017,8 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       var tokenCoinId = (state.lTokenCoin || "").trim();
       var launchQuote = quoteRec(state.lQuote).label;
       var firstBuy = toSmallestBig(state.lFirstBuy, 9);
-      var creating = state.lCoinMode === "create";
+      state.lCoinMode = "create";
+      var creating = true;
       if (firstBuy > 0n){
         var suiCoins = await coinsOfExact(suiSession.address, SUI_TYPE);
         var suiBal = (suiCoins || []).reduce(function(a,c){ return a + c.valueBig; }, 0n);
@@ -4048,12 +4030,8 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       state.lSupply = TOKEN_SUPPLY;
       state.lQuoteAmt = "0";
       state.lTokenAmt = "";
-      if (!creating){
-        if (!capId) throw new Error("TreasuryCap object id required");
-        if (!tokenCoinId) throw new Error("Token coin object id required");
-      }
 
-      // Art is uploaded first either way: in create mode the URL is baked into
+      // Art is uploaded first: the URL is baked into
       // the coin's own CoinMetadata, so it has to exist before the publish.
       if (state.lFile && !state.lArtUrl){
         if (btn) btn.textContent = "Uploading art…";
@@ -4159,7 +4137,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
           if (minted && minted[0]) made.coinId = minted[0].id;
         }
         if (!made.capId || !made.coinId){
-          throw new Error("Coin published at " + made.packageId + " but the TreasuryCap or minted coin was not returned. Switch to \"I have one\" and paste them rather than publishing again. Digest " + (made.digest || digest || ""));
+          throw new Error("Coin published at " + made.packageId + " but the TreasuryCap or minted coin was not returned. Wait for the objects in the wallet, then retry Launch — do not publish again. Digest " + (made.digest || digest || ""));
         }
         capId = made.capId;
         tokenCoinId = made.coinId;
@@ -5015,15 +4993,11 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     if (e.target && e.target.id === "l-name") state.lName = e.target.value;
     if (e.target && e.target.id === "l-tick"){
       state.lTick = e.target.value.toUpperCase();
-      if (state.lCoinMode === "create"){
-        var hint = $("#l-type-hint");
-        var id = tickerToIdent(state.lTick);
-        if (hint) hint.innerHTML = id ? ("Coin type will be <code>…::"+escHtml(id)+"::"+escHtml(id.toUpperCase())+"</code>") : "";
-      }
+      var hint = $("#l-type-hint");
+      var id = tickerToIdent(state.lTick);
+      if (hint) hint.innerHTML = id ? ("Coin type will be <code>…::"+escHtml(id)+"::"+escHtml(id.toUpperCase())+"</code>") : "";
       paintFirstBuyPreview();
     }
-    if (e.target && e.target.id === "l-cap") state.lCap = e.target.value.trim();
-    if (e.target && e.target.id === "l-token-coin") state.lTokenCoin = e.target.value.trim();
     if (e.target && e.target.id === "l-quote-coin") state.lQuoteCoin = e.target.value.trim();
     if (e.target && e.target.id === "l-desc") state.lDesc = e.target.value;
     if (e.target && e.target.id === "l-x") state.lX = e.target.value.trim();
@@ -5031,11 +5005,6 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     if (e.target && e.target.id === "l-web") state.lWeb = e.target.value.trim();
   });
   document.addEventListener("change", function(e){
-    if (e.target && e.target.id === "l-cap"){
-      state.lCap = e.target.value.trim();
-      lookupCapMeta(state.lCap);
-      return;
-    }
     if (!(e.target && e.target.id === "l-art")) return;
     const file = e.target.files && e.target.files[0];
     const note = $("#l-art-note");
