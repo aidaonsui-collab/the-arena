@@ -1761,13 +1761,17 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   }
   function curveCap(tk){
     if (isDexBout(tk)){
+      const q = poolQuote(tk);
       const last = tapeItems(1, tk.t)[0];
-      const px = tradeQuotePx(last, poolQuote(tk));
+      const px = tradeQuotePx(last, q);
       if (px > 0){
         const cap = px * VIRTUAL_SUPPLY;
-        if (cap > 0 && cap < 1e6) return cap;
+        if (cap > 0 && cap < 1e12) return cap;
       }
-      return tk.cap;
+      if (tk.cap > 0) return tk.cap;
+      const u = quoteUsd(q);
+      if (u > 0 && INSTANT_START_USD > 0) return INSTANT_START_USD / u;
+      return 0;
     }
     const last = tapeItems(1, tk.t)[0];
     const launch = bus.launches[tk.t] || (tk.pool && bus.launches[tk.pool]) || {};
@@ -5455,24 +5459,27 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       paintCaps();
       paintFirstBuyPreview();
       if (state.route === "metrics" || state.route === "pit") renderScreen();
+      else if (state.route === "explore") paintExploreList();
     }
     fetch("/api/hop").then(function(r){ return r.ok ? r.json() : Promise.reject(); }).then(apply).catch(function(){
       Promise.all([
         fetch("https://api.dexpaprika.com/networks/sui/pools/0xdcd762ad374686fa890fc4f3b9bbfe2a244e713d7bffbfbd1b9221cb290da2ed").then(function(r){ return r.json(); }),
         fetch("https://api.dexpaprika.com/networks/sui/pools/0x4d3cc875e334440ad3485d4455d7ee072ea01b18c526ad64f9ebe2aa0a4f01b9").then(function(r){ return r.json(); }),
         fetch("https://api.dexpaprika.com/networks/sui/pools/0x458fc3722cc88babd7cbe78273aa5e4ecbdff75c76a2ad14cd1f75418b569649").then(function(r){ return r.json(); }),
+        fetch("https://api.dexpaprika.com/networks/sui/pools/0x51e883ba7c0b566a26cbc8a94cd33eb0abd418a77cc1e60ad22fd9b1f29cd2ab").then(function(r){ return r.json(); }),
         fetch("https://api.coingecko.com/api/v3/simple/price?ids=sui&vs_currencies=usd").then(function(r){ return r.json(); }).catch(function(){ return {}; })
       ]).then(function(quad){
         const usdy = quad[0] || {};
         const xagm = quad[1] || {};
         const xaum = quad[2] || {};
-        const g = quad[3] || {};
+        const suiUsdc = quad[3] || {};
+        const g = quad[4] || {};
         apply({
           usdyUsd: usdy.last_price_usd,
           xagmUsd: xagm.last_price_usd,
           xaumUsd: xaum.last_price_usd,
-          suiUsd: g.sui && g.sui.usd,
-          source: "DexPaprika + CoinGecko"
+          suiUsd: suiUsdc.last_price_usd || (g.sui && g.sui.usd),
+          source: "DexPaprika SUI/USDC"
         });
       }).catch(function(){});
     });

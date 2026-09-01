@@ -1,5 +1,7 @@
 const SUI_USD =
   "https://api.coingecko.com/api/v3/simple/price?ids=sui&vs_currencies=usd";
+const SUI_USDC =
+  "https://api.dexpaprika.com/networks/sui/pools/0x51e883ba7c0b566a26cbc8a94cd33eb0abd418a77cc1e60ad22fd9b1f29cd2ab";
 const USDY_USDC =
   "https://api.dexpaprika.com/networks/sui/pools/0xdcd762ad374686fa890fc4f3b9bbfe2a244e713d7bffbfbd1b9221cb290da2ed";
 const XAGM_USDC =
@@ -23,14 +25,15 @@ function perSui(usd, suiUsd) {
 }
 
 export async function GET() {
-  const [usdy, xagm, xaum, suiRes] = await Promise.all([
+  const [usdy, xagm, xaum, suiUsdc, suiRes] = await Promise.all([
     poolJson(USDY_USDC),
     poolJson(XAGM_USDC),
     poolJson(XAUM_USDC),
+    poolJson(SUI_USDC),
     fetch(SUI_USD, { cache: "no-store" }).catch(function () { return null; })
   ]);
-  let suiUsd = 0;
-  if (suiRes && suiRes.ok) {
+  let suiUsd = num(suiUsdc && (suiUsdc.last_price_usd || suiUsdc.last_price));
+  if (!(suiUsd > 0) && suiRes && suiRes.ok) {
     try {
       const g = await suiRes.json();
       suiUsd = num(g && g.sui && g.sui.usd);
@@ -52,6 +55,6 @@ export async function GET() {
     suiPerXaum,
     suiPerUsdy: perSui(usdyUsd, suiUsd),
     suiPerXagm: perSui(xagmUsd, suiUsd),
-    source: "Cetus USDY/USDC · Bluefin XAGM/USDC · Bluefin XAUM/USDC · CoinGecko SUI"
+    source: "Cetus USDY/USDC · Bluefin XAGM/USDC · Bluefin XAUM/USDC · DexPaprika SUI/USDC"
   });
 }

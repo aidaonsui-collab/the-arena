@@ -118,15 +118,16 @@ function hiddenLaunch(t, n) {
 }
 
 async function hopPrices() {
-  const [suiRes, usdy, xagm, xaum] = await Promise.all([
+  const [suiUsdc, suiRes, usdy, xagm, xaum] = await Promise.all([
+    fetch("https://api.dexpaprika.com/networks/sui/pools/0x51e883ba7c0b566a26cbc8a94cd33eb0abd418a77cc1e60ad22fd9b1f29cd2ab", { cache: "no-store" }).then((r) => r.json()).catch(() => null),
     fetch("https://api.coingecko.com/api/v3/simple/price?ids=sui&vs_currencies=usd", { cache: "no-store" }).catch(() => null),
     fetch("https://api.dexpaprika.com/networks/sui/pools/0xdcd762ad374686fa890fc4f3b9bbfe2a244e713d7bffbfbd1b9221cb290da2ed", { cache: "no-store" }).then((r) => r.json()).catch(() => null),
     fetch("https://api.dexpaprika.com/networks/sui/pools/0x4d3cc875e334440ad3485d4455d7ee072ea01b18c526ad64f9ebe2aa0a4f01b9", { cache: "no-store" }).then((r) => r.json()).catch(() => null),
     fetch("https://api.dexpaprika.com/networks/sui/pools/0x458fc3722cc88babd7cbe78273aa5e4ecbdff75c76a2ad14cd1f75418b569649", { cache: "no-store" }).then((r) => r.json()).catch(() => null),
   ]);
-  let suiUsd = 0;
+  let suiUsd = Number((suiUsdc && (suiUsdc.last_price_usd || suiUsdc.last_price)) || 0);
   try {
-    if (suiRes && suiRes.ok) {
+    if (!(suiUsd > 0) && suiRes && suiRes.ok) {
       const g = await suiRes.json();
       suiUsd = Number(g && g.sui && g.sui.usd) || 0;
     }
