@@ -2325,6 +2325,13 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     if (name) return name;
     return shortAddr(addr);
   }
+  function paintCreatorLink(){
+    const el = $("#creator-link");
+    if (!el) return;
+    const addr = el.getAttribute("data-creator");
+    if (!addr) return;
+    el.textContent = "Creator · " + traderLabel(addr);
+  }
   function resolveSuins(addrs){
     const need = [];
     const seen = {};
@@ -2334,7 +2341,11 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       seen[k] = 1;
       need.push(k);
     });
-    if (!need.length || suins.pending) return;
+    if (!need.length) return;
+    if (suins.pending){
+      setTimeout(function(){ resolveSuins(addrs); }, 250);
+      return;
+    }
     suins.pending = true;
     const parts = need.map(function(a, i){
       return "a"+i+": address(address:\""+a+"\"){ defaultNameRecord { domain } }";
@@ -2345,7 +2356,10 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
         suins.cache[a] = (rec && rec.domain) ? String(rec.domain) : "";
       });
       suins.pending = false;
-      if (state.route === "token") paintTape();
+      if (state.route === "token"){
+        paintCreatorLink();
+        paintTape();
+      }
       if (state.route === "pit") paintPitVotes();
     }).catch(function(){
       need.forEach(function(a){ if (!(a in suins.cache)) suins.cache[a] = ""; });
@@ -2567,10 +2581,11 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     if (!list.length && !(poolAmt > 0)) return refl || '<div class="empty">No holders yet.</div>';
     const poolRow = poolAmt > 0 ? holderRow("—", dex ? "Locked LP" : "Bonding curve", poolAmt, poolAmt/total, true) : "";
     const creator = String((tk && tk.creator) || "").toLowerCase();
+    resolveSuins(list.map(function(h){ return h.address; }).concat(tk && tk.creator ? [tk.creator] : []));
     const rows = list.slice(0, 50).map(function(h, i){
       const addr = String(h.address || "");
       const mine = creator && addr.toLowerCase() === creator;
-      const label = (mine ? "Creator · " : "") + shortAddr(addr);
+      const label = (mine ? "Creator · " : "") + traderLabel(addr);
       return holderRow(String(i+1), label, h.bal, h.bal/total, false, accountUrl(addr));
     }).join("");
     return refl + poolRow + rows;
@@ -3348,13 +3363,14 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       '<a class="about-link" href="'+xHref+'" target="_blank" rel="noopener">'+
         '<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.172-5.397 6.172H2.75l7.73-8.835L1.254 2.25H8.08l4.253 5.622L18.244 2.25zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>X</a>'+
       (escUrl(tk.telegram) ? '<a class="about-link" href="'+escUrl(tk.telegram)+'" target="_blank" rel="noopener">Telegram</a>' : '')+
-      (tk.creator ? '<a class="about-link" href="'+escAttr(accountUrl(tk.creator))+'" target="_blank" rel="noopener">Creator · '+escHtml(shortAddr(tk.creator))+'</a>' : '')+
+      (tk.creator ? '<a class="about-link" id="creator-link" data-creator="'+escAttr(tk.creator)+'" href="'+escAttr(accountUrl(tk.creator))+'" target="_blank" rel="noopener">Creator · '+escHtml(traderLabel(tk.creator))+'</a>' : '')+
       '<a class="about-link" href="'+dex+'" target="_blank" rel="noopener">Dexscreener</a>'+
       '<a class="about-link" href="'+gecko+'" target="_blank" rel="noopener">GeckoTerminal</a>'+
       '<button type="button" class="about-link" data-copy="'+escAttr(demoTypeId(tk))+'">Contract</button>'+
       '<button type="button" class="about-link" data-copy="'+(tk.bluefinPool||tk.pool||tk.t)+'">Pool</button>'+
       (tk.bluefinPool ? '<a class="about-link" href="https://trade.bluefin.io/swap?pool='+tk.bluefinPool+'" target="_blank" rel="noopener">Bluefin</a>' : '')+
       (tk.lockId ? '<button type="button" class="about-link" data-copy="'+tk.lockId+'">Vault</button>' : '');
+    if (tk.creator) resolveSuins([tk.creator]);
     const holdN = holdersOf(tk).list.length;
     const tradeN = tapeItems(TAPE_CAP, tk.t).length;
     const tab = state.tapeTab === "holders" ? "holders" : "trades";
