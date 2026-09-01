@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Vice — Fair launches on Sui</title>
-<link rel="icon" href="brand/vice-mark.png" type="image/png">
+<link rel="icon" href="brand/favicon.png" type="image/png">
 <link rel="apple-touch-icon" href="brand/vice-mark.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -12,17 +12,17 @@
 <style>
 :root{
   --bg:#141615; --card:#1C1E1C; --ink:#F4F4F2; --muted:#8B8E86; --line:#2A2C28;
-  --lift:#242624; --sui:#B42318; --up:#B42318; --down:#FF6640; --vice:#B42318;
+  --lift:#242624; --sui:#298DFF; --up:#298DFF; --down:#FF6640;
   --radius:22px; --shadow:0 10px 28px rgba(0,0,0,.42);
 }
 *{box-sizing:border-box}
 html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);-webkit-font-smoothing:antialiased}
 html{overflow-x:hidden}
-body{font-family:"Instrument Sans",ui-sans-serif,system-ui,sans-serif;font-size:15px;line-height:1.5;min-height:100dvh;overflow-x:hidden;background-image:radial-gradient(900px 480px at -10% -10%,rgba(180,35,24,.18),transparent 58%)}
+body{font-family:"Instrument Sans",ui-sans-serif,system-ui,sans-serif;font-size:15px;line-height:1.5;min-height:100dvh;overflow-x:hidden;background-image:radial-gradient(900px 480px at -10% -10%,rgba(41,141,255,.16),transparent 58%)}
 a{color:var(--sui);text-decoration:none}
 button,input,select{font:inherit;color:inherit}
 button{cursor:pointer}
-::selection{background:rgba(180,35,24,.45)}
+::selection{background:rgba(41,141,255,.45)}
 .shell{width:min(1180px,calc(100% - 32px));margin:0 auto}
 .serif{font-family:"Instrument Serif",Georgia,serif}
 .mono{font-family:"IBM Plex Mono",ui-monospace,monospace;font-variant-numeric:tabular-nums}
@@ -68,7 +68,7 @@ main{padding:18px 0 72px}
 .feat-mcap{font-weight:700;font-size:18px;font-variant-numeric:tabular-nums}
 .chg{font-size:13px;font-weight:600;font-variant-numeric:tabular-nums}
 .feat-meta{display:flex;gap:12px;color:var(--muted);font-size:12px;flex-wrap:wrap}
-.lead-tile{margin:0 0 12px;background:var(--card);border-radius:28px;padding:20px 22px;box-shadow:var(--shadow);cursor:pointer;border:1px solid rgba(180,35,24,.4);transition:box-shadow .18s}
+.lead-tile{margin:0 0 12px;background:var(--card);border-radius:28px;padding:20px 22px;box-shadow:var(--shadow);cursor:pointer;border:1px solid rgba(41,141,255,.35);transition:box-shadow .18s}
 .lead-tile:hover{box-shadow:0 14px 34px rgba(0,0,0,.4)}
 .lead-tile-top{display:flex;align-items:center;gap:14px;min-width:0}
 .lead-tile-copy{min-width:0}
@@ -250,7 +250,7 @@ a.btn-trade{display:block;text-align:center;text-decoration:none;box-sizing:bord
 .pit-row:hover{background:transparent}
 .pit-row .rank{font-family:"IBM Plex Mono",monospace;color:var(--muted);font-size:13px}
 .pit-row .cap{font-family:"IBM Plex Mono",monospace;font-weight:650;text-align:right}
-.pit-row.lead{background:rgba(180,35,24,.12);border-radius:12px;padding:12px 8px;border-top:0;margin-top:2px}
+.pit-row.lead{background:rgba(41,141,255,.1);border-radius:12px;padding:12px 8px;border-top:0;margin-top:2px}
 .pit-row.sitout{opacity:.62}
 .pit-sit{color:var(--muted);font-weight:600}
 .pit-tally{font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:12px;color:var(--muted);text-align:right;font-variant-numeric:tabular-nums}
@@ -1488,7 +1488,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     return p;
   }
   function chText(k){ return (k.ch>=0?"+":"")+k.ch.toFixed(1)+"%"; }
-  function chColor(k){ return k.ch>=0 ? "#B42318" : "#FF6640"; }
+  function chColor(k){ return k.ch>=0 ? "#298DFF" : "#FF6640"; }
   function rank(i){ return String(i+1).padStart(2,"0"); }
   function isHiddenToken(k){
     const t = String((k && k.t) || "").toUpperCase();
