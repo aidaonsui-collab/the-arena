@@ -161,6 +161,7 @@ main{padding:18px 0 72px}
 .stat .k{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
 .stat .v{font-size:18px;font-weight:650;margin-top:6px;font-variant-numeric:tabular-nums}
 .tv-host{height:580px;width:100%;position:relative;background:#1C1D21;border-radius:0;overflow:hidden}
+.chart-pending{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:13px}
 .chart-card{padding:0;overflow:hidden}
 .tv-host iframe{border:0;display:block;width:100%;height:100%}
 .ticket{background:var(--card);border-radius:28px;padding:18px;box-shadow:var(--shadow);position:sticky;top:84px}
@@ -1750,8 +1751,23 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   }
   function dexEmbed(pool){
     if (!pool) return '<div class="tv-host" style="display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:13px">Bluefin pool pending</div>';
-    const src = "https://dexscreener.com/sui/"+pool+"?embed=1&theme=dark&info=0&trades=0&tabs=0";
-    return '<div class="tv-host"><iframe src="'+src+'" title="Dexscreener" allow="clipboard-write" allowfullscreen></iframe></div>';
+    return '<div class="tv-host" data-chart-pool="'+escAttr(pool)+'"><div class="chart-pending">Loading chart…</div></div>';
+  }
+  function mountDexChart(){
+    var host = document.querySelector(".tv-host[data-chart-pool]");
+    if (!host) return;
+    var pool = host.getAttribute("data-chart-pool");
+    var frame = host.querySelector("iframe");
+    if (frame && frame.getAttribute("data-ready") === pool) return;
+    var gecko = "https://www.geckoterminal.com/sui-network/pools/"+pool+"?embed=1&info=0&swaps=0&light_chart=0";
+    var dex = "https://dexscreener.com/sui/"+pool+"?embed=1&theme=dark&info=0&trades=0&tabs=0";
+    function show(src, title){
+      host.innerHTML = '<iframe src="'+src+'" title="'+title+'" data-ready="'+escAttr(pool)+'" allow="clipboard-write" allowfullscreen></iframe>';
+    }
+    fetch("https://api.dexscreener.com/latest/dex/pairs/sui/"+pool).then(function(r){ return r.json(); }).then(function(d){
+      var ok = !!(d && (d.pair || (d.pairs && d.pairs.length)));
+      show(ok ? dex : gecko, ok ? "Dexscreener" : "GeckoTerminal");
+    }).catch(function(){ show(gecko, "GeckoTerminal"); });
   }
 
   function isRefl(tk){
@@ -3511,8 +3527,10 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     host.innerHTML = (map[state.route] || exploreHTML)();
     if (keep && keepSrc){
       var slot = host.querySelector(".tv-host");
-      var fresh = slot && slot.querySelector("iframe");
-      if (slot && fresh && (fresh.getAttribute("src") || "") === keepSrc) slot.replaceChild(keep, fresh);
+      if (slot && keep.getAttribute("data-ready") && keep.getAttribute("data-ready") === slot.getAttribute("data-chart-pool")){
+        slot.innerHTML = "";
+        slot.appendChild(keep);
+      }
     }
     document.documentElement.setAttribute("data-route", state.route);
     paintNav();
@@ -3534,6 +3552,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       loadPitState();
     }
     paintCaps();
+    if (state.route === "token") mountDexChart();
   }
   function go(route, sym){
     const nextSym = sym || state.sym;
