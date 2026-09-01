@@ -55,7 +55,7 @@ public struct InstantVirtualQuoteKey<phantom Q> has copy, drop, store {}
 
 const DEFAULT_INSTANT_VIRTUAL_SUI: u64 = 1_000_000_000;
 const DEFAULT_INSTANT_VIRTUAL_XAUM: u64 = 10_000_000;
-// Live Instant virtual quotes are AdminCap DFs sized to the same ~$500 start
+// Live Instant virtual quotes are AdminCap DFs sized to the same ~$3,500 start
 // FDV in each Q (SUI / USDY / XAGM / XAUM). Fallbacks above are unused on mainnet.
 
 public struct Config has key {
