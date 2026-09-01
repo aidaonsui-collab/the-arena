@@ -55,8 +55,21 @@ button{cursor:pointer}
 .nav-item{padding:10px 12px 12px;border-radius:0;font-size:15px;font-weight:500;letter-spacing:0;text-transform:none;color:var(--muted);cursor:pointer;transition:color .2s;white-space:nowrap;border-bottom:2px solid transparent}
 .nav-item.on{background:transparent;color:var(--ink);box-shadow:none;border-bottom-color:var(--sui)}
 .nav-item:hover{color:var(--ink)}
-.btn-connect{background:var(--pink);color:#fff;border:0;border-radius:10px;padding:12px 18px;font-weight:700;font-size:12px;letter-spacing:.14em;text-transform:uppercase;justify-self:end;transition:filter .15s}
+.btn-connect{background:var(--pink);color:#fff;border:0;border-radius:10px;padding:12px 18px;font-weight:700;font-size:12px;letter-spacing:.14em;text-transform:uppercase;justify-self:end;transition:filter .15s;position:relative;z-index:41}
 .btn-connect:hover{filter:brightness(.97)}
+.wallet-overlay{position:fixed;inset:0;z-index:80;background:rgba(12,6,14,.72);display:grid;place-items:center;padding:20px}
+.wallet-overlay[hidden]{display:none}
+.wallet-sheet{background:var(--card);border-radius:18px;padding:22px 20px 16px;width:min(380px,100%);box-shadow:var(--shadow)}
+.wallet-sheet h3{margin:0 0 6px;font-size:18px;font-weight:650}
+.wallet-sheet .wallet-sub{margin:0 0 16px;color:var(--muted);font-size:13px}
+.wallet-opt{display:flex;align-items:center;gap:12px;width:100%;border:1px solid var(--line);background:#160e16;color:var(--ink);border-radius:12px;padding:12px 14px;margin:0 0 8px;text-align:left;font-weight:600}
+.wallet-opt:hover{background:var(--lift);border-color:#5a3a56}
+.wallet-opt img,.wallet-mark{width:28px;height:28px;border-radius:8px;flex:none;object-fit:cover}
+.wallet-mark{display:grid;place-items:center;background:#101211;color:var(--pink);font-size:13px;font-weight:700}
+.wallet-opt .on{margin-left:auto;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--sui)}
+.wallet-err{color:#FF6640;font-size:13px;margin:4px 0 8px}
+.wallet-x{width:100%;border:0;background:transparent;color:var(--muted);padding:8px;font-size:13px}
+.wallet-x:hover{color:var(--ink)}
 .search-row{display:flex;align-items:center;gap:10px;margin:10px auto 4px}
 .search-bar{flex:1;display:flex;align-items:center;gap:10px;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 14px;box-shadow:none;min-width:0}
 .search-bar svg{flex:none;opacity:.45}
@@ -453,6 +466,7 @@ html.shot,html.shot *{animation:none!important;transition:none!important}
   <button type="button" class="btn-create" data-go="launch">+ Create</button>
 </div>
 <div class="ticker" id="ticker" hidden></div>
+<div class="wallet-overlay" id="wallet-modal" hidden></div>
 <main id="screens"></main>
 <script>
 window.ARENA_PACKAGE_ID = "0x5cfddf8ba23be6835644a8ea22482ff6ebb0081e42cc1bc052b5f770ca8bbdea";
@@ -977,12 +991,63 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     return out;
   }
   function pickWallet(){
-    ensureWalletStd();
-    var list = injectedWallets().filter(walletCanSign);
+    var list = listedWallets();
     var named = list.find(function(w){ return /slush|sui wallet/i.test(w.name || ""); });
     return named || list[0] || window.slush || window.sui || null;
   }
-  function hasSuiWallet(){ return !!pickWallet(); }
+  function listedWallets(){
+    ensureWalletStd();
+    return injectedWallets().filter(walletCanSign);
+  }
+  function walletIconSrc(w){
+    var icon = w && w.icon;
+    if (typeof icon !== "string") return "";
+    if (icon.indexOf("data:image") === 0 || icon.indexOf("https://") === 0) return icon;
+    return "";
+  }
+  function walletLabel(w){
+    return String((w && w.name) || "Sui wallet").slice(0, 40);
+  }
+  function hasSuiWallet(){ return listedWallets().length > 0 || !!(window.slush || window.sui); }
+  function closeWalletPicker(){
+    var modal = $("#wallet-modal");
+    if (modal){ modal.hidden = true; modal.innerHTML = ""; }
+  }
+  function paintWalletPicker(err){
+    var modal = $("#wallet-modal");
+    if (!modal) return;
+    var list = listedWallets();
+    var rows = list.map(function(w, i){
+      var name = walletLabel(w);
+      var src = walletIconSrc(w);
+      var on = suiSession.wallet === w || (suiSession.address && accountAddress(firstAccount(w)) === suiSession.address);
+      var mark = src
+        ? '<img src="'+escAttr(src)+'" alt="">'
+        : '<span class="wallet-mark">'+escHtml(name.charAt(0) || "W")+'</span>';
+      return '<button type="button" class="wallet-opt" data-wallet-pick="'+i+'">'+mark+'<span>'+escHtml(name)+'</span>'+(on ? '<span class="on">on</span>' : "")+'</button>';
+    }).join("");
+    if (!rows) rows = '<p class="wallet-sub">No Sui wallet found. Install Slush, Suiet, or another Wallet Standard wallet.</p>';
+    modal.innerHTML =
+      '<div class="wallet-sheet">'+
+        '<h3>Connect wallet</h3>'+
+        '<p class="wallet-sub">Choose an installed Sui wallet.</p>'+
+        (err ? '<div class="wallet-err">'+escHtml(err)+'</div>' : "")+
+        rows+
+        (suiSession.address ? '<button type="button" class="wallet-x" data-wallet-disconnect>Disconnect</button>' : '<button type="button" class="wallet-x" data-wallet-x>Cancel</button>')+
+      '</div>';
+    modal.hidden = false;
+  }
+  function openWalletPicker(){
+    ensureWalletStd();
+    paintWalletPicker();
+    var start = Date.now();
+    var timer = setInterval(function(){
+      if (Date.now() - start > 800){ clearInterval(timer); return; }
+      var modal = $("#wallet-modal");
+      if (!modal || modal.hidden){ clearInterval(timer); return; }
+      if (listedWallets().length) paintWalletPicker();
+    }, 80);
+  }
   function launchBtnLabel(){
     if (launching) return "Launching…";
     if (!hasSuiWallet() && !suiSession.address) return "No Sui wallet found";
@@ -1006,9 +1071,22 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     if (Array.isArray(acc) && acc.length) return acc[0];
     return acc || null;
   }
-  async function connectWallet(){
+  function disconnectWallet(){
+    var w = suiSession.wallet;
+    var feats = (w && w.features) || {};
+    try {
+      if (feats["standard:disconnect"] && feats["standard:disconnect"].disconnect){
+        feats["standard:disconnect"].disconnect();
+      }
+    } catch (e) {}
+    suiSession = { wallet: null, account: null, address: "" };
+    state.connected = false;
+    paintWallet();
+    closeWalletPicker();
+  }
+  async function connectWallet(chosen){
     ensureWalletStd();
-    var w = pickWallet();
+    var w = chosen || pickWallet();
     if (!w) throw new Error("No Sui wallet found");
     var feats = w.features || {};
     if (feats["standard:connect"] && feats["standard:connect"].connect){
@@ -4989,13 +5067,33 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       doPitVote(pitVoteBtn.getAttribute("data-pit-vote"));
       return;
     }
+    if (e.target.id === "wallet-modal"){
+      closeWalletPicker();
+      return;
+    }
+    const pick = e.target.closest("[data-wallet-pick]");
+    if (pick){
+      var wallets = listedWallets();
+      var w = wallets[Number(pick.getAttribute("data-wallet-pick"))];
+      if (!w) return;
+      connectWallet(w).then(function(){ closeWalletPicker(); }).catch(function(err){
+        paintWalletPicker(walletErrText(err) || "Could not connect");
+        state.connected = false;
+        paintWallet();
+      });
+      return;
+    }
+    if (e.target.closest("[data-wallet-disconnect]")){
+      disconnectWallet();
+      return;
+    }
+    if (e.target.closest("[data-wallet-x]")){
+      closeWalletPicker();
+      return;
+    }
     const wal = e.target.closest("[data-wallet]");
     if (wal){
-      connectWallet().catch(function(err){
-        var el = $("#wallet-btn");
-        if (el) el.textContent = (err && err.message) ? err.message : "No Sui wallet found";
-        state.connected = false;
-      });
+      openWalletPicker();
       return;
     }
     const side = e.target.closest("[data-side]");
@@ -5180,6 +5278,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     if (note) note.textContent = file.name+" · "+(file.size/1024).toFixed(0)+" KB";
   });
   document.addEventListener("keydown", function(e){
+    if (e.key === "Escape") closeWalletPicker();
     if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k"){
       e.preventDefault();
       const q = $("#q"); if (q) q.focus();
