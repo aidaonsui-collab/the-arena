@@ -236,8 +236,17 @@ function tallies(votes) {
   return t;
 }
 
+function mineOf(votes, address) {
+  if (!address) return "";
+  const want = String(address).toLowerCase();
+  const hit = votes.find(function (v) {
+    return String(v.address || "").toLowerCase() === want;
+  });
+  return hit ? String(hit.ticker || "").toUpperCase() : "";
+}
+
 function payload(votes, mine) {
-  return { round: LIVE, votes: votes, tallies: tallies(votes), mine: mine || "", fee: "0.1" };
+  return { round: LIVE, tallies: tallies(votes), mine: mine || "", fee: "0.1" };
 }
 
 export function OPTIONS(request) {
@@ -247,7 +256,11 @@ export function OPTIONS(request) {
 export async function GET(request) {
   if (!originOk(request)) return json({ error: "bad origin" }, 403, request);
   const votes = await listVotes();
-  return json(payload(votes), 200, request);
+  let addr = "";
+  try {
+    addr = normalizeSuiAddress(new URL(request.url).searchParams.get("address") || "");
+  } catch (e) {}
+  return json(payload(votes, mineOf(votes, addr)), 200, request);
 }
 
 export async function POST(request) {

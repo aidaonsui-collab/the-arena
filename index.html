@@ -256,10 +256,6 @@ a.btn-trade{display:block;text-align:center;text-decoration:none;box-sizing:bord
 .pit-vote:hover{filter:brightness(.97)}
 .pit-vote.mine{background:#16171A;color:var(--ink);box-shadow:inset 0 0 0 1px var(--line)}
 .pit-vote:disabled{opacity:.55;cursor:not-allowed;filter:none}
-.voter-row{display:grid;grid-template-columns:22px minmax(0,1fr) auto auto;gap:10px;align-items:center;padding:10px 2px;border-top:1px solid var(--line)}
-.voter-row:first-child{border-top:0}
-.voter-pick{font-weight:650;font-size:13px;white-space:nowrap}
-.voter-ago{color:var(--muted);font-size:12px;text-align:right;font-variant-numeric:tabular-nums}
 .bell-row{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:12px;align-items:center;padding:14px 2px;border-top:1px solid var(--line)}
 .bell-row:first-of-type{border-top:0}
 .bells-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-top:14px}
@@ -2195,40 +2191,15 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     if (n === 1) return "1 vote";
     return n + " votes";
   }
-  function voterRollHTML(){
-    const list = pitVotes.list || [];
-    const mine = (suiSession.address || "").toLowerCase();
-    if (!list.length){
-      return '<div class="empty" style="padding:28px 8px">No votes yet. 0.1 SUI goes into the pot. Votes do not pick the winner.</div>';
-    }
-    return list.slice(0, 80).map(function(v){
-      const name = suinsOf(v.address) || shortTapeAddr(v.address);
-      const letter = String(name || "0").replace(/^0x/i, "").charAt(0).toUpperCase() || "?";
-      const you = mine && String(v.address || "").toLowerCase() === mine;
-      const digest = v.digest ? String(v.digest) : "";
-      const tx = digest
-        ? '<a class="tape-ico" href="https://suiscan.xyz/mainnet/tx/'+escAttr(digest)+'" target="_blank" rel="noopener" title="Vote transaction">↗</a>'
-        : "";
-      return '<div class="voter-row">'+
-        '<span class="tape-av">'+escHtml(letter)+'</span>'+
-        '<div class="tape-name" title="'+escAttr(v.address || "")+'">'+escHtml(name)+(you?" · you":"")+'</div>'+
-        '<div class="voter-pick">$'+escHtml(v.ticker || "")+'</div>'+
-        '<div class="voter-ago">'+agoOf(v.ts)+tx+'</div></div>';
-    }).join("");
-  }
   function paintPitVotes(){
     if (state.route !== "pit") return;
     const note = $("#pit-vote-note");
     if (note){
       if (pitVoteErr) note.textContent = pitVoteErr;
-      else if (!suiSession.address) note.textContent = "Connect a Sui wallet. 0.1 SUI goes into the pot. Votes do not pick the winner.";
-      else if (pitVotes.mine) note.textContent = "You picked $"+pitVotes.mine+". Votes do not pick the winner. Pay another 0.1 SUI to switch.";
-      else note.textContent = "Votes do not pick the winner. 0.1 SUI still goes in the pot. One pick per wallet; you can switch by voting again.";
+      else if (!suiSession.address) note.textContent = "Connect a Sui wallet. 0.1 SUI goes into the pot. Votes are anonymous and do not pick the winner.";
+      else if (pitVotes.mine) note.textContent = "You picked $"+pitVotes.mine+". Votes are anonymous and do not pick the winner. Pay another 0.1 SUI to switch.";
+      else note.textContent = "Votes are anonymous and do not pick the winner. 0.1 SUI still goes in the pot.";
     }
-    const roll = $("#voter-roll");
-    if (roll) roll.innerHTML = voterRollHTML();
-    const count = $("#voter-count");
-    if (count) count.textContent = String((pitVotes.list || []).length);
     $$("[data-tally]").forEach(function(el){
       el.textContent = pitTallyText(el.getAttribute("data-tally"));
     });
@@ -2241,16 +2212,10 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   }
   function applyPitVotePayload(j){
     if (!j) return;
-    pitVotes.list = j.votes || [];
-    pitVotes.tallies = j.tallies || {};
+    if (j.tallies) pitVotes.tallies = j.tallies;
     pitVotes.round = Number(j.round || roundNo);
-    const mine = (suiSession.address || "").toLowerCase();
-    pitVotes.mine = "";
-    pitVotes.list.forEach(function(v){
-      if (mine && String(v.address || "").toLowerCase() === mine) pitVotes.mine = String(v.ticker || "").toUpperCase();
-    });
+    if (j.mine) pitVotes.mine = String(j.mine).toUpperCase();
     pitVoteLoaded = true;
-    resolveSuins(pitVotes.list.map(function(v){ return v.address; }));
     paintPitVotes();
   }
   function rankingKey(j){
@@ -2273,25 +2238,20 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     }).catch(function(){});
   }
   function loadPitVotes(){
-    return fetch("/api/pit-vote", { cache: "no-store" }).then(function(r){ return r.json(); }).then(function(j){
-      if (j && !j.error){
-        if ((j.votes && j.votes.length) || !(pitVotes.list && pitVotes.list.length)) applyPitVotePayload(j);
-      } else if (j && j.error) pitVoteErr = j.error;
+    const q = suiSession.address ? ("?address="+encodeURIComponent(suiSession.address)) : "";
+    return fetch("/api/pit-vote"+q, { cache: "no-store" }).then(function(r){ return r.json(); }).then(function(j){
+      if (j && !j.error) applyPitVotePayload(j);
+      else if (j && j.error) pitVoteErr = j.error;
       paintPitVotes();
     }).catch(function(){
       paintPitVotes();
     });
   }
-  function noteLocalVote(tick, digest){
-    const addr = suiSession.address;
+  function noteLocalVote(tick){
     const prev = pitVotes.mine;
     if (prev && prev !== tick && pitVotes.tallies[prev] > 0) pitVotes.tallies[prev] -= 1;
     if (prev !== tick) pitVotes.tallies[tick] = (Number(pitVotes.tallies[tick]) || 0) + 1;
     pitVotes.mine = tick;
-    pitVotes.list = (pitVotes.list || []).filter(function(v){
-      return String(v.address || "").toLowerCase() !== String(addr || "").toLowerCase();
-    });
-    pitVotes.list.unshift({ address: addr, ticker: tick, digest: digest, ts: Date.now() });
     paintPitVotes();
   }
   function pitNum(v){
@@ -2335,14 +2295,14 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       const result = await walletExec(tx);
       const digest = txDigest(result);
       if (!digest) throw new Error("Wallet did not return a digest");
-      noteLocalVote(tick, digest);
+      noteLocalVote(tick);
       const res = await fetch("/api/pit-vote", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ digest: digest, ticker: tick, address: suiSession.address })
       });
       const j = await res.json().catch(function(){ return null; });
-      if (!res.ok || (j && j.error)) throw new Error((j && j.error) || "Vote paid, but the roll did not record it");
+      if (!res.ok || (j && j.error)) throw new Error((j && j.error) || "Vote paid, but it did not record");
       applyPitVotePayload(j);
       pot += PIT_VOTE_FEE / 1e9;
       paintPots();
@@ -2384,26 +2344,23 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     }).join("");
     const voteNote = pitVoteErr || (suiSession.address
       ? (pitVotes.mine
-        ? ("You picked $"+pitVotes.mine+". Votes do not pick the winner. Pay another 0.1 SUI to switch.")
-        : "Votes do not pick the winner. 0.1 SUI still goes in the pot.")
-      : "Connect a Sui wallet. 0.1 SUI goes into the pot. Votes do not pick the winner.");
+        ? ("You picked $"+pitVotes.mine+". Votes are anonymous and do not pick the winner. Pay another 0.1 SUI to switch.")
+        : "Votes are anonymous and do not pick the winner. 0.1 SUI still goes in the pot.")
+      : "Connect a Sui wallet. 0.1 SUI goes into the pot. Votes are anonymous and do not pick the winner.");
     return '<div data-screen-label="Pit">'+
       '<div class="pit-hero">'+
         '<div style="grid-area:pot"><div class="pit-kicker"><span style="display:inline-block;width:7px;height:7px;border-radius:99px;background:var(--sui);margin-right:8px"></span>Round <span data-round>'+pitRound()+'</span> · live</div>'+
           '<div class="pit-pot" data-pot>'+money(pot)+'</div></div>'+
         '<div class="pit-clock" style="grid-area:clock"><span data-clock>'+clockStr()+'</span><span>until the bell</span></div>'+
-        '<p>Highest Instant market cap over 24 hours takes the pot. The pot buys the winner on Bluefin and burns it. Last bell sits out 48 hours. Votes are just the roll — they don\'t pick the winner.</p>'+
+        '<p>Highest Instant market cap over 24 hours takes the pot. The pot buys the winner on Bluefin and burns it. Last bell sits out 48 hours. Votes are anonymous and don\'t pick the winner.</p>'+
       '</div>'+
       '<div class="card" style="padding:20px 22px;margin-top:14px">'+
         '<div class="sec-label" style="margin-top:0">Contenders <span>top 5 · 24h MC</span></div>'+
         (rows
           ? '<div class="pit-head"><span></span><span></span><span></span><div class="pit-community">Who\'s got the strongest community?</div><span class="pit-tally">Votes</span><span class="cap">CAP</span></div>'
           : "")+
-        '<div id="contenders">'+(rows || '<div class="empty">No Instant bouts this round.</div>')+'</div></div>'+
-      '<div class="card" style="padding:20px 22px;margin-top:14px">'+
-        '<div class="sec-label" style="margin-top:0">Voter roll <span class="count-pill" id="voter-count">'+(pitVotes.list||[]).length+'</span></div>'+
-        '<div id="pit-vote-note" style="color:var(--muted);font-size:13px;margin:0 0 12px">'+voteNote+'</div>'+
-        '<div id="voter-roll">'+voterRollHTML()+'</div></div>'+
+        '<div id="contenders">'+(rows || '<div class="empty">No Instant bouts this round.</div>')+'</div>'+
+        '<div id="pit-vote-note" style="color:var(--muted);font-size:13px;margin:14px 0 0">'+voteNote+'</div></div>'+
       '<div class="sec-label" style="margin-top:22px">Past bells <span>buy & burn</span></div>'+
       '<div class="bells-grid">'+(bells || '<div class="empty card" style="grid-column:1/-1;padding:28px 8px">No bells yet. First 24h round is live.</div>')+'</div>'+
       '<div class="card" style="padding:18px 22px;margin-top:14px;color:var(--muted);font-size:14px">'+
