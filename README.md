@@ -1,4 +1,4 @@
-# The Arena
+# Vice
 
 Fair launches on Sui. Instadex Instant seeds Bluefin in block one (SUI, USDY, or XAGM): 100% of the token, 0 real quote, 1 SUI launch fee. LP is locked forever. Curve launches still exist on-chain. Graduation at 2,000 SUI (or 1 XAUM for leftover gold). 1% swap fee on curve fills, split 60/10/30 creator/platform/pit (reflection: 50/20/20/10 reflections/creator/pit/platform). Bluefin pair fee is 1% (protocol keeps 20%); remaining quote LP share is 60/10/30; token-side LP fees burn. Leftover LOOK/XAUM Instant pairs still trade.
 

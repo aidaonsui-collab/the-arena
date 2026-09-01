@@ -3,32 +3,34 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>The Arena — Fair launches on Sui</title>
+<title>Vice — Fair launches on Sui</title>
+<link rel="icon" href="brand/vice-mark.png" type="image/png">
+<link rel="apple-touch-icon" href="brand/vice-mark.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Instrument+Sans:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Instrument+Sans:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&family=Playfair+Display:ital,wght@1,500;1,600&display=swap" rel="stylesheet">
 <style>
 :root{
   --bg:#141615; --card:#1C1E1C; --ink:#F4F4F2; --muted:#8B8E86; --line:#2A2C28;
-  --lift:#242624; --sui:#298DFF; --up:#298DFF; --down:#FF6640;
+  --lift:#242624; --sui:#B42318; --up:#B42318; --down:#FF6640; --vice:#B42318;
   --radius:22px; --shadow:0 10px 28px rgba(0,0,0,.42);
 }
 *{box-sizing:border-box}
 html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);-webkit-font-smoothing:antialiased}
 html{overflow-x:hidden}
-body{font-family:"Instrument Sans",ui-sans-serif,system-ui,sans-serif;font-size:15px;line-height:1.5;min-height:100dvh;overflow-x:hidden;background-image:radial-gradient(900px 480px at -10% -10%,rgba(41,141,255,.16),transparent 58%)}
+body{font-family:"Instrument Sans",ui-sans-serif,system-ui,sans-serif;font-size:15px;line-height:1.5;min-height:100dvh;overflow-x:hidden;background-image:radial-gradient(900px 480px at -10% -10%,rgba(180,35,24,.18),transparent 58%)}
 a{color:var(--sui);text-decoration:none}
 button,input,select{font:inherit;color:inherit}
 button{cursor:pointer}
-::selection{background:rgba(41,141,255,.45)}
+::selection{background:rgba(180,35,24,.45)}
 .shell{width:min(1180px,calc(100% - 32px));margin:0 auto}
 .serif{font-family:"Instrument Serif",Georgia,serif}
 .mono{font-family:"IBM Plex Mono",ui-monospace,monospace;font-variant-numeric:tabular-nums}
 .topbar{position:sticky;top:0;z-index:40;background:rgba(20,22,21,.86);backdrop-filter:blur(16px);border-bottom:1px solid transparent}
 .topbar-inner{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:14px;padding:14px 0;min-height:64px}
-.brand{display:flex;align-items:center;gap:9px;flex:none;cursor:pointer}
-.brand svg{display:block}
-.brand-name{font-family:"Instrument Serif",Georgia,serif;font-size:18px;letter-spacing:.2em;line-height:1;text-transform:uppercase}
+.brand{display:flex;align-items:center;gap:10px;flex:none;cursor:pointer}
+.brand-mark{width:28px;height:28px;border-radius:8px;display:block;object-fit:cover;background:#0a0a0a}
+.brand-name{font-family:"Playfair Display","Instrument Serif",Georgia,serif;font-size:26px;font-style:italic;font-weight:500;letter-spacing:-.03em;line-height:1;text-transform:none}
 .nav-pill{display:flex;align-items:center;gap:4px;margin:0;justify-self:center;background:#101211;border-radius:999px;padding:4px}
 .nav-item{padding:8px 18px;border-radius:999px;font-size:14px;font-weight:500;color:var(--muted);cursor:pointer;transition:background .2s,color .2s;white-space:nowrap}
 .nav-item.on{background:var(--card);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.35)}
@@ -66,7 +68,7 @@ main{padding:18px 0 72px}
 .feat-mcap{font-weight:700;font-size:18px;font-variant-numeric:tabular-nums}
 .chg{font-size:13px;font-weight:600;font-variant-numeric:tabular-nums}
 .feat-meta{display:flex;gap:12px;color:var(--muted);font-size:12px;flex-wrap:wrap}
-.lead-tile{margin:0 0 12px;background:var(--card);border-radius:28px;padding:20px 22px;box-shadow:var(--shadow);cursor:pointer;border:1px solid rgba(41,141,255,.35);transition:box-shadow .18s}
+.lead-tile{margin:0 0 12px;background:var(--card);border-radius:28px;padding:20px 22px;box-shadow:var(--shadow);cursor:pointer;border:1px solid rgba(180,35,24,.4);transition:box-shadow .18s}
 .lead-tile:hover{box-shadow:0 14px 34px rgba(0,0,0,.4)}
 .lead-tile-top{display:flex;align-items:center;gap:14px;min-width:0}
 .lead-tile-copy{min-width:0}
@@ -143,7 +145,7 @@ main{padding:18px 0 72px}
 .sides>div.on-buy{background:var(--lift);color:var(--ink)}
 .sides>div.on-sell{background:#3A2422;color:#FF8A70}
 .amt{width:100%;border:1px solid var(--line);border-radius:16px;padding:14px 16px;font-size:26px;font-weight:650;outline:none;background:#16171A;color:var(--ink)}
-.amt:focus{border-color:#298DFF;background:#1C1D21}
+.amt:focus{border-color:var(--sui);background:#1C1D21}
 .chips{display:flex;gap:6px;margin-top:10px}
 .chips>div{flex:1;text-align:center;background:#16171A;border-radius:999px;padding:8px 0;font-size:12px;font-weight:600;cursor:pointer}
 .chips>div:hover{background:var(--lift)}
@@ -202,7 +204,7 @@ a.btn-trade{display:block;text-align:center;text-decoration:none;box-sizing:bord
 .form-grid{display:grid;gap:12px;text-align:left;max-width:520px;margin:28px auto 0}
 .form-grid label{font-size:12px;font-weight:600;color:var(--muted);letter-spacing:.06em;text-transform:uppercase}
 .form-grid input{width:100%;border:1px solid var(--line);border-radius:16px;padding:12px 14px;background:#16171A;outline:none;color:var(--ink)}
-.form-grid input:focus{border-color:#298DFF;background:#1C1D21}
+.form-grid input:focus{border-color:var(--sui);background:#1C1D21}
 .social-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
 .social-row input{padding:12px 10px;font-size:13px}
 @media (max-width:560px){
@@ -248,7 +250,7 @@ a.btn-trade{display:block;text-align:center;text-decoration:none;box-sizing:bord
 .pit-row:hover{background:transparent}
 .pit-row .rank{font-family:"IBM Plex Mono",monospace;color:var(--muted);font-size:13px}
 .pit-row .cap{font-family:"IBM Plex Mono",monospace;font-weight:650;text-align:right}
-.pit-row.lead{background:rgba(41,141,255,.1);border-radius:12px;padding:12px 8px;border-top:0;margin-top:2px}
+.pit-row.lead{background:rgba(180,35,24,.12);border-radius:12px;padding:12px 8px;border-top:0;margin-top:2px}
 .pit-row.sitout{opacity:.62}
 .pit-sit{color:var(--muted);font-weight:600}
 .pit-tally{font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:12px;color:var(--muted);text-align:right;font-variant-numeric:tabular-nums}
@@ -339,8 +341,8 @@ html.shot,html.shot *{animation:none!important;transition:none!important}
 <header class="topbar">
   <div class="shell topbar-inner">
     <div class="brand" data-go="explore">
-      <svg viewBox="0 0 24 24" width="22" height="22" fill="#298DFF" aria-hidden="true"><path d="M17.636 10.009a7.16 7.16 0 0 1 1.565 4.474 7.2 7.2 0 0 1-1.608 4.53l-.087.106-.023-.135a7 7 0 0 0-.07-.349c-.502-2.21-2.142-4.106-4.84-5.642-1.823-1.034-2.866-2.278-3.14-3.693-.177-.915-.046-1.834.209-2.62.254-.787.631-1.446.953-1.843l1.05-1.284a.46.46 0 0 1 .713 0l5.28 6.456zm1.66-1.283L12.26.123a.336.336 0 0 0-.52 0L4.704 8.726l-.023.029a9.33 9.33 0 0 0-2.07 5.872C2.612 19.803 6.816 24 12 24s9.388-4.197 9.388-9.373a9.32 9.32 0 0 0-2.07-5.871zM6.389 9.981l.63-.77.018.142q.023.17.055.34c.408 2.136 1.862 3.917 4.294 5.297 2.114 1.203 3.345 2.586 3.7 4.103a5.3 5.3 0 0 1 .109 1.801l-.004.034-.03.014A7.2 7.2 0 0 1 12 21.67c-3.976 0-7.2-3.218-7.2-7.188 0-1.705.594-3.27 1.587-4.503z"/></svg>
-      <span class="brand-name">ARENA</span>
+      <img class="brand-mark" src="brand/vice-mark.png" width="28" height="28" alt="">
+      <span class="brand-name">vice.</span>
     </div>
     <nav class="nav-pill" id="nav-pill"></nav>
     <button type="button" class="btn-connect" id="wallet-btn" data-wallet>Connect</button>
@@ -1486,7 +1488,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     return p;
   }
   function chText(k){ return (k.ch>=0?"+":"")+k.ch.toFixed(1)+"%"; }
-  function chColor(k){ return k.ch>=0 ? "#298DFF" : "#FF6640"; }
+  function chColor(k){ return k.ch>=0 ? "#B42318" : "#FF6640"; }
   function rank(i){ return String(i+1).padStart(2,"0"); }
   function isHiddenToken(k){
     const t = String((k && k.t) || "").toUpperCase();
@@ -2166,8 +2168,8 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   }
   function footerHTML(){
     return '<footer class="footer">'+
-      '<div><div class="brand-name" style="color:var(--ink);margin-bottom:8px">ARENA</div>'+
-        '<p style="margin:0;max-width:36ch">Fair launches on Sui. Instadex seeds Bluefin in block one. Quote is SUI, USDY, or XAGM. LP locked forever.</p></div>'+
+      '<div><div class="brand-name" style="color:var(--ink);margin-bottom:8px">vice.</div>'+
+        '<p style="margin:0;max-width:36ch">Fair launches on Sui. Instant seeds Bluefin in block one. Quote is SUI, USDY, or XAGM. LP locked forever.</p></div>'+
       '<div><h4>Product</h4><div data-go="explore">Explore</div><div data-go="pit">Pit</div><div data-go="metrics">Metrics</div><div data-go="launch">Create</div></div>'+
       '<div><h4>Fees</h4>Bluefin 1% on the pair (keeps 20%).<br>Our 80% quote split 60/10/30 creator/platform/pit.<br>Token-side LP fees burn.</div></footer>';
   }
@@ -2481,7 +2483,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     return '<div data-screen-label="Launch">'+
       '<div class="hero-card" style="text-align:left">'+
         '<div class="pit-kicker">Launch</div>'+
-        '<h1 style="font-size:clamp(32px,6vw,56px)">Enter the arena.</h1>'+
+        '<h1 style="font-size:clamp(32px,6vw,56px)">Enter Vice.</h1>'+
         '<p style="color:var(--muted);max-width:48ch">'+lpBlurb()+'</p>'+
         '<div class="form-grid">'+
           '<div><label>Art</label><div class="art-field">'+
