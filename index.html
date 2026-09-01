@@ -32,6 +32,7 @@
 :root{
   --bg:#120814; --card:#1c101c; --ink:#F4EEF2; --muted:#A898A8; --line:#3A2438;
   --lift:#261626; --sui:#298DFF; --up:#298DFF; --down:#FF6640; --pink:#FF2EA6;
+  --silver:#C0C7D1; --gold:#C9A97E;
   --radius:14px; --shadow:0 8px 22px rgba(0,0,0,.38);
 }
 *{box-sizing:border-box}
@@ -73,6 +74,12 @@ main{padding:18px 0 72px}
 .pill{border:1px solid var(--line);background:var(--card);color:var(--muted);border-radius:8px;padding:6px 10px;font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:11px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;transition:background .15s,color .15s,border-color .15s}
 .pill.on{background:var(--pink);color:#fff;border-color:var(--pink);box-shadow:none}
 .pill:hover{color:var(--ink)}
+.pill.quote-xagm{color:var(--silver);border-color:#8E97A3}
+.pill.quote-xagm:hover{color:#E8EDF2;border-color:var(--silver)}
+.pill.quote-xagm.on,.pill.quote-xagm.on:hover{background:var(--silver);color:#1A1218;border-color:var(--silver)}
+.pill.quote-xaum{color:var(--gold);border-color:#A88A5C}
+.pill.quote-xaum:hover{color:#E8D09A;border-color:var(--gold)}
+.pill.quote-xaum.on,.pill.quote-xaum.on:hover{background:var(--gold);color:#1A1218;border-color:var(--gold)}
 .sec-label{display:flex;align-items:baseline;justify-content:space-between;margin:8px 2px 12px;font-weight:600}
 .sec-label span{color:var(--muted);font-weight:500;font-size:13px}
 .featured{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
@@ -2952,10 +2959,6 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   function launchHTML(){
     state.lPath = "instadex";
     state.lCoinMode = "create";
-    function tog(key, val, label){
-      const on = state[key] === val;
-      return '<button type="button" class="pill'+(on?" on":"")+'" data-set="'+key+'" data-val="'+val+'">'+label+'</button>';
-    }
     return '<div data-screen-label="Launch">'+
       '<div class="hero-card" style="text-align:left">'+
         '<div class="pit-kicker">Launch</div>'+
@@ -2975,7 +2978,13 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
             '<input id="l-web" spellcheck="false" placeholder="https://site" value="'+escAttr(state.lWeb)+'">'+
           '</div>'+
           '<div style="font-size:12px;color:var(--muted);margin-top:6px">Baked into CoinMetadata at publish. Can\'t change later.</div></div>'+
-          '<div><label>Quote</label><div class="toggle">'+CREATE_QUOTES.map(function(q){ return tog("lQuote",q,q); }).join("")+'</div>'+
+          '<div><label>Quote</label><div class="toggle">'+CREATE_QUOTES.map(function(q){
+            const on = state.lQuote === q;
+            var klass = "pill"+(on?" on":"");
+            if (q === "XAGM") klass += " quote-xagm";
+            if (q === "XAUM") klass += " quote-xaum";
+            return '<button type="button" class="'+klass+'" data-set="lQuote" data-val="'+q+'">'+q+'</button>';
+          }).join("")+'</div>'+
             '<div style="font-size:12px;color:var(--muted);margin-top:6px">'+quoteRec(state.lQuote).what+'. TOKEN/'+state.lQuote+'. Starting market cap ≈ $500, same for every quote. No '+state.lQuote+' required for LP.</div></div>'+
           '<div><label>First buy · SUI</label><input id="l-first-buy" inputmode="decimal" placeholder="1" value="'+escAttr(state.lFirstBuy)+'"></div>'+
             '<div id="l-first-buy-preview" style="font-size:13px;color:var(--text);margin-top:6px">'+escHtml(firstBuyPreview())+'</div>'+
