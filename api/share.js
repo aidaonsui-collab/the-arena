@@ -77,7 +77,7 @@ async function findLaunch(sym) {
   return null;
 }
 
-function htmlPage({ title, description, image, url, dest, imageType }) {
+function htmlPage({ origin, title, description, image, url, dest, imageType }) {
   const type = imageType || (/\.png(\?|$)/i.test(image) ? "image/png" : "image/jpeg");
   return `<!DOCTYPE html>
 <html lang="en">
@@ -107,9 +107,12 @@ function htmlPage({ title, description, image, url, dest, imageType }) {
 <meta name="twitter:image:alt" content="${esc(title)}">
 <link rel="canonical" href="${esc(url)}">
 <link rel="image_src" href="${esc(image)}">
+<link rel="icon" href="${esc(origin)}/brand/favicon.png" type="image/png">
 </head>
-<body style="background:#120814;color:#F4EEF2;font-family:sans-serif;padding:40px">
+<body style="background:#120814;color:#F4EEF2;font-family:sans-serif;padding:40px;max-width:720px">
 <img src="${esc(image)}" alt="${esc(title)}" width="1200" height="630" style="max-width:100%;height:auto;border-radius:16px">
+<h1 style="font-size:28px;margin:24px 0 8px">${esc(title)}</h1>
+<p style="color:#A898A8">${esc(description)}</p>
 <p><a href="${esc(dest)}" style="color:#FF2EA6">${esc(title)} on Vice</a></p>
 </body>
 </html>`;
@@ -121,18 +124,20 @@ async function page(request) {
   const sym = String(t).trim().toUpperCase().slice(0, 12);
   if (!sym) {
     return htmlPage({
+      origin,
       title: "Vice — Fair launches on Sui",
       description: "Instant DEX launches. Pair with SUI or RWAs.",
-      image: origin + "/og.jpg",
-      url: origin + "/",
+      image: origin + "/og.png",
+      url: origin,
       dest: "/",
-      imageType: "image/jpeg",
+      imageType: "image/png",
     });
   }
   const launch = await findLaunch(sym);
   const name = (launch && launch.name) || sym;
   const quote = (launch && launch.quote) || "SUI";
   return htmlPage({
+    origin,
     title: "$" + sym + " — " + name + " | Vice",
     description: "Instant · Trade in " + quote + " · vicefun.com",
     image: origin + "/card/" + encodeURIComponent(sym) + ".jpg",
