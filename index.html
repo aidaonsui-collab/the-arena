@@ -161,7 +161,7 @@ main{padding:18px 0 72px}
 .stat{background:var(--card);border-radius:20px;padding:14px 16px;box-shadow:var(--shadow)}
 .stat .k{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
 .stat .v{font-size:18px;font-weight:650;margin-top:6px;font-variant-numeric:tabular-nums}
-.tv-host{height:580px;width:100%;position:relative;background:#1C1D21;border-radius:0;overflow:hidden}
+.tv-host{height:320px;width:100%;position:relative;background:#1C1D21;border-radius:0;overflow:hidden}
 .chart-pending{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:13px}
 .chart-card{padding:0;overflow:hidden}
 .tv-host iframe,.tv-host svg.local-chart{border:0;display:block;width:100%;height:100%}
@@ -394,7 +394,7 @@ html.shot,html.shot *{animation:none!important;transition:none!important}
   .night-hero{width:calc(100% - 20px);min-height:420px}
   .night-hero-copy{padding:24px}
   .kbd{display:none}
-  .tv-host{height:460px}
+  .tv-host{height:240px}
   .explore-head h1{font-size:26px}
   .footer{padding:22px}
   .pit-right{text-align:left}
@@ -1763,19 +1763,36 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       return;
     }
     var w = Math.max(320, host.clientWidth || 640);
-    var h = Math.max(220, host.clientHeight || 420);
+    var h = Math.max(180, host.clientHeight || 320);
     var padL = 12, padR = 64, padT = 18, padB = 20;
-    var min = candles[0].low, max = candles[0].high;
-    candles.forEach(function(c){ if (c.low < min) min = c.low; if (c.high > max) max = c.high; });
-    if (!(max > min)) max = min + (min ? min * 0.001 : 1e-9);
+    var closes = candles.map(function(c){ return c.close; }).filter(function(p){ return p > 0; }).sort(function(a,b){ return a-b; });
+    var mid = closes.length ? closes[Math.floor(closes.length/2)] : candles[candles.length-1].close;
+    var min = mid, max = mid;
+    candles.forEach(function(c){
+      [c.open, c.close, c.low, c.high].forEach(function(p){
+        if (!(p > 0)) return;
+        if (p < mid / 6 || p > mid * 6) return;
+        if (p < min) min = p;
+        if (p > max) max = p;
+      });
+    });
+    if (!(max > min)) { min = mid * 0.98; max = mid * 1.02; }
+    var pad = (max - min) * 0.12;
+    min -= pad; max += pad;
+    if (min <= 0) min = max * 0.001;
     var innerW = w - padL - padR;
     var innerH = h - padT - padB;
-    var gap = innerW / candles.length;
-    var bw = Math.max(2, gap * 0.62);
-    function yy(p){ return padT + (max - p) / (max - min) * innerH; }
+    var slots = Math.max(candles.length, 36);
+    var gap = innerW / slots;
+    var bw = Math.max(2, Math.min(9, gap * 0.62));
+    var start = slots - candles.length;
+    function yy(p){
+      var x = Math.min(max, Math.max(min, p));
+      return padT + (max - x) / (max - min) * innerH;
+    }
     var parts = [];
     candles.forEach(function(c, i){
-      var cx = padL + (i + 0.5) * gap;
+      var cx = padL + (start + i + 0.5) * gap;
       var up = c.close >= c.open;
       var col = up ? "#298DFF" : "#FF6640";
       parts.push('<line x1="'+cx+'" x2="'+cx+'" y1="'+yy(c.high)+'" y2="'+yy(c.low)+'" stroke="'+col+'" stroke-width="1.2"/>');
