@@ -10,6 +10,14 @@ const JPG_HEADERS = {
   "cache-control": "public, s-maxage=600, stale-while-revalidate=86400",
 };
 
+const W = 1200;
+const H = 630;
+const LEFT = 630;
+const BG = [18, 8, 20];
+const PINK = [255, 46, 166];
+const INK = [244, 238, 242];
+const MUTED = [168, 152, 168];
+
 function originOf(request) {
   const host = (request.headers.get("x-forwarded-host") || request.headers.get("host") || "vicefun.com")
     .split(",")[0]
@@ -31,9 +39,17 @@ function typeNameOf(v) {
   return String(v);
 }
 
-async function findToken(sym) {
+function quoteLabel(v) {
+  const s = typeNameOf(v);
+  if (/usdy/i.test(s)) return "USDY";
+  if (/xagm/i.test(s)) return "XAGM";
+  if (/xaum/i.test(s)) return "XAUM";
+  return "SUI";
+}
+
+async function findLaunch(sym) {
   const want = String(sym || "").toUpperCase();
-  if (!want) return "";
+  if (!want) return null;
   const q =
     "query($t:String!){ events(first:50, filter:{ type:$t }){ nodes { contents { json } } } }";
   for (const pkg of EVENT_PKGS) {
@@ -47,11 +63,18 @@ async function findToken(sym) {
       const nodes = (j && j.data && j.data.events && j.data.events.nodes) || [];
       for (const n of nodes) {
         const p = (n.contents && n.contents.json) || {};
-        if (String(p.symbol || "").toUpperCase() === want) return typeNameOf(p.token);
+        if (String(p.symbol || "").toUpperCase() === want) {
+          return {
+            symbol: want,
+            name: p.name || want,
+            token: typeNameOf(p.token),
+            quote: quoteLabel(p.quote),
+          };
+        }
       }
     } catch (e) {}
   }
-  return "";
+  return { symbol: want, name: want, token: "", quote: "SUI" };
 }
 
 async function coinIcon(type) {
@@ -75,14 +98,25 @@ async function fetchBuf(url) {
   try {
     const r = await fetch(url);
     if (!r.ok) return null;
-    const ct = (r.headers.get("content-type") || "").toLowerCase();
     const buf = Buffer.from(await r.arrayBuffer());
     if (buf.length < 32 || buf.length > 3500000) return null;
-    const jpegish = ct.includes("jpeg") || ct.includes("jpg") || (buf[0] === 0xff && buf[1] === 0xd8);
-    return { buf, jpeg: jpegish };
+    const jpeg = buf[0] === 0xff && buf[1] === 0xd8;
+    const png = buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4e && buf[3] === 0x47;
+    return { buf, jpeg, png };
   } catch (e) {
     return null;
   }
+}
+
+function fillCanvas(color) {
+  const data = new Uint8Array(W * H * 4);
+  for (let i = 0; i < W * H; i++) {
+    data[i * 4] = color[0];
+    data[i * 4 + 1] = color[1];
+    data[i * 4 + 2] = color[2];
+    data[i * 4 + 3] = 255;
+  }
+  return { width: W, height: H, data };
 }
 
 function coverBlit(dst, src, dx, dy, size) {
@@ -93,10 +127,12 @@ function coverBlit(dst, src, dx, dy, size) {
   const sy0 = (src.height - sh) / 2;
   for (let y = 0; y < size; y++) {
     const sy = Math.min(src.height - 1, Math.max(0, Math.floor(sy0 + y / scale)));
+    const dstRow = (dy + y) * dst.width;
+    const srcRow = sy * src.width;
     for (let x = 0; x < size; x++) {
       const sx = Math.min(src.width - 1, Math.max(0, Math.floor(sx0 + x / scale)));
-      const si = (sy * src.width + sx) * 4;
-      const di = ((dy + y) * dst.width + (dx + x)) * 4;
+      const si = (srcRow + sx) * 4;
+      const di = (dstRow + dx + x) * 4;
       dst.data[di] = src.data[si];
       dst.data[di + 1] = src.data[si + 1];
       dst.data[di + 2] = src.data[si + 2];
@@ -105,55 +141,135 @@ function coverBlit(dst, src, dx, dy, size) {
   }
 }
 
-function strokeRect(dst, x, y, size, rgb, w) {
-  const r = rgb[0], g = rgb[1], b = rgb[2];
-  function px(px, py) {
-    if (px < 0 || py < 0 || px >= dst.width || py >= dst.height) return;
-    const i = (py * dst.width + px) * 4;
-    dst.data[i] = r;
-    dst.data[i + 1] = g;
-    dst.data[i + 2] = b;
-    dst.data[i + 3] = 255;
-  }
-  for (let t = 0; t < w; t++) {
-    for (let i = 0; i < size; i++) {
-      px(x + i, y + t);
-      px(x + i, y + size - 1 - t);
-      px(x + t, y + i);
-      px(x + size - 1 - t, y + i);
+function blitGlyph(dst, atlas, g, dx, dy, rgb) {
+  for (let y = 0; y < g.h; y++) {
+    const py = dy + y;
+    if (py < 0 || py >= dst.height) continue;
+    for (let x = 0; x < g.w; x++) {
+      const px = dx + x;
+      if (px < 0 || px >= dst.width) continue;
+      const si = ((g.y + y) * atlas.width + (g.x + x)) * 4;
+      const a = atlas.data[si + 3] / 255;
+      if (a < 0.04) continue;
+      const di = (py * dst.width + px) * 4;
+      const ia = 1 - a;
+      dst.data[di] = Math.round(rgb[0] * a + dst.data[di] * ia);
+      dst.data[di + 1] = Math.round(rgb[1] * a + dst.data[di + 1] * ia);
+      dst.data[di + 2] = Math.round(rgb[2] * a + dst.data[di + 2] * ia);
     }
   }
 }
 
-async function strip(origin) {
-  const r = await fetch(origin + "/brand/og.jpg");
-  if (!r.ok) throw new Error("og.jpg");
+function measure(font, str, tracking) {
+  tracking = tracking || 0;
+  const glyphs = font.glyphs;
+  let w = 0;
+  for (const ch of str) {
+    const g = glyphs[ch] || glyphs["?"];
+    if (!g) continue;
+    w += g.adv + tracking;
+  }
+  return w;
+}
+
+function drawText(dst, atlas, font, str, x, y, rgb, tracking) {
+  tracking = tracking || 0;
+  const glyphs = font.glyphs;
+  let cx = x;
+  for (const ch of str) {
+    const g = glyphs[ch] || glyphs["?"];
+    if (!g) continue;
+    blitGlyph(dst, atlas, g, Math.round(cx), Math.round(y + (g.top || 0)), rgb);
+    cx += g.adv + tracking;
+  }
+  return cx;
+}
+
+function fitText(font, str, maxW, tracking) {
+  if (measure(font, str, tracking) <= maxW) return str;
+  const ell = "...";
+  let s = str;
+  while (s.length && measure(font, s + ell, tracking) > maxW) s = s.slice(0, -1);
+  return s + ell;
+}
+
+let assets;
+async function loadAssets(origin, jpeg, PNG) {
+  if (assets) return assets;
+  const [fontPng, fontJson] = await Promise.all([
+    fetchBuf(origin + "/brand/og-font.png"),
+    fetch(origin + "/brand/og-font.json").then(function (r) { return r.ok ? r.json() : null; }),
+  ]);
+  if (!fontPng || !fontPng.png || !fontJson || !PNG) return null;
+  const atlas = PNG.sync.read(fontPng.buf);
+  assets = { atlas: { width: atlas.width, height: atlas.height, data: atlas.data }, fonts: fontJson };
+  return assets;
+}
+
+async function decodeAny(file, jpeg, PNG) {
+  if (!file) return null;
+  if (file.jpeg && jpeg && jpeg.decode) {
+    const im = jpeg.decode(file.buf, { useTArray: true });
+    return { width: im.width, height: im.height, data: im.data };
+  }
+  if (file.png && PNG && PNG.sync) {
+    const im = PNG.sync.read(file.buf);
+    return { width: im.width, height: im.height, data: im.data };
+  }
+  return null;
+}
+
+async function homeJpg(origin) {
+  const r = await fetch(origin + "/brand/share-home.jpg");
+  if (!r.ok) throw new Error("share-home");
   return new Response(r.body, { headers: JPG_HEADERS });
 }
 
 async function render(request) {
   const origin = originOf(request);
-  const jpegMod = await import("jpeg-js");
-  const jpeg = jpegMod.default && jpegMod.default.decode ? jpegMod.default : jpegMod;
   const t = new URL(request.url).searchParams.get("t") || "";
   const sym = String(t).trim().toUpperCase().slice(0, 12);
-  const bgFile = await fetchBuf(origin + "/brand/og.jpg");
-  if (!bgFile) return strip(origin);
-  if (!sym) return new Response(bgFile.buf, { headers: JPG_HEADERS });
+  if (!sym) return homeJpg(origin);
 
-  const type = await findToken(sym);
-  const icon = type ? await coinIcon(type) : "";
+  const jpegMod = await import("jpeg-js");
+  const jpeg = jpegMod.default && jpegMod.default.decode ? jpegMod.default : jpegMod;
+  let PNG = null;
+  try {
+    const pngMod = await import("pngjs");
+    PNG = pngMod.PNG || (pngMod.default && pngMod.default.PNG) || pngMod.default;
+  } catch (e) {}
+
+  const launch = await findLaunch(sym);
+  const name = (launch && launch.name) || sym;
+  const quote = (launch && launch.quote) || "SUI";
+  const icon = launch && launch.token ? await coinIcon(launch.token) : "";
   const pfpFile = await fetchBuf(icon);
-  if (!pfpFile || !pfpFile.jpeg || !jpeg.decode) return new Response(bgFile.buf, { headers: JPG_HEADERS });
+  const pfp = await decodeAny(pfpFile, jpeg, PNG);
+  const pack = await loadAssets(origin, jpeg, PNG);
+  const dst = fillCanvas(BG);
+  if (pfp) coverBlit(dst, pfp, 0, 0, LEFT);
 
-  const bg = jpeg.decode(bgFile.buf, { useTArray: true });
-  const pfp = jpeg.decode(pfpFile.buf, { useTArray: true });
-  const size = 248;
-  const dx = 64;
-  const dy = Math.floor((bg.height - size) / 2);
-  coverBlit(bg, pfp, dx, dy, size);
-  strokeRect(bg, dx - 4, dy - 4, size + 8, [255, 46, 166], 4);
-  const out = jpeg.encode(bg, 84);
+  const x = LEFT + 52;
+  const maxW = W - x - 40;
+  if (pack) {
+    const label = pack.fonts.label;
+    const ticker = pack.fonts.ticker;
+    const nameF = pack.fonts.name;
+    const sub = pack.fonts.sub;
+    const tickerStr = fitText(ticker, "$" + sym, maxW, 0);
+    const nameStr = fitText(nameF, String(name), maxW, 0);
+    const subStr = fitText(sub, "Instant  ·  Trade in " + quote + "  ·  vicefun.com", maxW, 0);
+    let y = 150;
+    drawText(dst, pack.atlas, label, "VICE", x, y, PINK, 3);
+    y += 44;
+    drawText(dst, pack.atlas, ticker, tickerStr, x, y, INK, 0);
+    y += 86;
+    drawText(dst, pack.atlas, nameF, nameStr, x, y, MUTED, 0);
+    y += 58;
+    drawText(dst, pack.atlas, sub, subStr, x, y, MUTED, 0);
+  }
+
+  const out = jpeg.encode(dst, 86);
   return new Response(out.data, { headers: JPG_HEADERS });
 }
 
@@ -163,9 +279,9 @@ export async function GET(request) {
     return await render(request);
   } catch (e) {
     try {
-      return await strip(origin);
+      return await homeJpg(origin);
     } catch (e2) {
-      return Response.redirect(origin + "/brand/og.jpg?v=2", 302);
+      return Response.redirect(origin + "/brand/share-home.jpg", 302);
     }
   }
 }

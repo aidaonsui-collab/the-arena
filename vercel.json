@@ -6,7 +6,7 @@
         {
           "type": "header",
           "key": "user-agent",
-          "value": ".*(Twitterbot|TelegramBot|facebookexternalhit|Facebot|Slackbot|Slack-ImgProxy|Discordbot|WhatsApp|LinkedInBot|Pinterest|Googlebot|Google-InspectionTool|bingbot|Embedly|Iframely|redditbot|Applebot|SkypeUriPreview|vkShare|BitlyBot|Snapchat|Viber).*"
+          "value": ".*(Twitterbot|TelegramBot|WebpageBot|facebookexternalhit|Facebot|Slackbot|Slack-ImgProxy|Discordbot|WhatsApp|LinkedInBot|Pinterest|Googlebot|Google-InspectionTool|bingbot|Embedly|Iframely|redditbot|Applebot|SkypeUriPreview|vkShare|BitlyBot|Snapchat|Viber).*"
         }
       ],
       "destination": "/api/share"
@@ -17,7 +17,7 @@
         {
           "type": "header",
           "key": "user-agent",
-          "value": ".*(Twitterbot|TelegramBot|facebookexternalhit|Facebot|Slackbot|Slack-ImgProxy|Discordbot|WhatsApp|LinkedInBot|Pinterest|Googlebot|Google-InspectionTool|bingbot|Embedly|Iframely|redditbot|Applebot|SkypeUriPreview|vkShare|BitlyBot|Snapchat|Viber).*"
+          "value": ".*(Twitterbot|TelegramBot|WebpageBot|facebookexternalhit|Facebot|Slackbot|Slack-ImgProxy|Discordbot|WhatsApp|LinkedInBot|Pinterest|Googlebot|Google-InspectionTool|bingbot|Embedly|Iframely|redditbot|Applebot|SkypeUriPreview|vkShare|BitlyBot|Snapchat|Viber).*"
         }
       ],
       "destination": "/api/share?t=:sym"

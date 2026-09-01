@@ -4,21 +4,21 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Vice — Fair launches on Sui</title>
-<meta name="description" content="Straight to DEX launches. Pair with Sui or RWA's">
+<meta name="description" content="Instant DEX launches. Pair with SUI or RWAs.">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Vice">
-<meta property="og:title" content="Vice">
-<meta property="og:description" content="Straight to DEX launches. Pair with Sui or RWA's">
-<meta property="og:image" content="https://vicefun.com/brand/og.jpg?v=2">
-<meta property="og:image:secure_url" content="https://vicefun.com/brand/og.jpg?v=2">
+<meta property="og:title" content="Vice — Fair launches on Sui">
+<meta property="og:description" content="Instant DEX launches. Pair with SUI or RWAs.">
+<meta property="og:image" content="https://vicefun.com/brand/share-home.jpg">
+<meta property="og:image:secure_url" content="https://vicefun.com/brand/share-home.jpg">
 <meta property="og:image:type" content="image/jpeg">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta property="og:url" content="https://vicefun.com/">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Vice">
-<meta name="twitter:description" content="Straight to DEX launches. Pair with Sui or RWA's">
-<meta name="twitter:image" content="https://vicefun.com/brand/og.jpg?v=2">
+<meta name="twitter:title" content="Vice — Fair launches on Sui">
+<meta name="twitter:description" content="Instant DEX launches. Pair with SUI or RWAs.">
+<meta name="twitter:image" content="https://vicefun.com/brand/share-home.jpg">
 <meta name="twitter:image:width" content="1200">
 <meta name="twitter:image:height" content="630">
 <link rel="canonical" href="https://vicefun.com/">
@@ -3192,14 +3192,14 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     if (tk && tk.missing) tk = null;
     var title, desc, image, url;
     if (tk && tk.t){
-      title = (tk.n || tk.t) + " (" + tk.t + ")";
-      desc = tk.t + " / " + poolQuote(tk) + " on Vice. Straight to DEX launches.";
+      title = "$" + tk.t + " — " + (tk.n || tk.t) + " | Vice";
+      desc = "Instant · Trade in " + poolQuote(tk) + " · vicefun.com";
       image = origin + "/og/" + encodeURIComponent(tk.t) + ".jpg";
       url = origin + "/t/" + encodeURIComponent(tk.t);
     } else {
       title = "Vice — Fair launches on Sui";
-      desc = "Straight to DEX launches. Pair with Sui or RWA's";
-      image = origin + "/brand/og.jpg?v=2";
+      desc = "Instant DEX launches. Pair with SUI or RWAs.";
+      image = origin + "/brand/share-home.jpg";
       url = origin + "/";
     }
     document.title = title;

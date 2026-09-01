@@ -1,7 +1,7 @@
 import { rewrite } from "@vercel/functions";
 
 const BOT =
-  /Twitterbot|TelegramBot|facebookexternalhit|Facebot|Slackbot|Slack-ImgProxy|Discordbot|WhatsApp|LinkedInBot|Pinterest|Googlebot|Google-InspectionTool|bingbot|Embedly|Iframely|redditbot|Applebot|SkypeUriPreview|vkShare|BitlyBot|Snapchat|Viber/i;
+  /Twitterbot|TelegramBot|WebpageBot|facebookexternalhit|Facebot|Slackbot|Slack-ImgProxy|Discordbot|WhatsApp|LinkedInBot|Pinterest|Googlebot|Google-InspectionTool|bingbot|Embedly|Iframely|redditbot|Applebot|SkypeUriPreview|vkShare|BitlyBot|Snapchat|Viber/i;
 
 export const config = {
   matcher: ["/", "/index.html", "/t/:path*"],

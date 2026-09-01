@@ -121,8 +121,8 @@ async function page(request) {
   if (!sym) {
     return htmlPage({
       title: "Vice — Fair launches on Sui",
-      description: "Straight to DEX launches. Pair with Sui or RWA's",
-      image: origin + "/brand/og.jpg?v=2",
+      description: "Instant DEX launches. Pair with SUI or RWAs.",
+      image: origin + "/brand/share-home.jpg",
       url: origin + "/",
       dest: "/",
       imageType: "image/jpeg",
@@ -132,8 +132,8 @@ async function page(request) {
   const name = (launch && launch.name) || sym;
   const quote = (launch && launch.quote) || "SUI";
   return htmlPage({
-    title: name + " (" + sym + ")",
-    description: sym + " / " + quote + " on Vice. Straight to DEX launches.",
+    title: "$" + sym + " — " + name + " | Vice",
+    description: "Instant · Trade in " + quote + " · vicefun.com",
     image: origin + "/og/" + encodeURIComponent(sym) + ".jpg",
     url: origin + "/t/" + encodeURIComponent(sym),
     dest: "/t/" + encodeURIComponent(sym),
