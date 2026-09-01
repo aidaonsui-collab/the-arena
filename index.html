@@ -112,8 +112,8 @@ main{padding:18px 0 72px}
 .pit-kicker{font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
 .pit-pot{font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:clamp(22px,3.2vw,32px);line-height:1;margin-top:4px;font-weight:500;letter-spacing:-.04em}
 .pit-right{text-align:right}
-.launches{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
-.lcard{background:var(--card);border-radius:14px;padding:0;border:1px solid rgba(255,255,255,.08);box-shadow:none;cursor:pointer;min-width:0;transition:border-color .18s;display:flex;flex-direction:column;gap:0;overflow:hidden}
+.launches{display:grid;grid-template-columns:repeat(auto-fill,minmax(196px,1fr));gap:12px}
+.lcard{background:var(--card);border-radius:16px;padding:8px 8px 6px;border:1px solid rgba(255,255,255,.08);box-shadow:none;cursor:pointer;min-width:0;transition:border-color .18s;display:flex;flex-direction:column;gap:0;overflow:hidden}
 .lcard:hover{border-color:rgba(255,46,166,.4)}
 
 .lcard-art img,.avatar img{width:100%;height:100%;object-fit:cover;display:block}
@@ -122,10 +122,10 @@ main{padding:18px 0 72px}
 .art-preview img{width:100%;height:100%;object-fit:cover}
 .art-field input[type=file]{font-size:13px;color:var(--muted)}
 .art-note{font-size:12px;color:var(--muted);margin-top:6px}
-.lcard-art{position:relative;aspect-ratio:1;border-radius:0;overflow:hidden;display:grid;place-items:center}
-.lcard-art .art-letter{font-family:"Instrument Serif",Georgia,serif;font-size:42px;line-height:1;color:rgba(255,255,255,.92);letter-spacing:-.04em}
+.lcard-art{position:relative;aspect-ratio:1;border-radius:12px;overflow:hidden;display:grid;place-items:center}
+.lcard-art .art-letter{font-family:"Instrument Serif",Georgia,serif;font-size:36px;line-height:1;color:rgba(255,255,255,.92);letter-spacing:-.04em}
 .lcard-art .chip{position:absolute;top:6px;left:6px;margin:0;background:rgba(11,12,16,.62);backdrop-filter:blur(8px);color:#fff;font-size:10px;padding:2px 6px}
-.lcard-body{padding:8px 9px 9px;border-top:1px solid var(--line)}
+.lcard-body{padding:8px 4px 4px;border-top:0}
 .lcard-row{display:flex;justify-content:space-between;align-items:baseline;gap:8px;min-width:0}
 .lcard-row + .lcard-row{margin-top:2px}
 .lcard .feat-name{font-size:13px;font-weight:650}
@@ -389,14 +389,12 @@ html[data-route="launch"] main,html[data-route="token"] main,html[data-route="me
 html.shot,html.shot *{animation:none!important;transition:none!important}
 @media (max-width:1100px){
   .featured{grid-template-columns:repeat(4,minmax(0,1fr))}
-  .launches{grid-template-columns:repeat(3,minmax(0,1fr))}
 }
 @media (max-width:860px){
   .split,.grid-2,.footer,.stats{grid-template-columns:1fr}
   .split{grid-template-areas:"main" "ticket"}
   .ticket{position:static}
   .featured{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
-  .launches{grid-template-columns:repeat(2,minmax(0,1fr))}
   .lcard-art{aspect-ratio:1}
   .row{grid-template-columns:24px 1fr 64px auto; }
   .row .spark,.row .st-col{display:none}
@@ -411,8 +409,8 @@ html.shot,html.shot *{animation:none!important;transition:none!important}
   .btn-create{flex:none;padding:12px 14px}
   .featured{grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
   .launches{gap:8px;grid-template-columns:1fr}
-  .lcard{flex-direction:row;align-items:stretch}
-  .lcard-art{aspect-ratio:1;width:92px;flex:none}
+  .lcard{flex-direction:row;align-items:stretch;padding:0}
+  .lcard-art{aspect-ratio:1;width:92px;flex:none;border-radius:0}
   .lcard-art .art-letter{font-size:28px}
   .lcard-body{flex:1;border-top:0;border-left:1px solid var(--line);display:flex;flex-direction:column;justify-content:center;padding:10px 12px;min-width:0}
   .lcard .feat-name{font-size:15px}
