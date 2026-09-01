@@ -268,6 +268,8 @@ a.btn-trade{display:block;text-align:center;text-decoration:none;box-sizing:bord
 .holder-row{display:grid;grid-template-columns:28px minmax(0,1fr) minmax(48px,auto) minmax(64px,auto);gap:8px;align-items:center;padding:10px 2px;border-bottom:1px solid var(--line)}
 .holder-row .tape-sz{font-size:14px}
 .holder-who{min-width:0}
+.holder-who a{color:var(--ink);text-decoration:none}
+.holder-who a:hover{color:var(--sui)}
 .holder-pct{text-align:right;font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:13px;color:var(--muted)}
 .holder-amt{text-align:right}
 .holder-curve .holder-who .tape-sz{color:var(--muted);font-weight:550}
@@ -537,7 +539,8 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       var rows = T.filter(function(k){ return k && k.t && !k.missing && (k.instadex || k.bluefinPool); }).slice(-200).map(function(k){
         return {
           t: k.t, n: k.n, q: k.q, b: k.b || "", token: k.token, bluefinPool: k.bluefinPool, lockId: k.lockId,
-          img: k.img || "", ts: k.ts || 0, born: k.born || 0, twitter: k.twitter || "", telegram: k.telegram || "", website: k.website || ""
+          img: k.img || "", ts: k.ts || 0, born: k.born || 0, twitter: k.twitter || "", telegram: k.telegram || "", website: k.website || "",
+          creator: k.creator || ""
         };
       });
       localStorage.setItem(LAUNCH_CACHE_KEY, JSON.stringify(rows));
@@ -559,6 +562,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
           q: l.q || "SUI", c: "#298DFF", born: l.born || l.ts || 0, ts: l.ts || 0, instadex: true, graduated: true,
           lpLocked: true, bluefin: true, bluefinPool: l.bluefinPool || "", lockId: l.lockId || "", token: l.token,
           img: l.img || "", twitter: l.twitter || "", telegram: l.telegram || "", website: l.website || "",
+          creator: l.creator || "",
           buckets: Array(12).fill(1), fbuckets: Array(12).fill(1)
         });
       });
@@ -2263,6 +2267,12 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     if (a.length <= 12) return a;
     return a.slice(0,6)+"…"+a.slice(-4);
   }
+  function accountUrl(a){
+    a = String(a || "");
+    if (!a || a.indexOf("…") >= 0) return "";
+    if (a.indexOf("0x") !== 0) a = "0x" + a;
+    return "https://suiscan.xyz/mainnet/account/"+a;
+  }
   function agoOf(ts){
     const s = Math.max(0, (Date.now() - (ts||0))/1000);
     if (s < 8) return "now";
@@ -2504,7 +2514,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       const tok = fromMist(r.token_amount);
       map[who].bal += r.is_buy ? tok : -tok;
     });
-    const list = Object.keys(map).map(function(k){ return map[k]; }).filter(function(h){ return h.bal > 1e-9; });
+    const list = Object.keys(map).map(function(k){ return map[k]; }).filter(function(h){ return h.bal >= 1; });
     list.sort(function(a,b){ return b.bal - a.bal; });
     const curve = last ? fromMist(last.token_reserve) : 0;
     return { list: list, curve: curve > 0 ? curve : 0 };
@@ -2532,26 +2542,38 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
         '<div><div class="stat k">Claimed</div><div data-claimed style="font-size:18px;font-weight:650;margin-top:4px">'+claimed.toFixed(4)+' '+q+'</div></div>'+
       '</div></div>';
   }
-  function holderRow(rank, name, amt, pct, curve){
+  function holderRow(rank, name, amt, pct, curve, href){
+    const who = href
+      ? '<a class="tape-sz" href="'+escAttr(href)+'" target="_blank" rel="noopener">'+name+'</a>'
+      : '<div class="tape-sz">'+name+'</div>';
     return '<div class="holder-row'+(curve?" holder-curve":"")+'">'+
       '<div class="tape-sub">'+rank+'</div>'+
-      '<div class="holder-who"><div class="tape-sz">'+name+'</div></div>'+
+      '<div class="holder-who">'+who+'</div>'+
       '<div class="holder-pct">'+(pct >= 0.1 ? (pct*100).toFixed(1) : (pct*100).toFixed(2))+'%</div>'+
       '<div class="holder-amt"><div class="tape-sz">'+fmtBig(amt)+'</div></div></div>';
   }
   function holderHTML(tk){
     const pack = holdersOf(tk);
     const list = pack.list;
-    const curve = pack.curve;
-    let total = list.reduce(function(s,h){ return s + h.bal; }, 0) + curve;
+    const dex = isDexBout(tk);
+    const held = list.reduce(function(s,h){ return s + h.bal; }, 0);
+    let poolAmt = pack.curve;
+    if (dex && !(poolAmt > 0)){
+      poolAmt = Math.max(0, VIRTUAL_SUPPLY - held - (burnedOf(tk) || 0));
+    }
+    let total = held + poolAmt;
     if (!(total > 0)) total = 1;
     const refl = holderReflCard(tk);
-    if (!list.length && !(curve > 0)) return refl || '<div class="empty">No holders yet.</div>';
-    const curveRow = curve > 0 ? holderRow("—", "Bonding curve", curve, curve/total, true) : "";
+    if (!list.length && !(poolAmt > 0)) return refl || '<div class="empty">No holders yet.</div>';
+    const poolRow = poolAmt > 0 ? holderRow("—", dex ? "Locked LP" : "Bonding curve", poolAmt, poolAmt/total, true) : "";
+    const creator = String((tk && tk.creator) || "").toLowerCase();
     const rows = list.slice(0, 50).map(function(h, i){
-      return holderRow(String(i+1), shortAddr(h.address), h.bal, h.bal/total, false);
+      const addr = String(h.address || "");
+      const mine = creator && addr.toLowerCase() === creator;
+      const label = (mine ? "Creator · " : "") + shortAddr(addr);
+      return holderRow(String(i+1), label, h.bal, h.bal/total, false, accountUrl(addr));
     }).join("");
-    return refl + curveRow + rows;
+    return refl + poolRow + rows;
   }
   function tapeChip(n, label, color){
     if (!(n > 0)) return "";
@@ -3326,22 +3348,27 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       '<a class="about-link" href="'+xHref+'" target="_blank" rel="noopener">'+
         '<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.172-5.397 6.172H2.75l7.73-8.835L1.254 2.25H8.08l4.253 5.622L18.244 2.25zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>X</a>'+
       (escUrl(tk.telegram) ? '<a class="about-link" href="'+escUrl(tk.telegram)+'" target="_blank" rel="noopener">Telegram</a>' : '')+
+      (tk.creator ? '<a class="about-link" href="'+escAttr(accountUrl(tk.creator))+'" target="_blank" rel="noopener">Creator · '+escHtml(shortAddr(tk.creator))+'</a>' : '')+
       '<a class="about-link" href="'+dex+'" target="_blank" rel="noopener">Dexscreener</a>'+
       '<a class="about-link" href="'+gecko+'" target="_blank" rel="noopener">GeckoTerminal</a>'+
       '<button type="button" class="about-link" data-copy="'+escAttr(demoTypeId(tk))+'">Contract</button>'+
       '<button type="button" class="about-link" data-copy="'+(tk.bluefinPool||tk.pool||tk.t)+'">Pool</button>'+
       (tk.bluefinPool ? '<a class="about-link" href="https://trade.bluefin.io/swap?pool='+tk.bluefinPool+'" target="_blank" rel="noopener">Bluefin</a>' : '')+
       (tk.lockId ? '<button type="button" class="about-link" data-copy="'+tk.lockId+'">Vault</button>' : '');
+    const holdN = holdersOf(tk).list.length;
+    const tradeN = tapeItems(TAPE_CAP, tk.t).length;
+    const tab = state.tapeTab === "holders" ? "holders" : "trades";
     const tapeBody = dexBout
       ? '<div class="card" style="padding:18px;margin-top:12px">'+
           '<div class="tape-tabs">'+
-            '<span style="font-weight:650">Trades</span>'+
-            '<span class="count-pill tape-count">'+tapeItems(TAPE_CAP, tk.t).length+'</span></div>'+
-          '<div id="tape">'+tapeHTML(tk.t)+'</div></div>'
+            '<button type="button" class="pill'+(tab!=="holders"?" on":"")+'" data-set="tapeTab" data-val="trades">Trades</button>'+
+            '<button type="button" class="pill'+(tab==="holders"?" on":"")+'" data-set="tapeTab" data-val="holders">Holders</button>'+
+            '<span class="count-pill tape-count">'+(tab==="holders"?holdN:tradeN)+'</span></div>'+
+          '<div id="tape">'+(tab==="holders" ? (holderHTML(tk)||'<div class="empty">No holders yet.</div>') : tapeHTML(tk.t))+'</div></div>'
       : '<div class="card" style="padding:18px;margin-top:12px">'+
           '<div class="tape-tabs">'+
             '<button type="button" class="pill on" data-set="tapeTab" data-val="holders">Holders</button>'+
-            '<span class="count-pill tape-count">'+holdersOf(tk).list.length+'</span></div>'+
+            '<span class="count-pill tape-count">'+holdN+'</span></div>'+
           '<div id="tape">'+(holderHTML(tk)||'<div class="empty">No holder snapshot.</div>')+'</div></div>';
     return '<div data-screen-label="Token">'+
       '<div class="back" data-go="explore">← Explore</div>'+
@@ -3714,7 +3741,9 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     const tapeEl = $("#tape");
     if (!tapeEl) return;
     const tk = findT(state.sym);
-    if (isDexBout(tk)){
+    const dex = isDexBout(tk);
+    const holders = state.tapeTab === "holders" || !dex;
+    if (dex && !holders){
       const n = tapeItems(TAPE_CAP, tk.t).length;
       const count = document.querySelector(".tape-count");
       if (count) count.textContent = n;
@@ -3916,6 +3945,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
         born: Number(l.ts) || Date.now(), ts: Number(l.ts) || Date.now(), pool: l.pool_id || "",
         reflection: !!l.reflection,
         token: l.token,
+        creator: l.creator || "",
         virtual_quote: l.virtual_quote, virtual_token: l.virtual_token
       };
       const base = Math.max(2.4, (tk.cap || 1) / 34);
@@ -3931,6 +3961,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       tk.virtual_quote = l.virtual_quote;
       tk.virtual_token = l.virtual_token;
       if (l.token) tk.token = typeNameStr(l.token) || l.token;
+      if (l.creator) tk.creator = l.creator;
     }
     hydrateTokenMeta(tk);
     const pending = bus.bluefinLocks && bus.bluefinLocks[l.pool_id];
@@ -3975,6 +4006,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     tk.positionId = g.position_id;
     tk.mode = "Bluefin LP locked";
     tk.b = "Graduated onto Bluefin. Position vaulted 180 days.";
+    if (g.beneficiary && !tk.creator) tk.creator = g.beneficiary;
     if (state.route === "explore" || state.route === "token" || state.route === "pit") renderScreen();
   }
   var seenBurns = {};
