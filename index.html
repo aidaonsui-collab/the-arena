@@ -550,7 +550,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   const ADDR = ["0x8f2a…ab71","0xa91c…d012","0x11c0…012f","0x70bb…4410","0xcc81…e203","0x5d0e…c801","0x09ae…3290","0xbb21…aa13"];
   const ROUND_SECONDS = 96;
   const PIT_VOTE_FEE = 100000000;
-  let bshift = 0, pot = 31.94, prevPot = "", roundNo = 128, secs = ROUND_SECONDS;
+  let bshift = 0, pot = LIVE ? 0 : 31.94, prevPot = "", roundNo = 128, secs = ROUND_SECONDS;
   var pitVotes = { round: 128, list: [], tallies: {}, mine: "" };
   var pitVoteBusy = "";
   var pitVoteErr = "";
@@ -2855,10 +2855,12 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       const j = (obj && obj.json) || {};
       const potVal = pitNum(j.pot);
       if (potVal >= 0) pot = potVal / 1e9;
-      const r = pitNum(j.round);
-      if (r > 0) roundNo = r;
-      const end = pitNum(j.round_end_ms);
-      if (end > 0) secs = Math.max(0, Math.ceil((end - Date.now()) / 1000));
+      if (!LIVE){
+        const r = pitNum(j.round);
+        if (r > 0) roundNo = r;
+        const end = pitNum(j.round_end_ms);
+        if (end > 0) secs = Math.max(0, Math.ceil((end - Date.now()) / 1000));
+      }
       paintPots();
       paintClocks();
     }).catch(function(){});
@@ -3988,6 +3990,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       loadPitVotes();
       loadPitState();
     } else if (state.route === "explore" || state.route === "metrics"){
+      refreshPitObject();
       loadPitState();
     }
     paintCaps();
@@ -4035,7 +4038,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       if (px > 0) k.cap = px * VIRTUAL_SUPPLY;
       return;
     }
-    if (!gold) pot += fromMist(ev.pit_fee);
+    if (!LIVE && !gold) pot += fromMist(ev.pit_fee);
     if (gold){
       k.cap = Math.max(0.02, Math.min(0.95, k.cap + (ev.is_buy ? Math.min(0.04, amt*0.12) : -Math.min(0.03, amt*0.09))));
     } else {
@@ -5182,6 +5185,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       loadPitVotes();
       loadPitState();
     } else if ((state.route === "explore" || state.route === "metrics") && bshift % 8 === 0){
+      refreshPitObject();
       loadPitState();
       if (state.route === "explore") paintExploreList();
     }
