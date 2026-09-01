@@ -132,6 +132,12 @@ main{padding:18px 0 72px}
 .footer a:hover,.footer div[data-go]:hover{color:var(--ink)}
 .hero-card{background:var(--card);border-radius:var(--radius);padding:clamp(28px,4vw,48px);box-shadow:var(--shadow);text-align:center}
 .hero-card h1{font-family:"Bagel Fat One","Grandstander",system-ui,sans-serif;font-size:clamp(40px,8vw,88px);margin:8px 0 0;line-height:1;font-weight:400;width:fit-content;background:linear-gradient(90deg,var(--pink) 12%,var(--sui) 88%);-webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-fill-color:transparent}
+.launch-points{list-style:none;margin:16px 0 22px;padding:0;display:grid;gap:8px;max-width:52ch}
+.launch-points li{color:var(--muted);font-size:15px;line-height:1.35;padding-left:14px;position:relative}
+.launch-points li:before{content:"";position:absolute;left:0;top:.55em;width:6px;height:6px;border-radius:99px;background:var(--pink)}
+@media (min-width:720px){
+  .launch-points{grid-template-columns:1fr 1fr;gap:10px 28px;max-width:640px}
+}
 .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px}
 .split{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(280px,380px);grid-template-areas:"main ticket";gap:14px;align-items:start}
 .split>.split-main{grid-area:main}
@@ -539,9 +545,15 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     if (el) el.textContent = firstBuyPreview();
   }
   function lpBlurb(){
-    var rec = quoteRec(state.lQuote);
-    var q = rec.label;
-    return "1,000,000,000 supply, 9 decimals. All of it locks in a single-sided TOKEN/"+q+" Bluefin position. 0 "+q+" in LP. Every quote starts at the same ≈ $500 market cap. You pay 1 SUI launch fee. First buy is SUI (hopped through "+q+" if needed) so you do not need "+q+" in the wallet. The Position NFT never unlocks.";
+    var q = quoteRec(state.lQuote).label;
+    return '<ul class="launch-points">'+
+      '<li>1B supply</li>'+
+      '<li>Instant launch on Bluefin DEX</li>'+
+      '<li>Indefinite LP lock</li>'+
+      '<li>TOKEN/'+q+' · ≈ $500 start</li>'+
+      '<li>1 SUI launch fee</li>'+
+      '<li>First buy in SUI</li>'+
+    '</ul>';
   }
   var SDK_URLS = [
     "https://esm.sh/@mysten/sui@1.45.2/transactions",
@@ -2234,7 +2246,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
           '<p>Straight to DEX launches. Pair with Sui or RWA\'s</p>'+
           '<div class="hero-actions">'+
             '<button type="button" class="btn-pink" data-scroll="on-strip">Enter the strip</button>'+
-            '<button type="button" class="btn-outline" data-go="pit">Open tonight</button>'+
+            '<button type="button" class="btn-outline" data-go="launch">Launch</button>'+
           '</div></div></section>'+
       '<div class="shell strip-body">'+
         leaderTileHTML(leader)+
@@ -2545,7 +2557,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       '<div class="hero-card" style="text-align:left">'+
         '<div class="pit-kicker">Launch</div>'+
         '<h1 style="font-size:clamp(32px,6vw,56px)">Enter Vice.</h1>'+
-        '<p style="color:var(--muted);max-width:48ch">'+lpBlurb()+'</p>'+
+        lpBlurb()+
         '<div class="form-grid">'+
           '<div><label>Art</label><div class="art-field">'+
             '<div class="art-preview" id="l-art-preview">'+(state.lArtPreview?'<img src="'+escUrl(state.lArtPreview)+'" alt="">':(state.lTick?state.lTick.charAt(0):"?"))+'</div>'+
