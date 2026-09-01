@@ -26,7 +26,7 @@
   var CLAIM_REFLECTION = 0;
   var CLAIM_PIT = 1;
   var MIST = 1e9;
-  var DEFAULT_RPC = "https://fullnode.mainnet.sui.io:443";
+  var DEFAULT_RPC = "https://mainnet.suiet.app";
   var BLUEFIN_ORIGIN =
     "0x3492c874c1e3b3e2984e8c41b589e642d4d0a5d6459e5a9cfc2d52fd7c89c267";
   var BLUEFIN_ASSET_SWAP = BLUEFIN_ORIGIN + "::events::AssetSwap";
@@ -596,7 +596,7 @@
       lock_id: String(p.lock_id || ""),
       bluefin_pool_id: String(p.bluefin_pool_id || ""),
       position_id: String(p.position_id || ""),
-      token: p.token,
+      token: typeNameOf(p.token),
       quote: quoteRaw,
       quoteLabel: quoteLabel(typeNameOf(quoteRaw) || quoteRaw),
       creator: String(p.creator || ev.sender || ""),
@@ -779,9 +779,14 @@
       }
       function pullInstadex(pkg) {
         if (!pkg || pkg === "0x0") return;
-        collect(rpc, pkg + "::events::InstadexLaunchEvent", parseInstadexLaunch, 2, 50).then(function (rows) {
-          rows.forEach(emitInstadex);
-        }).catch(function () {});
+        function once(attempt) {
+          collect(rpc, pkg + "::events::InstadexLaunchEvent", parseInstadexLaunch, 2, 50).then(function (rows) {
+            rows.forEach(emitInstadex);
+          }).catch(function () {
+            if (attempt < 4) setTimeout(function () { once(attempt + 1); }, 700 * (attempt + 1));
+          });
+        }
+        once(0);
       }
       var instadexPkgs = (opts.instadexPackages || []).slice();
       if (callPkg && instadexPkgs.indexOf(callPkg) < 0) instadexPkgs.push(callPkg);

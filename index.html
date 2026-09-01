@@ -4,6 +4,20 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Vice — Fair launches on Sui</title>
+<meta name="description" content="Straight to DEX launches. Pair with Sui or RWA's">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Vice">
+<meta property="og:title" content="Vice">
+<meta property="og:description" content="Straight to DEX launches. Pair with Sui or RWA's">
+<meta property="og:image" content="https://vicefun.com/brand/og.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:url" content="https://vicefun.com/">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Vice">
+<meta name="twitter:description" content="Straight to DEX launches. Pair with Sui or RWA's">
+<meta name="twitter:image" content="https://vicefun.com/brand/og.jpg">
+<link rel="canonical" href="https://vicefun.com/">
 <link rel="icon" href="brand/favicon.png" type="image/png">
 <link rel="apple-touch-icon" href="brand/vice-mark.jpg">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -437,7 +451,7 @@ window.ARENA_PIT_SUI = "0x8ec38e9bcac0838bf474680e71d0c3f302f4ea2f757d759b7b3997
 window.ARENA_PIT_XAUM = "0xa8a391bf380914c04be5deb478474b42754a5aa8c29c0955f267d73190a98783";
 window.ARENA_PIT_USDY = window.ARENA_PIT_USDY || "";
 window.ARENA_PIT_XAGM = window.ARENA_PIT_XAGM || "";
-window.SUI_RPC = window.SUI_RPC || "https://fullnode.mainnet.sui.io:443";
+window.SUI_RPC = window.SUI_RPC || "https://mainnet.suiet.app";
 window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graphql";
 </script>
 <script src="js/indexer.js"></script>
@@ -464,6 +478,37 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   });
   const LIVE = !!(window.ARENA_PACKAGE_ID && window.ARENA_PACKAGE_ID !== "0x0");
   if (LIVE) T.splice(0, T.length);
+  var LAUNCH_CACHE_KEY = "vice-launches-v1";
+  function persistLaunches(){
+    try {
+      var rows = T.filter(function(k){ return k && k.t && !k.missing && (k.instadex || k.bluefinPool); }).slice(-200).map(function(k){
+        return {
+          t: k.t, n: k.n, q: k.q, b: k.b || "", token: k.token, bluefinPool: k.bluefinPool, lockId: k.lockId,
+          img: k.img || "", ts: k.ts || 0, born: k.born || 0, twitter: k.twitter || "", telegram: k.telegram || "", website: k.website || ""
+        };
+      });
+      localStorage.setItem(LAUNCH_CACHE_KEY, JSON.stringify(rows));
+    } catch (e) {}
+  }
+  function restoreLaunches(){
+    try {
+      var rows = JSON.parse(localStorage.getItem(LAUNCH_CACHE_KEY) || "[]");
+      if (!Array.isArray(rows)) return;
+      rows.forEach(function(l){
+        if (!l || !l.t) return;
+        var tick = String(l.t).toUpperCase();
+        if (T.some(function(k){ return k.t === tick; })) return;
+        T.push({
+          t: tick, n: l.n || tick, b: l.b || "", cap: 0, ch: 0, h: 1, st: "Instadex", mode: "Instadex",
+          q: l.q || "SUI", c: "#298DFF", born: l.born || l.ts || 0, ts: l.ts || 0, instadex: true, graduated: true,
+          lpLocked: true, bluefin: true, bluefinPool: l.bluefinPool || "", lockId: l.lockId || "", token: l.token,
+          img: l.img || "", twitter: l.twitter || "", telegram: l.telegram || "", website: l.website || "",
+          buckets: Array(12).fill(1), fbuckets: Array(12).fill(1)
+        });
+      });
+    } catch (e) {}
+  }
+  restoreLaunches();
   const GRADS = [{t:"DUNE",n:"Dune",cap:12400,c:"#C9A97E"},{t:"AXM",n:"Axiom",cap:9800,c:"#298DFF"},{t:"KRKN",n:"Kraken",cap:6100,c:"#5A6472"},{t:"ORBT",n:"Orbit",cap:3450,c:"#9A7FB0"}];
   const BELLS = [
     {t:"VOLT",n:"Voltcats",amt:34.20,ago:"1h",mode:"Holders"},
@@ -1341,6 +1386,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   let hydrating = true;
   var screenTimer = 0;
   var exploreTimer = 0;
+  var tokenMissTimer = 0;
   function scheduleScreen(){
     if (screenTimer) return;
     screenTimer = setTimeout(function(){
@@ -1898,11 +1944,15 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     return out;
   }
   function hydrateTokenMeta(tk){
-    if (!tk || tk.metaHydrated) return;
+    if (!tk || tk.missing) return;
     var t = typeNameStr(tk.token);
     if (!t || t.indexOf("::") < 0) return;
-    tk.metaHydrated = true;
+    if (tk.metaHydrated && tk.img) return;
+    if (tk.metaBusy) return;
+    tk.metaBusy = true;
     metadataFor(t).then(function(meta){
+      tk.metaBusy = false;
+      tk.metaHydrated = true;
       var parsed = parseSocials(meta.description || "");
       if (parsed.text) tk.b = parsed.text;
       tk.twitter = parsed.x || tk.twitter || "";
@@ -1911,8 +1961,9 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       if (meta.name) tk.n = meta.name;
       if (meta.icon) tk.img = meta.icon;
       if (meta.decimals != null) tk.decimals = meta.decimals;
+      persistLaunches();
       if (state.route === "token" || state.route === "explore" || state.route === "pit") scheduleScreen();
-    }).catch(function(){ tk.metaHydrated = false; });
+    }).catch(function(){ tk.metaBusy = false; tk.metaHydrated = false; });
   }
   function avatar(k, sz){
     sz = sz || 42;
@@ -2703,10 +2754,17 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   function tokenHTML(){
     const tk = findT(state.sym);
     if (tk && tk.missing){
+      if (!tokenMissTimer){
+        tokenMissTimer = setTimeout(function(){
+          tokenMissTimer = 0;
+          if (bus.sub && bus.sub.refreshInstadex) bus.sub.refreshInstadex();
+          if (state.route === "token") scheduleScreen();
+        }, 1200);
+      }
       return '<div data-screen-label="Token">'+
         '<div class="back" data-go="explore">← Explore</div>'+
         '<div class="token-head"><div><h1>'+escHtml(tk.t)+'</h1><div class="feat-tick" style="margin-top:6px">Loading pair…</div></div></div>'+
-        '<div class="card" style="padding:28px;margin-top:14px;color:var(--muted)">Waiting on the indexer for this Instadex launch. Refresh in a few seconds if this stays empty.</div>'+
+        '<div class="card" style="padding:28px;margin-top:14px;color:var(--muted)">Loading this launch. Hang on a second — no need to refresh.</div>'+
         footerHTML()+'</div>';
     }
     hydrateTokenMeta(tk);
@@ -2790,13 +2848,16 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       footerHTML()+'</div>';
   }
   function hashFor(route, sym){
+    if (route === "token") return "/t/"+encodeURIComponent(String(sym||state.sym||"").toUpperCase());
     if (route === "explore" || route === "floor" || route === "discover") return "#/";
-    if (route === "token") return "#/token/"+(sym||state.sym);
     if (route === "pit") return "#/night";
     if (route === "metrics") return "#/books";
     return "#/"+route;
   }
   function parseHash(){
+    const path = (location.pathname || "/").replace(/\/+$/, "") || "/";
+    const tm = path.match(/^\/t\/([^/]+)$/i);
+    if (tm) return {route:"token", sym: decodeURIComponent(tm[1]).toUpperCase()};
     const h = (location.hash || "#/").replace(/^#/, "");
     const parts = h.split("/").filter(Boolean);
     if (!parts.length) return {route:"explore", sym:state.sym};
@@ -3294,7 +3355,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       tk.reflection = !!l.reflection;
       tk.virtual_quote = l.virtual_quote;
       tk.virtual_token = l.virtual_token;
-      if (l.token) tk.token = l.token;
+      if (l.token) tk.token = typeNameStr(l.token) || l.token;
     }
     hydrateTokenMeta(tk);
     const pending = bus.bluefinLocks && bus.bluefinLocks[l.pool_id];
@@ -3393,7 +3454,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
         lockId: l.lock_id,
         positionId: l.position_id,
         unlockMs: l.unlock_ms,
-        token: l.token,
+        token: typeNameStr(l.token) || l.token,
         creator: l.creator,
         ts: Number(l.ts) || Date.now(),
         img: state.lArtUrl || ""
@@ -3420,18 +3481,19 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       tk.unlockMs = l.unlock_ms;
       tk.lpLocked = true;
       tk.bluefin = true;
-      if (l.token) tk.token = l.token;
       if (cap > 0) tk.cap = cap;
-      if (l.token) tk.token = l.token;
+      if (l.token) tk.token = typeNameStr(l.token) || l.token;
       if (l.creator) tk.creator = l.creator;
       if (l.ts){ tk.ts = Number(l.ts); if (!tk.born || tk.born < 1e11) tk.born = Number(l.ts); }
       if (state.lArtUrl && !tk.img) tk.img = state.lArtUrl;
     }
     hydrateTokenMeta(tk);
+    persistLaunches();
     if (bf && bus.sub && bus.sub.watchBluefinPool) bus.sub.watchBluefinPool(bf);
     if (launching && state.route === "launch") return;
     if (state.route === "token"){
-      paintLive();
+      if (String(state.sym).toUpperCase() === tk.t) scheduleScreen();
+      else paintLive();
       return;
     }
     if (state.route === "explore"){
@@ -3487,8 +3549,20 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     if (sym) state.sym = nextSym;
     hashLock = true;
     const h = hashFor(route, state.sym);
-    if ((location.hash || "#/") !== h) location.hash = h;
-    else hashLock = false;
+    if (h.charAt(0) === "#"){
+      if (/^\/t\//i.test(location.pathname)){
+        try { history.pushState({ route: route, sym: state.sym }, "", route === "explore" ? "/" : ("/" + h)); } catch (e) {}
+        if (h !== "#/") location.hash = h;
+        hashLock = false;
+      } else if ((location.hash || "#/") !== h) location.hash = h;
+      else hashLock = false;
+    } else {
+      const cur = location.pathname.replace(/\/+$/, "") || "/";
+      if (cur !== h){
+        try { history.pushState({ route: route, sym: state.sym }, "", h); } catch (e) { location.hash = "#/token/"+state.sym; }
+      }
+      hashLock = false;
+    }
     renderScreen();
   }
   function applyLiveTrade(ev){
@@ -4612,6 +4686,13 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     const p = parseHash();
     go(p.route, p.sym);
   });
+  window.addEventListener("popstate", function(){
+    if (hashLock){ hashLock = false; return; }
+    const p = parseHash();
+    state.route = p.route;
+    if (p.sym) state.sym = p.sym;
+    renderScreen();
+  });
   if (!SHOT) setInterval(function(){
     secs = secs > 0 ? secs - 1 : ROUND_SECONDS;
     if (secs === ROUND_SECONDS){
@@ -4640,7 +4721,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     bus.index = Index.demoSnapshot(T, DEMO_WALLET);
     bus.sub = Index.subscribe({
       packageId: (window.ARENA_PACKAGE_ID && window.ARENA_PACKAGE_ID !== "0x0") ? window.ARENA_PACKAGE_ID : "",
-      rpc: window.SUI_RPC || "https://fullnode.mainnet.sui.io:443",
+      rpc: window.SUI_RPC || "https://mainnet.suiet.app",
       tokens: T,
       live: !SHOT,
       demoMs: 1000,
@@ -4737,9 +4818,13 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   state.route = parsed.route;
   state.sym = parsed.sym;
   const wantHash = hashFor(state.route, state.sym);
-  if ((location.hash || "#/") !== wantHash){
-    hashLock = true;
-    location.hash = wantHash;
+  if (wantHash.charAt(0) === "#"){
+    if ((location.hash || "#/") !== wantHash){
+      hashLock = true;
+      location.hash = wantHash;
+    }
+  } else if ((location.pathname.replace(/\/+$/, "") || "/") !== wantHash){
+    try { history.replaceState({ route: state.route, sym: state.sym }, "", wantHash); } catch (e) {}
   }
   renderScreen();
 })();

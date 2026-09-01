@@ -1,0 +1,16 @@
+{
+  "rewrites": [
+    {
+      "source": "/t/:sym",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": ".*(Twitterbot|TelegramBot|facebookexternalhit|Facebot|Slackbot|Discordbot|WhatsApp|LinkedInBot|Pinterest|Googlebot|bingbot|Embedly|Iframely|redditbot|Applebot|SkypeUriPreview|vkShare|BitlyBot).*"
+        }
+      ],
+      "destination": "/api/share?t=:sym"
+    },
+    { "source": "/t/:sym", "destination": "/index.html" }
+  ]
+}
