@@ -24,6 +24,7 @@
     },
     { "source": "/og.jpg", "destination": "/api/og" },
     { "source": "/og/:sym.jpg", "destination": "/api/og?t=:sym" },
+    { "source": "/card/:sym.jpg", "destination": "/api/og?t=:sym" },
     { "source": "/t/:sym", "destination": "/index.html" }
   ],
   "headers": [

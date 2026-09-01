@@ -134,7 +134,7 @@ async function page(request) {
   return htmlPage({
     title: "$" + sym + " — " + name + " | Vice",
     description: "Instant · Trade in " + quote + " · vicefun.com",
-    image: origin + "/og/" + encodeURIComponent(sym) + ".jpg",
+    image: origin + "/card/" + encodeURIComponent(sym) + ".jpg",
     url: origin + "/t/" + encodeURIComponent(sym),
     dest: "/t/" + encodeURIComponent(sym),
     imageType: "image/jpeg",
