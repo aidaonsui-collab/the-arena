@@ -9,7 +9,7 @@ Cron jobs for The Arena launchpad. Reflection payouts **accrue on every fill** i
 | `* * * * *` | `/api/reflections` | Ingest `TradeEvent` + `ClaimEvent` (kind=0). Snapshot unpaid/claimed per holder. |
 | `*/5 * * * *` | `/api/ring` | Sign `pit::ring` when Clock >= `round_end_ms` and the previous winner is settled. |
 | `*/5 * * * *` | `/api/settle` | Instant 24h MC winner: AdminCap drains `Pit<SUI>`, hops to quote, Bluefin-buys, burns. Then leftover curve `pool::settle_pit` if an on-chain winner is pending. |
-| `*/10 * * * *` | `/api/collect` | Poke `launch::collect_instadex_fees` on every Instadex lock with accrued LP fees. Burns coin A, splits quote 60/10/30. |
+| `0 0 * * *` | `/api/collect` | Poke `launch::collect_instadex_fees` on every Instadex lock with accrued LP fees. Burns coin A, splits quote 60/10/30. Then `withdraw` (`config::withdraw_treasury` + `withdraw_platform`) into the platform wallet. |
 
 HTTP cron routes require `Authorization: Bearer $CRON_SECRET` (Vercel Cron sends this). The CLI (`npx tsx src/cli.ts …`) does not.
 
@@ -23,7 +23,7 @@ cd ~/arena-keepers/keepers
 ./install-local.sh
 ```
 
-That installs a LaunchAgent (`ai.arena.keepers`) which ticks every 5 minutes: Instant buy/burn (`instadex`), and LP `collect` about every 10 minutes. Leftover curve `ring`/`settle` stay off unless `ARENA_KEEPER_CURVE=1` in `.env.local`. Logs: `~/Library/Logs/arena-keepers.log`.
+That installs a LaunchAgent (`ai.arena.keepers`) which ticks every 5 minutes: Instant buy/burn (`instadex`) as soon as `/api/pit-state` has written the 24h MC bell. LP `collect` plus AdminCap `withdraw` of launch fees and the 10% platform bag run once every 24 hours into `0x92a32ac7…`. Leftover curve `ring`/`settle` stay off unless `ARENA_KEEPER_CURVE=1` in `.env.local`. Logs: `~/Library/Logs/arena-keepers.log`.
 
 ```
 launchctl bootout gui/$(id -u)/ai.arena.keepers   # stop
@@ -37,13 +37,19 @@ Optional `keepers/.env.local` (gitignored) if you want Past-bell tx links writte
 
 ```
 CRON_SECRET=same-value-as-the-arena-vercel-project
+ARENA_SETTLE_SECRET=same-or-dedicated-secret
+# optional; default 86400
+# ARENA_COLLECT_EVERY_S=86400
 ```
+
+`ARENA_SETTLE_SECRET` (or `CRON_SECRET`) is what POSTs the buy/burn digest onto the Fight Night bell. Without it the on-chain settle still runs; Past bells just stay unmarked.
 
 Manual one-shot (no LaunchAgent):
 
 ```
 npx tsx src/cli.ts instadex
 npx tsx src/cli.ts collect
+npx tsx src/cli.ts withdraw
 ```
 
 ## Events for the UI indexer
