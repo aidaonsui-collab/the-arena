@@ -1,8 +1,5 @@
 import { ImageResponse } from "@vercel/og";
 
-export const runtime = "edge";
-export const config = { runtime: "edge" };
-
 const GQL = process.env.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graphql";
 const RPC = process.env.SUI_RPC || "https://mainnet.suiet.app";
 const EVENT_PKGS = [
