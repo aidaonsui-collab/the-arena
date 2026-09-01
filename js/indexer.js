@@ -4,14 +4,14 @@
  * Instant fills: Bluefin AssetSwap on each Instadex pool (transactions where
  * affectedObject = bluefin_pool_id). Do not scan global AssetSwap.
  * Curve leftovers: P::events::TradeEvent + ClaimEvent (kind=0 reflection, kind=1 pit).
- * LaunchEvent.quote / index.pools[id].quote → SUI, USDY, XAGM, or leftover XAUM.
+ * LaunchEvent.quote / index.pools[id].quote → SUI, USDY, XAGM, or XAUM.
  * toCandles(trades, intervalMs) → TVBar { time: unix ms, open, high, low, close, volume }.
  * volume on candles is mist (1e9); the token page converts with fromMist for TV.
  *
  * packageId unset → demo TradeEvents so the chart still has candles.
  *
  * Instant is Pool<T,Q> (coin A = token, B = quote). a2b false = buy, true = sell.
- * Curve quote fee is 1% (100 bps). Instant Create quotes are SUI, USDY, XAGM.
+ * Curve quote fee is 1% (100 bps). Instant Create quotes are SUI, USDY, XAGM, XAUM.
  */
 (function (root) {
   "use strict";

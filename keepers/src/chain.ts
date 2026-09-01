@@ -38,8 +38,8 @@ export const XAGM_USDC_POOL =
   "0x4d3cc875e334440ad3485d4455d7ee072ea01b18c526ad64f9ebe2aa0a4f01b9";
 export const USDC_SUI_POOL =
   "0x51e883ba7c0b566a26cbc8a94cd33eb0abd418a77cc1e60ad22fd9b1f29cd2ab";
-export const XAUM_SUI_POOL =
-  "0xe80e81a24dc18b5ce708bea23dc151385df291767db4b1cccb4517105f35aa17";
+export const XAUM_USDC_POOL =
+  "0x458fc3722cc88babd7cbe78273aa5e4ecbdff75c76a2ad14cd1f75418b569649";
 export const APP_URL = (process.env.ARENA_APP_URL || "https://the-arena-vert.vercel.app").replace(/\/$/, "");
 export const XAUM =
   "0x9d297676e7a4b771ab023291377b2adfaa4938fb9080b8d12430e4b108b836a9::xaum::XAUM";

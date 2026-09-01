@@ -122,7 +122,7 @@ async function hopPrices() {
     fetch("https://api.coingecko.com/api/v3/simple/price?ids=sui&vs_currencies=usd", { cache: "no-store" }).catch(() => null),
     fetch("https://api.dexpaprika.com/networks/sui/pools/0xdcd762ad374686fa890fc4f3b9bbfe2a244e713d7bffbfbd1b9221cb290da2ed", { cache: "no-store" }).then((r) => r.json()).catch(() => null),
     fetch("https://api.dexpaprika.com/networks/sui/pools/0x4d3cc875e334440ad3485d4455d7ee072ea01b18c526ad64f9ebe2aa0a4f01b9", { cache: "no-store" }).then((r) => r.json()).catch(() => null),
-    fetch("https://api.dexpaprika.com/networks/sui/pools/0xe80e81a24dc18b5ce708bea23dc151385df291767db4b1cccb4517105f35aa17", { cache: "no-store" }).then((r) => r.json()).catch(() => null),
+    fetch("https://api.dexpaprika.com/networks/sui/pools/0x458fc3722cc88babd7cbe78273aa5e4ecbdff75c76a2ad14cd1f75418b569649", { cache: "no-store" }).then((r) => r.json()).catch(() => null),
   ]);
   let suiUsd = 0;
   try {
@@ -133,9 +133,7 @@ async function hopPrices() {
   } catch (e) {}
   const usdyUsd = Number((usdy && (usdy.last_price_usd || usdy.last_price)) || 0);
   const xagmUsd = Number((xagm && (xagm.last_price_usd || xagm.last_price)) || 0);
-  const xaumUsd = Number((xaum && xaum.last_price_usd) || 0);
-  const suiPerXaum = Number((xaum && xaum.last_price) || 0);
-  if (!(suiUsd > 0) && xaumUsd > 0 && suiPerXaum > 0) suiUsd = xaumUsd / suiPerXaum;
+  const xaumUsd = Number((xaum && (xaum.last_price_usd || xaum.last_price)) || 0);
   return {
     SUI: suiUsd,
     USDY: usdyUsd > 0 ? usdyUsd : 1,

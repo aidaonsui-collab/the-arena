@@ -17,7 +17,7 @@ import {
   XAGM,
   XAGM_USDC_POOL,
   XAUM,
-  XAUM_SUI_POOL,
+  XAUM_USDC_POOL,
   gql,
   objectFields,
 } from "../chain.ts";
@@ -200,8 +200,10 @@ export async function runSettleInstadex() {
     const usdcCoin = cetusHop(tx, usdcSui, SUI, suiCoin, leftoverTo);
     quoteCoin = bluefinHop(tx, xagmUsdc, USDC, usdcCoin, 1n, leftoverTo);
   } else if (kind === "XAUM") {
-    const xaumSui = await poolSnap(XAUM_SUI_POOL);
-    quoteCoin = bluefinHop(tx, xaumSui, SUI, suiCoin, 1n, leftoverTo);
+    const usdcSui = await poolSnap(USDC_SUI_POOL);
+    const xaumUsdc = await poolSnap(XAUM_USDC_POOL);
+    const usdcCoin = cetusHop(tx, usdcSui, SUI, suiCoin, leftoverTo);
+    quoteCoin = bluefinHop(tx, xaumUsdc, USDC, usdcCoin, 1n, leftoverTo);
   }
 
   const tokCoin = bluefinHop(tx, insta, qType, quoteCoin, 1n, leftoverTo);

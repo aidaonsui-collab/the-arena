@@ -4,8 +4,8 @@ const USDY_USDC =
   "https://api.dexpaprika.com/networks/sui/pools/0xdcd762ad374686fa890fc4f3b9bbfe2a244e713d7bffbfbd1b9221cb290da2ed";
 const XAGM_USDC =
   "https://api.dexpaprika.com/networks/sui/pools/0x4d3cc875e334440ad3485d4455d7ee072ea01b18c526ad64f9ebe2aa0a4f01b9";
-const XAUM_SUI =
-  "https://api.dexpaprika.com/networks/sui/pools/0xe80e81a24dc18b5ce708bea23dc151385df291767db4b1cccb4517105f35aa17";
+const XAUM_USDC =
+  "https://api.dexpaprika.com/networks/sui/pools/0x458fc3722cc88babd7cbe78273aa5e4ecbdff75c76a2ad14cd1f75418b569649";
 
 async function poolJson(url) {
   const r = await fetch(url, { cache: "no-store" });
@@ -26,7 +26,7 @@ export async function GET() {
   const [usdy, xagm, xaum, suiRes] = await Promise.all([
     poolJson(USDY_USDC),
     poolJson(XAGM_USDC),
-    poolJson(XAUM_SUI),
+    poolJson(XAUM_USDC),
     fetch(SUI_USD, { cache: "no-store" }).catch(function () { return null; })
   ]);
   let suiUsd = 0;
@@ -38,10 +38,9 @@ export async function GET() {
   }
   const usdyUsd = num(usdy && (usdy.last_price_usd || usdy.last_price));
   const xagmUsd = num(xagm && (xagm.last_price_usd || xagm.last_price));
-  const xaumUsd = num(xaum && xaum.last_price_usd);
-  const suiPerXaum = num(xaum && xaum.last_price);
-  if (!(suiUsd > 0) && xaumUsd > 0 && suiPerXaum > 0) suiUsd = xaumUsd / suiPerXaum;
-  if (!(usdyUsd > 0) && !(xagmUsd > 0) && !(suiUsd > 0)) {
+  const xaumUsd = num(xaum && (xaum.last_price_usd || xaum.last_price));
+  const suiPerXaum = perSui(xaumUsd, suiUsd);
+  if (!(usdyUsd > 0) && !(xagmUsd > 0) && !(xaumUsd > 0) && !(suiUsd > 0)) {
     return Response.json({ error: "hop unavailable" }, { status: 502 });
   }
   return Response.json({
@@ -49,10 +48,10 @@ export async function GET() {
     usdyUsd,
     xagmUsd,
     xaumUsd,
-    usd: usdyUsd || xagmUsd || xaumUsd,
+    usd: xaumUsd || usdyUsd || xagmUsd,
     suiPerXaum,
     suiPerUsdy: perSui(usdyUsd, suiUsd),
     suiPerXagm: perSui(xagmUsd, suiUsd),
-    source: "Cetus USDY/USDC · Bluefin XAGM/USDC · CoinGecko SUI"
+    source: "Cetus USDY/USDC · Bluefin XAGM/USDC · Bluefin XAUM/USDC · CoinGecko SUI"
   });
 }

@@ -417,7 +417,7 @@ window.ARENA_CONFIG = "0xcd527cb2389d806e5285ae708ee28df30a841ec5df7508ebfebaa0c
 window.ARENA_CLOCK = "0x6";
 window.ARENA_BLUEFIN_CONFIG = "0x03db251ba509a8d5d8777b6338836082335d93eecbdd09a11e190a1cff51c352";
 window.ARENA_BLUEFIN_SPOT = "0xd075338d105482f1527cbfd363d6413558f184dec36d9138a70261e87f486e9c";
-window.ARENA_XAUM_SUI_POOL = "0xe80e81a24dc18b5ce708bea23dc151385df291767db4b1cccb4517105f35aa17";
+window.ARENA_XAUM_USDC_POOL = "0x458fc3722cc88babd7cbe78273aa5e4ecbdff75c76a2ad14cd1f75418b569649";
 window.ARENA_SWAP_PARTNER = "0x92a32ac7fd525f8bd37ed359423b8d7d858cad26224854dfbff1914b75ee658b";
 window.ARENA_SUI_METADATA = "0x9258181f5ceac8dbffb7030890243caed69a9599d2886d957a9cb7656af3bdb3";
 window.ARENA_XAUM_TYPE = "0x9d297676e7a4b771ab023291377b2adfaa4938fb9080b8d12430e4b108b836a9::xaum::XAUM";
@@ -493,7 +493,6 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   var suiSession = { wallet: null, account: null, address: "" };
   var launching = false;
   var SevenK = null;
-  var hopPoolSnap = null;
   var swapQuoteTimer = 0;
   var swapQuoteSeq = 0;
   var swapQuote = null;
@@ -518,9 +517,9 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     SUI: { label:"SUI", type:SUI_TYPE, metadata:window.ARENA_SUI_METADATA, decimals:9, name:"Sui", what:"Native Sui", create:true, chips:["0.5","1","5","10","Max"], virtualHuman:"≈ $500", pit:window.ARENA_PIT_SUI, color:"#4DA2FF" },
     USDY: { label:"USDY", type:window.ARENA_USDY_TYPE, metadata:window.ARENA_USDY_METADATA, decimals:6, name:"Ondo US Dollar Yield", what:"Ondo tokenized US Treasury bills", create:true, chips:["1","5","10","25","Max"], virtualHuman:"≈ $500", pit:window.ARENA_PIT_USDY, color:"#3ECF8E" },
     XAGM: { label:"XAGM", type:window.ARENA_XAGM_TYPE, metadata:window.ARENA_XAGM_METADATA, decimals:9, name:"Matrixdock Silver", what:"Matrixdock silver, 1 oz", create:true, chips:["0.01","0.05","0.1","0.25","Max"], virtualHuman:"≈ $500", pit:window.ARENA_PIT_XAGM, color:"#C0C7D1" },
-    XAUM: { label:"XAUM", type:window.ARENA_XAUM_TYPE, metadata:window.ARENA_XAUM_METADATA, decimals:9, name:"Matrixdock Gold", what:"Matrixdock gold, 1 oz", create:false, chips:["0.01","0.05","0.1","0.25","Max"], virtualHuman:"≈ $500", pit:window.ARENA_PIT_XAUM, hopPool:window.ARENA_XAUM_SUI_POOL, color:"#C9A97E" }
+    XAUM: { label:"XAUM", type:window.ARENA_XAUM_TYPE, metadata:window.ARENA_XAUM_METADATA, decimals:9, name:"Matrixdock Gold", what:"Matrixdock gold, 1 oz", create:true, chips:["0.01","0.05","0.1","0.25","Max"], virtualHuman:"≈ $500", pit:window.ARENA_PIT_XAUM, color:"#C9A97E" }
   };
-  var CREATE_QUOTES = ["SUI","USDY","XAGM"];
+  var CREATE_QUOTES = ["SUI","USDY","XAGM","XAUM"];
   function quoteRec(q){
     var lab = (Index && Index.quoteLabel) ? Index.quoteLabel(q) : String(q || "SUI");
     return QUOTES[lab] || QUOTES.SUI;
@@ -2523,7 +2522,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
         '<div class="pills">'+pill("24h","metricsWindow","24h")+pill("All","metricsWindow","All")+'</div></div>'+
       '<div class="metrics-grid">'+
         '<div class="mstat"><div class="k">Volume · SUI</div><div class="v">'+fmt(m.suiVol)+'</div><div class="s">'+m.fills+' fills · '+win+'</div></div>'+
-        '<div class="mstat"><div class="k">Volume · RWA</div><div class="v">'+fmt(m.rwaVol)+'</div><div class="s">USDY · XAGM · leftover XAUM · in SUI</div></div>'+
+        '<div class="mstat"><div class="k">Volume · RWA</div><div class="v">'+fmt(m.rwaVol)+'</div><div class="s">USDY · XAGM · XAUM · in SUI</div></div>'+
         '<div class="mstat"><div class="k">Fees collected</div><div class="v">'+fmt(m.suiFee)+'</div><div class="s">1% of quote · four slices</div></div>'+
         '<div class="mstat"><div class="k">The pot</div><div class="v" data-pot>'+money(pot)+'</div><div class="s">round <span data-round>'+roundNo+'</span> · live</div></div>'+
         '<div class="mstat"><div class="k">On the curve</div><div class="v">'+m.launches+'</div><div class="s">'+m.grads+' graduated</div></div>'+
@@ -2870,6 +2869,10 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   }
   function hopPathText(tk){
     var q = poolQuote(tk);
+    if (q === "XAUM"){
+      if (state.side === "Buy") return "SUI → USDC → XAUM → " + tk.t;
+      return tk.t + " → XAUM → USDC → SUI";
+    }
     if (state.side === "Buy") return "SUI → " + q + " → " + tk.t;
     return tk.t + " → " + q + " → SUI";
   }
@@ -3854,10 +3857,11 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   }
   var cetusUsdySnap = null;
   var cetusUsdcSuiSnap = null;
-  async function loadHopPool(){
-    if (hopPoolSnap && hopPoolSnap.a) return hopPoolSnap;
-    hopPoolSnap = await poolSnap(window.ARENA_XAUM_SUI_POOL);
-    return hopPoolSnap;
+  var xaumUsdcSnap = null;
+  async function loadXaumUsdcPool(){
+    if (xaumUsdcSnap && xaumUsdcSnap.a) return xaumUsdcSnap;
+    xaumUsdcSnap = await poolSnap(window.ARENA_XAUM_USDC_POOL);
+    return xaumUsdcSnap;
   }
   async function loadUsdyUsdcPool(){
     if (cetusUsdySnap && cetusUsdySnap.a) return cetusUsdySnap;
@@ -3956,7 +3960,9 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       }
       var qLab = poolQuote(tk);
       var hops = swapNeedsHop(tk)
-        ? (state.side === "Buy" ? ["SUI → " + qLab, tk.t + " pool"] : [tk.t + " pool", qLab + " → SUI"])
+        ? (qLab === "XAUM"
+            ? (state.side === "Buy" ? ["SUI → USDC → XAUM", tk.t + " pool"] : [tk.t + " pool", "XAUM → USDC → SUI"])
+            : (state.side === "Buy" ? ["SUI → " + qLab, tk.t + " pool"] : [tk.t + " pool", qLab + " → SUI"]))
         : [tk.t + "/" + qLab];
       var hopOut = "";
       if (swapNeedsHop(tk) && state.side === "Buy" && quoteSuiAmt(1, qLab) > 0){
@@ -4078,20 +4084,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       throw new Error("No quote in the pool yet. A buy has to land first.");
     }
     var coinIn = await takeSwapCoin(tx, fromType, amount);
-    var outCoin;
-    if (swapNeedsHop(tk) && poolQuote(tk) === "XAUM"){
-      var hopP = await loadHopPool();
-      var midType = window.ARENA_XAUM_TYPE;
-      if (state.side === "Buy"){
-        var mid = bluefinHop(tx, hopP, fromType, coinIn, 0);
-        outCoin = bluefinHop(tx, insta, midType, mid, minOut);
-      } else {
-        var midSell = bluefinHop(tx, insta, fromType, coinIn, 0);
-        outCoin = bluefinHop(tx, hopP, midType, midSell, minOut);
-      }
-    } else {
-      outCoin = bluefinHop(tx, insta, fromType, coinIn, minOut);
-    }
+    var outCoin = bluefinHop(tx, insta, fromType, coinIn, minOut);
     tx.transferObjects([outCoin], suiSession.address);
     return walletExec(tx);
   }
@@ -4163,7 +4156,6 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   }
   async function swapViaQuoteHop(tk, amount, minOut){
     var q = poolQuote(tk);
-    if (q === "XAUM") return swapViaBluefin(tk, amount, minOut);
     var Transaction = await loadTransaction();
     var tx = new Transaction();
     tx.setSender(suiSession.address);
@@ -4172,10 +4164,10 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       throw new Error("No quote in the pool yet. A buy has to land first.");
     }
     var Qtype = quoteTypeOf(tk);
+    var usdc = window.ARENA_USDC_TYPE;
     var outCoin;
     if (q === "USDY"){
       var cetus = await loadUsdyUsdcPool();
-      var usdc = window.ARENA_USDC_TYPE;
       if (state.side === "Buy"){
         var suiCoin = await takeSwapCoin(tx, SUI_TYPE, amount);
         var toUsdc = await sevenkOnto(tx, suiCoin, SUI_TYPE, usdc, amount);
@@ -4189,6 +4181,21 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
         var usdcSui = await loadUsdcSuiPool();
         outCoin = cetusHop(tx, usdcSui, usdc, usdcOut);
       }
+    } else if (q === "XAUM"){
+      var xaumUsdc = await loadXaumUsdcPool();
+      if (state.side === "Buy"){
+        var suiGold = await takeSwapCoin(tx, SUI_TYPE, amount);
+        var goldUsdc = await sevenkOnto(tx, suiGold, SUI_TYPE, usdc, amount);
+        tx = goldUsdc.tx;
+        var xaumCoin = bluefinHop(tx, xaumUsdc, usdc, goldUsdc.coinOut, 0);
+        outCoin = bluefinHop(tx, insta, Qtype, xaumCoin, minOut);
+      } else {
+        var tokGold = await takeSwapCoin(tx, tokenTypeOf(tk), amount);
+        var xaumOut = bluefinHop(tx, insta, tokenTypeOf(tk), tokGold, 0);
+        var goldUsdcOut = bluefinHop(tx, xaumUsdc, Qtype, xaumOut, 0);
+        var goldUsdcSui = await loadUsdcSuiPool();
+        outCoin = cetusHop(tx, goldUsdcSui, usdc, goldUsdcOut);
+      }
     } else {
       if (state.side === "Buy"){
         var suiIn = await takeSwapCoin(tx, SUI_TYPE, amount);
@@ -4201,7 +4208,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
         var xagmUsdc = await poolSnap(window.ARENA_XAGM_USDC_POOL);
         var usdcOut = bluefinHop(tx, xagmUsdc, Qtype, qOut, 0);
         var usdcSui = await loadUsdcSuiPool();
-        outCoin = cetusHop(tx, usdcSui, window.ARENA_USDC_TYPE, usdcOut);
+        outCoin = cetusHop(tx, usdcSui, usdc, usdcOut);
       }
     }
     tx.transferObjects([outCoin], suiSession.address);
@@ -4644,9 +4651,9 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       if (usdyUsd > 0) hop.usdyUsd = usdyUsd;
       const xagmUsd = Number(d.xagmUsd);
       if (xagmUsd > 0) hop.xagmUsd = xagmUsd;
-      const xaumUsd = Number(d.xaumUsd || d.usd || d.last_price_usd);
+      const xaumUsd = Number(d.xaumUsd);
       if (xaumUsd > 0){ hop.xaumUsd = xaumUsd; hop.usd = xaumUsd; }
-      const n = Number(d.suiPerXaum || d.last_price);
+      const n = Number(d.suiPerXaum);
       if (n > 0) hop.suiPerXaum = n;
       const perUsdy = Number(d.suiPerUsdy);
       if (perUsdy > 0) hop.suiPerUsdy = perUsdy;
@@ -4654,8 +4661,9 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       const perXagm = Number(d.suiPerXagm);
       if (perXagm > 0) hop.suiPerXagm = perXagm;
       else if (hop.xagmUsd > 0 && hop.suiUsd > 0) hop.suiPerXagm = hop.xagmUsd / hop.suiUsd;
+      if (!(hop.suiPerXaum > 0) && hop.xaumUsd > 0 && hop.suiUsd > 0) hop.suiPerXaum = hop.xaumUsd / hop.suiUsd;
       if (!(hop.suiUsd > 0) && hop.xaumUsd > 0 && hop.suiPerXaum > 0) hop.suiUsd = hop.xaumUsd / hop.suiPerXaum;
-      hop.source = d.source || "Cetus USDY/USDC · Bluefin XAGM/USDC";
+      hop.source = d.source || "Cetus USDY/USDC · Bluefin XAGM/USDC · Bluefin XAUM/USDC";
       paintTicket();
       paintCaps();
       paintFirstBuyPreview();
@@ -4664,14 +4672,17 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       Promise.all([
         fetch("https://api.dexpaprika.com/networks/sui/pools/0xdcd762ad374686fa890fc4f3b9bbfe2a244e713d7bffbfbd1b9221cb290da2ed").then(function(r){ return r.json(); }),
         fetch("https://api.dexpaprika.com/networks/sui/pools/0x4d3cc875e334440ad3485d4455d7ee072ea01b18c526ad64f9ebe2aa0a4f01b9").then(function(r){ return r.json(); }),
+        fetch("https://api.dexpaprika.com/networks/sui/pools/0x458fc3722cc88babd7cbe78273aa5e4ecbdff75c76a2ad14cd1f75418b569649").then(function(r){ return r.json(); }),
         fetch("https://api.coingecko.com/api/v3/simple/price?ids=sui&vs_currencies=usd").then(function(r){ return r.json(); }).catch(function(){ return {}; })
-      ]).then(function(triple){
-        const usdy = triple[0] || {};
-        const xagm = triple[1] || {};
-        const g = triple[2] || {};
+      ]).then(function(quad){
+        const usdy = quad[0] || {};
+        const xagm = quad[1] || {};
+        const xaum = quad[2] || {};
+        const g = quad[3] || {};
         apply({
           usdyUsd: usdy.last_price_usd,
           xagmUsd: xagm.last_price_usd,
+          xaumUsd: xaum.last_price_usd,
           suiUsd: g.sui && g.sui.usd,
           source: "DexPaprika + CoinGecko"
         });
