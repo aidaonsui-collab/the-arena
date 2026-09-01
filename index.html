@@ -3047,7 +3047,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
         '<div class="mstat"><div class="k">Volume · RWA</div><div class="v">'+(m.rwaVolUsd>0?fmtUsd(m.rwaVolUsd):(m.rwaVol>0?"—":"$0"))+'</div><div class="s">USDY · XAGM · XAUM</div></div>'+
         '<div class="mstat"><div class="k">Fees collected</div><div class="v">'+fmt(m.suiFee)+'</div><div class="s">1% of quote · four slices</div></div>'+
         '<div class="mstat"><div class="k">The pot</div><div class="v" data-pot>'+money(pot)+'</div><div class="s">round <span data-round>'+roundNo+'</span> · live</div></div>'+
-        '<div class="mstat"><div class="k">On the curve</div><div class="v">'+m.launches+'</div><div class="s">'+m.grads+' graduated</div></div>'+
+        '<div class="mstat"><div class="k">Tokens launched</div><div class="v">'+m.launches+'</div><div class="s">'+m.grads+' graduated</div></div>'+
         '<div class="mstat"><div class="k">Winners paid</div><div class="v">'+m.bells+'</div><div class="s">'+fmt(m.bellPaid)+' SUI paid</div></div>'+
         '<div class="mstat"><div class="k">Pot from fills</div><div class="v">'+fmt(m.pit)+'</div><div class="s">from curve fills · Instant fees are LP collect</div></div>'+
       '</div>'+
