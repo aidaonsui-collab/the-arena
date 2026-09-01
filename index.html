@@ -18,8 +18,9 @@
 <meta name="twitter:description" content="Straight to DEX launches. Pair with Sui or RWA's">
 <meta name="twitter:image" content="https://vicefun.com/brand/og.jpg">
 <link rel="canonical" href="https://vicefun.com/">
-<link rel="icon" href="brand/favicon.png" type="image/png">
-<link rel="apple-touch-icon" href="brand/vice-mark.jpg">
+<base href="/">
+<link rel="icon" href="/brand/favicon.png" type="image/png">
+<link rel="apple-touch-icon" href="/brand/vice-mark.jpg">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bagel+Fat+One&family=Grandstander:ital,wght@1,800&family=IBM+Plex+Mono:wght@400;500&family=Instrument+Sans:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
@@ -163,7 +164,7 @@ main{padding:18px 0 72px}
 .tv-host{height:580px;width:100%;position:relative;background:#1C1D21;border-radius:0;overflow:hidden}
 .chart-pending{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:13px}
 .chart-card{padding:0;overflow:hidden}
-.tv-host iframe{border:0;display:block;width:100%;height:100%}
+.tv-host iframe,.tv-host svg.local-chart{border:0;display:block;width:100%;height:100%}
 .ticket{background:var(--card);border-radius:28px;padding:18px;box-shadow:var(--shadow);position:sticky;top:84px}
 .sides{display:flex;background:#16171A;border-radius:999px;padding:4px}
 .sides>div{flex:1;text-align:center;padding:10px;border-radius:999px;font-weight:650;cursor:pointer;color:var(--muted)}
@@ -405,7 +406,7 @@ html.shot,html.shot *{animation:none!important;transition:none!important}
 <header class="topbar">
   <div class="shell topbar-inner">
     <div class="brand" data-go="explore">
-      <img class="brand-mark" src="brand/vice-mark.jpg" width="36" height="36" alt="">
+      <img class="brand-mark" src="/brand/vice-mark.jpg" width="36" height="36" alt="">
       <span class="brand-name">vice.</span>
     </div>
     <nav class="nav-pill" id="nav-pill"></nav>
@@ -455,7 +456,7 @@ window.ARENA_PIT_XAGM = window.ARENA_PIT_XAGM || "";
 window.SUI_RPC = window.SUI_RPC || "https://mainnet.suiet.app";
 window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graphql";
 </script>
-<script src="js/indexer.js"></script>
+<script src="/js/indexer.js"></script>
 <script>
 (function(){
   const GRAD = 2000;
@@ -1753,21 +1754,60 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     if (!pool) return '<div class="tv-host" style="display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:13px">Bluefin pool pending</div>';
     return '<div class="tv-host" data-chart-pool="'+escAttr(pool)+'"><div class="chart-pending">Loading chart…</div></div>';
   }
+  function paintLocalChart(host, tk){
+    if (!host || !tk) return;
+    var candles = tvBars(tk.t);
+    host.setAttribute("data-local", tk.t);
+    if (!candles.length){
+      host.innerHTML = '<div class="chart-pending">No candles yet. First fills draw here.</div>';
+      return;
+    }
+    var w = Math.max(320, host.clientWidth || 640);
+    var h = Math.max(220, host.clientHeight || 420);
+    var padL = 12, padR = 64, padT = 18, padB = 20;
+    var min = candles[0].low, max = candles[0].high;
+    candles.forEach(function(c){ if (c.low < min) min = c.low; if (c.high > max) max = c.high; });
+    if (!(max > min)) max = min + (min ? min * 0.001 : 1e-9);
+    var innerW = w - padL - padR;
+    var innerH = h - padT - padB;
+    var gap = innerW / candles.length;
+    var bw = Math.max(2, gap * 0.62);
+    function yy(p){ return padT + (max - p) / (max - min) * innerH; }
+    var parts = [];
+    candles.forEach(function(c, i){
+      var cx = padL + (i + 0.5) * gap;
+      var up = c.close >= c.open;
+      var col = up ? "#298DFF" : "#FF6640";
+      parts.push('<line x1="'+cx+'" x2="'+cx+'" y1="'+yy(c.high)+'" y2="'+yy(c.low)+'" stroke="'+col+'" stroke-width="1.2"/>');
+      var top = yy(Math.max(c.open, c.close));
+      var bot = yy(Math.min(c.open, c.close));
+      parts.push('<rect x="'+(cx-bw/2)+'" y="'+top+'" width="'+bw+'" height="'+Math.max(1.5, bot-top)+'" fill="'+col+'"/>');
+    });
+    var last = candles[candles.length-1];
+    var ly = yy(last.close);
+    parts.push('<line x1="'+padL+'" x2="'+(w-padR)+'" y1="'+ly+'" y2="'+ly+'" stroke="rgba(255,255,255,.12)" stroke-dasharray="4 4"/>');
+    parts.push('<text x="'+(w-8)+'" y="'+(ly+4)+'" text-anchor="end" fill="#A898A8" font-size="11" font-family="IBM Plex Mono,monospace">'+escHtml(fmtPx(last.close))+'</text>');
+    host.innerHTML = '<svg class="local-chart" viewBox="0 0 '+w+' '+h+'" width="100%" height="100%" preserveAspectRatio="none">'+parts.join("")+'</svg>';
+  }
   function mountDexChart(){
     var host = document.querySelector(".tv-host[data-chart-pool]");
     if (!host) return;
     var pool = host.getAttribute("data-chart-pool");
     var frame = host.querySelector("iframe");
     if (frame && frame.getAttribute("data-ready") === pool) return;
-    var gecko = "https://www.geckoterminal.com/sui-network/pools/"+pool+"?embed=1&info=0&swaps=0&light_chart=0";
+    if (host.getAttribute("data-local") && host.querySelector("svg.local-chart")){
+      paintLocalChart(host, findT(state.sym));
+      return;
+    }
     var dex = "https://dexscreener.com/sui/"+pool+"?embed=1&theme=dark&info=0&trades=0&tabs=0";
-    function show(src, title){
-      host.innerHTML = '<iframe src="'+src+'" title="'+title+'" data-ready="'+escAttr(pool)+'" allow="clipboard-write" allowfullscreen></iframe>';
+    function showDex(){
+      host.removeAttribute("data-local");
+      host.innerHTML = '<iframe src="'+dex+'" title="Dexscreener" data-ready="'+escAttr(pool)+'" allow="clipboard-write" allowfullscreen></iframe>';
     }
     fetch("https://api.dexscreener.com/latest/dex/pairs/sui/"+pool).then(function(r){ return r.json(); }).then(function(d){
-      var ok = !!(d && (d.pair || (d.pairs && d.pairs.length)));
-      show(ok ? dex : gecko, ok ? "Dexscreener" : "GeckoTerminal");
-    }).catch(function(){ show(gecko, "GeckoTerminal"); });
+      if (d && (d.pair || (d.pairs && d.pairs.length))) showDex();
+      else paintLocalChart(host, findT(state.sym));
+    }).catch(function(){ paintLocalChart(host, findT(state.sym)); });
   }
 
   function isRefl(tk){
@@ -2346,7 +2386,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     const count = pool.length;
     return '<div data-screen-label="The Strip">'+
       '<section class="strip-hero">'+
-        '<img src="brand/strip-hero.jpg" alt="">'+
+        '<img src="/brand/strip-hero.jpg" alt="">'+
         '<div class="strip-hero-shade"></div>'+
         '<div class="shell strip-hero-copy">'+
           '<div class="strip-logo">vice.</div>'+
@@ -2540,7 +2580,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       : "Connect a Sui wallet. 0.1 SUI goes into the pot. Votes are anonymous and do not pick the winner.");
     return '<div data-screen-label="Fight Night">'+
       '<div class="night-hero">'+
-        '<img src="brand/night-hero.jpg" alt="">'+
+        '<img src="/brand/night-hero.jpg" alt="">'+
         '<div class="shade"></div>'+
         '<div class="night-hero-copy">'+
           '<div class="pit-kicker"><span class="live-dot"></span>Fight night · round <span data-round>'+pitRound()+'</span></div>'+
@@ -4759,6 +4799,10 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
         paintPx();
         paintCaps();
         if (state.route === "explore") scheduleExploreList();
+        if (state.route === "token"){
+          var ch = document.querySelector(".tv-host[data-local]");
+          if (ch) paintLocalChart(ch, findT(state.sym));
+        }
         updateChartLive();
       },
       onLaunch: function(l){
@@ -4777,6 +4821,9 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     });
     bus.trades = bus.sub.trades;
     hydrating = false;
+    T.forEach(function(k){
+      if (k && k.bluefinPool && bus.sub.watchBluefinPool) bus.sub.watchBluefinPool(k.bluefinPool);
+    });
     if (!SHOT){
       Index.loadIndex(window.ARENA_INDEX_URL).then(function(res){
         if (res && res.index) bus.index = res.index;
