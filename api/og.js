@@ -47,9 +47,11 @@ function quoteLabel(v) {
   return "SUI";
 }
 
+const HIDE = new Set(["BFLN", "GRAD", "SMOKE", "IDEX", "SILVER"]);
+
 async function findLaunch(sym) {
   const want = String(sym || "").toUpperCase();
-  if (!want) return null;
+  if (!want || HIDE.has(want)) return null;
   const q =
     "query($t:String!){ events(first:50, filter:{ type:$t }){ nodes { contents { json } } } }";
   for (const pkg of EVENT_PKGS) {

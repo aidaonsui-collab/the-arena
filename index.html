@@ -140,6 +140,12 @@ main{padding:18px 0 72px}
 .lcard-art{position:relative;aspect-ratio:1;border-radius:10px;overflow:hidden;display:grid;place-items:center}
 .lcard-art .art-letter{font-family:"Instrument Serif",Georgia,serif;font-size:28px;line-height:1;color:rgba(255,255,255,.92);letter-spacing:-.04em}
 .lcard-art .chip{position:absolute;top:6px;left:6px;margin:0;background:rgba(11,12,16,.62);backdrop-filter:blur(8px);color:#fff;font-size:10px;padding:2px 6px}
+.quote-badge{position:absolute;left:6px;bottom:6px;margin:0;font-size:9px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;border-radius:999px;padding:2px 6px;line-height:1.2;white-space:nowrap;backdrop-filter:blur(8px);z-index:1}
+.quote-badge.gold{background:rgba(201,169,126,.94);color:#1A1218}
+.quote-badge.silver{background:rgba(192,199,209,.94);color:#1A1218}
+.quote-badge.tbill{background:rgba(62,207,142,.94);color:#102016}
+.avatar-wrap{position:relative;display:inline-block;flex:none;line-height:0}
+.avatar-wrap .quote-badge{left:50%;bottom:-5px;transform:translateX(-50%);font-size:8px;padding:2px 5px}
 .lcard-body{padding:6px 2px 2px;border-top:0}
 .lcard-row{display:flex;justify-content:space-between;align-items:baseline;gap:6px;min-width:0}
 .lcard-row + .lcard-row{margin-top:1px}
@@ -1809,7 +1815,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   function rank(i){ return String(i+1).padStart(2,"0"); }
   function isHiddenToken(k){
     const t = String((k && k.t) || "").toUpperCase();
-    if (t === "BFLN" || t === "GRAD" || t === "SMOKE" || t === "IDEX") return true;
+    if (t === "BFLN" || t === "GRAD" || t === "SMOKE" || t === "IDEX" || t === "SILVER") return true;
     const n = String((k && k.n) || "");
     return /^Arena (Bluefin|Grad|Smoke)$/i.test(n) || /^INSTA$/i.test(n);
   }
@@ -2464,12 +2470,27 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       if (state.route === "token" || state.route === "explore" || state.route === "pit") scheduleScreen();
     }).catch(function(){ tk.metaBusy = false; tk.metaHydrated = false; });
   }
+  function quoteBadgeMeta(k){
+    var q = poolQuote(k);
+    if (q === "XAUM") return { label: "Gold", klass: "gold" };
+    if (q === "XAGM") return { label: "Silver", klass: "silver" };
+    if (q === "USDY") return { label: "T-Bills", klass: "tbill" };
+    return null;
+  }
+  function quoteBadgeHTML(k){
+    var b = quoteBadgeMeta(k);
+    if (!b) return "";
+    return '<span class="quote-badge '+b.klass+'">'+b.label+'</span>';
+  }
   function avatar(k, sz){
     sz = sz || 42;
     const src = escUrl(k.img);
-    if (src) return '<div class="avatar" style="width:'+sz+'px;height:'+sz+'px;padding:0;overflow:hidden"><img src="'+src+'" alt=""></div>';
     const letter = String((k && k.t) || "?").charAt(0).toUpperCase();
-    return '<div class="avatar" style="width:'+sz+'px;height:'+sz+'px;background:'+(k.c||"#298DFF")+';color:#fff;font-family:Instrument Serif,Georgia,serif;font-size:'+Math.round(sz*0.46)+'px">'+letter+'</div>';
+    const inner = src
+      ? '<div class="avatar" style="width:'+sz+'px;height:'+sz+'px;padding:0;overflow:hidden"><img src="'+src+'" alt=""></div>'
+      : '<div class="avatar" style="width:'+sz+'px;height:'+sz+'px;background:'+(k.c||"#298DFF")+';color:#fff;font-family:Instrument Serif,Georgia,serif;font-size:'+Math.round(sz*0.46)+'px">'+letter+'</div>';
+    const badge = sz >= 48 ? quoteBadgeHTML(k) : "";
+    return '<div class="avatar-wrap">'+inner+badge+'</div>';
   }
   function holdersOf(tk){
     const rows = bus.trades.filter(function(r){ return matchesPool(r, tk); }).slice().sort(function(a,b){ return (a.ts||0)-(b.ts||0); });
@@ -2764,7 +2785,8 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       ? '<img src="'+src+'" alt="">'
       : '<span class="art-letter">'+k.t.charAt(0)+'</span>';
     return '<div class="lcard-art" style="background:'+(src?"#101211":(hot?"#111":k.c))+'">'+
-      (badge ? '<span class="chip">'+badge+'</span>' : '')+inner+'</div>';
+      (badge ? '<span class="chip">'+badge+'</span>' : '')+
+      quoteBadgeHTML(k)+inner+'</div>';
   }
   function featCard(k){ return launchCard(k, 0); }
   function launchRow(k, i){
@@ -3264,6 +3286,12 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   }
   function tokenHTML(){
     const tk = findT(state.sym);
+    if (isHiddenToken({ t: state.sym }) || (tk && isHiddenToken(tk))){
+      return '<div data-screen-label="Token">'+
+        '<div class="back" data-go="explore">← Explore</div>'+
+        '<div class="card" style="padding:28px;margin-top:14px;color:var(--muted)">This launch is not listed.</div>'+
+        footerHTML()+'</div>';
+    }
     if (tk && tk.missing){
       if (!tokenMissTimer){
         tokenMissTimer = setTimeout(function(){
@@ -3386,7 +3414,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   function paintShareMeta(){
     var origin = (location.origin || "https://vicefun.com").replace(/\/$/, "");
     var tk = state.route === "token" ? findT(state.sym) : null;
-    if (tk && tk.missing) tk = null;
+    if (tk && (tk.missing || isHiddenToken(tk))) tk = null;
     var title, desc, image, url;
     if (tk && tk.t){
       title = "$" + tk.t + " — " + (tk.n || tk.t) + " | Vice";
@@ -3708,16 +3736,16 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   }
   function tickerBits(){
     return tapeItems(18).map(function(r){
-      const tk = listedTok(r.pool_id) || {};
-      const t = tk.t || "—";
-      const q = poolQuote(tk.t ? tk : r.pool_id);
+      const tk = listedTok(r.pool_id);
+      if (!tk || !tk.t) return "";
+      const q = poolQuote(tk);
       const quote = fromQuoteAmt(r.quote_amount, q);
       const tok = fromMist(r.token_amount);
       const side = r.is_buy ? "Buy" : "Sell";
       const tokTxt = tok >= 1e6 ? (tok/1e6).toFixed(2)+"M" : (tok >= 1e3 ? (tok/1e3).toFixed(1)+"k" : (tok >= 1 ? tok.toFixed(2) : tok.toFixed(3)));
       const qTxt = quote >= 1 ? quote.toFixed(2) : quote.toFixed(2);
-      return '<span class="tick-item"><span class="'+(r.is_buy?"buy":"sell")+'">'+side+'</span> $'+escHtml(t)+' '+tokTxt+' · '+qTxt+' '+escHtml(q||"SUI")+'</span>';
-    }).join("");
+      return '<span class="tick-item"><span class="'+(r.is_buy?"buy":"sell")+'">'+side+'</span> $'+escHtml(tk.t)+' '+tokTxt+' · '+qTxt+' '+escHtml(q||"SUI")+'</span>';
+    }).filter(Boolean).join("");
   }
   function paintTicker(){
     const el = $("#ticker");
