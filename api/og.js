@@ -1,5 +1,3 @@
-const jpeg = require("jpeg-js");
-
 const GQL = process.env.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graphql";
 const RPC = process.env.SUI_RPC || "https://mainnet.suiet.app";
 const EVENT_PKGS = [
@@ -7,11 +5,16 @@ const EVENT_PKGS = [
   "0xd8531cc8c4e1ee914f0e4e48aea9a796faa0603459cc4665838f688e51bf23d9",
 ];
 
-function originOf(req) {
-  const host = String(req.headers["x-forwarded-host"] || req.headers.host || "vicefun.com")
+const JPG_HEADERS = {
+  "content-type": "image/jpeg",
+  "cache-control": "public, s-maxage=600, stale-while-revalidate=86400",
+};
+
+function originOf(request) {
+  const host = (request.headers.get("x-forwarded-host") || request.headers.get("host") || "vicefun.com")
     .split(",")[0]
     .trim();
-  const proto = req.headers["x-forwarded-proto"] || "https";
+  const proto = request.headers.get("x-forwarded-proto") || "https";
   return proto + "://" + host.replace(/\/$/, "");
 }
 
@@ -122,52 +125,52 @@ function strokeRect(dst, x, y, size, rgb, w) {
   }
 }
 
-function sendJpg(req, res, buf) {
-  res.statusCode = 200;
-  res.setHeader("Content-Type", "image/jpeg");
-  res.setHeader("Cache-Control", "public, s-maxage=600, stale-while-revalidate=86400");
-  res.setHeader("Content-Length", String(buf.length));
-  if (req.method === "HEAD") res.end();
-  else res.end(buf);
+async function strip(origin) {
+  const r = await fetch(origin + "/brand/og.jpg");
+  if (!r.ok) throw new Error("og.jpg");
+  return new Response(r.body, { headers: JPG_HEADERS });
 }
 
-module.exports = async function handler(req, res) {
-  const origin = originOf(req);
+async function render(request) {
+  const origin = originOf(request);
+  const jpegMod = await import("jpeg-js");
+  const jpeg = jpegMod.default && jpegMod.default.decode ? jpegMod.default : jpegMod;
+  const t = new URL(request.url).searchParams.get("t") || "";
+  const sym = String(t).trim().toUpperCase().slice(0, 12);
+  const bgFile = await fetchBuf(origin + "/brand/og.jpg");
+  if (!bgFile) return strip(origin);
+  if (!sym) return new Response(bgFile.buf, { headers: JPG_HEADERS });
+
+  const type = await findToken(sym);
+  const icon = type ? await coinIcon(type) : "";
+  const pfpFile = await fetchBuf(icon);
+  if (!pfpFile || !pfpFile.jpeg || !jpeg.decode) return new Response(bgFile.buf, { headers: JPG_HEADERS });
+
+  const bg = jpeg.decode(bgFile.buf, { useTArray: true });
+  const pfp = jpeg.decode(pfpFile.buf, { useTArray: true });
+  const size = 248;
+  const dx = 64;
+  const dy = Math.floor((bg.height - size) / 2);
+  coverBlit(bg, pfp, dx, dy, size);
+  strokeRect(bg, dx - 4, dy - 4, size + 8, [255, 46, 166], 4);
+  const out = jpeg.encode(bg, 84);
+  return new Response(out.data, { headers: JPG_HEADERS });
+}
+
+export async function GET(request) {
+  const origin = originOf(request);
   try {
-    const page = new URL(req.url, origin);
-    const sym = String(page.searchParams.get("t") || "").trim().toUpperCase().slice(0, 12);
-    const bgFile = await fetchBuf(origin + "/brand/og.jpg");
-    if (!bgFile) throw new Error("missing og.jpg");
-    if (!sym) {
-      sendJpg(req, res, bgFile.buf);
-      return;
-    }
-    const type = await findToken(sym);
-    const icon = type ? await coinIcon(type) : "";
-    const pfpFile = await fetchBuf(icon);
-    if (!pfpFile || !pfpFile.jpeg) {
-      sendJpg(req, res, bgFile.buf);
-      return;
-    }
-    const bg = jpeg.decode(bgFile.buf, { useTArray: true });
-    const pfp = jpeg.decode(pfpFile.buf, { useTArray: true });
-    const size = 248;
-    const dx = 64;
-    const dy = Math.floor((bg.height - size) / 2);
-    coverBlit(bg, pfp, dx, dy, size);
-    strokeRect(bg, dx - 4, dy - 4, size + 8, [255, 46, 166], 4);
-    const out = jpeg.encode(bg, 84);
-    sendJpg(req, res, out.data);
+    return await render(request);
   } catch (e) {
     try {
-      const r = await fetch(origin + "/brand/og.jpg");
-      if (r.ok) {
-        sendJpg(req, res, Buffer.from(await r.arrayBuffer()));
-        return;
-      }
-    } catch (e2) {}
-    res.statusCode = 302;
-    res.setHeader("Location", origin + "/brand/og.jpg?v=2");
-    res.end();
+      return await strip(origin);
+    } catch (e2) {
+      return Response.redirect(origin + "/brand/og.jpg?v=2", 302);
+    }
   }
-};
+}
+
+export async function HEAD(request) {
+  const res = await GET(request);
+  return new Response(null, { status: res.status, headers: res.headers });
+}
