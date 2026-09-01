@@ -222,7 +222,14 @@ async function decodeAny(file, jpeg, PNG) {
 async function homeJpg(origin) {
   const r = await fetch(origin + "/brand/share-home.jpg");
   if (!r.ok) throw new Error("share-home");
-  return new Response(r.body, { headers: JPG_HEADERS });
+  const buf = Buffer.from(await r.arrayBuffer());
+  return new Response(buf, {
+    headers: {
+      ...JPG_HEADERS,
+      "content-length": String(buf.length),
+      "content-disposition": "inline",
+    },
+  });
 }
 
 async function render(request) {
@@ -270,7 +277,13 @@ async function render(request) {
   }
 
   const out = jpeg.encode(dst, 86);
-  return new Response(out.data, { headers: JPG_HEADERS });
+  return new Response(out.data, {
+    headers: {
+      ...JPG_HEADERS,
+      "content-length": String(out.data.length),
+      "content-disposition": "inline",
+    },
+  });
 }
 
 export async function GET(request) {

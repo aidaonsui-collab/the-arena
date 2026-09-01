@@ -106,6 +106,7 @@ function htmlPage({ title, description, image, url, dest, imageType }) {
 <meta name="twitter:image:height" content="630">
 <meta name="twitter:image:alt" content="${esc(title)}">
 <link rel="canonical" href="${esc(url)}">
+<link rel="image_src" href="${esc(image)}">
 </head>
 <body style="background:#120814;color:#F4EEF2;font-family:sans-serif;padding:40px">
 <img src="${esc(image)}" alt="${esc(title)}" width="1200" height="630" style="max-width:100%;height:auto;border-radius:16px">
@@ -122,7 +123,7 @@ async function page(request) {
     return htmlPage({
       title: "Vice — Fair launches on Sui",
       description: "Instant DEX launches. Pair with SUI or RWAs.",
-      image: origin + "/brand/share-home.jpg",
+      image: origin + "/og.jpg",
       url: origin + "/",
       dest: "/",
       imageType: "image/jpeg",
