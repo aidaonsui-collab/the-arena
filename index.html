@@ -428,6 +428,10 @@ html.shot,html.shot *{animation:none!important;transition:none!important}
 }
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important}}
 </style>
+<script>
+  window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
+</script>
+<script defer src="/_vercel/insights/script.js"></script>
 </head>
 <body>
 <header class="topbar">
@@ -3996,6 +4000,14 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     paintCaps();
     paintShareMeta();
     if (state.route === "token") mountDexChart();
+    try {
+      if (typeof window.va === "function"){
+        window.va("pageview", {
+          route: state.route,
+          path: (location.pathname || "/") + (location.hash || "")
+        });
+      }
+    } catch (e) {}
   }
   function go(route, sym){
     const nextSym = sym || state.sym;
