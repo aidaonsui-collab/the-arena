@@ -5,20 +5,20 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Vice — Fair launches on Sui</title>
 <link rel="icon" href="brand/favicon.png" type="image/png">
-<link rel="apple-touch-icon" href="brand/vice-mark.png">
+<link rel="apple-touch-icon" href="brand/vice-mark.jpg">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Instrument+Sans:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&family=Playfair+Display:ital,wght@1,500;1,600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Bagel+Fat+One&family=Grandstander:ital,wght@1,800&family=IBM+Plex+Mono:wght@400;500&family=Instrument+Sans:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
 <style>
 :root{
   --bg:#141615; --card:#1C1E1C; --ink:#F4F4F2; --muted:#8B8E86; --line:#2A2C28;
-  --lift:#242624; --sui:#298DFF; --up:#298DFF; --down:#FF6640;
+  --lift:#242624; --sui:#298DFF; --up:#298DFF; --down:#FF6640; --pink:#FF2EA6;
   --radius:22px; --shadow:0 10px 28px rgba(0,0,0,.42);
 }
 *{box-sizing:border-box}
 html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);-webkit-font-smoothing:antialiased}
 html{overflow-x:hidden}
-body{font-family:"Instrument Sans",ui-sans-serif,system-ui,sans-serif;font-size:15px;line-height:1.5;min-height:100dvh;overflow-x:hidden;background-image:radial-gradient(900px 480px at -10% -10%,rgba(41,141,255,.16),transparent 58%)}
+body{font-family:"Instrument Sans",ui-sans-serif,system-ui,sans-serif;font-size:15px;line-height:1.5;min-height:100dvh;overflow-x:hidden;background-image:radial-gradient(720px 420px at -8% -12%,rgba(255,46,166,.14),transparent 56%),radial-gradient(900px 480px at 108% -10%,rgba(41,141,255,.16),transparent 58%)}
 a{color:var(--sui);text-decoration:none}
 button,input,select{font:inherit;color:inherit}
 button{cursor:pointer}
@@ -29,8 +29,8 @@ button{cursor:pointer}
 .topbar{position:sticky;top:0;z-index:40;background:rgba(20,22,21,.86);backdrop-filter:blur(16px);border-bottom:1px solid transparent}
 .topbar-inner{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:14px;padding:14px 0;min-height:64px}
 .brand{display:flex;align-items:center;gap:10px;flex:none;cursor:pointer}
-.brand-mark{width:28px;height:28px;border-radius:8px;display:block;object-fit:cover;background:#0a0a0a}
-.brand-name{font-family:"Playfair Display","Instrument Serif",Georgia,serif;font-size:26px;font-style:italic;font-weight:500;letter-spacing:-.03em;line-height:1;text-transform:none}
+.brand-mark{width:32px;height:32px;border-radius:9px;display:block;object-fit:cover;background:#140818}
+.brand-name{font-family:"Bagel Fat One","Grandstander",system-ui,sans-serif;font-size:30px;font-style:normal;font-weight:400;letter-spacing:.01em;line-height:1;text-transform:none;display:inline-block;background:linear-gradient(90deg,var(--pink) 12%,var(--sui) 88%);-webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-fill-color:transparent}
 .nav-pill{display:flex;align-items:center;gap:4px;margin:0;justify-self:center;background:#101211;border-radius:999px;padding:4px}
 .nav-item{padding:8px 18px;border-radius:999px;font-size:14px;font-weight:500;color:var(--muted);cursor:pointer;transition:background .2s,color .2s;white-space:nowrap}
 .nav-item.on{background:var(--card);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.35)}
@@ -114,7 +114,7 @@ main{padding:18px 0 72px}
 .bar-pct{font-size:12px;font-weight:650;color:var(--muted);font-variant-numeric:tabular-nums}
 .lcard-top{display:flex;align-items:center;gap:10px;margin-bottom:12px}
 .chip{font-size:11px;font-weight:600;border-radius:999px;padding:3px 8px;background:#16171A;color:var(--muted);margin-left:auto;white-space:nowrap}
-.chip.live{color:#8EC5FF;background:rgba(41,141,255,.16)}
+.chip.live{color:#7EB6FF;background:rgba(41,141,255,.16)}
 .chip.grad{color:#fff;background:var(--sui)}
 .bar{height:4px;background:#101211;border-radius:99px;overflow:hidden;margin-top:12px}
 .bar>i{display:block;height:100%;background:var(--sui);border-radius:99px}
@@ -127,7 +127,7 @@ main{padding:18px 0 72px}
 .footer a,.footer div[data-go]{display:block;padding:3px 0;cursor:pointer;color:var(--muted)}
 .footer a:hover,.footer div[data-go]:hover{color:var(--ink)}
 .hero-card{background:var(--card);border-radius:var(--radius);padding:clamp(28px,4vw,48px);box-shadow:var(--shadow);text-align:center}
-.hero-card h1{font-family:"Instrument Serif",Georgia,serif;font-size:clamp(40px,8vw,88px);margin:8px 0 0;line-height:1;font-weight:400}
+.hero-card h1{font-family:"Bagel Fat One","Grandstander",system-ui,sans-serif;font-size:clamp(40px,8vw,88px);margin:8px 0 0;line-height:1;font-weight:400;width:fit-content;background:linear-gradient(90deg,var(--pink) 12%,var(--sui) 88%);-webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-fill-color:transparent}
 .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px}
 .split{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(280px,380px);grid-template-areas:"main ticket";gap:14px;align-items:start}
 .split>.split-main{grid-area:main}
@@ -341,7 +341,7 @@ html.shot,html.shot *{animation:none!important;transition:none!important}
 <header class="topbar">
   <div class="shell topbar-inner">
     <div class="brand" data-go="explore">
-      <img class="brand-mark" src="brand/vice-mark.png" width="28" height="28" alt="">
+      <img class="brand-mark" src="brand/vice-mark.jpg" width="32" height="32" alt="">
       <span class="brand-name">vice.</span>
     </div>
     <nav class="nav-pill" id="nav-pill"></nav>
@@ -2168,7 +2168,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   }
   function footerHTML(){
     return '<footer class="footer">'+
-      '<div><div class="brand-name" style="color:var(--ink);margin-bottom:8px">vice.</div>'+
+      '<div><div class="brand-name" style="margin-bottom:8px">vice.</div>'+
         '<p style="margin:0;max-width:36ch">Fair launches on Sui. Instant seeds Bluefin in block one. Quote is SUI, USDY, or XAGM. LP locked forever.</p></div>'+
       '<div><h4>Product</h4><div data-go="explore">Explore</div><div data-go="pit">Pot</div><div data-go="metrics">Metrics</div><div data-go="launch">Create</div></div>'+
       '<div><h4>Fees</h4>Bluefin 1% on the pair (keeps 20%).<br>Our 80% quote split 60/10/30 creator/platform/pot.<br>Token-side LP fees burn.</div></footer>';
