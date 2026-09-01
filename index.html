@@ -66,7 +66,20 @@ main{padding:18px 0 72px}
 .feat-mcap{font-weight:700;font-size:18px;font-variant-numeric:tabular-nums}
 .chg{font-size:13px;font-weight:600;font-variant-numeric:tabular-nums}
 .feat-meta{display:flex;gap:12px;color:var(--muted);font-size:12px;flex-wrap:wrap}
-.pit-strip{margin:18px 0;background:var(--card);border-radius:28px;padding:18px 22px;box-shadow:var(--shadow);display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;cursor:pointer}
+.lead-tile{margin:0 0 12px;background:var(--card);border-radius:28px;padding:20px 22px;box-shadow:var(--shadow);cursor:pointer;border:1px solid rgba(41,141,255,.35);transition:box-shadow .18s}
+.lead-tile:hover{box-shadow:0 14px 34px rgba(0,0,0,.4)}
+.lead-tile-top{display:flex;align-items:center;gap:14px;min-width:0}
+.lead-tile-copy{min-width:0}
+.lead-tile-copy .feat-name{font-size:clamp(28px,4vw,40px);letter-spacing:-.04em;margin-top:2px}
+.lead-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px;margin-top:18px;padding-top:16px;border-top:1px solid var(--line)}
+.lead-stat .k{font-size:11px;font-weight:650;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.lead-stat .v{font-size:clamp(22px,3vw,32px);font-weight:700;letter-spacing:-.04em;margin-top:4px;font-variant-numeric:tabular-nums}
+@media (max-width:560px){
+  .lead-tile{padding:16px}
+  .lead-stats{grid-template-columns:1fr 1fr 1fr;gap:10px}
+  .lead-stat .v{font-size:20px}
+}
+.pit-strip{margin:0 0 18px;background:var(--card);border-radius:28px;padding:18px 22px;box-shadow:var(--shadow);display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;cursor:pointer}
 .pit-strip:hover{box-shadow:0 14px 34px rgba(0,0,0,.4)}
 .pit-kicker{font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
 .pit-pot{font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:clamp(28px,4vw,40px);line-height:1;margin-top:4px;font-weight:500;letter-spacing:-.04em}
@@ -1537,6 +1550,24 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     return out;
   }
   function vol(k){ return k.buckets.reduce(function(a,b){return a+b;},0); }
+  function volUsd24h(tk){
+    if (!tk) return 0;
+    const cut = Date.now() - 86400000;
+    const q = poolQuote(tk);
+    const px = quoteUsd(q);
+    let n = 0;
+    tapeItems(TAPE_CAP, tk.t).forEach(function(r){
+      if ((r.ts || 0) < cut) return;
+      const amt = fromQuoteAmt(r.quote_amount, q);
+      if (px > 0) n += amt * px;
+      else n += quoteSuiAmt(amt, q) * (hop.suiUsd || 0);
+    });
+    return n;
+  }
+  function chgText(k){
+    if (!k || !(Math.abs(Number(k.ch)) > 0.05)) return "—";
+    return chText(k);
+  }
   function findT(sym){
     const raw = (sym && sym.t) ? sym.t : String(sym || "");
     const up = raw.toUpperCase();
@@ -2094,6 +2125,25 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       '<div data-usd-cap="'+k.t+'" class="mono" style="text-align:right;font-weight:650">'+usdCapText(k)+'</div>'+
       '<span class="chip '+cls+' st-col">'+k.st+'</span></div>';
   }
+  function leaderTileHTML(k){
+    if (!k || !k.t || k.t === "—" || k.missing) return "";
+    hydrateTokenMeta(k);
+    const volN = volUsd24h(k);
+    const ch = chgText(k);
+    const up = k.ch > 0.05;
+    const down = k.ch < -0.05;
+    return '<div class="lead-tile" data-go="token:'+k.t+'">'+
+      '<div class="lead-tile-top">'+avatar(k,56)+
+        '<div class="lead-tile-copy">'+
+          '<div class="pit-kicker" style="color:var(--sui)">Leading</div>'+
+          '<div class="feat-name">'+escHtml(k.n)+'</div>'+
+          '<div class="feat-tick">$'+escHtml(k.t)+(k.st ? " · "+escHtml(k.st) : "")+'</div></div></div>'+
+      '<div class="lead-stats">'+
+        '<div class="lead-stat"><div class="k">MC</div><div class="v" data-usd-cap="'+k.t+'">'+usdCapText(k)+'</div></div>'+
+        '<div class="lead-stat"><div class="k">24h</div><div class="v" data-chg="'+k.t+'" style="color:'+(up?chColor(k):(down?chColor(k):"var(--ink)"))+'">'+ch+'</div></div>'+
+        '<div class="lead-stat"><div class="k">Vol</div><div class="v" data-usd-vol="'+k.t+'">'+(volN > 0 ? fmtUsd(volN) : "—")+'</div></div>'+
+      '</div></div>';
+  }
   function launchCard(k, i){
     const leader = pitWinnerTok() || sortedT()[0];
     const hot = !k.graduated && leader && leader.t === k.t;
@@ -2126,6 +2176,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
         '<p>Instadex on Bluefin. Quote SUI, USDY, or XAGM.</p></div></div>'+
       '<div class="pills" style="margin-bottom:8px">'+sorts.map(function(s){return pill(s,"sort",s);}).join("")+'</div>'+
       '<div class="pills" id="filters" style="margin-bottom:16px">'+chips.map(function(s){return pill(s,"filter",s);}).join("")+'</div>'+
+      leaderTileHTML(leader)+
       '<div class="pit-strip" data-go="pit">'+
         '<div><div class="pit-kicker">The pit · round <span data-round>'+roundNo+'</span></div>'+
           '<div class="pit-pot" data-pot>'+money(pot)+'</div></div>'+
@@ -2711,6 +2762,14 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
         el.textContent = money(cap, poolQuote(k));
       });
       $$('[data-bar="'+k.t+'"]').forEach(function(el){ el.style.width = barPct(k); });
+      $$('[data-chg="'+k.t+'"]').forEach(function(el){
+        el.textContent = chgText(k);
+        el.style.color = Math.abs(Number(k.ch)) > 0.05 ? chColor(k) : "";
+      });
+      $$('[data-usd-vol="'+k.t+'"]').forEach(function(el){
+        const n = volUsd24h(k);
+        el.textContent = n > 0 ? fmtUsd(n) : "—";
+      });
     });
   }
   function tokenDecimals(tk){
