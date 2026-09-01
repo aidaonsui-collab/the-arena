@@ -330,8 +330,8 @@ html[data-route="launch"] main,html[data-route="token"] main,html[data-route="me
 .live-dot{display:inline-block;width:7px;height:7px;border-radius:99px;background:var(--pink);margin-right:8px;box-shadow:0 0 8px var(--pink)}
 .night-hero-copy{position:relative;z-index:1;padding:36px 40px 40px;max-width:46ch}
 .night-lede{margin:0 0 22px}
-.night-lede strong{display:block;font-size:clamp(22px,3.2vw,30px);letter-spacing:-.03em;font-weight:700;color:#fff;margin:0 0 8px}
-.night-lede p{margin:0;color:#ddd;font-size:clamp(14px,1.8vw,16px);line-height:1.45}
+.night-lede strong{display:block;font-family:"Bagel Fat One","Grandstander",system-ui,sans-serif;font-size:clamp(36px,5vw,56px);font-weight:400;letter-spacing:.01em;line-height:1;color:var(--pink);-webkit-text-fill-color:var(--pink);-webkit-text-stroke:1px var(--sui);paint-order:stroke fill;margin:0 0 14px}
+.night-lede span{display:block;color:#ddd;font-size:clamp(15px,1.8vw,18px);line-height:1.4;margin:0}
 .night-hero-copy .pit-pot{font-size:clamp(48px,7vw,72px);margin:8px 0 10px}
 .strip-body{padding-top:22px}
 .strip-head h1,.books-title{font-size:clamp(32px,5vw,52px);letter-spacing:-.04em;text-transform:uppercase;margin:0}
@@ -2846,12 +2846,13 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
         '<div class="night-hero-copy">'+
           '<div class="night-lede">'+
             '<strong>Fight Night</strong>'+
-            '<p>Instant launches go in the ring. Highest USD market cap over the last 24 hours takes the pot. When the bell rings, the pot buys the winner on Bluefin and burns it. A 0.1 SUI vote fills the ring — anonymous, and it does not pick who wins.</p>'+
+            '<span>All launches go into the ring.</span>'+
+            '<span>Highest marketcap over the last 24 hours takes the pot.</span>'+
+            '<span>Winner gets the pot to buy the token on Bluefin and burns it.</span>'+
           '</div>'+
           '<div class="pit-kicker"><span class="live-dot"></span>Fight night · round <span data-round>'+pitRound()+'</span></div>'+
           '<div class="pit-pot" data-pot>'+money(pot)+'</div>'+
           '<div class="mono" style="font-size:18px;margin-bottom:10px"><span data-clock>'+clockStr()+'</span> until the bell</div>'+
-          '<p style="margin:0;color:#ddd">Pick who takes the pot. 0.1&nbsp;SUI a vote, paid into the ring.</p>'+
         '</div></div>'+
       '<div class="shell">'+
       '<div class="card" style="padding:20px 22px;margin-top:14px">'+
