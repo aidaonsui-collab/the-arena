@@ -3011,10 +3011,6 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     const hours = Object.keys(hourMap).map(Number).sort(function(a,b){return a-b;}).slice(-24);
     const max = hours.reduce(function(m,h){return Math.max(m, hourMap[h]);}, 0) || 1;
     out.hours = hours.map(function(h){ return {t:h, v:hourMap[h], pct: Math.max(4, hourMap[h]/max*100)}; });
-    const claims = (bus.sub && bus.sub.claims) || [];
-    out.claims = claims.length;
-    out.reflClaims = claims.filter(function(c){ return Number(c.kind)===0; }).length;
-    out.pitClaims = claims.filter(function(c){ return Number(c.kind)===1; }).length;
     out.launches = T.length;
     out.grads = GRADS.length;
     const bells = (pitState.bells && pitState.bells.length) ? pitState.bells : [];
@@ -3053,7 +3049,6 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
         '<div class="mstat"><div class="k">The pot</div><div class="v" data-pot>'+money(pot)+'</div><div class="s">round <span data-round>'+roundNo+'</span> · live</div></div>'+
         '<div class="mstat"><div class="k">On the curve</div><div class="v">'+m.launches+'</div><div class="s">'+m.grads+' graduated</div></div>'+
         '<div class="mstat"><div class="k">Winners paid</div><div class="v">'+m.bells+'</div><div class="s">'+fmt(m.bellPaid)+' SUI paid</div></div>'+
-        '<div class="mstat"><div class="k">Claims</div><div class="v">'+m.claims+'</div><div class="s">leftover curve · '+m.reflClaims+' reflection · '+m.pitClaims+' pot</div></div>'+
         '<div class="mstat"><div class="k">Pot from fills</div><div class="v">'+fmt(m.pit)+'</div><div class="s">from curve fills · Instant fees are LP collect</div></div>'+
       '</div>'+
       '<div class="card" style="padding:20px 22px;margin-bottom:14px"><div class="sec-label" style="margin-top:0">Volume <span>last '+Math.max(m.hours.length,1)+' hours with fills</span></div>'+
