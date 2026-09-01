@@ -2226,9 +2226,8 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
         '<img src="brand/strip-hero.jpg" alt="">'+
         '<div class="strip-hero-shade"></div>'+
         '<div class="shell strip-hero-copy">'+
-          '<div class="pit-kicker">Sui · after hours</div>'+
           '<div class="strip-logo">vice.</div>'+
-          '<p>Fair launches. Locked LP. Nobody asks permission.</p>'+
+          '<p>Straight to DEX launches. Pair with Sui or RWA\'s</p>'+
           '<div class="hero-actions">'+
             '<button type="button" class="btn-pink" data-scroll="on-strip">Enter the strip</button>'+
             '<button type="button" class="btn-outline" data-go="pit">Open tonight</button>'+
@@ -2434,8 +2433,8 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
           : "")+
         '<div id="contenders">'+(rows || '<div class="empty">No Instant bouts this round.</div>')+'</div>'+
         '<div id="pit-vote-note" style="color:var(--muted);font-size:13px;margin:14px 0 0">'+voteNote+'</div></div>'+
-      '<div class="sec-label" style="margin-top:22px">Past bells <span>buy & burn</span></div>'+
-      '<div class="bells-grid">'+(bells || '<div class="empty card" style="grid-column:1/-1;padding:28px 8px">No bells yet. First 24h round is live.</div>')+'</div>'+
+      '<div class="sec-label" style="margin-top:22px">Past winners <span>buy & burn</span></div>'+
+      '<div class="bells-grid">'+(bells || '<div class="empty card" style="grid-column:1/-1;padding:28px 8px">No winners yet. First 24h round is live.</div>')+'</div>'+
       '<div class="card" style="padding:18px 22px;margin-top:14px;color:var(--muted);font-size:14px">'+
         '<strong style="color:var(--ink)">Buy & burn only.</strong> When the bell rings, the pot buys the winner on Bluefin and those tokens are burned. No airdrop, no holder split.</div>'+
       footerHTML()+'</div></div>';
@@ -2512,7 +2511,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
         '<div class="mstat"><div class="k">Fees collected</div><div class="v">'+fmt(m.suiFee)+'</div><div class="s">1% of quote · four slices</div></div>'+
         '<div class="mstat"><div class="k">The pot</div><div class="v" data-pot>'+money(pot)+'</div><div class="s">round <span data-round>'+roundNo+'</span> · live</div></div>'+
         '<div class="mstat"><div class="k">On the curve</div><div class="v">'+m.launches+'</div><div class="s">'+m.grads+' graduated</div></div>'+
-        '<div class="mstat"><div class="k">Bells rung</div><div class="v">'+m.bells+'</div><div class="s">'+fmt(m.bellPaid)+' SUI paid</div></div>'+
+        '<div class="mstat"><div class="k">Winners paid</div><div class="v">'+m.bells+'</div><div class="s">'+fmt(m.bellPaid)+' SUI paid</div></div>'+
         '<div class="mstat"><div class="k">Claims</div><div class="v">'+m.claims+'</div><div class="s">'+m.reflClaims+' reflection · '+m.pitClaims+' pot</div></div>'+
         '<div class="mstat"><div class="k">Pot from fills</div><div class="v">'+fmt(m.pit)+'</div><div class="s">from curve fills · Instant fees are LP collect</div></div>'+
       '</div>'+
