@@ -627,9 +627,12 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   }
   function lpBlurb(){
     var q = quoteRec(state.lQuote).label;
+    var dex = q === "USDY"
+      ? '<li>Instant Bluefin · T-bills hop Cetus</li>'
+      : '<li>Instant launch on Bluefin DEX</li>';
     return '<ul class="launch-points">'+
       '<li>1B supply</li>'+
-      '<li>Instant launch on Bluefin DEX</li>'+
+      dex+
       '<li>Indefinite LP lock</li>'+
       '<li>TOKEN/'+q+' · ≈ $500 start</li>'+
       '<li>1 SUI launch fee</li>'+
@@ -2733,7 +2736,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   function footerHTML(){
     return '<footer class="footer">'+
       '<div><div class="brand-name" style="margin-bottom:8px">vice.</div>'+
-        '<p style="margin:0;max-width:42ch">Fair launches on Sui. Instant seeds Bluefin in block one. Quote is SUI, USDY, XAGM, or XAUM. LP locked forever.</p></div>'+
+        '<p style="margin:0;max-width:42ch">Fair launches on Sui. Instant seeds Bluefin in block one. T-bills hop Cetus. Quote is SUI, USDY, XAGM, or XAUM. LP locked forever.</p></div>'+
       '<div><h4>Product</h4><div data-go="explore">The Strip</div><div data-go="pit">Fight Night</div><div data-go="metrics">Books</div><div data-go="launch">Create</div></div>'+
       '<div><h4>Fees</h4>Bluefin 1% on the pair (keeps 20%).<br>Our 80% quote split 60/10/30 creator/platform/pot.<br>Token-side LP fees burn.</div></footer>';
   }
@@ -3097,14 +3100,16 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
             '<div id="l-first-buy-preview" style="font-size:13px;color:var(--text);margin-top:6px">'+escHtml(firstBuyPreview())+'</div>'+
             '<div style="font-size:12px;color:var(--muted);margin-top:4px">'+(state.lQuote==="SUI"
               ? "SUI swapped into TOKEN/SUI right after seed. Puts quote in the pool so the first sell can land. 0 skips."
-              : "Paid in SUI. Hopped SUI → "+state.lQuote+" → TOKEN after seed. You do not need "+state.lQuote+" in the wallet. 0 skips.")+'</div>'+
+              : state.lQuote==="USDY"
+              ? "Paid in SUI. Hopped SUI → USDC → USDY on Cetus, then TOKEN/USDY on Bluefin. You do not need USDY in the wallet. 0 skips."
+              : "Paid in SUI. Hopped SUI → "+state.lQuote+" → TOKEN after seed on Bluefin. You do not need "+state.lQuote+" in the wallet. 0 skips.")+'</div>'+
           '<div><label>Name</label><input id="l-name" placeholder="Gladius Token" value="'+escAttr(state.lName)+'"></div>'+
           '<div><label>Ticker</label><input id="l-tick" placeholder="GLADIUS" maxlength="12" value="'+escAttr(state.lTick)+'"></div>'+
           '<div id="l-type-hint" style="font-size:12px;color:var(--muted);margin-top:-4px">'+(tickerToIdent(state.lTick) ? "Coin type will be <code>…::"+escHtml(tickerToIdent(state.lTick))+"::"+escHtml(tickerToIdent(state.lTick).toUpperCase())+"</code>" : "")+'</div>'+
           '<button type="button" class="btn-trade" id="launch-go">'+launchBtnLabel()+'</button>'+
           '<div id="launch-note" style="font-size:12px;color:'+(state.lNoteErr?"#FF6640":"var(--muted)")+';margin-top:8px;text-align:center">'+
             escHtml(state.lNote || (Number(state.lFirstBuy)>0
-              ? ("Pay 1 SUI launch fee, then a first buy of "+state.lFirstBuy+" SUI"+(state.lQuote==="SUI"?"":" hopped through "+state.lQuote)+".")
+              ? ("Pay 1 SUI launch fee, then a first buy of "+state.lFirstBuy+" SUI"+(state.lQuote==="SUI"?"":state.lQuote==="USDY"?" hopped through Cetus USDY":" hopped through "+state.lQuote)+".")
               : "Pay 1 SUI launch fee. 0 quote LP."))+
           '</div>'+
         '</div></div>'+
@@ -3429,6 +3434,10 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   }
   function hopPathText(tk){
     var q = poolQuote(tk);
+    if (q === "USDY"){
+      if (state.side === "Buy") return "SUI → USDC → USDY (Cetus) → " + tk.t;
+      return tk.t + " → USDY → USDC (Cetus) → SUI";
+    }
     if (q === "XAUM"){
       if (state.side === "Buy") return "SUI → USDC → XAUM → " + tk.t;
       return tk.t + " → XAUM → USDC → SUI";
