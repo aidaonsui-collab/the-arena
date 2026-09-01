@@ -50,7 +50,11 @@
     if (s === "XAGM" || s === XAGM_TYPE || /xagm/i.test(s)) return "XAGM";
     if (s === "XAUM" || s === XAUM_TYPE || /xaum/i.test(s)) return "XAUM";
     if (s === "SUI" || s === SUI_TYPE || /::sui::sui$/i.test(s)) return "SUI";
-    return s.indexOf("::") >= 0 ? s.split("::").pop() : s;
+    // Falls back to the type's last segment, which is a Move identifier and so
+    // alphanumeric — but this string is rendered, so clamp rather than trust
+    // that the event was well formed.
+    var tail = s.indexOf("::") >= 0 ? s.split("::").pop() : s;
+    return String(tail).replace(/[^A-Za-z0-9_]/g, "").slice(0, 12) || "SUI";
   }
 
   function quoteDecimals(quote) {
