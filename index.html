@@ -2990,7 +2990,12 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       const tb = (lb && lb.ts) || launchTs(b) || 0;
       return tb - ta;
     });
-    else out.sort(function(a,b){ return curveCap(b)-curveCap(a); });
+    else out.sort(function(a,b){
+      var ca = usdCap(a) || 0;
+      var cb = usdCap(b) || 0;
+      if (cb !== ca) return cb - ca;
+      return (curveCap(b) || 0) - (curveCap(a) || 0);
+    });
     return out;
   }
   function launchPool(){
