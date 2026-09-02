@@ -274,6 +274,7 @@ a.btn-trade{display:block;text-align:center;text-decoration:none;box-sizing:bord
 .tape-n{font-size:11px;background:#101211;border-radius:6px;padding:2px 6px;color:var(--muted);flex:none}
 .tape-ico{border:0;background:transparent;color:var(--muted);padding:2px;display:grid;place-items:center;flex:none;line-height:0}
 .tape-ico:hover{color:var(--ink)}
+.tape-ico.on{color:var(--pink)}
 .tape-sz{font-size:14px;font-weight:650;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .tape-sub{font-size:12px;color:var(--muted);margin-top:2px;font-family:"IBM Plex Mono",monospace}
 .tape-quote{text-align:right}
@@ -428,9 +429,10 @@ html[data-route="launch"] main,html[data-route="token"] main,html[data-route="me
 }
 @media (max-width:720px){
   .nav-item{padding:8px 10px;font-size:11px}
-  .tape-head .tape-mc,.tape-row .tape-mc,
-  .tape-head .tape-who,.tape-row .tape-who{display:none}
-  .tape-head,.tape-row{grid-template-columns:40px 44px minmax(0,.9fr) minmax(0,1.2fr);gap:6px;padding:10px 2px}
+  .tape-head .tape-mc,.tape-row .tape-mc{display:none}
+  .tape-row .tape-av,.tape-row .tape-name,.tape-row .tape-n{display:none}
+  .tape-head,.tape-row{grid-template-columns:36px 40px minmax(0,.85fr) minmax(0,1.1fr) 78px;gap:4px;padding:10px 2px}
+  .tape-who{gap:2px}
   .tape-sz{font-size:13px}
   .q-mark{width:12px;height:12px;margin-left:4px}
   .holder-row{grid-template-columns:22px minmax(0,1fr) minmax(40px,auto) minmax(56px,auto);gap:6px}
@@ -2812,6 +2814,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     const ageOn = state.tapeAge !== "time";
     const copyIco = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5h10"/></svg>';
     const extIco = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 5h5v5"/><path d="M10 14L19 5"/><path d="M19 13v6H5V5h6"/></svg>';
+    const funnelIco = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"><path d="M4 5h16l-6 8v5l-4 2v-7L4 5z"/></svg>';
     const head = '<div class="tape-head">'+
       '<button type="button" class="tape-hbtn" data-tape-sort="age">'+(ageOn ? "Age ↓" : "Time")+'</button>'+
       '<div>Type</div><div class="tape-mc">MC</div><div>Amount</div><div>Total</div><div class="tape-who"></div></div>';
@@ -2848,6 +2851,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
           '<span class="tape-av">'+escHtml(letter)+'</span>'+
           '<span class="tape-name" data-tape-filter-set="'+escAttr(r.trader || "")+'" title="'+escAttr(r.trader || "")+'">'+escHtml(name)+'</span>'+
           '<span class="tape-n">'+n+'</span>'+
+          '<button type="button" class="tape-ico'+(state.tapeWallet && traderMatchesWallet(r.trader, state.tapeWallet) ? " on" : "")+'" data-tape-filter-set="'+escAttr(r.trader || "")+'" title="Filter this wallet">'+funnelIco+'</button>'+
           '<button type="button" class="tape-ico" data-copy="'+escAttr(r.trader || "")+'" title="Copy">'+copyIco+'</button>'+
           tx+
         '</div></div>';
@@ -3546,6 +3550,9 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     const dex = tk.bluefinPool
       ? "https://dexscreener.com/sui/"+tk.bluefinPool
       : "https://dexscreener.com/sui";
+    const gecko = tk.bluefinPool
+      ? "https://www.geckoterminal.com/sui-network/pools/"+tk.bluefinPool
+      : "https://www.geckoterminal.com/sui-network";
     const xHref = escUrl(tk.twitter) || ("https://x.com/search?q="+xq);
     const aboutLinks =
       (escUrl(tk.website) ? '<a class="about-link" href="'+escUrl(tk.website)+'" target="_blank" rel="noopener">Website</a>' : '')+
@@ -3554,7 +3561,11 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       (escUrl(tk.telegram) ? '<a class="about-link" href="'+escUrl(tk.telegram)+'" target="_blank" rel="noopener">Telegram</a>' : '')+
       (tk.creator ? '<a class="about-link" id="creator-link" data-creator="'+escAttr(tk.creator)+'" href="'+escAttr(accountUrl(tk.creator))+'" target="_blank" rel="noopener">Creator · '+escHtml(traderLabel(tk.creator))+'</a>' : '')+
       '<a class="about-link" href="'+dex+'" target="_blank" rel="noopener">Dexscreener</a>'+
-      '<button type="button" class="about-link" data-copy="'+escAttr(demoTypeId(tk))+'">Contract</button>';
+      '<a class="about-link" href="'+gecko+'" target="_blank" rel="noopener">GeckoTerminal</a>'+
+      '<button type="button" class="about-link" data-copy="'+escAttr(demoTypeId(tk))+'">Contract</button>'+
+      '<button type="button" class="about-link" data-copy="'+(tk.bluefinPool||tk.pool||tk.t)+'">Pool</button>'+
+      (tk.bluefinPool ? '<a class="about-link" href="https://trade.bluefin.io/swap?pool='+tk.bluefinPool+'" target="_blank" rel="noopener">Bluefin</a>' : '')+
+      (tk.lockId ? '<button type="button" class="about-link" data-copy="'+tk.lockId+'">Vault</button>' : '');
     if (tk.creator) resolveSuins([tk.creator]);
     const holdN = holdersOf(tk).list.length;
     const tradeN = tapeItems(state.tapeWallet ? 200 : TAPE_CAP, tk.t, state.tapeWallet).length;
@@ -5686,7 +5697,9 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     }
     const setW = e.target.closest("[data-tape-filter-set]");
     if (setW && !e.target.closest("[data-copy]")){
-      applyTapeWallet(setW.getAttribute("data-tape-filter-set"));
+      const addr = setW.getAttribute("data-tape-filter-set");
+      if (state.tapeWallet && traderMatchesWallet(addr, state.tapeWallet)) applyTapeWallet("");
+      else applyTapeWallet(addr);
       return;
     }
     const tapeSortBtn = e.target.closest("[data-tape-sort]");
