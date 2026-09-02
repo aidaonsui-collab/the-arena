@@ -2061,6 +2061,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   }
   function lwRows(tk){
     var candles = tvBars(tk.t, (Number(state.chartTf) || 900) * 1000);
+    var mul = chartMcMul(tk);
     var rows = [];
     candles.forEach(function(c){
       if (!(c.close > 0) || !isFinite(c.close)) return;
@@ -2068,7 +2069,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       if (rows.length && rows[rows.length - 1].time >= t) t = rows[rows.length - 1].time + 1;
       rows.push({
         time: t,
-        open: c.open, high: c.high, low: c.low, close: c.close,
+        open: c.open * mul, high: c.high * mul, low: c.low * mul, close: c.close * mul,
         volume: Number(c.volume) || 0
       });
     });
@@ -2124,7 +2125,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
         v = last && last.value;
       }
       if (!(v > 0)) return;
-      maBits += '<span class="'+cls+'">'+lab+' <b>'+fmtPx(v)+'</b></span>';
+      maBits += '<span class="'+cls+'">'+lab+' <b>'+fmtChartMc(v)+'</b></span>';
     }
     maBit("ma7","MA7", lw.ma7, lw._ma7);
     maBit("ma25","MA25", lw.ma25, lw._ma25);
@@ -2134,11 +2135,11 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     if (!(vol > 0) && bar.volume > 0) vol = bar.volume;
     var q = poolQuote(findT(lw.ticker || state.sym));
     lw.legend.innerHTML =
-      '<span>'+escHtml(lw.ticker || state.sym)+' / '+escHtml(q)+'</span>'+
-      '<span>O <b>'+fmtPx(bar.open)+'</b></span>'+
-      '<span>H <b>'+fmtPx(bar.high)+'</b></span>'+
-      '<span>L <b>'+fmtPx(bar.low)+'</b></span>'+
-      '<span>C <b class="'+(up?"up":"down")+'">'+fmtPx(bar.close)+'</b></span>'+
+      '<span>'+escHtml(lw.ticker || state.sym)+' · MC</span>'+
+      '<span>O <b>'+fmtChartMc(bar.open)+'</b></span>'+
+      '<span>H <b>'+fmtChartMc(bar.high)+'</b></span>'+
+      '<span>L <b>'+fmtChartMc(bar.low)+'</b></span>'+
+      '<span>C <b class="'+(up?"up":"down")+'">'+fmtChartMc(bar.close)+'</b></span>'+
       (chgTxt ? '<span class="'+(chg>=0?"up":"down")+'">'+chgTxt+'</span>' : '')+
       (on.vol && vol > 0 ? '<span>Vol <b>'+fmtPx(vol)+'</b></span>' : '')+
       maBits;
@@ -2158,8 +2159,8 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     lw.candle.applyOptions({
       priceFormat: {
         type: "custom",
-        minMove: Math.pow(10, -prec),
-        formatter: function(p){ return fmtPx(p); }
+        minMove: last >= 1000 ? 1 : (last >= 1 ? 0.01 : Math.pow(10, -Math.min(6, prec))),
+        formatter: function(p){ return fmtChartMc(p); }
       }
     });
     if (lw.chart) lw.chart.applyOptions({
@@ -2353,6 +2354,20 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     if (p < 1e-4) return p.toExponential(2);
     if (p < 1) return p.toFixed(6);
     return p.toFixed(4);
+  }
+  function chartMcMul(tk){
+    var q = poolQuote(tk);
+    var u = quoteUsd(q);
+    return VIRTUAL_SUPPLY * (u > 0 ? u : 1);
+  }
+  function fmtChartMc(n){
+    n = Number(n) || 0;
+    if (!(n > 0)) return "—";
+    var a = Math.abs(n);
+    if (a >= 1e6) return "$" + (n / 1e6).toFixed(2).replace(/\.0+$/, "") + "M";
+    if (a >= 1000) return "$" + (n / 1000).toFixed(2).replace(/0+$/, "").replace(/\.$/, "") + "k";
+    if (a >= 1) return "$" + n.toFixed(0);
+    return "$" + n.toFixed(2);
   }
   function lastPx(sym){
     const id = (sym && sym.t) ? sym.t : (sym || state.sym);
