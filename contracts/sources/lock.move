@@ -21,7 +21,7 @@
 module arena::lock;
 
 use arena::bluefin;
-use arena::config::{Self, Config};
+use arena::config::{Self, AdminCap, Config};
 use arena::errors;
 use arena::events;
 use arena::math;
@@ -502,6 +502,33 @@ public fun bluefin_lock_spot_id(lock: &BluefinPositionLock): ID { lock.bluefin_p
 public fun bluefin_lock_beneficiary(lock: &BluefinPositionLock): address { lock.beneficiary }
 public fun bluefin_lock_unlock_ms(lock: &BluefinPositionLock): u64 { lock.unlock_ms }
 public fun bluefin_lock_has_position(lock: &BluefinPositionLock): bool { lock.position.is_some() }
+
+/// Current creator hands the 60% LP quote cut to a new wallet (CTO).
+public fun set_beneficiary(
+    lock: &mut BluefinPositionLock,
+    new_beneficiary: address,
+    ctx: &TxContext,
+) {
+    assert!(ctx.sender() == lock.beneficiary, errors::not_beneficiary());
+    set_beneficiary_inner(lock, new_beneficiary);
+}
+
+/// Platform AdminCap can reassign creator rewards if the original wallet is gone.
+public fun admin_set_beneficiary(
+    lock: &mut BluefinPositionLock,
+    _: &AdminCap,
+    new_beneficiary: address,
+) {
+    set_beneficiary_inner(lock, new_beneficiary);
+}
+
+fun set_beneficiary_inner(lock: &mut BluefinPositionLock, new_beneficiary: address) {
+    assert!(new_beneficiary != @0x0, errors::zero_amount());
+    let old = lock.beneficiary;
+    if (old == new_beneficiary) return;
+    lock.beneficiary = new_beneficiary;
+    events::emit_beneficiary_set(object::id(lock), old, new_beneficiary);
+}
 
 public(package) fun assert_spot_pool(lock: &BluefinPositionLock, pool_id: ID) {
     assert!(lock.bluefin_pool_id == pool_id, errors::wrong_pool());

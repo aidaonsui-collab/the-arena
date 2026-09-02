@@ -1,3 +1,5 @@
+import { loadTokenOverlay } from "./token-meta.js";
+
 const GQL = process.env.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graphql";
 const RPC = process.env.SUI_RPC || "https://mainnet.suiet.app";
 const EVENT_PKGS = [
@@ -249,9 +251,10 @@ async function render(request) {
   } catch (e) {}
 
   const launch = await findLaunch(sym);
-  const name = (launch && launch.name) || sym;
+  const overlay = await loadTokenOverlay(sym);
+  const name = (overlay && overlay.name) || (launch && launch.name) || sym;
   const quote = (launch && launch.quote) || "SUI";
-  const icon = launch && launch.token ? await coinIcon(launch.token) : "";
+  const icon = (overlay && overlay.icon) || (launch && launch.token ? await coinIcon(launch.token) : "");
   const pfpFile = await fetchBuf(icon);
   const pfp = await decodeAny(pfpFile, jpeg, PNG);
   const pack = await loadAssets(origin, jpeg, PNG);

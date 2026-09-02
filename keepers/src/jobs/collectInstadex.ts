@@ -14,7 +14,7 @@ const PIT_SUI = "0x8ec38e9bcac0838bf474680e71d0c3f302f4ea2f757d759b7b399701f9043
 const PIT_XAUM = "0xa8a391bf380914c04be5deb478474b42754a5aa8c29c0955f267d73190a98783";
 const CALL_PKG =
   process.env.ARENA_CALL_PACKAGE ??
-  "0xd8531cc8c4e1ee914f0e4e48aea9a796faa0603459cc4665838f688e51bf23d9";
+  "0x488ef44083be97cdcb518ab8fd9c9e60e189b7fd3e5d82f749b43c0af5dc078a";
 const EVENT_PKG =
   process.env.ARENA_INSTADEX_PACKAGE ??
   "0xcf7835ae4e3f8a3d4eb4bd9d14cb4a3dbdd80e70908feb6c433688a31e119de3";
@@ -147,25 +147,79 @@ async function mintLockFromTx(digest: string, token: string): Promise<string | n
   return fallback && fallback.type === "created" ? fallback.objectId : null;
 }
 
-function walkFees(node: unknown): { a: number; b: number } {
-  let a = 0;
-  let b = 0;
-  const visit = (x: unknown) => {
-    if (!x || typeof x !== "object") return;
-    const o = x as Record<string, unknown>;
-    if (o.token_a_fee != null) a = Number(o.token_a_fee) || a;
-    if (o.token_b_fee != null) b = Number(o.token_b_fee) || b;
-    for (const v of Object.values(o)) visit(v);
-  };
-  visit(node);
-  return { a, b };
+const Q64 = 1n << 64n;
+
+function asBig(v: unknown): bigint {
+  if (v == null) return 0n;
+  if (typeof v === "bigint") return v;
+  if (typeof v === "number") return Number.isFinite(v) ? BigInt(Math.trunc(v)) : 0n;
+  if (typeof v === "string") {
+    const s = v.trim();
+    if (!s || !/^\d+$/.test(s)) return 0n;
+    return BigInt(s);
+  }
+  if (typeof v === "object") {
+    const o = v as Record<string, unknown>;
+    if (o.value != null) return asBig(o.value);
+    if (o.fields != null) return asBig(o.fields);
+  }
+  return 0n;
 }
 
-async function accrued(lockId: string): Promise<{ a: number; b: number }> {
+function fieldsOf(node: unknown): Record<string, unknown> | null {
+  if (!node || typeof node !== "object") return null;
+  const o = node as Record<string, unknown>;
+  if (o.fields && typeof o.fields === "object") return o.fields as Record<string, unknown>;
+  return o;
+}
+
+function positionFields(lockFields: Record<string, unknown>): Record<string, unknown> | null {
+  return fieldsOf(lockFields.position);
+}
+
+/** Owed tokens plus CLMM pending from fee growth. token_*_fee stays 0 until collect. */
+function pendingFromPosition(
+  pos: Record<string, unknown>,
+  pool: Record<string, unknown> | null,
+): { a: number; b: number; liquidity: string } {
+  const L = asBig(pos.liquidity);
+  const owedA = asBig(pos.token_a_fee);
+  const owedB = asBig(pos.token_b_fee);
+  let pendA = 0n;
+  let pendB = 0n;
+  if (pool && L > 0n) {
+    const dA = asBig(pool.fee_growth_global_coin_a) - asBig(pos.fee_growth_coin_a);
+    const dB = asBig(pool.fee_growth_global_coin_b) - asBig(pos.fee_growth_coin_b);
+    if (dA > 0n) pendA = (L * dA) / Q64;
+    if (dB > 0n) pendB = (L * dB) / Q64;
+  }
+  return { a: Number(owedA + pendA), b: Number(owedB + pendB), liquidity: L.toString() };
+}
+
+async function accrued(
+  lockId: string,
+): Promise<{ a: number; b: number; liquidity: string; poolId: string }> {
   const obj = await client().getObject({ id: lockId, options: { showContent: true } });
   const content = obj.data?.content;
-  if (!content || content.dataType !== "moveObject") return { a: 0, b: 0 };
-  return walkFees(content.fields);
+  if (!content || content.dataType !== "moveObject") {
+    return { a: 0, b: 0, liquidity: "0", poolId: "" };
+  }
+  const lock = (content.fields || {}) as Record<string, unknown>;
+  const pos = positionFields(lock);
+  const poolId = String(lock.bluefin_pool_id || (pos && pos.pool_id) || "");
+  if (!pos) return { a: 0, b: 0, liquidity: "0", poolId };
+  let poolFields: Record<string, unknown> | null = null;
+  if (poolId) {
+    try {
+      const pool = await client().getObject({ id: poolId, options: { showContent: true } });
+      const pc = pool.data?.content;
+      if (pc && pc.dataType === "moveObject") poolFields = (pc.fields || {}) as Record<string, unknown>;
+    } catch {
+      poolFields = null;
+    }
+  }
+  const pending = pendingFromPosition(pos, poolFields);
+  return { ...pending, poolId };
 }
 
 export async function runCollectInstadex() {
@@ -182,7 +236,9 @@ export async function runCollectInstadex() {
       continue;
     }
     const fees = await accrued(L.lockId);
-    if (fees.a <= 0 && fees.b <= 0) {
+    // Instant CLMM fees sit in fee_growth until collect. token_*_fee is usually 0.
+    // Skip only if the NFT is empty and growth says nothing is pending.
+    if (BigInt(fees.liquidity || "0") <= 0n && fees.a <= 0 && fees.b <= 0) {
       results.push({ lockId: L.lockId, skipped: true, reason: "no accrued fees", fees });
       continue;
     }

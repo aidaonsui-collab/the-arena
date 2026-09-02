@@ -801,6 +801,75 @@ fun test_lock_graduated_lp_not_creator() {
 }
 
 #[test]
+fun test_set_beneficiary_cto() {
+    let mut scenario = ts::begin(USER1);
+    lock::share_bluefin_lock_for_testing(
+        sui::object::id_from_address(@0x1),
+        sui::object::id_from_address(@0x2),
+        USER1,
+        0,
+        scenario.ctx(),
+    );
+    scenario.next_tx(USER1);
+    {
+        let mut bf_lock = scenario.take_shared<lock::BluefinPositionLock>();
+        assert!(lock::bluefin_lock_beneficiary(&bf_lock) == USER1, 0);
+        lock::set_beneficiary(&mut bf_lock, USER2, scenario.ctx());
+        assert!(lock::bluefin_lock_beneficiary(&bf_lock) == USER2, 1);
+        ts::return_shared(bf_lock);
+    };
+    scenario.next_tx(USER2);
+    {
+        let mut bf_lock = scenario.take_shared<lock::BluefinPositionLock>();
+        lock::set_beneficiary(&mut bf_lock, USER1, scenario.ctx());
+        assert!(lock::bluefin_lock_beneficiary(&bf_lock) == USER1, 2);
+        ts::return_shared(bf_lock);
+    };
+    scenario.end();
+}
+
+#[test]
+#[expected_failure(abort_code = 22)]
+fun test_set_beneficiary_rejects_stranger() {
+    let mut scenario = ts::begin(USER1);
+    lock::share_bluefin_lock_for_testing(
+        sui::object::id_from_address(@0x1),
+        sui::object::id_from_address(@0x2),
+        USER1,
+        0,
+        scenario.ctx(),
+    );
+    scenario.next_tx(USER2);
+    let mut bf_lock = scenario.take_shared<lock::BluefinPositionLock>();
+    lock::set_beneficiary(&mut bf_lock, USER2, scenario.ctx());
+    ts::return_shared(bf_lock);
+    scenario.end();
+}
+
+#[test]
+fun test_admin_set_beneficiary() {
+    let mut scenario = ts::begin(ADMIN);
+    setup(&mut scenario);
+    lock::share_bluefin_lock_for_testing(
+        sui::object::id_from_address(@0x1),
+        sui::object::id_from_address(@0x2),
+        USER1,
+        0,
+        scenario.ctx(),
+    );
+    scenario.next_tx(config::platform_wallet());
+    {
+        let cap = scenario.take_from_sender<AdminCap>();
+        let mut bf_lock = scenario.take_shared<lock::BluefinPositionLock>();
+        lock::admin_set_beneficiary(&mut bf_lock, &cap, USER2);
+        assert!(lock::bluefin_lock_beneficiary(&bf_lock) == USER2, 0);
+        ts::return_shared(bf_lock);
+        ts::return_to_sender(&scenario, cap);
+    };
+    scenario.end();
+}
+
+#[test]
 #[expected_failure(abort_code = 27)]
 fun test_wrong_spot_pool_aborts() {
     let mut scenario = ts::begin(ADMIN);

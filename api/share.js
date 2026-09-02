@@ -1,3 +1,5 @@
+import { loadTokenOverlay } from "./token-meta.js";
+
 const GQL = process.env.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graphql";
 const EVENT_PKGS = [
   process.env.ARENA_INSTADEX_PACKAGE || "0xcf7835ae4e3f8a3d4eb4bd9d14cb4a3dbdd80e70908feb6c433688a31e119de3",
@@ -137,12 +139,16 @@ async function page(request) {
     });
   }
   const launch = await findLaunch(sym);
-  const name = (launch && launch.name) || sym;
+  const overlay = await loadTokenOverlay(sym);
+  const name = (overlay && overlay.name) || (launch && launch.name) || sym;
   const quote = (launch && launch.quote) || "SUI";
+  const desc = (overlay && overlay.description)
+    ? String(overlay.description).split(/\n/)[0].slice(0, 160)
+    : ("Instant · Trade in " + quote + " · vicefun.com");
   return htmlPage({
     origin,
     title: "$" + sym + " — " + name + " | Vice",
-    description: "Instant · Trade in " + quote + " · vicefun.com",
+    description: desc,
     image: origin + "/card/" + encodeURIComponent(sym) + ".jpg",
     url: origin + "/t/" + encodeURIComponent(sym),
     dest: "/t/" + encodeURIComponent(sym),

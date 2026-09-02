@@ -24,7 +24,7 @@ launchctl enable "$DOMAIN/$LABEL" || true
 launchctl kickstart -k "$DOMAIN/$LABEL"
 
 echo "Installed $DEST"
-echo "Polls the 24h bell every 5 min; buy/burn only after a winner. LP collect + platform-wallet withdraw every 24h."
+echo "Polls the 24h bell every 5 min; buy/burn only after a winner. LP collect + platform-wallet withdraw every hour."
 echo "Logs: $HOME/Library/Logs/arena-keepers.log"
 echo "Stop:  launchctl bootout $DOMAIN/$LABEL"
 echo "Keep the Mac awake and online at bell time (plug in; prevent sleep on adapter)."

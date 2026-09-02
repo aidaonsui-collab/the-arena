@@ -633,6 +633,16 @@
     };
   }
 
+  function parseBeneficiarySet(ev) {
+    var p = ev.parsedJson || {};
+    return {
+      lock_id: String(p.lock_id || ""),
+      old: String(p.old_beneficiary || ""),
+      creator: String(p.new_beneficiary || ""),
+      ts: num(ev.timestampMs) || Date.now()
+    };
+  }
+
   async function collect(rpc, type, parse, pages, limit) {
     var out = [];
     var cursor = null;
@@ -824,9 +834,24 @@
       burnPkgs.forEach(pullBurn);
       var mintPkgs = (opts.mintLockPackages || burnPkgs).slice();
       mintPkgs.forEach(pullMintLock);
+      function emitBeneficiary(b) {
+        if (opts.onBeneficiarySet) opts.onBeneficiarySet(b);
+      }
+      function pullBeneficiary(pkg) {
+        if (!pkg || pkg === "0x0") return;
+        collect(rpc, pkg + "::events::BeneficiarySetEvent", parseBeneficiarySet, 2, 50).then(function (rows) {
+          rows.forEach(emitBeneficiary);
+        }).catch(function () {});
+      }
+      var benPkgs = (opts.beneficiaryPackages || burnPkgs).slice();
+      benPkgs.forEach(pullBeneficiary);
       if (opts.live) {
         instaTimer = setInterval(refreshInstadex, opts.instadexMs || 12000);
-        setInterval(function () { burnPkgs.forEach(pullBurn); mintPkgs.forEach(pullMintLock); }, opts.instadexMs || 12000);
+        setInterval(function () {
+          burnPkgs.forEach(pullBurn);
+          mintPkgs.forEach(pullMintLock);
+          benPkgs.forEach(pullBeneficiary);
+        }, opts.instadexMs || 12000);
         bluefinTimer = setInterval(function () { refreshBluefin(); }, opts.bluefinMs || 8000);
       }
     }
@@ -914,6 +939,7 @@
     parseInstadexLaunch: parseInstadexLaunch,
     parseInstadexBurn: parseInstadexBurn,
     parseInstadexMintLock: parseInstadexMintLock,
+    parseBeneficiarySet: parseBeneficiarySet,
     parseAssetSwap: parseAssetSwap,
     BLUEFIN_ASSET_SWAP: BLUEFIN_ASSET_SWAP,
     BLUEFIN_TRADE_CAP: BLUEFIN_TRADE_CAP,

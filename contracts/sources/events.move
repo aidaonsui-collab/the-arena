@@ -142,6 +142,13 @@ public struct InstadexPitSettleEvent has copy, drop {
     amount: u64,
 }
 
+/// Instant creator rewards wallet changed (CTO / handoff).
+public struct BeneficiarySetEvent has copy, drop {
+    lock_id: ID,
+    old_beneficiary: address,
+    new_beneficiary: address,
+}
+
 public fun emit_launch(
     pool_id: ID,
     token: TypeName,
@@ -330,4 +337,12 @@ public fun emit_instadex_mint_lock(lock_id: ID, mint_lock_id: ID) {
 
 public fun emit_instadex_pit_settle(winner_id: ID, amount: u64) {
     sui::event::emit(InstadexPitSettleEvent { winner_id, amount })
+}
+
+public fun emit_beneficiary_set(lock_id: ID, old_beneficiary: address, new_beneficiary: address) {
+    sui::event::emit(BeneficiarySetEvent {
+        lock_id,
+        old_beneficiary,
+        new_beneficiary,
+    })
 }

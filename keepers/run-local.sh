@@ -66,9 +66,9 @@ if [ "${ARENA_KEEPER_CURVE:-}" = "1" ]; then
 fi
 
 # LP collect (burn A, 60/10/30 creator/platform/pit) then AdminCap withdraw into the platform wallet.
-# Default every 24h. Override with ARENA_COLLECT_EVERY_S (seconds).
+# Default every hour so the SUI pit and creator bags actually move. Override with ARENA_COLLECT_EVERY_S.
 STAMP="$HOME/Library/Logs/arena-keepers-fees.stamp"
-EVERY="${ARENA_COLLECT_EVERY_S:-86400}"
+EVERY="${ARENA_COLLECT_EVERY_S:-3600}"
 now="$(date +%s)"
 last=0
 [ -f "$STAMP" ] && last="$(cat "$STAMP" 2>/dev/null || echo 0)"

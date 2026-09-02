@@ -40,7 +40,7 @@ html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);-webkit-font-
 html{overflow-x:hidden}
 body{font-family:"Instrument Sans",ui-sans-serif,system-ui,sans-serif;font-size:15px;line-height:1.5;min-height:100dvh;overflow-x:hidden;background:#120814}
 a{color:var(--sui);text-decoration:none}
-button,input,select{font:inherit;color:inherit}
+button,input,select,textarea{font:inherit;color:inherit}
 button{cursor:pointer}
 ::selection{background:rgba(41,141,255,.45)}
 .shell{width:min(1180px,calc(100% - 32px));margin:0 auto}
@@ -70,6 +70,12 @@ button{cursor:pointer}
 .wallet-err{color:#FF6640;font-size:13px;margin:4px 0 8px}
 .wallet-x{width:100%;border:0;background:transparent;color:var(--muted);padding:8px;font-size:13px}
 .wallet-x:hover{color:var(--ink)}
+.meta-sheet{width:min(520px,100%);max-height:min(92dvh,720px);overflow:auto}
+.meta-sheet .form-grid{margin:12px 0 0;max-width:none}
+.meta-sheet textarea{width:100%;min-height:88px;resize:vertical;border:1px solid var(--line);border-radius:16px;padding:12px 14px;background:#16171A;outline:none;color:var(--ink)}
+.meta-sheet textarea:focus{border-color:var(--sui);background:#1C1D21}
+.meta-actions{display:flex;gap:8px;margin-top:4px}
+.meta-actions .btn-trade{flex:1;margin-top:0}
 .search-row{display:flex;align-items:center;gap:10px;margin:10px auto 4px}
 .search-bar{flex:1;display:flex;align-items:center;gap:10px;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 14px;box-shadow:none;min-width:0}
 .search-bar svg{flex:none;opacity:.45}
@@ -292,6 +298,7 @@ a.btn-trade{display:block;text-align:center;text-decoration:none;box-sizing:bord
 .badge{font-size:11px;font-weight:650;border-radius:999px;padding:5px 10px;background:var(--card);box-shadow:var(--shadow)}
 
 .about-card{padding:22px 24px;margin:14px 0 0}
+.about-head{display:flex;align-items:center;justify-content:space-between;gap:12px}
 .about-card h2{font-size:18px;font-weight:650;margin:0;letter-spacing:-.02em}
 .about-desc{color:var(--muted);margin:10px 0 22px;max-width:56ch;line-height:1.5;white-space:pre-wrap}
 .about-metrics{display:grid;grid-template-columns:1fr 1fr;gap:22px 28px;margin-bottom:22px}
@@ -475,14 +482,16 @@ html.shot,html.shot *{animation:none!important;transition:none!important}
 </div>
 <div class="ticker" id="ticker" hidden></div>
 <div class="wallet-overlay" id="wallet-modal" hidden></div>
+<div class="wallet-overlay" id="meta-modal" hidden></div>
 <main id="screens"></main>
 <script>
 window.ARENA_PACKAGE_ID = "0x5cfddf8ba23be6835644a8ea22482ff6ebb0081e42cc1bc052b5f770ca8bbdea";
 window.ARENA_INSTADEX_PACKAGE = "0xcf7835ae4e3f8a3d4eb4bd9d14cb4a3dbdd80e70908feb6c433688a31e119de3";
-window.ARENA_COLLECT_PACKAGE = "0xd8531cc8c4e1ee914f0e4e48aea9a796faa0603459cc4665838f688e51bf23d9";
+window.ARENA_COLLECT_PACKAGE = "0x488ef44083be97cdcb518ab8fd9c9e60e189b7fd3e5d82f749b43c0af5dc078a";
 window.ARENA_CALL_PACKAGE = window.ARENA_COLLECT_PACKAGE;
 window.ARENA_LOCK_PACKAGE = "0x067136624c5bec5221247e9b0a0a1afbd77a79aadbabdac18a95a10bc186cc74";
 window.ARENA_BLUEFIN_EVENT_PACKAGE = "0x8e28ff4116a8c9025b5d615b0b0a7bc45f4f543120f30a9d226e5b94c7277b79";
+window.ARENA_ADMIN_CAP = "0x79e041a4444971bfbf8000925ac3386d8351a3e997eb7d838d84eb6c3e507acf";
 window.ARENA_CONFIG = "0xcd527cb2389d806e5285ae708ee28df30a841ec5df7508ebfebaa0c9660b5d2c";
 window.ARENA_CLOCK = "0x6";
 window.ARENA_BLUEFIN_CONFIG = "0x03db251ba509a8d5d8777b6338836082335d93eecbdd09a11e190a1cff51c352";
@@ -588,6 +597,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   let balance = 48.60;
   let xaumBal = 2.40;
   const state = {route:"explore", sym:"VOLT", filter:"All", sort:"Market cap", time:"All", side:"Buy", amt:"1", connected:false, search:"", lName:"", lTick:"", lQuote:"SUI", lPath:"instadex", lMode:"Holders", lTokenAmt:"", lQuoteAmt:"", lFirstBuy:"1", lCap:"", lTokenCoin:"", lQuoteCoin:"", lCoinMode:"create", lDecimals:"9", lSupply:"1000000000", lDesc:"", lX:"", lTg:"", lWeb:"", lPublishedType:"", metricsWindow:"All", tapeTab:"trades", tapeOpen:"", tapePage:0, tapeAge:"age", lFile:null, lArtUrl:"", lArtPreview:"", payWith:"SUI", lNote:"", lNoteErr:false, chartTf:900, chartInd:{vol:true,ma7:true,ma25:true,ma99:false,ema:false}};
+  var metaEdit = { open: false, saving: false, file: null, preview: "", artUrl: "", note: "", err: false, name: "", desc: "", x: "", tg: "", web: "", creator: "" };
   let hashLock = false;
   const hop = { suiPerXaum: null, suiPerUsdy: null, suiPerXagm: null, usd: null, suiUsd: null, usdyUsd: null, xagmUsd: null, xaumUsd: null, source: "" };
 
@@ -1093,6 +1103,8 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     state.connected = false;
     paintWallet();
     closeWalletPicker();
+    closeMetaEditor();
+    if (state.route === "token") renderScreen();
   }
   async function connectWallet(chosen){
     ensureWalletStd();
@@ -1118,7 +1130,10 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     suiSession = { wallet: w, account: account, address: addr };
     state.connected = true;
     paintWallet();
-    if (state.route === "token") refreshSwapBals(findT(state.sym));
+    if (state.route === "token"){
+      renderScreen();
+      refreshSwapBals(findT(state.sym));
+    }
     return suiSession;
   }
   async function loadTransaction(){
@@ -1512,7 +1527,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     }, 180);
   }
   function exploreListSig(pool){
-    return state.filter + "|" + state.sort + "|" + (state.search || "") + "|" + (pool || []).map(function(k){ return k.t; }).join(",");
+    return state.filter + "|" + state.sort + "|" + (state.search || "") + "|" + (pool || []).map(function(k){ return k.t+":"+(k.img||"")+":"+(k.n||""); }).join(",");
   }
   function paintExploreList(){
     if (state.route !== "explore") return;
@@ -2265,6 +2280,30 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     if (s < 3600) return Math.floor(s/60)+"m";
     return Math.floor(s/3600)+"h";
   }
+  function mistToHuman(n, dec){
+    n = Number(n);
+    if (!(n > 0)) return 0;
+    dec = dec == null ? 9 : Number(dec);
+    var unit = Math.pow(10, dec);
+    if (n >= unit / 100) return n / unit;
+    return n;
+  }
+  function bellBuyText(b){
+    var q = (b && b.quote) || "SUI";
+    var dec = q === "USDY" ? 6 : 9;
+    var n = mistToHuman(b && b.amount, dec);
+    if (!(n > 0)) return "";
+    return fmtSui(n) + " " + q + " bought";
+  }
+  function bellBurnText(b){
+    var n = mistToHuman(b && b.burned, 9);
+    if (!(n > 0)) return "";
+    var tick = String((b && b.t) || "TOKEN");
+    var shown = n >= 1e6
+      ? (n / 1e6).toFixed(2).replace(/\.00$/, "") + "M"
+      : Math.round(n).toLocaleString("en-US");
+    return shown + " " + tick + " burned";
+  }
   function fmtPx(p){
     if (!(p > 0)) return "—";
     if (p < 1e-4) return p.toExponential(2);
@@ -2457,8 +2496,75 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     out.text = body.join("\n").replace(/^\n+|\n+$/g, "");
     return out;
   }
+  function padAddr(a){
+    a = String(a || "").toLowerCase().replace(/^0x/, "");
+    if (!a || /[^0-9a-f]/.test(a)) return "";
+    while (a.length < 64) a = "0" + a;
+    return "0x" + a;
+  }
+  function sameAddr(a, b){
+    const x = padAddr(a);
+    const y = padAddr(b);
+    return !!(x && y && x === y);
+  }
+  function platformWallet(){
+    return window.ARENA_SWAP_PARTNER || "0x92a32ac7fd525f8bd37ed359423b8d7d858cad26224854dfbff1914b75ee658b";
+  }
+  function canEditTokenMeta(tk){
+    const me = suiSession.address;
+    if (!me || !tk || tk.missing) return false;
+    if (sameAddr(me, platformWallet())) return true;
+    if (tk.creator && sameAddr(me, tk.creator)) return true;
+    if (tk.overlay && tk.overlay.creator && sameAddr(me, tk.overlay.creator)) return true;
+    return false;
+  }
+  function applyTokenOverlay(tk, j){
+    if (!tk || !j) return;
+    tk.overlay = j;
+    if (j.name) tk.n = safeName(j.name);
+    if ("description" in j) tk.b = String(j.description || "");
+    if ("twitter" in j) tk.twitter = j.twitter || "";
+    if ("telegram" in j) tk.telegram = j.telegram || "";
+    if ("website" in j) tk.website = j.website || "";
+    if (j.icon) tk.img = j.icon;
+    if (j.creator && padAddr(j.creator)) tk.creator = padAddr(j.creator);
+  }
+  function overlayDirty(tk, j){
+    if (!j) return false;
+    if (j.name && safeName(j.name) !== safeName(tk.n)) return true;
+    if (("description" in j) && String(j.description || "") !== String(tk.b || "")) return true;
+    if (j.icon && j.icon !== tk.img) return true;
+    if (("twitter" in j) && (j.twitter || "") !== (tk.twitter || "")) return true;
+    if (("telegram" in j) && (j.telegram || "") !== (tk.telegram || "")) return true;
+    if (("website" in j) && (j.website || "") !== (tk.website || "")) return true;
+    if (j.creator && padAddr(j.creator) && !sameAddr(j.creator, tk.creator)) return true;
+    return false;
+  }
+  function hydrateTokenOverlay(tk){
+    if (!tk || tk.missing || !tk.t || tk.overlayBusy || tk.overlayHydrated) return;
+    tk.overlayBusy = true;
+    fetch("/api/token-meta?t="+encodeURIComponent(tk.t), { cache: "no-store" }).then(function(res){
+      return res.json().then(function(j){ return { ok: res.ok, j: j }; });
+    }).then(function(out){
+      tk.overlayBusy = false;
+      tk.overlayHydrated = true;
+      var meta = out && out.j && out.j.meta;
+      if (!meta) return;
+      var changed = overlayDirty(tk, meta);
+      applyTokenOverlay(tk, meta);
+      persistLaunches();
+      if (!changed) return;
+      if (state.route === "token" && String(state.sym).toUpperCase() === tk.t) renderScreen();
+      else if (state.route === "explore") scheduleExploreList();
+      else if (state.route === "pit") scheduleScreen();
+    }).catch(function(){
+      tk.overlayBusy = false;
+      tk.overlayHydrated = false;
+    });
+  }
   function hydrateTokenMeta(tk){
     if (!tk || tk.missing) return;
+    hydrateTokenOverlay(tk);
     var t = typeNameStr(tk.token);
     if (!t || t.indexOf("::") < 0) return;
     if (tk.metaHydrated && tk.img) return;
@@ -2468,12 +2574,18 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       tk.metaBusy = false;
       tk.metaHydrated = true;
       var parsed = parseSocials(meta.description || "");
-      if (parsed.text) tk.b = parsed.text;
-      tk.twitter = parsed.x || tk.twitter || "";
-      tk.telegram = parsed.tg || tk.telegram || "";
-      tk.website = parsed.web || tk.website || "";
-      if (meta.name) tk.n = safeName(meta.name);
-      if (meta.icon) tk.img = meta.icon;
+      if (!tk.overlay){
+        if (parsed.text) tk.b = parsed.text;
+        tk.twitter = parsed.x || tk.twitter || "";
+        tk.telegram = parsed.tg || tk.telegram || "";
+        tk.website = parsed.web || tk.website || "";
+        if (meta.name) tk.n = safeName(meta.name);
+        if (meta.icon) tk.img = meta.icon;
+      } else {
+        if (meta.icon && !tk.img) tk.img = meta.icon;
+        if (meta.name && !tk.n) tk.n = safeName(meta.name);
+        applyTokenOverlay(tk, tk.overlay);
+      }
       if (meta.decimals != null) tk.decimals = meta.decimals;
       persistLaunches();
       if (state.route === "token" || state.route === "explore" || state.route === "pit") scheduleScreen();
@@ -2840,6 +2952,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       '</div></div>';
   }
   function launchCard(k, i){
+    hydrateTokenOverlay(k);
     const leader = pitWinnerTok() || sortedT()[0];
     const hot = !k.graduated && leader && leader.t === k.t;
     const go = "token:"+k.t;
@@ -3043,13 +3156,17 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     const bellSrc = (pitState.bells && pitState.bells.length) ? pitState.bells.slice(0, 3) : [];
     const bells = bellSrc.map(function(b){
       const when = b.ts ? agoOf(b.ts) : (b.ago || "");
-      const mc = Number(b.mcUsd) > 0 ? fmtUsd(b.mcUsd) + " peak MC" : "Buy & burn";
+      const mc = Number(b.mcUsd) > 0 ? fmtUsd(b.mcUsd) + " peak MC" : "";
       const kicker = when === "now" ? "just now" : (when ? when+" ago" : "past bell");
+      const buy = bellBuyText(b);
+      const burn = bellBurnText(b);
       return '<div class="bell-card">'+
         '<div class="pit-kicker">'+kicker+'</div>'+
         '<div class="feat-name">'+escHtml(b.n || b.t)+'</div>'+
         '<div class="feat-tick" style="margin-top:8px">$'+escHtml(b.t)+'</div>'+
-        '<div class="feat-tick" style="margin-top:8px">'+mc+'</div>'+
+        (mc ? '<div class="feat-tick" style="margin-top:8px">'+mc+'</div>' : '')+
+        (buy ? '<div class="feat-tick" style="margin-top:8px">'+escHtml(buy)+'</div>' : '')+
+        (burn ? '<div class="feat-tick" style="margin-top:8px">'+escHtml(burn)+'</div>' : '')+
         (b.digest
           ? '<div class="feat-tick" style="margin-top:8px"><a href="https://suiscan.xyz/mainnet/tx/'+escAttr(b.digest)+'" target="_blank" rel="noopener">buy & burn tx</a></div>'
           : (b.skipped ? '<div class="feat-tick" style="margin-top:8px">'+escHtml(b.skipped)+'</div>' : ''))+
@@ -3211,7 +3328,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
             '<input id="l-tg" spellcheck="false" placeholder="t.me/handle" value="'+escAttr(state.lTg)+'">'+
             '<input id="l-web" spellcheck="false" placeholder="https://site" value="'+escAttr(state.lWeb)+'">'+
           '</div>'+
-          '<div style="font-size:12px;color:var(--muted);margin-top:6px">Baked into CoinMetadata at publish. Can\'t change later.</div></div>'+
+          '<div style="font-size:12px;color:var(--muted);margin-top:6px">Baked into CoinMetadata at publish. Creator or platform can update the Vice token page later.</div></div>'+
           '<div><label>Quote</label><div class="toggle">'+CREATE_QUOTES.map(function(q){
             const on = state.lQuote === q;
             var klass = "pill"+(on?" on":"");
@@ -3386,7 +3503,9 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       '<div class="split">'+
         '<div class="split-main">'+
         '<div class="about-card card">'+
-          '<h2>About</h2>'+
+          '<div class="about-head"><h2>About</h2>'+
+            (canEditTokenMeta(tk) ? '<button type="button" class="about-link" id="meta-edit">Edit</button>' : '')+
+          '</div>'+
           '<div class="about-desc">'+(tk.b ? escHtml(tk.b) : "No description yet.")+'</div>'+
           '<div class="about-metrics">'+
             '<div><div class="about-k">Market cap</div>'+
@@ -4012,6 +4131,16 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   }
   var seenBurns = {};
   var pendingBurns = {};
+  function applyBeneficiarySet(b){
+    if (!b || !b.lock_id || !b.creator) return;
+    const tk = T.find(function(k){ return k.lockId === b.lock_id; });
+    if (!tk) return;
+    tk.creator = b.creator;
+    persistLaunches();
+    if (state.route === "token" && String(state.sym).toUpperCase() === tk.t){
+      paintCreatorLink();
+    }
+  }
   function applyInstadexBurn(b){
     if (!b || !b.lock_id) return;
     const key = b.lock_id + ":" + (b.ts || "") + ":" + (b.amount || "");
@@ -4169,6 +4298,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       state.tapePage = 0;
       state.tapeOpen = "";
     }
+    if (route !== "token" || (sym && nextSym !== state.sym)) closeMetaEditor();
     state.route = route;
     if (sym) state.sym = nextSym;
     hashLock = true;
@@ -4237,10 +4367,9 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     if (out.signature && typeof out.signature.signature === "string") return out.signature.signature;
     return "";
   }
-  async function signUploadTicket(){
+  async function signPersonal(text){
     if (!suiSession.address) await connectWallet();
-    var ts = String(Date.now());
-    var message = new TextEncoder().encode("arena-upload:" + ts);
+    var message = new TextEncoder().encode(text);
     var w = suiSession.wallet;
     var feats = (w && w.features) || {};
     var req = { message: message, account: suiSession.account, chain: "sui:mainnet" };
@@ -4256,7 +4385,195 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     }
     var sig = pickSignature(out);
     if (!sig) throw new Error("Wallet did not return a signature");
+    return sig;
+  }
+  async function signUploadTicket(){
+    var ts = String(Date.now());
+    var sig = await signPersonal("arena-upload:" + ts);
     return { ts: ts, sig: sig, address: suiSession.address };
+  }
+  function closeMetaEditor(){
+    var modal = $("#meta-modal");
+    if (modal){
+      modal.hidden = true;
+      modal.innerHTML = "";
+    }
+    if (metaEdit.preview && metaEdit.preview.indexOf("blob:") === 0) URL.revokeObjectURL(metaEdit.preview);
+    metaEdit.open = false;
+    metaEdit.saving = false;
+    metaEdit.file = null;
+    metaEdit.preview = "";
+    metaEdit.artUrl = "";
+    metaEdit.note = "";
+    metaEdit.err = false;
+  }
+  function paintMetaModal(){
+    var modal = $("#meta-modal");
+    if (!modal || !metaEdit.open) return;
+    var prev = metaEdit.preview || metaEdit.artUrl;
+    var letter = String(state.sym || "?").charAt(0);
+    var note = metaEdit.note || "On-chain CoinMetadata stays frozen. This updates the Vice token page.";
+    modal.hidden = false;
+    modal.innerHTML =
+      '<div class="wallet-sheet meta-sheet">'+
+        '<h3>Update metadata</h3>'+
+        '<p class="wallet-sub">Creator or platform wallet. Sign to save.</p>'+
+        '<div class="form-grid">'+
+          '<div><label>Art</label><div class="art-field">'+
+            '<div class="art-preview" id="m-art-preview">'+(prev ? '<img src="'+escUrl(prev)+'" alt="">' : escHtml(letter))+'</div>'+
+            '<div><input id="m-art" type="file" accept="image/png,image/jpeg,image/webp,image/gif">'+
+            '<div class="art-note" id="m-art-note">'+(metaEdit.file ? (metaEdit.file.name+" · "+(metaEdit.file.size/1024).toFixed(0)+" KB") : (metaEdit.artUrl ? "Current art" : "png, jpeg, webp, or gif · 2MB"))+'</div></div></div></div>'+
+          '<div><label>Name</label><input id="m-name" placeholder="Token name" value="'+escAttr(metaEdit.name)+'"></div>'+
+          '<div><label>Description</label><textarea id="m-desc" placeholder="One line about the token">'+escHtml(metaEdit.desc)+'</textarea></div>'+
+          '<div><label>Socials · optional</label><div class="social-row">'+
+            '<input id="m-x" spellcheck="false" placeholder="x.com/handle" value="'+escAttr(metaEdit.x)+'">'+
+            '<input id="m-tg" spellcheck="false" placeholder="t.me/handle" value="'+escAttr(metaEdit.tg)+'">'+
+            '<input id="m-web" spellcheck="false" placeholder="https://site" value="'+escAttr(metaEdit.web)+'">'+
+          '</div></div>'+
+          '<div><label>Creator rewards wallet</label>'+
+            '<input id="m-creator" spellcheck="false" placeholder="0x…" value="'+escAttr(metaEdit.creator)+'">'+
+            '<div style="font-size:12px;color:var(--muted);margin-top:6px">60% of quote LP fees. Current creator or platform can reassign for a CTO.</div></div>'+
+          '<div class="meta-actions">'+
+            '<button type="button" class="btn-trade" id="meta-save"'+(metaEdit.saving?" disabled":"")+'>'+(metaEdit.saving ? "Saving…" : "Save")+'</button>'+
+            '<button type="button" class="btn-trade btn-ghost" id="meta-cancel">Cancel</button>'+
+          '</div>'+
+          '<div id="meta-note" style="font-size:12px;color:'+(metaEdit.err?"#FF6640":"var(--muted)")+';text-align:center">'+escHtml(note)+'</div>'+
+        '</div></div>';
+  }
+  function openMetaEditor(){
+    var tk = findT(state.sym);
+    if (!tk || tk.missing) return;
+    if (!suiSession.address){
+      connectWallet().then(function(){
+        if (canEditTokenMeta(findT(state.sym))) openMetaEditor();
+      }).catch(function(){});
+      return;
+    }
+    if (!canEditTokenMeta(tk)) return;
+    if (metaEdit.preview && metaEdit.preview.indexOf("blob:") === 0) URL.revokeObjectURL(metaEdit.preview);
+    metaEdit.open = true;
+    metaEdit.saving = false;
+    metaEdit.file = null;
+    metaEdit.preview = "";
+    metaEdit.artUrl = tk.img || "";
+    metaEdit.note = "On-chain CoinMetadata stays frozen. Creator rewards wallet updates the 60% LP cut.";
+    metaEdit.err = false;
+    metaEdit.name = tk.n || tk.t;
+    metaEdit.desc = tk.b || "";
+    metaEdit.x = tk.twitter || "";
+    metaEdit.tg = tk.telegram || "";
+    metaEdit.web = tk.website || "";
+    metaEdit.creator = padAddr(tk.creator) || tk.creator || "";
+    paintMetaModal();
+  }
+  function setMetaNote(text, err){
+    metaEdit.note = text || "";
+    metaEdit.err = !!err;
+    var el = $("#meta-note");
+    if (!el) return;
+    el.textContent = metaEdit.note;
+    el.style.color = metaEdit.err ? "#FF6640" : "";
+  }
+  async function transferCreatorRewards(tk, newAddr){
+    var CALL = window.ARENA_CALL_PACKAGE || window.ARENA_COLLECT_PACKAGE;
+    if (!CALL || !tk.lockId) throw new Error("This token has no Instant lock to reassign");
+    var next = padAddr(newAddr);
+    if (!next) throw new Error("Creator rewards wallet must be a Sui address");
+    var Transaction = await loadTransaction();
+    var tx = new Transaction();
+    tx.setSender(suiSession.address);
+    if (sameAddr(suiSession.address, platformWallet())){
+      var cap = window.ARENA_ADMIN_CAP;
+      if (!cap) throw new Error("ARENA_ADMIN_CAP missing");
+      tx.moveCall({
+        target: CALL + "::lock::admin_set_beneficiary",
+        arguments: [tx.object(tk.lockId), tx.object(cap), txPure(tx, "address", next)]
+      });
+    } else {
+      tx.moveCall({
+        target: CALL + "::lock::set_beneficiary",
+        arguments: [tx.object(tk.lockId), txPure(tx, "address", next)]
+      });
+    }
+    var result = await walletExec(tx);
+    var digest = result && (result.digest || (result.effects && result.effects.transactionDigest) || result.transactionDigest);
+    if (!digest) throw new Error("Rewards wallet transfer was not sent");
+    return digest;
+  }
+  async function doSaveMeta(){
+    if (metaEdit.saving) return;
+    var tk = findT(state.sym);
+    if (!tk || tk.missing) return;
+    var btn = $("#meta-save");
+    try {
+      if (!suiSession.address) await connectWallet();
+      if (!canEditTokenMeta(tk)) throw new Error("Connect the creator or platform wallet");
+      var name = safeName(metaEdit.name) || tk.t;
+      var desc = String(metaEdit.desc || "").trim();
+      if (desc.length > 512) throw new Error("Description is too long");
+      var twitter = requireSocial("X", metaEdit.x, normX(metaEdit.x));
+      var telegram = requireSocial("Telegram", metaEdit.tg, normTg(metaEdit.tg));
+      var website = requireSocial("website", metaEdit.web, normWeb(metaEdit.web));
+      var creator = padAddr(metaEdit.creator);
+      if (String(metaEdit.creator || "").trim() && !creator) throw new Error("Creator rewards wallet must be a Sui address");
+      if (!creator) creator = padAddr(tk.creator);
+      var type = normType(typeNameStr(tk.token) || demoTypeId(tk));
+      if (!type || type.indexOf("::") < 0) throw new Error("Coin type missing");
+      metaEdit.saving = true;
+      if (btn){ btn.disabled = true; btn.textContent = "Saving…"; }
+      setMetaNote("Sign to save this page.", false);
+      var icon = metaEdit.artUrl || tk.img || "";
+      if (metaEdit.file){
+        if (btn) btn.textContent = "Uploading art…";
+        icon = await uploadArt(metaEdit.file);
+        metaEdit.artUrl = icon;
+      }
+      var creatorChanged = creator && !sameAddr(creator, tk.creator);
+      if (creatorChanged && tk.lockId){
+        if (btn) btn.textContent = "Updating rewards wallet…";
+        setMetaNote("Approve the rewards-wallet transfer in your wallet.", false);
+        await transferCreatorRewards(tk, creator);
+      }
+      if (btn) btn.textContent = "Signing…";
+      var ts = String(Date.now());
+      var sig = await signPersonal("vice-meta:" + ts + ":" + type);
+      if (btn) btn.textContent = "Saving…";
+      var res = await fetch("/api/token-meta", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          t: tk.t,
+          ticker: tk.t,
+          type: type,
+          name: name,
+          description: desc,
+          twitter: twitter,
+          telegram: telegram,
+          website: website,
+          icon: icon,
+          creator: creator,
+          address: suiSession.address,
+          signature: sig,
+          ts: ts
+        })
+      });
+      var raw = await res.text();
+      var j = {};
+      try { j = raw ? JSON.parse(raw) : {}; } catch (e) {}
+      if (!res.ok || !j.meta) throw new Error(j.error || ("save failed (" + res.status + ")"));
+      applyTokenOverlay(tk, j.meta);
+      if (creator) tk.creator = creator;
+      tk.overlayHydrated = true;
+      persistLaunches();
+      closeMetaEditor();
+      renderScreen();
+    } catch (e) {
+      metaEdit.saving = false;
+      var why = (e && e.message) ? e.message : "Save failed";
+      if (/reject|denied|cancelled|canceled/i.test(why)) why = "Wallet rejected the signature.";
+      setMetaNote(why, true);
+      if (btn){ btn.disabled = false; btn.textContent = "Save"; }
+    }
   }
   function uploadArt(file){
     return signUploadTicket().then(function(ticket){
@@ -4538,19 +4855,45 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       if (!launchedOk && btn){ btn.disabled = false; paintLaunchBtn(); }
     }
   }
-  function mintLockType(Ttype){
-    var origin = "0xcf7835ae4e3f8a3d4eb4bd9d14cb4a3dbdd80e70908feb6c433688a31e119de3";
+  function mintLockType(Ttype, origin){
+    origin = origin || window.ARENA_INSTADEX_PACKAGE || "0xcf7835ae4e3f8a3d4eb4bd9d14cb4a3dbdd80e70908feb6c433688a31e119de3";
     return origin + "::launch::InstadexMintLock<" + Ttype + ">";
   }
   async function resolveMintLock(tk, Ttype){
-    if (tk.mintLock) return tk.mintLock;
-    if (String(tk.t).toUpperCase() === "IDEX") return "0x38c1667f65f085677a577a48338dd86f6cb8ec1ea4aa0351bbcfb3cb39336e54";
-    var gql = "https://graphql.mainnet.sui.io/graphql";
+    if (tk && tk.mintLock) return tk.mintLock;
+    if (tk && String(tk.t).toUpperCase() === "IDEX") return "0x38c1667f65f085677a577a48338dd86f6cb8ec1ea4aa0351bbcfb3cb39336e54";
+    var types = [];
+    function addType(t){
+      t = normType(t);
+      if (t && t.indexOf("::") >= 0 && types.indexOf(t) < 0) types.push(t);
+    }
+    addType(Ttype);
+    addType(tk && tk.token);
+    addType(tk && demoTypeId(tk));
+    if (!types.length && tk && tk.bluefinPool){
+      try { addType((await poolSnap(tk.bluefinPool)).a); } catch (e) {}
+    }
+    if (tk && tk.bluefinPool){
+      try { addType((await poolSnap(tk.bluefinPool)).a); } catch (e) {}
+    }
+    var pkgs = [
+      window.ARENA_INSTADEX_PACKAGE,
+      "0xcf7835ae4e3f8a3d4eb4bd9d14cb4a3dbdd80e70908feb6c433688a31e119de3",
+      window.ARENA_COLLECT_PACKAGE,
+      window.ARENA_CALL_PACKAGE
+    ];
     var q = "query($t:String!){ objects(first:5, filter:{ type:$t }){ nodes{ address } } }";
-    var res = await fetch(gql, { method:"POST", headers:{ "content-type":"application/json" }, body: JSON.stringify({ query:q, variables:{ t: mintLockType(Ttype) } }) });
-    var j = await res.json();
-    var nodes = j && j.data && j.data.objects && j.data.objects.nodes;
-    if (nodes && nodes[0] && nodes[0].address) return nodes[0].address;
+    var i, p, data, nodes;
+    for (i = 0; i < types.length; i++){
+      for (p = 0; p < pkgs.length; p++){
+        if (!pkgs[p]) continue;
+        try {
+          data = await gql(q, { t: mintLockType(types[i], pkgs[p]) });
+          nodes = data && data.objects && data.objects.nodes;
+          if (nodes && nodes[0] && nodes[0].address) return nodes[0].address;
+        } catch (e) {}
+      }
+    }
     throw new Error("InstadexMintLock not found");
   }
   function typeNameStr(v){
@@ -5053,7 +5396,10 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       var Transaction = await loadTransaction();
       var CALL = window.ARENA_COLLECT_PACKAGE;
       if (!CALL) throw new Error("ARENA_COLLECT_PACKAGE missing");
-      var Ttype = typeNameStr(tk.token) || demoTypeId(tk);
+      var Ttype = normType(typeNameStr(tk.token) || demoTypeId(tk));
+      if (!Ttype || Ttype.indexOf("::") < 0){
+        if (tk.bluefinPool) Ttype = normType((await poolSnap(tk.bluefinPool)).a);
+      }
       var q = poolQuote(tk);
       var rec = quoteRec(q);
       var Qtype = rec.type;
@@ -5061,6 +5407,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       if (!pit) throw new Error("The pot for "+q+" is not registered yet. Collect needs an official pot.");
       var mint = await resolveMintLock(tk, Ttype);
       tk.mintLock = mint;
+      if (Ttype) tk.token = Ttype;
       var tx = new Transaction();
       tx.setSender(suiSession.address);
       tx.moveCall({
@@ -5089,6 +5436,13 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     if (launch){ doLaunch(); return; }
     const collect = e.target.closest("#collect-go");
     if (collect){ doCollect(); return; }
+    if (e.target.closest("#meta-edit")){ openMetaEditor(); return; }
+    if (e.target.closest("#meta-save")){ doSaveMeta(); return; }
+    if (e.target.closest("#meta-cancel")){ closeMetaEditor(); return; }
+    if (e.target.id === "meta-modal"){
+      if (!metaEdit.saving) closeMetaEditor();
+      return;
+    }
     const trade = e.target.closest("[data-trade]");
     const tfBtn = e.target.closest("[data-tf]");
     if (tfBtn){
@@ -5305,8 +5659,37 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     if (e.target && e.target.id === "l-x") state.lX = e.target.value.trim();
     if (e.target && e.target.id === "l-tg") state.lTg = e.target.value.trim();
     if (e.target && e.target.id === "l-web") state.lWeb = e.target.value.trim();
+    if (e.target && e.target.id === "m-name") metaEdit.name = e.target.value;
+    if (e.target && e.target.id === "m-desc") metaEdit.desc = e.target.value;
+    if (e.target && e.target.id === "m-x") metaEdit.x = e.target.value.trim();
+    if (e.target && e.target.id === "m-tg") metaEdit.tg = e.target.value.trim();
+    if (e.target && e.target.id === "m-web") metaEdit.web = e.target.value.trim();
+    if (e.target && e.target.id === "m-creator") metaEdit.creator = e.target.value.trim();
   });
   document.addEventListener("change", function(e){
+    if (e.target && e.target.id === "m-art"){
+      const file = e.target.files && e.target.files[0];
+      const note = $("#m-art-note");
+      const prev = $("#m-art-preview");
+      if (!file){
+        metaEdit.file = null;
+        if (note) note.textContent = metaEdit.artUrl ? "Current art" : "png, jpeg, webp, or gif · 2MB";
+        return;
+      }
+      const ok = /image\/(png|jpeg|webp|gif)/.test(file.type);
+      if (!ok || file.size > 2*1024*1024){
+        metaEdit.file = null;
+        e.target.value = "";
+        if (note) note.textContent = !ok ? "png, jpeg, webp, or gif" : "empty or over 2MB";
+        return;
+      }
+      metaEdit.file = file;
+      if (metaEdit.preview && metaEdit.preview.indexOf("blob:") === 0) URL.revokeObjectURL(metaEdit.preview);
+      metaEdit.preview = URL.createObjectURL(file);
+      if (prev) prev.innerHTML = '<img src="'+escUrl(metaEdit.preview)+'" alt="">';
+      if (note) note.textContent = file.name+" · "+(file.size/1024).toFixed(0)+" KB";
+      return;
+    }
     if (!(e.target && e.target.id === "l-art")) return;
     const file = e.target.files && e.target.files[0];
     const note = $("#l-art-note");
@@ -5332,7 +5715,10 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     if (note) note.textContent = file.name+" · "+(file.size/1024).toFixed(0)+" KB";
   });
   document.addEventListener("keydown", function(e){
-    if (e.key === "Escape") closeWalletPicker();
+    if (e.key === "Escape"){
+      closeWalletPicker();
+      if (!metaEdit.saving) closeMetaEditor();
+    }
     if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k"){
       e.preventDefault();
       const q = $("#q"); if (q) q.focus();
@@ -5416,7 +5802,9 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       onLock: function(g){ applyLock(g); },
       onBluefinLock: function(g){ applyBluefinLock(g); },
       onInstadexBurn: function(b){ applyInstadexBurn(b); },
-      burnPackages: [window.ARENA_COLLECT_PACKAGE, "0x47ea732e44f21470aa3dd449a7b26731ed2c377e2c02e650f3ede6ea581bf000"].filter(Boolean),
+      onBeneficiarySet: function(b){ applyBeneficiarySet(b); },
+      burnPackages: [window.ARENA_COLLECT_PACKAGE, "0xd8531cc8c4e1ee914f0e4e48aea9a796faa0603459cc4665838f688e51bf23d9", "0x47ea732e44f21470aa3dd449a7b26731ed2c377e2c02e650f3ede6ea581bf000"].filter(Boolean),
+      beneficiaryPackages: [window.ARENA_CALL_PACKAGE, window.ARENA_COLLECT_PACKAGE].filter(Boolean),
       callPackage: window.ARENA_INSTADEX_PACKAGE,
       instadexPackages: [window.ARENA_INSTADEX_PACKAGE, window.ARENA_CALL_PACKAGE, window.ARENA_COLLECT_PACKAGE].filter(Boolean),
       lockPackages: [window.ARENA_INSTADEX_PACKAGE, window.ARENA_LOCK_PACKAGE, window.ARENA_BLUEFIN_EVENT_PACKAGE].filter(Boolean)

@@ -227,16 +227,52 @@ function emptyState(now) {
   };
 }
 
+function mergeBells(primary, extra) {
+  const out = [];
+  const seen = {};
+  function take(b) {
+    if (!b || !b.t) return;
+    const k = String(b.t).toUpperCase() + ":" + String(b.ts || "");
+    const prev = seen[k];
+    if (!prev) {
+      const row = Object.assign({}, b);
+      seen[k] = row;
+      out.push(row);
+      return;
+    }
+    if (!prev.digest && b.digest) prev.digest = b.digest;
+    if (prev.amount == null && b.amount != null) prev.amount = b.amount;
+    if (prev.burned == null && b.burned != null) prev.burned = b.burned;
+    if (!prev.skipped && b.skipped) prev.skipped = b.skipped;
+  }
+  (primary || []).forEach(take);
+  (extra || []).forEach(take);
+  return out;
+}
+
 async function loadBlob() {
   try {
-    const { blobs } = await list({ prefix: PATH, limit: 10 });
-    const hit = (blobs || []).find(function (b) {
-      return b.pathname === PATH || String(b.pathname || "").endsWith("/" + PATH);
-    }) || (blobs || [])[0];
-    if (!hit) return null;
-    const r = await fetch(hit.url, { cache: "no-store" });
-    if (!r.ok) return null;
-    return await r.json();
+    const { blobs } = await list({ prefix: PATH, limit: 20 });
+    const rows = blobs || [];
+    if (!rows.length) return null;
+    const parsed = [];
+    for (let i = 0; i < rows.length; i++) {
+      try {
+        const r = await fetch(rows[i].url, { cache: "no-store" });
+        if (!r.ok) continue;
+        const j = await r.json();
+        if (j && typeof j === "object") parsed.push(j);
+      } catch (e) {}
+    }
+    if (!parsed.length) return null;
+    parsed.sort(function (a, b) {
+      return Number(b.updatedMs || 0) - Number(a.updatedMs || 0);
+    });
+    const state = parsed[0];
+    for (let i = 1; i < parsed.length; i++) {
+      state.bells = mergeBells(state.bells, parsed[i].bells);
+    }
+    return state;
   } catch (e) {
     return null;
   }
@@ -248,7 +284,7 @@ async function saveBlob(state) {
     addRandomSuffix: false,
     allowOverwrite: true,
     contentType: "application/json",
-    cacheControlMaxAge: 15,
+    cacheControlMaxAge: 0,
   });
 }
 
@@ -362,6 +398,7 @@ export async function GET(request) {
   }
   try {
     const state = await refresh(prev);
+    if (prev && prev.bells) state.bells = mergeBells(state.bells, prev.bells);
     try { await saveBlob(state); } catch (e) {}
     return json(state, 200, request);
   } catch (e) {
@@ -401,6 +438,11 @@ export async function POST(request) {
   if (amount != null && amount >= 0) hit.amount = amount;
   hit.settledMs = Date.now();
   prev.updatedMs = Date.now();
-  try { await saveBlob(prev); } catch (e) {}
+  try {
+    await saveBlob(prev);
+  } catch (e) {
+    const why = e && e.message ? String(e.message) : "save failed";
+    return json({ error: why.slice(0, 180) }, 502, request);
+  }
   return json(prev, 200, request);
 }
