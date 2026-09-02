@@ -3865,7 +3865,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       if (hopEl) hopEl.textContent = swapQuote.error;
     } else if (swapQuote && swapQuote.amountOut){
       const outN = fromBase(swapQuote.amountOut, swapOutDecimals(tk));
-      if (rec) rec.textContent = fmtSwapAmt(outN) + " " + outAsset;
+      if (rec) rec.textContent = (swapQuote.estimated ? "~ " : "") + fmtSwapAmt(outN) + " " + outAsset;
       if (venue) venue.textContent = venueLabel(swapQuote);
       const hops = (swapQuote.hops && swapQuote.hops.length) ? swapQuote.hops.join(" → ") : "";
       if (hopRow) hopRow.style.display = hops || swapNeedsHop(tk) ? "" : "none";
@@ -5061,13 +5061,52 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     if (v && typeof v === "object") v = v.value || v.amount || "0";
     try { return BigInt(String(v == null ? "0" : v).split(".")[0]); } catch (e) { return 0n; }
   }
-  function estimateQuoteOut(insta, tokenIn){
-    var a = asBigAmt(insta.coinABig != null ? insta.coinABig : insta.coinA);
-    var b = asBigAmt(insta.coinBBig != null ? insta.coinBBig : insta.coinB);
-    if (a <= 0n || b <= 0n) return 0n;
-    var est = (tokenIn * b) / a;
-    est = (est * 95n) / 100n;
-    return est < 1n ? 1n : est;
+  function estimatePoolOut(snap, fromType, amountIn){
+    amountIn = asBigAmt(amountIn);
+    if (!snap || amountIn <= 0n) return 0n;
+    var a2b = a2bFor(snap, fromType);
+    var sqrt = asBigAmt(snap.sqrt);
+    var out = 0n;
+    var q64 = 1n << 64n;
+    if (sqrt > 0n){
+      try {
+        if (a2b) out = (amountIn * sqrt / q64 * sqrt) / q64;
+        else out = (amountIn * q64 / sqrt * q64) / sqrt;
+      } catch (e) { out = 0n; }
+    }
+    if (out <= 0n){
+      var a = asBigAmt(snap.coinABig != null ? snap.coinABig : snap.coinA);
+      var b = asBigAmt(snap.coinBBig != null ? snap.coinBBig : snap.coinB);
+      var rin = a2b ? a : b;
+      var rout = a2b ? b : a;
+      if (rin > 0n && rout > 0n){
+        var after = (amountIn * 99n) / 100n;
+        out = (after * rout) / (rin + after);
+      }
+    } else {
+      out = (out * 99n) / 100n;
+    }
+    return out > 0n ? out : 0n;
+  }
+  function quoteMistFromSui(suiMist, qLab){
+    var per = quoteSuiAmt(1, qLab);
+    if (!(per > 0)) return 0n;
+    var qDec = quoteDecimalsOf(qLab);
+    var scale = 1000000000000n;
+    var perScaled = BigInt(Math.round(per * 1e12));
+    if (perScaled <= 0n) return 0n;
+    var qPow = 10n ** BigInt(qDec);
+    return (asBigAmt(suiMist) * qPow * scale) / (perScaled * 1000000000n);
+  }
+  function suiMistFromQuote(quoteMist, qLab){
+    var per = quoteSuiAmt(1, qLab);
+    if (!(per > 0)) return 0n;
+    var qDec = quoteDecimalsOf(qLab);
+    var scale = 1000000000000n;
+    var perScaled = BigInt(Math.round(per * 1e12));
+    if (perScaled <= 0n) return 0n;
+    var qPow = 10n ** BigInt(qDec);
+    return (asBigAmt(quoteMist) * perScaled * 1000000000n) / (qPow * scale);
   }
   async function refreshSwapBals(tk){
     if (!suiSession.address || !tk) return;
@@ -5148,21 +5187,41 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
             : (state.side === "Buy" ? ["SUI → " + qLab, tk.t + " pool"] : [tk.t + " pool", qLab + " → SUI"]))
         : [tk.t + "/" + qLab];
       var hopOut = "";
-      if (swapNeedsHop(tk) && state.side === "Buy" && quoteSuiAmt(1, qLab) > 0){
-        var qN = (Number(state.amt) || 0) / quoteSuiAmt(1, qLab);
-        hopOut = fmtSwapAmt(qN) + " " + qLab + " → " + tk.t;
+      var poolFrom = swapNeedsHop(tk) ? (state.side === "Buy" ? quoteTypeOf(tk) : tokenTypeOf(tk)) : fromType;
+      var poolIn = amount;
+      if (swapNeedsHop(tk) && state.side === "Buy"){
+        poolIn = quoteMistFromSui(amount, qLab);
+        hopOut = fmtSwapAmt(fromBase(poolIn, quoteDecimalsOf(qLab))) + " " + qLab + " → " + tk.t;
+      }
+      var outAmt = estimatePoolOut(insta, poolFrom, poolIn);
+      if (swapNeedsHop(tk) && state.side === "Sell" && outAmt > 0n){
+        hopOut = fmtSwapAmt(fromBase(outAmt, quoteDecimalsOf(qLab))) + " " + qLab + " → SUI";
+        outAmt = suiMistFromQuote(outAmt, qLab);
       }
       if (seq !== swapQuoteSeq) return;
-      swapQuote = {
-        venue: "bluefin",
-        amountIn: String(amount),
-        amountOut: "",
-        hops: hops,
-        hopOut: hopOut,
-        fromType: fromType,
-        toType: toType,
-        pending: true
-      };
+      if (outAmt > 0n){
+        swapQuote = {
+          venue: "bluefin",
+          amountIn: String(amount),
+          amountOut: String(outAmt),
+          hops: hops,
+          hopOut: hopOut,
+          fromType: fromType,
+          toType: toType,
+          estimated: true
+        };
+      } else {
+        swapQuote = {
+          venue: "bluefin",
+          amountIn: String(amount),
+          amountOut: "",
+          hops: hops,
+          hopOut: hopOut,
+          fromType: fromType,
+          toType: toType,
+          pending: true
+        };
+      }
       paintSwapBox();
     } catch (err) {
       if (seq !== swapQuoteSeq) return;
