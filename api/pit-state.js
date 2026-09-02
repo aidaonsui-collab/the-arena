@@ -8,6 +8,9 @@ const ROUND_MS = 86_400_000;
 const COOLDOWN_MS = 172_800_000;
 const SUPPLY = 1e9;
 const HIDE = new Set(["BFLN", "GRAD", "SMOKE", "IDEX", "SILVER"]);
+// One-token sit-out skip: GOLDY won the last bell so the blob still lists it.
+// Keep the 48h cooldown for every other winner.
+const SITOUT_EXEMPT = new Set(["GOLDY"]);
 const PATH = "pit-state.json";
 const SETTLES_PATH = "pit-settles.json";
 const SETTLE_EVENT =
@@ -484,11 +487,30 @@ function bellsNeedSettle(state) {
   });
 }
 
+function sitoutExempt(t) {
+  return SITOUT_EXEMPT.has(String(t || "").toUpperCase());
+}
+
 function bannedNow(banned, t, now) {
   t = String(t || "").toUpperCase();
+  if (sitoutExempt(t)) return false;
   return (banned || []).some(function (b) {
     return String(b.t || "").toUpperCase() === t && Number(b.untilMs) > now;
   });
+}
+
+function applySitoutExempt(state) {
+  if (!state) return false;
+  const before = JSON.stringify(state.banned || []);
+  const now = Date.now();
+  state.banned = (state.banned || []).filter(function (b) {
+    return Number(b.untilMs) > now && !sitoutExempt(b.t);
+  });
+  (state.standing || []).forEach(function (s) {
+    s.banned = bannedNow(state.banned, s.t, now);
+  });
+  state.winner = pickWinner(state.standing || []);
+  return JSON.stringify(state.banned || []) !== before;
 }
 
 function pickWinner(standing) {
@@ -506,7 +528,7 @@ async function refresh(prev) {
   const state = prev && prev.roundStartedMs ? Object.assign(emptyState(now), prev) : emptyState(now);
   state.mode = "buy-burn";
   state.banned = (state.banned || []).filter(function (b) {
-    return Number(b.untilMs) > now;
+    return Number(b.untilMs) > now && !sitoutExempt(b.t);
   });
   const [launches, px] = await Promise.all([listLaunches(), hopPrices()]);
   const pools = await Promise.all(launches.map(function (l) { return poolJson(l.pool); }));
@@ -559,7 +581,7 @@ async function refresh(prev) {
         const already = (state.banned || []).some(function (b) {
           return String(b.t).toUpperCase() === w.t && Number(b.untilMs) > now;
         });
-        if (!already) {
+        if (!already && !sitoutExempt(w.t)) {
           state.banned = (state.banned || []).concat([{ t: w.t, n: w.n, pool: w.pool, untilMs: now + COOLDOWN_MS }]);
         }
       }
@@ -602,8 +624,9 @@ export async function GET(request) {
       } catch (e) {}
     }
     const after = JSON.stringify((prev.bells || []).map(function (b) { return [b.amount, b.burned, b.digest]; }));
+    const unbanned = applySitoutExempt(prev);
     attachUsd(prev, prev.quoteUsd);
-    if (before !== after) {
+    if (before !== after || unbanned) {
       prev.updatedMs = Date.now();
       try { await saveBlob(prev); } catch (e) {}
     }
@@ -618,12 +641,14 @@ export async function GET(request) {
         overlay = (await withSettles(state, overlay, true)) || overlay;
       } catch (e) {}
     }
+    applySitoutExempt(state);
     attachUsd(state, state.quoteUsd);
     try { await saveBlob(state); } catch (e) {}
     return json(state, 200, request);
   } catch (e) {
     if (prev) {
       try { await withSettles(prev, overlay, false); } catch (e2) {}
+      applySitoutExempt(prev);
       return json(prev, 200, request);
     }
     const why = e && e.message ? String(e.message) : "pit-state failed";
