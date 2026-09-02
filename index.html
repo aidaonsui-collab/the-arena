@@ -192,7 +192,8 @@ main{padding:18px 0 72px}
   .launch-points{grid-template-columns:1fr 1fr;gap:10px 28px;max-width:640px}
 }
 .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px}
-.split{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(280px,380px);grid-template-areas:"main ticket";gap:14px;align-items:start}
+.split{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(280px,380px);grid-template-areas:"about ticket" "main ticket";gap:14px;align-items:start}
+.split>.split-about{grid-area:about;min-width:0}
 .split>.split-main{grid-area:main}
 .split>.ticket{grid-area:ticket}
 .stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:16px 0}
@@ -429,7 +430,7 @@ html.shot,html.shot *{animation:none!important;transition:none!important}
 }
 @media (max-width:860px){
   .split,.grid-2,.footer,.stats{grid-template-columns:1fr}
-  .split{grid-template-areas:"ticket" "main"}
+  .split{grid-template-areas:"about" "ticket" "main"}
   .ticket{position:static}
   .featured{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
   .lcard-art{aspect-ratio:1}
@@ -466,7 +467,7 @@ html.shot,html.shot *{animation:none!important;transition:none!important}
   .chips>div{min-width:52px;padding:10px 8px;flex:1 1 calc(20% - 6px)}
   .amt{font-size:22px;padding:12px 14px}
   .about-card{padding:16px}
-  .split-main,.tape-wrap,.card{min-width:0;max-width:100%}
+  .split-about,.split-main,.tape-wrap,.card{min-width:0;max-width:100%}
 }
 
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important}}
@@ -3536,7 +3537,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
           (tk.lpLocked ? '<span class="badge">'+(insta || Number(tk.unlockMs)===0 ? "Lock · permanent" : ("Vault · "+(tk.unlockMs ? new Date(tk.unlockMs).toLocaleDateString() : "180d")))+'</span>' : '')+
           '<span class="badge">'+q+'</span></div></div>'+
       '<div class="split">'+
-        '<div class="split-main">'+
+        '<div class="split-about">'+
         '<div class="about-card card">'+
           '<div class="about-head"><h2>About</h2>'+
             (canEditTokenMeta(tk) ? '<button type="button" class="about-link" id="meta-edit">Edit</button>' : '')+
@@ -3554,11 +3555,12 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
                   '<div class="about-v">'+fmtBig(burnedN)+'<span class="tick">'+escHtml(tk.t)+'</span></div>'+
                   '<div class="about-s">'+burnSub+'</div></div>')+
             '</div>'+
-          '<div class="about-links">'+aboutLinks+'</div></div>'+
+          '<div class="about-links">'+aboutLinks+'</div></div></div>'+
+        pairTicket(tk, q, insta)+
+        '<div class="split-main">'+
           '<div class="card chart-card" data-pool="'+(tk.bluefinPool||"")+'" style="margin-top:12px">'+
             dexEmbed(tk.bluefinPool)+'</div>'+
-          tapeBody+'</div>'+
-        pairTicket(tk, q, insta)+'</div>'+
+          tapeBody+'</div></div>'+
       footerHTML()+'</div>';
   }
   function hashFor(route, sym){
