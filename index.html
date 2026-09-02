@@ -216,18 +216,19 @@ main{padding:18px 0 72px}
 .chart-ohlc .ma99{color:#C9B458}
 .chart-ohlc .ema{color:#7AE0B8}
 .tv-host iframe,.tv-host svg.local-chart{border:0;display:block;width:100%;height:100%}
-.ticket{background:var(--card);border-radius:28px;padding:18px;box-shadow:var(--shadow);position:sticky;top:84px}
+.ticket{background:var(--card);border-radius:28px;padding:18px;box-shadow:var(--shadow);position:sticky;top:84px;min-width:0;max-width:100%;overflow:hidden}
 .sides{display:flex;background:#16171A;border-radius:999px;padding:4px}
 .sides>div{flex:1;text-align:center;padding:10px;border-radius:999px;font-weight:650;cursor:pointer;color:var(--muted)}
 .sides>div.on-buy{background:var(--lift);color:var(--ink)}
 .sides>div.on-sell{background:#3A2422;color:#FF8A70}
 .amt{width:100%;border:1px solid var(--line);border-radius:16px;padding:14px 16px;font-size:26px;font-weight:650;outline:none;background:#16171A;color:var(--ink)}
 .amt:focus{border-color:var(--sui);background:#1C1D21}
-.chips{display:flex;gap:6px;margin-top:10px}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
 .chips>div{flex:1;text-align:center;background:#16171A;border-radius:999px;padding:8px 0;font-size:12px;font-weight:600;cursor:pointer}
 .chips>div:hover{background:var(--lift)}
 .chips>div.on{background:var(--lift);color:var(--ink)}
-.kv{display:flex;justify-content:space-between;padding:10px 0;border-top:1px solid var(--line);font-size:14px}
+.kv{display:flex;justify-content:space-between;align-items:baseline;gap:12px;padding:10px 0;border-top:1px solid var(--line);font-size:14px;min-width:0}
+.kv>span:last-child{min-width:0;text-align:right;overflow-wrap:anywhere;word-break:break-word}
 .fee-chips{display:flex;flex-wrap:wrap;gap:6px;padding:4px 0 8px}
 .fee-chip{font-family:"IBM Plex Mono",monospace;font-size:10px;letter-spacing:.04em;text-transform:uppercase;border:1px solid currentColor;border-radius:999px;padding:2px 7px;opacity:.9}
 .btn-trade{width:100%;border:0;border-radius:999px;padding:14px;font-weight:700;background:var(--sui);color:#fff;margin-top:12px}
@@ -414,8 +415,9 @@ html[data-route="launch"] main,html[data-route="token"] main,html[data-route="me
 }
 @media (max-width:720px){
   .nav-item{padding:8px 10px;font-size:11px}
-  .tape-head .tape-mc,.tape-row .tape-mc{display:none}
-  .tape-head,.tape-row{grid-template-columns:44px 48px minmax(56px,.8fr) minmax(96px,1fr) minmax(110px,1.2fr);gap:6px;padding:10px 4px}
+  .tape-head .tape-mc,.tape-row .tape-mc,
+  .tape-head .tape-who,.tape-row .tape-who{display:none}
+  .tape-head,.tape-row{grid-template-columns:40px 44px minmax(0,.9fr) minmax(0,1.2fr);gap:6px;padding:10px 2px}
   .tape-sz{font-size:13px}
   .q-mark{width:12px;height:12px;margin-left:4px}
   .holder-row{grid-template-columns:22px minmax(0,1fr) minmax(40px,auto) minmax(56px,auto);gap:6px}
@@ -427,7 +429,7 @@ html.shot,html.shot *{animation:none!important;transition:none!important}
 }
 @media (max-width:860px){
   .split,.grid-2,.footer,.stats{grid-template-columns:1fr}
-  .split{grid-template-areas:"main" "ticket"}
+  .split{grid-template-areas:"ticket" "main"}
   .ticket{position:static}
   .featured{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
   .lcard-art{aspect-ratio:1}
@@ -458,7 +460,15 @@ html.shot,html.shot *{animation:none!important;transition:none!important}
   .explore-head h1{font-size:26px}
   .footer{padding:22px}
   .pit-right{text-align:left}
+  html[data-route="launch"] main,html[data-route="token"] main,html[data-route="metrics"] main{width:calc(100% - 20px);padding:14px 0 80px}
+  .ticket{padding:16px 14px;border-radius:20px}
+  .kv{font-size:13px;gap:8px}
+  .chips>div{min-width:52px;padding:10px 8px;flex:1 1 calc(20% - 6px)}
+  .amt{font-size:22px;padding:12px 14px}
+  .about-card{padding:16px}
+  .split-main,.tape-wrap,.card{min-width:0;max-width:100%}
 }
+
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important}}
 </style>
 <script>
@@ -2749,7 +2759,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     const extIco = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 5h5v5"/><path d="M10 14L19 5"/><path d="M19 13v6H5V5h6"/></svg>';
     const head = '<div class="tape-head">'+
       '<button type="button" class="tape-hbtn" data-tape-sort="age">'+(ageOn ? "Age ↓" : "Time")+'</button>'+
-      '<div>Type</div><div class="tape-mc">MC</div><div>Amount</div><div>Total</div><div></div></div>';
+      '<div>Type</div><div class="tape-mc">MC</div><div>Amount</div><div>Total</div><div class="tape-who"></div></div>';
     const body = rows.map(function(r){
       const bought = !!r.is_buy;
       const quote = fromQuoteAmt(r.quote_amount, q);
