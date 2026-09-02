@@ -240,6 +240,18 @@ a.btn-trade{display:block;text-align:center;text-decoration:none;box-sizing:bord
 .ticket .swap-err{color:#FF6640;font-size:12px;text-align:center;margin-top:8px}
 
 .tape-tabs{display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap}
+.tape-filter{margin-left:auto;width:36px;height:36px;border:0;background:transparent;color:#A898A8;border-radius:10px;padding:0;display:grid;place-items:center;flex:none}
+.tape-filter:hover{color:var(--ink);background:var(--lift)}
+.tape-filter.on{color:var(--pink)}
+.tape-filter svg{width:20px;height:20px;display:block}
+.tape-filter-panel{display:flex;gap:8px;align-items:center;margin:0 0 12px;min-width:0;flex-wrap:wrap}
+.tape-filter-input{flex:1 1 160px;min-width:0;border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:#16171A;color:var(--ink);font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:12px;outline:none}
+.tape-filter-input:focus{border-color:var(--sui)}
+.tape-filter-go{border:0;background:var(--pink);color:#fff;border-radius:10px;padding:10px 14px;font-weight:700;font-size:12px;letter-spacing:.06em;text-transform:uppercase}
+.tape-filter-x,.tape-filter-me{border:1px solid var(--line);background:#16171A;color:var(--ink);border-radius:10px;padding:10px 12px;font-size:12px;font-weight:650}
+.tape-filter-hint{width:100%;margin:0;font-size:12px;color:var(--muted)}
+.tape-name[data-tape-filter-set]{cursor:pointer}
+.tape-name[data-tape-filter-set]:hover{color:var(--sui)}
 .tape-wrap{overflow-x:auto}
 .tape-head,.tape-row{display:grid;grid-template-columns:56px 52px 72px minmax(64px,.9fr) minmax(118px,1.15fr) minmax(140px,1.3fr);gap:8px;align-items:center;padding:10px 8px}
 .tape-head{color:var(--muted);font-size:11px;font-weight:650;letter-spacing:.04em;text-transform:uppercase;padding:4px 8px 10px;border-bottom:1px solid var(--line)}
@@ -612,7 +624,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   var pitStateKey = "";
   let balance = 48.60;
   let xaumBal = 2.40;
-  const state = {route:"explore", sym:"VOLT", filter:"All", sort:"Market cap", time:"All", side:"Buy", amt:"1", connected:false, search:"", lName:"", lTick:"", lQuote:"SUI", lPath:"instadex", lMode:"Holders", lTokenAmt:"", lQuoteAmt:"", lFirstBuy:"1", lCap:"", lTokenCoin:"", lQuoteCoin:"", lCoinMode:"create", lDecimals:"9", lSupply:"1000000000", lDesc:"", lX:"", lTg:"", lWeb:"", lPublishedType:"", metricsWindow:"All", tapeTab:"trades", tapeOpen:"", tapePage:0, tapeAge:"age", lFile:null, lArtUrl:"", lArtPreview:"", payWith:"SUI", lNote:"", lNoteErr:false, chartTf:900, chartInd:{vol:true,ma7:true,ma25:true,ma99:false,ema:false}};
+  const state = {route:"explore", sym:"VOLT", filter:"All", sort:"Market cap", time:"All", side:"Buy", amt:"1", connected:false, search:"", lName:"", lTick:"", lQuote:"SUI", lPath:"instadex", lMode:"Holders", lTokenAmt:"", lQuoteAmt:"", lFirstBuy:"1", lCap:"", lTokenCoin:"", lQuoteCoin:"", lCoinMode:"create", lDecimals:"9", lSupply:"1000000000", lDesc:"", lX:"", lTg:"", lWeb:"", lPublishedType:"", metricsWindow:"All", tapeTab:"trades", tapeOpen:"", tapePage:0, tapeAge:"age", tapeWallet:"", tapeFilterOpen:false, lFile:null, lArtUrl:"", lArtPreview:"", payWith:"SUI", lNote:"", lNoteErr:false, chartTf:900, chartInd:{vol:true,ma7:true,ma25:true,ma99:false,ema:false}};
   var metaEdit = { open: false, saving: false, file: null, preview: "", artUrl: "", note: "", err: false, name: "", desc: "", x: "", tg: "", web: "", creator: "" };
   let hashLock = false;
   const hop = { suiPerXaum: null, suiPerUsdy: null, suiPerXagm: null, usd: null, suiUsd: null, usdyUsd: null, xagmUsd: null, xaumUsd: null, source: "" };
@@ -1458,51 +1470,15 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   }
   async function coinsOfExact(owner, coinType){
     var t = "0x2::coin::Coin<" + normType(coinType) + ">";
-    var out = [];
-    var after = null;
-    for (var page = 0; page < 8; page++){
-      var data = after
-        ? await gql(
-            "query($o:SuiAddress!,$t:String!,$after:String!){ address(address:$o){ objects(first:50, after:$after, filter:{ type:$t }){ pageInfo { hasNextPage endCursor } nodes { address contents { json } } } } }",
-            { o: owner, t: t, after: after }
-          )
-        : await gql(
-            "query($o:SuiAddress!,$t:String!){ address(address:$o){ objects(first:50, filter:{ type:$t }){ pageInfo { hasNextPage endCursor } nodes { address contents { json } } } } }",
-            { o: owner, t: t }
-          );
-      var conn = data && data.address && data.address.objects;
-      var nodes = (conn && conn.nodes) || [];
-      for (var i = 0; i < nodes.length; i++){
-        var n = nodes[i];
-        var big = coinValueBig(n.contents && n.contents.json);
-        if (big > 0n){
-          out.push({
-            id: n.address,
-            value: Number(big > BigInt(Number.MAX_SAFE_INTEGER) ? Number.MAX_SAFE_INTEGER : big),
-            valueBig: big
-          });
-        }
-      }
-      if (!(conn && conn.pageInfo && conn.pageInfo.hasNextPage && conn.pageInfo.endCursor)) break;
-      after = conn.pageInfo.endCursor;
-    }
-    out.sort(function(a,b){ return a.valueBig < b.valueBig ? 1 : -1; });
-    return out;
-  }
-  /// Liquid balance: Coin<T> objects plus Sui address-owned funds (Slush stores
-  /// SUI as addressBalance, with coinBalance often 0).
-  async function coinBalanceOf(owner, coinType){
-    var t = normType(coinType);
-    try {
-      var data = await gql(
-        "query($o:SuiAddress!,$t:String!){ address(address:$o){ balance(coinType:$t){ totalBalance } } }",
-        { o: owner, t: t }
-      );
-      var raw = data && data.address && data.address.balance && data.address.balance.totalBalance;
-      if (raw != null && String(raw) !== "") return BigInt(String(raw));
-    } catch (e) {}
-    var coins = await coinsOfExact(owner, coinType);
-    return (coins || []).reduce(function(a,c){ return a + c.valueBig; }, 0n);
+    var data = await gql(
+      "query($o:SuiAddress!,$t:String){ address(address:$o){ objects(first:50, filter:{ type:$t }){ nodes { address contents { json } } } } }",
+      { o: owner, t: t }
+    );
+    var nodes = (data && data.address && data.address.objects && data.address.objects.nodes) || [];
+    return nodes.map(function(n){
+      var big = coinValueBig(n.contents && n.contents.json);
+      return { id: n.address, value: Number(big > BigInt(Number.MAX_SAFE_INTEGER) ? Number.MAX_SAFE_INTEGER : big), valueBig: big };
+    }).filter(function(c){ return c.valueBig > 0n; }).sort(function(a,b){ return a.valueBig < b.valueBig ? 1 : -1; });
   }
   function fromBase(raw, decimals){
     var d = decimals == null ? 9 : Number(decimals);
@@ -2387,12 +2363,45 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   const TAPE_PAGE = 25;
   const TAPE_CAP = (Index && Index.BLUEFIN_TRADE_CAP) || 50;
   const suins = { cache: {}, pending: false };
-  function tapeItems(limit, pool){
+  function normTapeWallet(raw){
+    let s = String(raw || "").trim().replace(/^sui:/i, "");
+    if (!s) return "";
+    if (s.charAt(0) !== "0" && /^[0-9a-fA-F]{64}$/.test(s)) s = "0x" + s;
+    s = s.toLowerCase();
+    if (!/^0x[0-9a-f]+$/.test(s)) return "";
+    return s;
+  }
+  function traderMatchesWallet(trader, wallet){
+    const a = String(trader || "").toLowerCase();
+    const w = String(wallet || "").toLowerCase();
+    if (!a || !w) return false;
+    if (a === w) return true;
+    return w.length >= 8 && (a.indexOf(w) === 0 || w.indexOf(a) === 0);
+  }
+  function tapeItems(limit, pool, wallet){
     let rows = bus.trades.slice();
     if (pool) rows = rows.filter(function(t){ return matchesPool(t, pool); });
+    const w = String(wallet || "").toLowerCase();
+    if (w) rows = rows.filter(function(t){ return traderMatchesWallet(t.trader, w); });
     rows.sort(function(a,b){ return (b.ts||0)-(a.ts||0); });
     const cap = limit == null ? 8 : limit;
     return rows.slice(0, cap);
+  }
+  function paintTapeFilterBtn(){
+    const b = document.querySelector(".tape-filter");
+    if (b) b.classList.toggle("on", !!(state.tapeWallet || state.tapeFilterOpen));
+  }
+  function applyTapeWallet(raw){
+    const w = normTapeWallet(raw);
+    state.tapeWallet = w;
+    state.tapePage = 0;
+    state.tapeFilterOpen = !!w;
+    state.tapeTab = "trades";
+    paintTape();
+    paintTapeFilterBtn();
+    const count = document.querySelector(".tape-count");
+    const tk = findT(state.sym);
+    if (count && tk) count.textContent = tapeItems(state.tapeWallet ? 200 : TAPE_CAP, tk.t, state.tapeWallet).length;
   }
   function quoteSuiAmt(amt, q){
     amt = Number(amt) || 0;
@@ -2777,8 +2786,17 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   }
   function tapeHTML(pool){
     const q = poolQuote(pool);
-    const all = tapeItems(TAPE_CAP, pool);
-    if (!all.length) return '<div class="empty">No fills yet.</div>';
+    const all = tapeItems(state.tapeWallet ? 200 : TAPE_CAP, pool, state.tapeWallet);
+    const funnelPanel = (state.tapeFilterOpen || state.tapeWallet)
+      ? '<div class="tape-filter-panel">'+
+          '<input id="tape-wallet" class="tape-filter-input" inputmode="text" autocomplete="off" spellcheck="false" placeholder="Wallet 0x…" value="'+escAttr(state.tapeWallet)+'">'+
+          '<button type="button" class="tape-filter-go" data-tape-filter-apply>View</button>'+
+          (suiSession.address ? '<button type="button" class="tape-filter-me" data-tape-filter-mine>Mine</button>' : '')+
+          (state.tapeWallet ? '<button type="button" class="tape-filter-x" data-tape-filter-clear>Clear</button>' : '')+
+          (state.tapeWallet ? '<p class="tape-filter-hint">Showing '+all.length+' trade'+(all.length===1?"":"s")+' for '+escHtml(shortTapeAddr(state.tapeWallet))+'</p>' : '')+
+        '</div>'
+      : '';
+    if (!all.length) return funnelPanel + '<div class="empty">'+(state.tapeWallet ? "No recent trades for this wallet." : "No fills yet.")+'</div>';
     const pages = Math.max(1, Math.ceil(all.length / TAPE_PAGE));
     if (state.tapePage >= pages) state.tapePage = pages - 1;
     if (state.tapePage < 0) state.tapePage = 0;
@@ -2828,7 +2846,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
         '<div class="tape-total '+side+'"><div class="tape-sz">'+totalSz+'</div><div class="tape-sub">'+sub+'</div></div>'+
         '<div class="tape-who">'+
           '<span class="tape-av">'+escHtml(letter)+'</span>'+
-          '<span class="tape-name" title="'+escAttr(r.trader || "")+'">'+escHtml(name)+'</span>'+
+          '<span class="tape-name" data-tape-filter-set="'+escAttr(r.trader || "")+'" title="'+escAttr(r.trader || "")+'">'+escHtml(name)+'</span>'+
           '<span class="tape-n">'+n+'</span>'+
           '<button type="button" class="tape-ico" data-copy="'+escAttr(r.trader || "")+'" title="Copy">'+copyIco+'</button>'+
           tx+
@@ -2841,7 +2859,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
           '<button type="button" data-tape-page="next"'+(state.tapePage>=pages-1?" disabled":"")+'>Next</button>'+
         '</div>'
       : "";
-    return '<div class="tape-wrap">'+head+body+'</div>'+pager;
+    return funnelPanel+'<div class="tape-wrap">'+head+body+'</div>'+pager;
   }
   function sparkSVG(k){
     const d = spark(k.ch>=0?0.7:0.32);
@@ -3546,14 +3564,16 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       (tk.lockId ? '<button type="button" class="about-link" data-copy="'+tk.lockId+'">Vault</button>' : '');
     if (tk.creator) resolveSuins([tk.creator]);
     const holdN = holdersOf(tk).list.length;
-    const tradeN = tapeItems(TAPE_CAP, tk.t).length;
+    const tradeN = tapeItems(state.tapeWallet ? 200 : TAPE_CAP, tk.t, state.tapeWallet).length;
     const tab = state.tapeTab === "holders" ? "holders" : "trades";
     const tapeBody = dexBout
       ? '<div class="card" style="padding:18px;margin-top:12px">'+
           '<div class="tape-tabs">'+
             '<button type="button" class="pill'+(tab!=="holders"?" on":"")+'" data-set="tapeTab" data-val="trades">Trades</button>'+
             '<button type="button" class="pill'+(tab==="holders"?" on":"")+'" data-set="tapeTab" data-val="holders">Holders</button>'+
-            '<span class="count-pill tape-count">'+(tab==="holders"?holdN:tradeN)+'</span></div>'+
+            '<span class="count-pill tape-count">'+(tab==="holders"?holdN:tradeN)+'</span>'+
+            '<button type="button" class="tape-filter'+(state.tapeWallet || state.tapeFilterOpen ? " on" : "")+'" data-tape-filter aria-label="Filter wallet" title="Filter wallet">'+
+              '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><path d="M4 5h16l-6 8v5l-4 2v-7L4 5z"/></svg></button></div>'+
           '<div id="tape">'+(tab==="holders" ? (holderHTML(tk)||'<div class="empty">No holders yet.</div>') : tapeHTML(tk.t))+'</div></div>'
       : '<div class="card" style="padding:18px;margin-top:12px">'+
           '<div class="tape-tabs">'+
@@ -3937,10 +3957,11 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     const dex = isDexBout(tk);
     const holders = state.tapeTab === "holders" || !dex;
     if (dex && !holders){
-      const n = tapeItems(TAPE_CAP, tk.t).length;
+      const n = tapeItems(state.tapeWallet ? 200 : TAPE_CAP, tk.t, state.tapeWallet).length;
       const count = document.querySelector(".tape-count");
       if (count) count.textContent = n;
       tapeEl.innerHTML = tapeHTML(tk.t);
+      paintTapeFilterBtn();
       if (tk.bluefinPool && bus.sub && bus.sub.watchBluefinPool) bus.sub.watchBluefinPool(tk.bluefinPool);
       return;
     }
@@ -4370,6 +4391,8 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       swapBals = { sui: 0n, quote: 0n, tok: 0n };
       state.tapePage = 0;
       state.tapeOpen = "";
+      state.tapeWallet = "";
+      state.tapeFilterOpen = false;
     }
     if (route !== "token" || (sym && nextSym !== state.sym)) closeMetaEditor();
     state.route = route;
@@ -4685,14 +4708,10 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       state.lCoinMode = "create";
       var creating = true;
       if (firstBuy > 0n){
-        var suiBal = await coinBalanceOf(suiSession.address, SUI_TYPE);
+        var suiCoins = await coinsOfExact(suiSession.address, SUI_TYPE);
+        var suiBal = (suiCoins || []).reduce(function(a,c){ return a + c.valueBig; }, 0n);
         var need = BigInt(LAUNCH_FEE) + firstBuy + 400000000n;
-        if (suiBal < need){
-          var extra = launchQuote === "SUI"
-            ? ""
-            : " First buy is paid in SUI — you do not need "+launchQuote+" in the wallet.";
-          throw new Error("Need about "+fromBase(need, 9).toFixed(2)+" SUI for the 1 SUI launch fee, first buy, and gas. This wallet has "+fromBase(suiBal, 9).toFixed(2)+" SUI."+extra);
-        }
+        if (suiBal < need) throw new Error("Need about "+fromBase(need, 9).toFixed(2)+" SUI for the 1 SUI launch fee, first buy, and gas. First buy is paid in SUI — you do not need "+launchQuote+" in the wallet.");
       }
       var tokenHuman = "";
       state.lDecimals = String(TOKEN_DECIMALS);
@@ -5049,9 +5068,15 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   async function refreshSwapBals(tk){
     if (!suiSession.address || !tk) return;
     try {
-      swapBals.sui = await coinBalanceOf(suiSession.address, SUI_TYPE);
-      swapBals.quote = await coinBalanceOf(suiSession.address, quoteTypeOf(tk));
-      swapBals.tok = await coinBalanceOf(suiSession.address, tokenTypeOf(tk));
+      var suiCoins = await coinsOfExact(suiSession.address, SUI_TYPE);
+      var qCoins = await coinsOfExact(suiSession.address, quoteTypeOf(tk));
+      var tCoins = await coinsOfExact(suiSession.address, tokenTypeOf(tk));
+      function sum(cs){
+        return (cs || []).reduce(function(a,c){ return a + c.valueBig; }, 0n);
+      }
+      swapBals.sui = sum(suiCoins);
+      swapBals.quote = sum(qCoins);
+      swapBals.tok = sum(tCoins);
       paintSwapBox();
     } catch (e) {}
   }
@@ -5637,6 +5662,40 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       if (state.route === "token" && isDexBout(findT(state.sym))) scheduleSwapQuote();
       return;
     }
+    const tapeFilt = e.target.closest("button.tape-filter");
+    if (tapeFilt){
+      state.tapeTab = "trades";
+      state.tapeFilterOpen = !state.tapeFilterOpen;
+      $$("[data-set=\"tapeTab\"]").forEach(function(el){
+        el.classList.toggle("on", el.getAttribute("data-val") === "trades");
+      });
+      paintTape();
+      paintTapeFilterBtn();
+      const inp = $("#tape-wallet");
+      if (inp && state.tapeFilterOpen) inp.focus();
+      return;
+    }
+    if (e.target.closest("[data-tape-filter-apply]")){
+      const inp = $("#tape-wallet");
+      applyTapeWallet(inp && inp.value);
+      return;
+    }
+    if (e.target.closest("[data-tape-filter-clear]")){
+      applyTapeWallet("");
+      state.tapeFilterOpen = false;
+      paintTape();
+      paintTapeFilterBtn();
+      return;
+    }
+    if (e.target.closest("[data-tape-filter-mine]")){
+      applyTapeWallet(suiSession.address || "");
+      return;
+    }
+    const setW = e.target.closest("[data-tape-filter-set]");
+    if (setW && !e.target.closest("[data-copy]")){
+      applyTapeWallet(setW.getAttribute("data-tape-filter-set"));
+      return;
+    }
     const tapeSortBtn = e.target.closest("[data-tape-sort]");
     if (tapeSortBtn){
       state.tapeAge = state.tapeAge === "time" ? "age" : "time";
@@ -5789,6 +5848,11 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     if (e.key === "Escape"){
       closeWalletPicker();
       if (!metaEdit.saving) closeMetaEditor();
+    }
+    if (e.key === "Enter" && e.target && e.target.id === "tape-wallet"){
+      e.preventDefault();
+      applyTapeWallet(e.target.value);
+      return;
     }
     if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k"){
       e.preventDefault();
