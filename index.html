@@ -1556,8 +1556,20 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       else renderScreen();
     }, 180);
   }
+  function exploreSortKey(k){
+    var s = state.sort;
+    if (s === "Newest") return String(launchTs(k) || 0);
+    if (s === "Volume") return String(Math.round(volUsd24h(k) || vol(k) || 0));
+    if (s === "Recent"){
+      var row = tapeItems(1, k.t)[0];
+      return String((row && row.ts) || launchTs(k) || 0);
+    }
+    return String(Math.round((usdCap(k) || 0) / 10));
+  }
   function exploreListSig(pool){
-    return state.filter + "|" + state.sort + "|" + (state.search || "") + "|" + (pool || []).map(function(k){ return k.t+":"+(k.img||"")+":"+(k.n||""); }).join(",");
+    return state.filter + "|" + state.sort + "|" + (state.search || "") + "|" + (pool || []).map(function(k){
+      return k.t+":"+(k.img||"")+":"+(k.n||"")+":"+exploreSortKey(k);
+    }).join(",");
   }
   function paintExploreList(){
     if (state.route !== "explore") return;
