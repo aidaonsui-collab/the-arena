@@ -3546,9 +3546,6 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     const dex = tk.bluefinPool
       ? "https://dexscreener.com/sui/"+tk.bluefinPool
       : "https://dexscreener.com/sui";
-    const gecko = tk.bluefinPool
-      ? "https://www.geckoterminal.com/sui-network/pools/"+tk.bluefinPool
-      : "https://www.geckoterminal.com/sui-network";
     const xHref = escUrl(tk.twitter) || ("https://x.com/search?q="+xq);
     const aboutLinks =
       (escUrl(tk.website) ? '<a class="about-link" href="'+escUrl(tk.website)+'" target="_blank" rel="noopener">Website</a>' : '')+
@@ -3557,11 +3554,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       (escUrl(tk.telegram) ? '<a class="about-link" href="'+escUrl(tk.telegram)+'" target="_blank" rel="noopener">Telegram</a>' : '')+
       (tk.creator ? '<a class="about-link" id="creator-link" data-creator="'+escAttr(tk.creator)+'" href="'+escAttr(accountUrl(tk.creator))+'" target="_blank" rel="noopener">Creator · '+escHtml(traderLabel(tk.creator))+'</a>' : '')+
       '<a class="about-link" href="'+dex+'" target="_blank" rel="noopener">Dexscreener</a>'+
-      '<a class="about-link" href="'+gecko+'" target="_blank" rel="noopener">GeckoTerminal</a>'+
-      '<button type="button" class="about-link" data-copy="'+escAttr(demoTypeId(tk))+'">Contract</button>'+
-      '<button type="button" class="about-link" data-copy="'+(tk.bluefinPool||tk.pool||tk.t)+'">Pool</button>'+
-      (tk.bluefinPool ? '<a class="about-link" href="https://trade.bluefin.io/swap?pool='+tk.bluefinPool+'" target="_blank" rel="noopener">Bluefin</a>' : '')+
-      (tk.lockId ? '<button type="button" class="about-link" data-copy="'+tk.lockId+'">Vault</button>' : '');
+      '<button type="button" class="about-link" data-copy="'+escAttr(demoTypeId(tk))+'">Contract</button>';
     if (tk.creator) resolveSuins([tk.creator]);
     const holdN = holdersOf(tk).list.length;
     const tradeN = tapeItems(state.tapeWallet ? 200 : TAPE_CAP, tk.t, state.tapeWallet).length;
