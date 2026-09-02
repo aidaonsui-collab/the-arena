@@ -1458,15 +1458,51 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   }
   async function coinsOfExact(owner, coinType){
     var t = "0x2::coin::Coin<" + normType(coinType) + ">";
-    var data = await gql(
-      "query($o:SuiAddress!,$t:String){ address(address:$o){ objects(first:50, filter:{ type:$t }){ nodes { address contents { json } } } } }",
-      { o: owner, t: t }
-    );
-    var nodes = (data && data.address && data.address.objects && data.address.objects.nodes) || [];
-    return nodes.map(function(n){
-      var big = coinValueBig(n.contents && n.contents.json);
-      return { id: n.address, value: Number(big > BigInt(Number.MAX_SAFE_INTEGER) ? Number.MAX_SAFE_INTEGER : big), valueBig: big };
-    }).filter(function(c){ return c.valueBig > 0n; }).sort(function(a,b){ return a.valueBig < b.valueBig ? 1 : -1; });
+    var out = [];
+    var after = null;
+    for (var page = 0; page < 8; page++){
+      var data = after
+        ? await gql(
+            "query($o:SuiAddress!,$t:String!,$after:String!){ address(address:$o){ objects(first:50, after:$after, filter:{ type:$t }){ pageInfo { hasNextPage endCursor } nodes { address contents { json } } } } }",
+            { o: owner, t: t, after: after }
+          )
+        : await gql(
+            "query($o:SuiAddress!,$t:String!){ address(address:$o){ objects(first:50, filter:{ type:$t }){ pageInfo { hasNextPage endCursor } nodes { address contents { json } } } } }",
+            { o: owner, t: t }
+          );
+      var conn = data && data.address && data.address.objects;
+      var nodes = (conn && conn.nodes) || [];
+      for (var i = 0; i < nodes.length; i++){
+        var n = nodes[i];
+        var big = coinValueBig(n.contents && n.contents.json);
+        if (big > 0n){
+          out.push({
+            id: n.address,
+            value: Number(big > BigInt(Number.MAX_SAFE_INTEGER) ? Number.MAX_SAFE_INTEGER : big),
+            valueBig: big
+          });
+        }
+      }
+      if (!(conn && conn.pageInfo && conn.pageInfo.hasNextPage && conn.pageInfo.endCursor)) break;
+      after = conn.pageInfo.endCursor;
+    }
+    out.sort(function(a,b){ return a.valueBig < b.valueBig ? 1 : -1; });
+    return out;
+  }
+  /// Liquid balance: Coin<T> objects plus Sui address-owned funds (Slush stores
+  /// SUI as addressBalance, with coinBalance often 0).
+  async function coinBalanceOf(owner, coinType){
+    var t = normType(coinType);
+    try {
+      var data = await gql(
+        "query($o:SuiAddress!,$t:String!){ address(address:$o){ balance(coinType:$t){ totalBalance } } }",
+        { o: owner, t: t }
+      );
+      var raw = data && data.address && data.address.balance && data.address.balance.totalBalance;
+      if (raw != null && String(raw) !== "") return BigInt(String(raw));
+    } catch (e) {}
+    var coins = await coinsOfExact(owner, coinType);
+    return (coins || []).reduce(function(a,c){ return a + c.valueBig; }, 0n);
   }
   function fromBase(raw, decimals){
     var d = decimals == null ? 9 : Number(decimals);
@@ -4649,10 +4685,14 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       state.lCoinMode = "create";
       var creating = true;
       if (firstBuy > 0n){
-        var suiCoins = await coinsOfExact(suiSession.address, SUI_TYPE);
-        var suiBal = (suiCoins || []).reduce(function(a,c){ return a + c.valueBig; }, 0n);
+        var suiBal = await coinBalanceOf(suiSession.address, SUI_TYPE);
         var need = BigInt(LAUNCH_FEE) + firstBuy + 400000000n;
-        if (suiBal < need) throw new Error("Need about "+fromBase(need, 9).toFixed(2)+" SUI for the 1 SUI launch fee, first buy, and gas. First buy is paid in SUI — you do not need "+launchQuote+" in the wallet.");
+        if (suiBal < need){
+          var extra = launchQuote === "SUI"
+            ? ""
+            : " First buy is paid in SUI — you do not need "+launchQuote+" in the wallet.";
+          throw new Error("Need about "+fromBase(need, 9).toFixed(2)+" SUI for the 1 SUI launch fee, first buy, and gas. This wallet has "+fromBase(suiBal, 9).toFixed(2)+" SUI."+extra);
+        }
       }
       var tokenHuman = "";
       state.lDecimals = String(TOKEN_DECIMALS);
@@ -5009,15 +5049,9 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   async function refreshSwapBals(tk){
     if (!suiSession.address || !tk) return;
     try {
-      var suiCoins = await coinsOfExact(suiSession.address, SUI_TYPE);
-      var qCoins = await coinsOfExact(suiSession.address, quoteTypeOf(tk));
-      var tCoins = await coinsOfExact(suiSession.address, tokenTypeOf(tk));
-      function sum(cs){
-        return (cs || []).reduce(function(a,c){ return a + c.valueBig; }, 0n);
-      }
-      swapBals.sui = sum(suiCoins);
-      swapBals.quote = sum(qCoins);
-      swapBals.tok = sum(tCoins);
+      swapBals.sui = await coinBalanceOf(suiSession.address, SUI_TYPE);
+      swapBals.quote = await coinBalanceOf(suiSession.address, quoteTypeOf(tk));
+      swapBals.tok = await coinBalanceOf(suiSession.address, tokenTypeOf(tk));
       paintSwapBox();
     } catch (e) {}
   }
