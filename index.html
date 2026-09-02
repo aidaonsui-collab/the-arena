@@ -2265,34 +2265,30 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       if (state.route !== "token") dropLwChart();
       return;
     }
-    var pool = host.getAttribute("data-chart-pool");
-    var frame = host.querySelector("iframe");
-    if (frame && frame.getAttribute("data-ready") === pool) return;
     if (lw.chart && (lw.host === host || (lw.host && host.contains(lw.host))) && lw.ticker === state.sym){
       lw.host = host;
       applyLwData(findT(state.sym));
       return;
     }
     if (lw.chart && lw.ticker && lw.ticker !== state.sym) dropLwChart();
-    var dex = "https://dexscreener.com/sui/"+pool+"?embed=1&theme=dark&info=0&trades=0&tabs=0";
-    function showDex(el){
-      dropLwChart();
-      el.removeAttribute("data-local");
-      var bar = el.closest && el.closest(".chart-card") && el.closest(".chart-card").querySelector(".chart-toolbar");
-      if (bar) bar.style.display = "none";
-      el.innerHTML = '<iframe src="'+dex+'" title="Dexscreener" data-ready="'+escAttr(pool)+'" allow="clipboard-write" allowfullscreen></iframe>';
-    }
-    fetch("https://api.dexscreener.com/latest/dex/pairs/sui/"+pool).then(function(r){ return r.json(); }).then(function(d){
-      if (state.route !== "token") return;
-      var live = document.querySelector(".tv-host[data-chart-pool]");
-      if (!live || live.getAttribute("data-chart-pool") !== pool) return;
-      if (d && (d.pair || (d.pairs && d.pairs.length))) showDex(live);
-      else paintLocalChart(live, findT(state.sym));
-    }).catch(function(){
-      if (state.route !== "token") return;
-      var live = document.querySelector(".tv-host[data-chart-pool]");
-      if (live) paintLocalChart(live, findT(state.sym));
-    });
+    // Draw our own candles rather than embedding Dexscreener.
+    //
+    // The old path asked the Dexscreener API whether the pair existed and, if it
+    // said yes, injected their iframe. Those are two different systems: the API
+    // answering "I know this pair" says nothing about whether the embed renders.
+    // When the embed stalls it shows "Loading pair…" forever, and because the
+    // API does know these pools, that was the branch nearly every Bluefin and
+    // Instadex token took. The charts that appeared to work were the ones
+    // Dexscreener had no data for, which fell through to the local chart.
+    //
+    // A watchdog cannot rescue the embed: `load` fires in ~330ms while it is
+    // still spinning, it posts no message to the parent, and cross-origin rules
+    // block reading its DOM or size. There is no signal that distinguishes
+    // painted from stuck, so any timeout would also tear down a working chart.
+    //
+    // Dexscreener stays one click away in the links row, where it opens
+    // top-level and works.
+    paintLocalChart(host, findT(state.sym));
   }
 
   function isRefl(tk){
