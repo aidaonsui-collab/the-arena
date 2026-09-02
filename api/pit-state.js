@@ -9,6 +9,13 @@ const COOLDOWN_MS = 172_800_000;
 const SUPPLY = 1e9;
 const HIDE = new Set(["BFLN", "GRAD", "SMOKE", "IDEX", "SILVER"]);
 const PATH = "pit-state.json";
+const SETTLES_PATH = "pit-settles.json";
+const SETTLE_EVENT =
+  process.env.ARENA_PIT_SETTLE_EVENT ||
+  "0xd8531cc8c4e1ee914f0e4e48aea9a796faa0603459cc4665838f688e51bf23d9::events::InstadexPitSettleEvent";
+const BURN_EVENT =
+  process.env.ARENA_BURN_EVENT ||
+  "0x47ea732e44f21470aa3dd449a7b26731ed2c377e2c02e650f3ede6ea581bf000::events::InstadexBurnEvent";
 const Q64 = 2 ** 64;
 const USDY = "0x960b531667636f39e85867775f52f6b1f220a058c4de786905bdf761e06a56bb::usdy::USDY";
 const XAGM = "0x64bddec0f898ccaa022b8a6e0a5f75d80f53177b87a9795dd15aefe9ac12ee6c::xagm::XAGM";
@@ -22,7 +29,7 @@ function vercelHost(v) {
 function originOk(request) {
   const origin = (request.headers.get("origin") || "").replace(/\/$/, "");
   if (!origin) return true;
-  if (/the-arena|\.vercel\.app$/i.test(origin)) return true;
+  if (/vicefun\.com$/i.test(origin) || /the-arena|\.vercel\.app$/i.test(origin)) return true;
   const allow = (process.env.ARENA_ORIGIN || "")
     .split(",")
     .map((s) => vercelHost(s.trim()))
@@ -57,7 +64,7 @@ function json(body, status, request) {
     status,
     headers: {
       ...corsHeaders(request),
-      "cache-control": "public, s-maxage=15, stale-while-revalidate=30",
+      "cache-control": "private, no-store",
     },
   });
 }
@@ -227,6 +234,27 @@ function emptyState(now) {
   };
 }
 
+function normId(v) {
+  return asId(v).toLowerCase();
+}
+
+function applySettleRow(b, row) {
+  if (!b || !row) return;
+  if (row.digest && !b.digest) b.digest = row.digest;
+  if (row.skipped && !b.skipped) b.skipped = row.skipped;
+  const amt = Number(row.amount);
+  const brn = Number(row.burned);
+  if (amt > 0 && amt >= Number(b.amount || 0)) b.amount = row.amount;
+  if (brn > 0 && brn >= Number(b.burned || 0)) b.burned = row.burned;
+}
+
+function applySettlesToBells(bells, byPool, byTicker) {
+  (bells || []).forEach(function (b) {
+    applySettleRow(b, byPool && byPool[normId(b.pool)]);
+    applySettleRow(b, byTicker && byTicker[String(b.t || "").toUpperCase()]);
+  });
+}
+
 function mergeBells(primary, extra) {
   const out = [];
   const seen = {};
@@ -240,21 +268,102 @@ function mergeBells(primary, extra) {
       out.push(row);
       return;
     }
-    if (!prev.digest && b.digest) prev.digest = b.digest;
-    if (prev.amount == null && b.amount != null) prev.amount = b.amount;
-    if (prev.burned == null && b.burned != null) prev.burned = b.burned;
-    if (!prev.skipped && b.skipped) prev.skipped = b.skipped;
+    applySettleRow(prev, b);
+    if (!prev.n && b.n) prev.n = b.n;
+    if (!prev.pool && b.pool) prev.pool = b.pool;
+    if (!prev.lock && b.lock) prev.lock = b.lock;
   }
   (primary || []).forEach(take);
   (extra || []).forEach(take);
+  const byT = {};
+  const byP = {};
+  out.forEach(function (b) {
+    const t = String(b.t || "").toUpperCase();
+    const p = normId(b.pool);
+    if (t) {
+      if (!byT[t]) byT[t] = {};
+      applySettleRow(byT[t], b);
+    }
+    if (p && p !== "0x") {
+      if (!byP[p]) byP[p] = {};
+      applySettleRow(byP[p], b);
+    }
+  });
+  out.forEach(function (b) {
+    applySettleRow(b, byT[String(b.t || "").toUpperCase()]);
+    applySettleRow(b, byP[normId(b.pool)]);
+  });
   return out;
 }
 
-async function loadBlob() {
+function mergeOverlay(a, b) {
+  const out = { byPool: {}, byTicker: {}, updatedMs: 0 };
+  function fold(src) {
+    if (!src) return;
+    out.updatedMs = Math.max(Number(out.updatedMs || 0), Number(src.updatedMs || 0));
+    Object.keys(src.byPool || {}).forEach(function (k) {
+      const nk = normId(k);
+      if (!out.byPool[nk]) out.byPool[nk] = Object.assign({}, src.byPool[k]);
+      else applySettleRow(out.byPool[nk], src.byPool[k]);
+    });
+    Object.keys(src.byTicker || {}).forEach(function (k) {
+      const t = String(k).toUpperCase();
+      if (!out.byTicker[t]) out.byTicker[t] = Object.assign({}, src.byTicker[k]);
+      else applySettleRow(out.byTicker[t], src.byTicker[k]);
+    });
+  }
+  fold(a);
+  fold(b);
+  return out;
+}
+
+function overlayFrom(state, prevOverlay) {
+  const out = mergeOverlay(prevOverlay, { byPool: {}, byTicker: {}, updatedMs: Date.now() });
+  (state && state.bells ? state.bells : []).forEach(function (b) {
+    if (!b || (!b.digest && !(Number(b.amount) > 0) && !(Number(b.burned) > 0) && !b.skipped)) return;
+    const row = {
+      digest: b.digest,
+      amount: b.amount,
+      burned: b.burned,
+      skipped: b.skipped,
+      t: b.t,
+      pool: b.pool,
+    };
+    const p = normId(b.pool);
+    const t = String(b.t || "").toUpperCase();
+    if (p && p !== "0x") {
+      if (!out.byPool[p]) out.byPool[p] = {};
+      applySettleRow(out.byPool[p], row);
+      out.byPool[p].t = t;
+    }
+    if (t) {
+      if (!out.byTicker[t]) out.byTicker[t] = {};
+      applySettleRow(out.byTicker[t], row);
+      out.byTicker[t].pool = p;
+    }
+  });
+  out.updatedMs = Date.now();
+  return out;
+}
+
+function attachUsd(state, px) {
+  (state.bells || []).forEach(function (b) {
+    const q = (b && b.quote) || "SUI";
+    const dec = q === "USDY" ? 6 : 9;
+    const raw = Number(b && b.amount);
+    if (!(raw > 0)) return;
+    const unit = Math.pow(10, dec);
+    const n = raw >= unit / 100 ? raw / unit : raw;
+    const u = (px && px[q]) || 0;
+    if (n > 0 && u > 0) b.amountUsd = n * u;
+  });
+}
+
+async function loadJsonPath(path) {
   try {
-    const { blobs } = await list({ prefix: PATH, limit: 20 });
+    const { blobs } = await list({ prefix: path, limit: 20 });
     const rows = blobs || [];
-    if (!rows.length) return null;
+    if (!rows.length) return [];
     const parsed = [];
     for (let i = 0; i < rows.length; i++) {
       try {
@@ -264,27 +373,114 @@ async function loadBlob() {
         if (j && typeof j === "object") parsed.push(j);
       } catch (e) {}
     }
-    if (!parsed.length) return null;
     parsed.sort(function (a, b) {
       return Number(b.updatedMs || 0) - Number(a.updatedMs || 0);
     });
-    const state = parsed[0];
-    for (let i = 1; i < parsed.length; i++) {
-      state.bells = mergeBells(state.bells, parsed[i].bells);
-    }
-    return state;
+    return parsed;
   } catch (e) {
-    return null;
+    return [];
   }
 }
 
-async function saveBlob(state) {
-  await put(PATH, JSON.stringify(state), {
+async function loadBlob() {
+  const parsed = await loadJsonPath(PATH);
+  if (!parsed.length) return null;
+  const state = parsed[0];
+  for (let i = 1; i < parsed.length; i++) {
+    state.bells = mergeBells(state.bells, parsed[i].bells);
+  }
+  return state;
+}
+
+async function loadSettles() {
+  const parsed = await loadJsonPath(SETTLES_PATH);
+  if (!parsed.length) return { byPool: {}, byTicker: {}, updatedMs: 0 };
+  let overlay = { byPool: {}, byTicker: {}, updatedMs: 0 };
+  for (let i = 0; i < parsed.length; i++) overlay = mergeOverlay(overlay, parsed[i]);
+  return overlay;
+}
+
+async function saveJson(path, state) {
+  await put(path, JSON.stringify(state), {
     access: "public",
     addRandomSuffix: false,
     allowOverwrite: true,
     contentType: "application/json",
     cacheControlMaxAge: 0,
+  });
+}
+
+async function saveBlob(state) {
+  await saveJson(PATH, state);
+}
+
+async function listEventRows(type) {
+  const q =
+    "query($t:String!,$first:Int!,$after:String){ events(first:$first, after:$after, filter:{ type:$t }){ pageInfo { hasNextPage endCursor } nodes { timestamp transaction { digest } contents { json } } } }";
+  const out = [];
+  let after = null;
+  for (let i = 0; i < 6; i++) {
+    const data = await gql(q, { t: type, first: 50, after });
+    const nodes = (data && data.events && data.events.nodes) || [];
+    for (let j = 0; j < nodes.length; j++) {
+      const n = nodes[j];
+      out.push({
+        digest: (n.transaction && n.transaction.digest) || "",
+        json: (n.contents && n.contents.json) || {},
+        ts: Date.parse(n.timestamp) || 0,
+      });
+    }
+    const info = (data && data.events && data.events.pageInfo) || {};
+    if (!info.hasNextPage || !info.endCursor) break;
+    after = info.endCursor;
+  }
+  return out;
+}
+
+async function chainSettlesByPool() {
+  const [settles, burns] = await Promise.all([listEventRows(SETTLE_EVENT), listEventRows(BURN_EVENT)]);
+  const burnByDigest = {};
+  for (let i = 0; i < burns.length; i++) {
+    const d = burns[i].digest;
+    if (!d) continue;
+    burnByDigest[d] = (burnByDigest[d] || 0) + Number(burns[i].json.amount || 0);
+  }
+  settles.sort(function (a, b) {
+    return Number(a.ts || 0) - Number(b.ts || 0);
+  });
+  const byPool = {};
+  for (let i = 0; i < settles.length; i++) {
+    const s = settles[i];
+    const pool = normId(s.json.winner_id);
+    if (!pool || pool === "0x") continue;
+    const amount = Number(s.json.amount || 0);
+    const burned = burnByDigest[s.digest] || 0;
+    if (!byPool[pool]) {
+      byPool[pool] = { pool: pool, digest: s.digest, amount: 0, burned: 0 };
+    }
+    byPool[pool].amount += amount;
+    byPool[pool].burned += burned;
+    if (!byPool[pool].digest && s.digest) byPool[pool].digest = s.digest;
+  }
+  return byPool;
+}
+
+async function withSettles(state, overlay, doChain) {
+  if (overlay) applySettlesToBells(state.bells, overlay.byPool, overlay.byTicker);
+  if (doChain) {
+    const chain = await chainSettlesByPool();
+    applySettlesToBells(state.bells, chain, null);
+    overlay = overlayFrom(state, overlay);
+    try {
+      await saveJson(SETTLES_PATH, overlay);
+    } catch (e) {}
+  }
+  return overlay;
+}
+
+function bellsNeedSettle(state) {
+  return (state.bells || []).some(function (b) {
+    return b && b.t && !b.skipped && (!(Number(b.amount) > 0) || !(Number(b.burned) > 0) || !b.digest);
   });
 }
 
@@ -382,6 +578,8 @@ async function refresh(prev) {
 
   state.winner = pickWinner(standing);
   state.updatedMs = now;
+  state.quoteUsd = px;
+  attachUsd(state, px);
   return state;
 }
 
@@ -392,17 +590,42 @@ export function OPTIONS(request) {
 export async function GET(request) {
   if (!originOk(request)) return json({ error: "bad origin" }, 403, request);
   const prev = await loadBlob();
+  let overlay = await loadSettles();
   const now = Date.now();
-  if (prev && now - Number(prev.updatedMs || 0) < 20000 && now < Number(prev.roundEndMs || 0)) {
+  const fresh = prev && now - Number(prev.updatedMs || 0) < 20000 && now < Number(prev.roundEndMs || 0);
+  if (fresh) {
+    const before = JSON.stringify((prev.bells || []).map(function (b) { return [b.amount, b.burned, b.digest]; }));
+    overlay = (await withSettles(prev, overlay, false)) || overlay;
+    if (bellsNeedSettle(prev)) {
+      try {
+        overlay = (await withSettles(prev, overlay, true)) || overlay;
+      } catch (e) {}
+    }
+    const after = JSON.stringify((prev.bells || []).map(function (b) { return [b.amount, b.burned, b.digest]; }));
+    attachUsd(prev, prev.quoteUsd);
+    if (before !== after) {
+      prev.updatedMs = Date.now();
+      try { await saveBlob(prev); } catch (e) {}
+    }
     return json(prev, 200, request);
   }
   try {
     const state = await refresh(prev);
     if (prev && prev.bells) state.bells = mergeBells(state.bells, prev.bells);
+    overlay = (await withSettles(state, overlay, false)) || overlay;
+    if (bellsNeedSettle(state)) {
+      try {
+        overlay = (await withSettles(state, overlay, true)) || overlay;
+      } catch (e) {}
+    }
+    attachUsd(state, state.quoteUsd);
     try { await saveBlob(state); } catch (e) {}
     return json(state, 200, request);
   } catch (e) {
-    if (prev) return json(prev, 200, request);
+    if (prev) {
+      try { await withSettles(prev, overlay, false); } catch (e2) {}
+      return json(prev, 200, request);
+    }
     const why = e && e.message ? String(e.message) : "pit-state failed";
     return json({ error: why.slice(0, 180) }, 502, request);
   }
@@ -432,13 +655,12 @@ export async function POST(request) {
     return String(b.t || "").toUpperCase() === ticker;
   });
   if (!hit) return json({ error: "no bell for " + ticker }, 404, request);
-  if (digest) hit.digest = digest;
-  if (skipped) hit.skipped = skipped;
-  if (burned != null && burned >= 0) hit.burned = burned;
-  if (amount != null && amount >= 0) hit.amount = amount;
+  applySettleRow(hit, { digest: digest, skipped: skipped, burned: burned, amount: amount });
   hit.settledMs = Date.now();
   prev.updatedMs = Date.now();
+  const overlay = overlayFrom(prev, await loadSettles());
   try {
+    await saveJson(SETTLES_PATH, overlay);
     await saveBlob(prev);
   } catch (e) {
     const why = e && e.message ? String(e.message) : "save failed";

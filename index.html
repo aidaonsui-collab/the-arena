@@ -343,6 +343,8 @@ a.btn-trade{display:block;text-align:center;text-decoration:none;box-sizing:bord
 .bells-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-top:14px}
 .bell-card{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:20px 22px}
 .bell-card .feat-name{font-size:18px;margin-top:8px}
+.bell-card .bell-stat{font-size:14px;color:var(--ink);margin-top:10px;font-weight:650;font-family:"IBM Plex Mono",ui-monospace,monospace}
+.bell-card .bell-stat.sub{font-size:12px;color:var(--muted);font-weight:500;margin-top:4px}
 .bell-card .chip{margin-left:0}
 html[data-route="explore"] .search-row,html[data-route="pit"] .search-row,html[data-route="launch"] .search-row,html[data-route="token"] .search-row,html[data-route="metrics"] .search-row{display:none}
 html[data-route="explore"] main,html[data-route="pit"] main{padding:0 0 72px}
@@ -2295,13 +2297,26 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     if (!(n > 0)) return "";
     return fmtSui(n) + " " + q + " bought";
   }
+  function bellWorthText(b){
+    var usd = Number(b && b.amountUsd);
+    if (!(usd > 0)) {
+      var q = (b && b.quote) || "SUI";
+      var dec = q === "USDY" ? 6 : 9;
+      var n = mistToHuman(b && b.amount, dec);
+      usd = n * (quoteUsd(q) || 0);
+    }
+    if (!(usd > 0)) return "";
+    return "worth " + fmtUsd(usd);
+  }
   function bellBurnText(b){
     var n = mistToHuman(b && b.burned, 9);
     if (!(n > 0)) return "";
     var tick = String((b && b.t) || "TOKEN");
     var shown = n >= 1e6
       ? (n / 1e6).toFixed(2).replace(/\.00$/, "") + "M"
-      : Math.round(n).toLocaleString("en-US");
+      : n >= 1e3
+        ? Math.round(n).toLocaleString("en-US")
+        : (n >= 1 ? n.toFixed(2).replace(/\.00$/, "") : n.toPrecision(3));
     return shown + " " + tick + " burned";
   }
   function fmtPx(p){
@@ -3047,7 +3062,9 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     const w = (j.winner && j.winner.t) || "";
     const banned = (j.banned || []).map(function(b){ return String(b.t || "").toUpperCase() + ":" + String(b.untilMs || ""); }).join(",");
     const stand = (j.standing || []).map(function(s){ return s.t; }).join(",");
-    const bells = (j.bells || []).map(function(b){ return String(b.t || "") + ":" + String(b.ts || ""); }).join(",");
+    const bells = (j.bells || []).map(function(b){
+      return [b.t, b.ts, b.digest || "", b.amount || "", b.burned || ""].join(":");
+    }).join(",");
     return [j.round, j.roundEndMs, w, banned, stand, bells].join("|");
   }
   function loadPitState(){
@@ -3159,14 +3176,16 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       const mc = Number(b.mcUsd) > 0 ? fmtUsd(b.mcUsd) + " peak MC" : "";
       const kicker = when === "now" ? "just now" : (when ? when+" ago" : "past bell");
       const buy = bellBuyText(b);
+      const worth = bellWorthText(b);
       const burn = bellBurnText(b);
       return '<div class="bell-card">'+
         '<div class="pit-kicker">'+kicker+'</div>'+
         '<div class="feat-name">'+escHtml(b.n || b.t)+'</div>'+
         '<div class="feat-tick" style="margin-top:8px">$'+escHtml(b.t)+'</div>'+
         (mc ? '<div class="feat-tick" style="margin-top:8px">'+mc+'</div>' : '')+
-        (buy ? '<div class="feat-tick" style="margin-top:8px">'+escHtml(buy)+'</div>' : '')+
-        (burn ? '<div class="feat-tick" style="margin-top:8px">'+escHtml(burn)+'</div>' : '')+
+        (buy ? '<div class="bell-stat">'+escHtml(buy)+'</div>' : '')+
+        (worth ? '<div class="bell-stat sub">'+escHtml(worth)+'</div>' : '')+
+        (burn ? '<div class="bell-stat">'+escHtml(burn)+'</div>' : '')+
         (b.digest
           ? '<div class="feat-tick" style="margin-top:8px"><a href="https://suiscan.xyz/mainnet/tx/'+escAttr(b.digest)+'" target="_blank" rel="noopener">buy & burn tx</a></div>'
           : (b.skipped ? '<div class="feat-tick" style="margin-top:8px">'+escHtml(b.skipped)+'</div>' : ''))+
