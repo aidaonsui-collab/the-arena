@@ -1940,7 +1940,18 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     const px = quoteUsd(q);
     return px > 0 ? fmtUsd(Number(amt) * px) : "—";
   }
+  function poolSpotCapUsd(tk){
+    if (!tk || !tk.poolSnap) return 0;
+    var q = poolQuote(tk);
+    var a = fromBase(tk.poolSnap.coinABig || "0", 9);
+    var b = fromBase(tk.poolSnap.coinBBig || "0", quoteDecimalsOf(q));
+    var u = quoteUsd(q);
+    if (!(a > 0) || !(b > 0) || !(u > 0)) return 0;
+    return (b / a) * VIRTUAL_SUPPLY * u;
+  }
   function usdCap(tk){
+    var spot = poolSpotCapUsd(tk);
+    if (spot > 0) return spot;
     const px = quoteUsd(poolQuote(tk));
     if (!(px > 0)) return 0;
     return curveCap(tk) * px;
@@ -2415,10 +2426,29 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       applyLwData(tk);
     });
   }
+  var poolSnapBusy = {};
+  function refreshPoolSnap(tk){
+    if (!tk || !tk.bluefinPool) return;
+    var id = tk.bluefinPool;
+    if (tk._poolSnapAt && Date.now() - tk._poolSnapAt < 6000) return;
+    if (poolSnapBusy[id]) return;
+    poolSnapBusy[id] = 1;
+    poolSnap(id).then(function(s){
+      poolSnapBusy[id] = 0;
+      tk.poolSnap = s;
+      tk._poolSnapAt = Date.now();
+      if (state.route === "token" || state.route === "explore" || state.route === "pit") paintCaps();
+    }).catch(function(){ poolSnapBusy[id] = 0; });
+  }
   function mountDexChart(){
     var host = document.querySelector(".tv-host[data-chart-pool]");
     if (!host){
       if (state.route !== "token") dropLwChart();
+      return;
+    }
+    var tk = findT(state.sym);
+    if (isDexBout(tk)){
+      paintLocalChart(host, tk);
       return;
     }
     var pool = host.getAttribute("data-chart-pool");
@@ -2955,6 +2985,8 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     var poolAmt = 0;
     if (poolId){
       var snap = await poolSnap(poolId);
+      tk.poolSnap = snap;
+      tk._poolSnapAt = Date.now();
       poolAmt = fromBase(snap.coinABig || "0", 9);
     }
     var list = Object.keys(map).map(function(k){
@@ -4293,7 +4325,12 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     paintPx();
     updateChartLive();
     paintTicker();
-    if (state.route === "token") paintAboutBurn(findT(state.sym));
+    if (state.route === "token"){
+      var liveTk = findT(state.sym);
+      refreshPoolSnap(liveTk);
+      paintAboutBurn(liveTk);
+      if (lw.chart && lw.ticker === liveTk.t) applyLwData(liveTk);
+    }
     if (state.route === "pit") paintPitVotes();
   }
   function dropTv(){
