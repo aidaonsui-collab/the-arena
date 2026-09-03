@@ -579,7 +579,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
         return {
           t: k.t, n: k.n, q: k.q, b: k.b || "", token: k.token, bluefinPool: k.bluefinPool, lockId: k.lockId,
           img: k.img || "", ts: k.ts || 0, born: k.born || 0, twitter: k.twitter || "", telegram: k.telegram || "", website: k.website || "",
-          creator: k.creator || ""
+          creator: k.creator || "", instadexBurn: k.instadexBurn || 0
         };
       });
       localStorage.setItem(LAUNCH_CACHE_KEY, JSON.stringify(rows));
@@ -601,7 +601,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
           q: l.q || "SUI", c: "#298DFF", born: l.born || l.ts || 0, ts: l.ts || 0, instadex: true, graduated: true,
           lpLocked: true, bluefin: true, bluefinPool: l.bluefinPool || "", lockId: l.lockId || "", token: l.token,
           img: l.img || "", twitter: l.twitter || "", telegram: l.telegram || "", website: l.website || "",
-          creator: l.creator || "",
+          creator: l.creator || "", instadexBurn: l.instadexBurn || 0,
           buckets: Array(12).fill(1), fbuckets: Array(12).fill(1)
         });
       });
@@ -1949,19 +1949,26 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   }
   const VIRTUAL_SUPPLY = 1e9;
   function burnedOf(tk){
-    if (tk && tk.instadexBurn) return fromMist(tk.instadexBurn);
+    if (!tk) return 0;
+    var best = 0;
+    var snap = holderSnapOf(tk);
+    if (snap && snap.onchain && Number(snap.burned) > 0) best = Math.max(best, Number(snap.burned));
+    var pitBell = (pitState.bells || []).find(function(b){
+      return b && String(b.t || "").toUpperCase() === String(tk.t || "").toUpperCase() && Number(b.burned) > 0;
+    });
+    if (pitBell) best = Math.max(best, fromMist(pitBell.burned));
+    if (tk.instadexBurn) best = Math.max(best, fromMist(tk.instadexBurn));
     const rec = bus.index && bus.index.pools && bus.index.pools[tk.t];
     if (rec && rec.virtual_token != null && rec.total_supply != null){
-      return Math.max(0, fromMist(rec.virtual_token) - fromMist(rec.total_supply));
+      best = Math.max(best, Math.max(0, fromMist(rec.virtual_token) - fromMist(rec.total_supply)));
     }
     const bell = BELLS.find(function(b){ return b.t === tk.t && b.burn; });
     if (bell && bell.burn){
       const s = String(bell.burn);
-      if (/M$/i.test(s)) return parseFloat(s)*1e6;
-      if (/k$/i.test(s)) return parseFloat(s)*1e3;
-      return parseFloat(s)||0;
+      var demo = /M$/i.test(s) ? parseFloat(s)*1e6 : (/k$/i.test(s) ? parseFloat(s)*1e3 : parseFloat(s)||0);
+      best = Math.max(best, demo);
     }
-    return 0;
+    return best;
   }
   function curveCap(tk){
     if (isDexBout(tk)){
@@ -2960,10 +2967,18 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     fetchTokenHolders(tk).then(function(snap){
       holderCache[type] = snap;
       tk.holderSnap = snap;
-      if (state.route === "token" && state.tapeTab === "holders") paintTape();
+      if (state.route === "token"){
+        paintAboutBurn(tk);
+        if (state.tapeTab === "holders") paintTape();
+      }
     }).catch(function(){
       if (holderCache[type]) holderCache[type].loading = false;
     });
+  }
+  function paintAboutBurn(tk){
+    var el = document.querySelector("[data-burned-amt]");
+    if (!el || !tk) return;
+    el.innerHTML = fmtBig(burnedOf(tk)) + '<span class="tick">' + escHtml(tk.t) + "</span>";
   }
   function holderReflCard(tk){
     if (!isRefl(tk)) return "";
@@ -3873,10 +3888,10 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
               '<div class="about-s">'+capSub+'</div></div>'+
             (dexBout
               ? '<div><div class="about-k">Burned</div>'+
-                  '<div class="about-v">'+fmtBig(burnedN)+'<span class="tick">'+escHtml(tk.t)+'</span></div>'+
-                  '<div class="about-s">Token-side LP fees burned on collect. Quote still 60/10/30. Bluefin keeps 20%.</div></div>'
+                  '<div class="about-v" data-burned-amt>'+fmtBig(burnedN)+'<span class="tick">'+escHtml(tk.t)+'</span></div>'+
+                  '<div class="about-s">Tokens burned (Fight Night + LP collects). Quote still 60/10/30. Bluefin keeps 20%.</div></div>'
               : '<div><div class="about-k">Burned</div>'+
-                  '<div class="about-v">'+fmtBig(burnedN)+'<span class="tick">'+escHtml(tk.t)+'</span></div>'+
+                  '<div class="about-v" data-burned-amt>'+fmtBig(burnedN)+'<span class="tick">'+escHtml(tk.t)+'</span></div>'+
                   '<div class="about-s">'+burnSub+'</div></div>')+
             '</div>'+
           '<div class="about-links">'+aboutLinks+'</div></div></div>'+
@@ -4270,6 +4285,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     paintPx();
     updateChartLive();
     paintTicker();
+    if (state.route === "token") paintAboutBurn(findT(state.sym));
     if (state.route === "pit") paintPitVotes();
   }
   function dropTv(){
