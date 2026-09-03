@@ -515,20 +515,75 @@ async function chainSettlesByPool() {
     const amount = Number(s.json.amount || 0);
     const det = parseSettleTx(byDigest[s.digest], pool);
     if (!byPool[pool]) {
-      byPool[pool] = { pool: pool, digest: s.digest, amount: 0, burned: 0, quoteBought: 0 };
+      byPool[pool] = { pool: pool, digest: s.digest, amount: 0, burned: 0, quoteBought: 0, ts: s.ts || 0 };
     }
     byPool[pool].amount += amount;
     byPool[pool].burned += det.burned || 0;
     byPool[pool].quoteBought += det.quoteBought || 0;
     if (!byPool[pool].digest && s.digest) byPool[pool].digest = s.digest;
+    if (Number(s.ts || 0) > Number(byPool[pool].ts || 0)) byPool[pool].ts = s.ts;
   }
   return byPool;
 }
 
+function ensureBellsFromHistory(state, overlay, chain) {
+  if (!state) return;
+  const have = {};
+  (state.bells || []).forEach(function (b) {
+    if (b && b.t) have[String(b.t).toUpperCase()] = 1;
+  });
+  const byPool = {};
+  const byT = {};
+  (state.standing || []).forEach(function (s) {
+    if (!s || !s.t) return;
+    byT[String(s.t).toUpperCase()] = s;
+    if (s.pool) byPool[normId(s.pool)] = s;
+  });
+  function add(row, ticker, pool) {
+    const t = String(ticker || (row && row.t) || "").toUpperCase();
+    if (!t || have[t]) return;
+    if (!row || (!row.digest && !(Number(row.amount) > 0) && !(Number(row.burned) > 0))) return;
+    const st = byT[t] || byPool[normId(pool || (row && row.pool))];
+    const bell = {
+      t: t,
+      n: (st && st.n) || t,
+      mcUsd: (st && (st.peakMcUsd || st.mcUsd)) || 0,
+      ts: Number((row && (row.ts || row.settledMs)) || 0) || Date.now(),
+      mode: "buy-burn",
+      pool: (st && st.pool) || (row && row.pool) || pool || "",
+      lock: st && st.lock,
+      token: st && st.token,
+      quote: (st && st.quote) || "SUI",
+      quoteType: st && st.quoteType,
+    };
+    applySettleRow(bell, row);
+    if (!state.bells) state.bells = [];
+    state.bells.push(bell);
+    have[t] = 1;
+  }
+  Object.keys((overlay && overlay.byTicker) || {}).forEach(function (t) {
+    add(overlay.byTicker[t], t, overlay.byTicker[t] && overlay.byTicker[t].pool);
+  });
+  Object.keys((overlay && overlay.byPool) || {}).forEach(function (p) {
+    add(overlay.byPool[p], overlay.byPool[p] && overlay.byPool[p].t, p);
+  });
+  Object.keys(chain || {}).forEach(function (p) {
+    const st = byPool[p];
+    add(chain[p], st && st.t, p);
+  });
+  (state.bells || []).sort(function (a, b) {
+    return Number(b.ts || 0) - Number(a.ts || 0);
+  });
+}
+
 async function withSettles(state, overlay, doChain) {
-  if (overlay) applySettlesToBells(state.bells, overlay.byPool, overlay.byTicker);
+  if (overlay) {
+    ensureBellsFromHistory(state, overlay, null);
+    applySettlesToBells(state.bells, overlay.byPool, overlay.byTicker);
+  }
   if (doChain) {
     const chain = await chainSettlesByPool();
+    ensureBellsFromHistory(state, overlay, chain);
     applySettlesToBells(state.bells, chain, null);
     overlay = overlayFrom(state, overlay);
     try {
@@ -539,6 +594,7 @@ async function withSettles(state, overlay, doChain) {
 }
 
 function bellsNeedSettle(state) {
+  if (!(state && state.bells && state.bells.length)) return true;
   return (state.bells || []).some(function (b) {
     return b && b.t && !b.skipped && (!(Number(b.amount) > 0) || !(Number(b.burned) > 0) || !b.digest);
   });
@@ -582,7 +638,9 @@ function pickWinner(standing) {
 
 async function refresh(prev) {
   const now = Date.now();
-  const state = prev && prev.roundStartedMs ? Object.assign(emptyState(now), prev) : emptyState(now);
+  const state = prev ? Object.assign(emptyState(now), prev) : emptyState(now);
+  if (!state.roundStartedMs) state.roundStartedMs = now;
+  if (!state.roundEndMs) state.roundEndMs = now + ROUND_MS;
   state.mode = "buy-burn";
   state.banned = (state.banned || []).filter(function (b) {
     return Number(b.untilMs) > now && !sitoutExempt(b.t);
@@ -675,7 +733,7 @@ export async function GET(request) {
   if (fresh) {
     const before = JSON.stringify((prev.bells || []).map(function (b) { return [b.amount, b.burned, b.digest]; }));
     overlay = (await withSettles(prev, overlay, false)) || overlay;
-    if (bellsNeedSettle(prev)) {
+    if (bellsNeedSettle(prev) || !(prev.bells && prev.bells.length)) {
       try {
         overlay = (await withSettles(prev, overlay, true)) || overlay;
       } catch (e) {}
@@ -693,10 +751,13 @@ export async function GET(request) {
     const state = await refresh(prev);
     if (prev && prev.bells) state.bells = mergeBells(state.bells, prev.bells);
     overlay = (await withSettles(state, overlay, false)) || overlay;
-    if (bellsNeedSettle(state)) {
+    if (bellsNeedSettle(state) || !(state.bells && state.bells.length)) {
       try {
         overlay = (await withSettles(state, overlay, true)) || overlay;
       } catch (e) {}
+    }
+    if ((!state.bells || !state.bells.length) && prev && prev.bells && prev.bells.length) {
+      state.bells = prev.bells;
     }
     applySitoutExempt(state);
     attachUsd(state, state.quoteUsd);
