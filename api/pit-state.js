@@ -19,6 +19,11 @@ const SETTLE_EVENT =
 const BURN_EVENT =
   process.env.ARENA_BURN_EVENT ||
   "0x47ea732e44f21470aa3dd449a7b26731ed2c377e2c02e650f3ede6ea581bf000::events::InstadexBurnEvent";
+const RPCS = [
+  process.env.SUI_RPC || "https://mainnet.suiet.app",
+  "https://rpc-mainnet.suiscan.xyz:443",
+  "https://sui-mainnet-endpoint.blockvision.org",
+];
 const Q64 = 2 ** 64;
 const USDY = "0x960b531667636f39e85867775f52f6b1f220a058c4de786905bdf761e06a56bb::usdy::USDY";
 const XAGM = "0x64bddec0f898ccaa022b8a6e0a5f75d80f53177b87a9795dd15aefe9ac12ee6c::xagm::XAGM";
@@ -247,8 +252,10 @@ function applySettleRow(b, row) {
   if (row.skipped && !b.skipped) b.skipped = row.skipped;
   const amt = Number(row.amount);
   const brn = Number(row.burned);
+  const hop = Number(row.quoteBought);
   if (amt > 0 && amt >= Number(b.amount || 0)) b.amount = row.amount;
   if (brn > 0 && brn >= Number(b.burned || 0)) b.burned = row.burned;
+  if (hop > 0 && hop >= Number(b.quoteBought || 0)) b.quoteBought = row.quoteBought;
 }
 
 function applySettlesToBells(bells, byPool, byTicker) {
@@ -328,6 +335,7 @@ function overlayFrom(state, prevOverlay) {
       digest: b.digest,
       amount: b.amount,
       burned: b.burned,
+      quoteBought: b.quoteBought,
       skipped: b.skipped,
       t: b.t,
       pool: b.pool,
@@ -351,13 +359,11 @@ function overlayFrom(state, prevOverlay) {
 
 function attachUsd(state, px) {
   (state.bells || []).forEach(function (b) {
-    const q = (b && b.quote) || "SUI";
-    const dec = q === "USDY" ? 6 : 9;
+    // Instant Fight Night drains Pit<SUI>. amount is always SUI mist.
     const raw = Number(b && b.amount);
     if (!(raw > 0)) return;
-    const unit = Math.pow(10, dec);
-    const n = raw >= unit / 100 ? raw / unit : raw;
-    const u = (px && px[q]) || 0;
+    const n = raw >= 1e7 ? raw / 1e9 : raw;
+    const u = (px && px.SUI) || 0;
     if (n > 0 && u > 0) b.amountUsd = n * u;
   });
 }
@@ -440,29 +446,80 @@ async function listEventRows(type) {
   return out;
 }
 
-async function chainSettlesByPool() {
-  const [settles, burns] = await Promise.all([listEventRows(SETTLE_EVENT), listEventRows(BURN_EVENT)]);
-  const burnByDigest = {};
-  for (let i = 0; i < burns.length; i++) {
-    const d = burns[i].digest;
-    if (!d) continue;
-    burnByDigest[d] = (burnByDigest[d] || 0) + Number(burns[i].json.amount || 0);
+async function rpcJson(method, params) {
+  let last = null;
+  for (let i = 0; i < RPCS.length; i++) {
+    try {
+      const r = await fetch(RPCS[i], {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: method, params: params }),
+      });
+      const j = await r.json();
+      if (j && j.result) return j.result;
+      last = (j && j.error && j.error.message) || method + " failed";
+    } catch (e) {
+      last = e && e.message ? e.message : String(e);
+    }
   }
+  throw new Error(last || method + " failed");
+}
+
+function parseSettleTx(tx, winnerId) {
+  const out = { burned: 0, quoteBought: 0 };
+  const winner = normId(winnerId);
+  const events = (tx && tx.events) || [];
+  for (let i = 0; i < events.length; i++) {
+    const ev = events[i] || {};
+    const t = String(ev.type || "");
+    const p = ev.parsedJson || {};
+    if (t.endsWith("::events::InstadexBurnEvent") || t === BURN_EVENT) {
+      out.burned += Number(p.amount || 0);
+    }
+    if (!winner || winner === "0x") continue;
+    if (t.endsWith("::events::AssetSwap") || t.endsWith("::pool::SwapEvent")) {
+      const pool = normId(p.pool_id || p.pool);
+      if (pool === winner) out.quoteBought = Number(p.amount_in || 0);
+    }
+  }
+  return out;
+}
+
+async function chainSettlesByPool() {
+  const settles = await listEventRows(SETTLE_EVENT);
   settles.sort(function (a, b) {
     return Number(a.ts || 0) - Number(b.ts || 0);
   });
+  const digests = [];
+  const seenD = {};
+  for (let i = 0; i < settles.length; i++) {
+    const d = settles[i].digest;
+    if (!d || seenD[d]) continue;
+    seenD[d] = 1;
+    digests.push(d);
+  }
+  const txs = await Promise.all(
+    digests.map(function (d) {
+      return rpcJson("sui_getTransactionBlock", [d, { showEvents: true }]).catch(function () {
+        return null;
+      });
+    }),
+  );
+  const byDigest = {};
+  for (let i = 0; i < digests.length; i++) byDigest[digests[i]] = txs[i];
   const byPool = {};
   for (let i = 0; i < settles.length; i++) {
     const s = settles[i];
     const pool = normId(s.json.winner_id);
     if (!pool || pool === "0x") continue;
     const amount = Number(s.json.amount || 0);
-    const burned = burnByDigest[s.digest] || 0;
+    const det = parseSettleTx(byDigest[s.digest], pool);
     if (!byPool[pool]) {
-      byPool[pool] = { pool: pool, digest: s.digest, amount: 0, burned: 0 };
+      byPool[pool] = { pool: pool, digest: s.digest, amount: 0, burned: 0, quoteBought: 0 };
     }
     byPool[pool].amount += amount;
-    byPool[pool].burned += burned;
+    byPool[pool].burned += det.burned || 0;
+    byPool[pool].quoteBought += det.quoteBought || 0;
     if (!byPool[pool].digest && s.digest) byPool[pool].digest = s.digest;
   }
   return byPool;

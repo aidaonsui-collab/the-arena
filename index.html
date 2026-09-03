@@ -2333,19 +2333,23 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     return n;
   }
   function bellBuyText(b){
-    var q = (b && b.quote) || "SUI";
-    var dec = q === "USDY" ? 6 : 9;
-    var n = mistToHuman(b && b.amount, dec);
+    var n = mistToHuman(b && b.amount, 9);
     if (!(n > 0)) return "";
-    return fmtSui(n) + " " + q + " bought";
+    return fmtSui(n) + " SUI bought";
+  }
+  function bellHopText(b){
+    var q = (b && b.quote) || "SUI";
+    if (q === "SUI") return "";
+    var dec = q === "USDY" ? 6 : 9;
+    var n = mistToHuman(b && b.quoteBought, dec);
+    if (!(n > 0)) return "";
+    return fmtSui(n) + " " + q;
   }
   function bellWorthText(b){
     var usd = Number(b && b.amountUsd);
     if (!(usd > 0)) {
-      var q = (b && b.quote) || "SUI";
-      var dec = q === "USDY" ? 6 : 9;
-      var n = mistToHuman(b && b.amount, dec);
-      usd = n * (quoteUsd(q) || 0);
+      var n = mistToHuman(b && b.amount, 9);
+      usd = n * (hop.suiUsd || 0);
     }
     if (!(usd > 0)) return "";
     return "worth " + fmtUsd(usd);
@@ -3170,7 +3174,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     const banned = (j.banned || []).map(function(b){ return String(b.t || "").toUpperCase() + ":" + String(b.untilMs || ""); }).join(",");
     const stand = (j.standing || []).map(function(s){ return s.t; }).join(",");
     const bells = (j.bells || []).map(function(b){
-      return [b.t, b.ts, b.digest || "", b.amount || "", b.burned || ""].join(":");
+      return [b.t, b.ts, b.digest || "", b.amount || "", b.burned || "", b.quoteBought || ""].join(":");
     }).join(",");
     return [j.round, j.roundEndMs, w, banned, stand, bells].join("|");
   }
@@ -3283,6 +3287,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       const mc = Number(b.mcUsd) > 0 ? fmtUsd(b.mcUsd) + " peak MC" : "";
       const kicker = when === "now" ? "just now" : (when ? when+" ago" : "past bell");
       const buy = bellBuyText(b);
+      const hopAmt = bellHopText(b);
       const worth = bellWorthText(b);
       const burn = bellBurnText(b);
       return '<div class="bell-card">'+
@@ -3291,6 +3296,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
         '<div class="feat-tick" style="margin-top:8px">$'+escHtml(b.t)+'</div>'+
         (mc ? '<div class="feat-tick" style="margin-top:8px">'+mc+'</div>' : '')+
         (buy ? '<div class="bell-stat">'+escHtml(buy)+'</div>' : '')+
+        (hopAmt ? '<div class="bell-stat sub">'+escHtml(hopAmt)+'</div>' : '')+
         (worth ? '<div class="bell-stat sub">'+escHtml(worth)+'</div>' : '')+
         (burn ? '<div class="bell-stat">'+escHtml(burn)+'</div>' : '')+
         (b.digest
