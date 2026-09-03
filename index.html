@@ -581,7 +581,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
         return {
           t: k.t, n: k.n, q: k.q, b: k.b || "", token: k.token, bluefinPool: k.bluefinPool, lockId: k.lockId,
           img: k.img || "", ts: k.ts || 0, born: k.born || 0, twitter: k.twitter || "", telegram: k.telegram || "", website: k.website || "",
-          creator: k.creator || ""
+          creator: k.creator || "", burnFloor: Number(k.burnFloor) || (k.burnHydrated ? Number(k.instadexBurn) || 0 : 0)
         };
       });
       localStorage.setItem(LAUNCH_CACHE_KEY, JSON.stringify(rows));
@@ -603,7 +603,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
           q: l.q || "SUI", c: "#298DFF", born: l.born || l.ts || 0, ts: l.ts || 0, instadex: true, graduated: true,
           lpLocked: true, bluefin: true, bluefinPool: l.bluefinPool || "", lockId: l.lockId || "", token: l.token,
           img: l.img || "", twitter: l.twitter || "", telegram: l.telegram || "", website: l.website || "",
-          creator: l.creator || "", instadexBurn: 0,
+          creator: l.creator || "", instadexBurn: 0, burnFloor: Number(l.burnFloor) || 0,
           buckets: Array(12).fill(1), fbuckets: Array(12).fill(1)
         });
       });
@@ -1002,9 +1002,14 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ query: query, variables: variables || {} })
-    }).then(function(r){ return r.json(); }).then(function(j){
-      if (j.errors && j.errors.length) throw new Error(j.errors[0].message || "graphql");
-      return j.data;
+    }).then(function(r){
+      return r.text().then(function(raw){
+        var j = {};
+        try { j = raw ? JSON.parse(raw) : {}; } catch (e) {}
+        if (!r.ok) throw new Error("graphql " + r.status);
+        if (j.errors && j.errors.length) throw new Error(j.errors[0].message || "graphql");
+        return j.data;
+      });
     });
   }
   function saveWalletPref(w, addr){
@@ -1966,6 +1971,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     if (!tk) return 0;
     var best = 0;
     if (tk.instadexBurn) best = Math.max(best, fromMist(tk.instadexBurn));
+    if (tk.burnFloor) best = Math.max(best, fromMist(tk.burnFloor));
     var pitBell = (pitState.bells || []).find(function(b){
       return b && String(b.t || "").toUpperCase() === String(tk.t || "").toUpperCase() && Number(b.burned) > 0;
     });
@@ -2790,6 +2796,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     return out;
   }
   function padAddr(a){
+    if (a && typeof a === "object") a = a.id || a.bytes || a.address || "";
     a = String(a || "").toLowerCase().replace(/^0x/, "");
     if (!a || /[^0-9a-f]/.test(a)) return "";
     while (a.length < 64) a = "0" + a;
@@ -2894,27 +2901,45 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     var d = String((b && (b.digest || b.ts)) || "");
     return lock + ":" + amt + ":" + d;
   }
-  function hydrateTokenBurns(tk){
-    if (!tk || tk.missing || !tk.lockId || tk.burnBusy || tk.burnHydrated) return;
+  function hydrateTokenBurns(tk, attempt){
+    if (!tk || tk.missing || !tk.lockId || tk.burnBusy) return;
+    if (tk.burnHydrated && (Number(tk.instadexBurn) || 0) > 0) return;
     tk.burnBusy = true;
+    attempt = Number(attempt) || 0;
     var lock = padAddr(tk.lockId) || tk.lockId;
     var sum = 0;
-    var after = null;
+    var after = "";
     var pages = 0;
-    var q = "query($t:String!,$first:Int!,$after:String){ events(first:$first, after:$after, filter:{ type:$t }){ pageInfo { hasNextPage endCursor } nodes { timestamp contents { json } transaction { digest } } } }";
-    function done(){
-      tk.burnBusy = false;
-      tk.burnHydrated = true;
-      tk.instadexBurn = sum;
+    var q1 = "query($t:String!,$first:Int!){ events(first:$first, filter:{ type:$t }){ pageInfo { hasNextPage endCursor } nodes { timestamp contents { json } transaction { digest } } } }";
+    var q2 = "query($t:String!,$first:Int!,$after:String!){ events(first:$first, after:$after, filter:{ type:$t }){ pageInfo { hasNextPage endCursor } nodes { timestamp contents { json } transaction { digest } } } }";
+    function paint(){
       if (state.route === "token" && String(state.sym).toUpperCase() === tk.t){
         paintAboutBurn(tk);
         if (state.tapeTab === "holders") paintTape();
       }
     }
+    function done(ok){
+      tk.burnBusy = false;
+      if (sum > 0){
+        tk.instadexBurn = sum;
+        tk.burnFloor = sum;
+        tk.burnHydrated = true;
+        persistLaunches();
+        paint();
+        return;
+      }
+      if (ok) tk.burnHydrated = true;
+      if (!ok && attempt < 4){
+        setTimeout(function(){ hydrateTokenBurns(tk, attempt + 1); }, 800 * (attempt + 1));
+      }
+    }
     function step(){
-      if (pages >= 40) return done();
+      if (pages >= 40) return done(true);
       pages++;
-      gql(q, { t: INSTADEX_BURN_EVENT, first: 50, after: after }).then(function(data){
+      var req = after
+        ? gql(q2, { t: INSTADEX_BURN_EVENT, first: 50, after: after })
+        : gql(q1, { t: INSTADEX_BURN_EVENT, first: 50 });
+      req.then(function(data){
         var conn = data && data.events;
         var nodes = (conn && conn.nodes) || [];
         for (var i = 0; i < nodes.length; i++){
@@ -2926,17 +2951,16 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
             ts: Date.parse(n.timestamp) || 0,
             digest: (n.transaction && n.transaction.digest) || ""
           };
-          var keys = [burnEventKey(row)];
-          if (row.digest) keys.push((padAddr(row.lock_id) || row.lock_id) + ":" + String(row.amount || "") + ":" + String(row.ts || ""));
-          for (var k = 0; k < keys.length; k++) seenBurns[keys[k]] = 1;
+          seenBurns[burnEventKey(row)] = 1;
           if (row.lock_id && sameAddr(row.lock_id, lock)) sum += Number(row.amount) || 0;
         }
+        if (sum > 0) paint();
         if (conn && conn.pageInfo && conn.pageInfo.hasNextPage && conn.pageInfo.endCursor){
           after = conn.pageInfo.endCursor;
           return step();
         }
-        done();
-      }).catch(function(){ tk.burnBusy = false; });
+        done(true);
+      }).catch(function(){ done(false); });
     }
     step();
   }
@@ -3555,6 +3579,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       pitState = j;
       pitStateKey = key;
       paintClocks();
+      if (state.route === "token") paintAboutBurn(findT(state.sym));
       if (changed && (state.route === "pit" || state.route === "explore" || state.route === "metrics") && (state.route !== "pit" || $("#contenders"))) scheduleScreen();
     }).catch(function(){});
   }
@@ -4789,9 +4814,11 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       refreshSwapBals(findT(state.sym));
       scheduleSwapQuote();
     }
-    if (state.route === "pit"){
-      refreshPitObject();
-      loadPitVotes();
+    if (state.route === "token" || state.route === "pit"){
+      if (state.route === "pit"){
+        refreshPitObject();
+        loadPitVotes();
+      }
       loadPitState();
     } else if (state.route === "explore" || state.route === "metrics"){
       refreshPitObject();

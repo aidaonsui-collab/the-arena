@@ -822,7 +822,7 @@
       }
       function pullBurn(pkg) {
         if (!pkg || pkg === "0x0") return;
-        collect(rpc, pkg + "::events::InstadexBurnEvent", parseInstadexBurn, 40, 50).then(function (rows) {
+        collect(rpc, pkg + "::events::InstadexBurnEvent", parseInstadexBurn, 8, 50).then(function (rows) {
           rows.forEach(emitBurn);
         }).catch(function () {});
       }
