@@ -637,6 +637,8 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   const DEMO_WALLET = (Index && Index.DEMO_WALLET) || "0x8f2a00000000000000000000000000000000000000000000000000000000ab71";
   const bus = { trades: [], launches: {}, bluefinLocks: {}, index: { pools: {}, cursor: null }, sub: null };
   var suiSession = { wallet: null, account: null, address: "" };
+  var WALLET_CACHE_KEY = "vice-wallet-v1";
+  var walletResuming = false;
   var launching = false;
   var SevenK = null;
   var swapQuoteTimer = 0;
@@ -1003,11 +1005,126 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       return j.data;
     });
   }
+  function saveWalletPref(w, addr){
+    try {
+      localStorage.setItem(WALLET_CACHE_KEY, JSON.stringify({
+        name: walletLabel(w),
+        address: addr || ""
+      }));
+    } catch (e) {}
+  }
+  function loadWalletPref(){
+    try {
+      var j = JSON.parse(localStorage.getItem(WALLET_CACHE_KEY) || "null");
+      if (!j || typeof j !== "object") return null;
+      return j;
+    } catch (e) { return null; }
+  }
+  function clearWalletPref(){
+    try { localStorage.removeItem(WALLET_CACHE_KEY); } catch (e) {}
+  }
+  function findPrefWallet(pref){
+    var list = listedWallets();
+    if (!pref || !list.length) return null;
+    var byName = list.find(function(w){ return walletLabel(w) === pref.name; });
+    if (byName) return byName;
+    if (/slush|sui wallet/i.test(pref.name || "")){
+      var slush = list.find(function(w){ return /slush|sui wallet/i.test(w.name || ""); });
+      if (slush) return slush;
+    }
+    if (pref.address){
+      return list.find(function(w){ return sameAddr(accountAddress(firstAccount(w)), pref.address); }) || null;
+    }
+    return null;
+  }
+  function listenWallet(w){
+    if (!w || w._viceListen) return;
+    w._viceListen = true;
+    var feats = w.features || {};
+    var ev = feats["standard:events"];
+    if (!ev || typeof ev.on !== "function") return;
+    try {
+      ev.on("change", function(props){
+        if (!props || !props.accounts) return;
+        var acc = (props.accounts && props.accounts[0]) || firstAccount(w);
+        var addr = accountAddress(acc);
+        if (!addr){
+          if (suiSession.wallet === w){
+            suiSession = { wallet: null, account: null, address: "" };
+            state.connected = false;
+            paintWallet();
+          }
+          return;
+        }
+        suiSession = { wallet: w, account: acc, address: addr };
+        state.connected = true;
+        saveWalletPref(w, addr);
+        paintWallet();
+        if (state.route === "token"){
+          refreshSwapBals(findT(state.sym));
+        }
+        if (state.route === "pit") loadPitVotes();
+      });
+    } catch (e) {}
+  }
+  function applyWalletSession(w, account, addr){
+    suiSession = { wallet: w, account: account, address: addr };
+    state.connected = true;
+    listenWallet(w);
+    saveWalletPref(w, addr);
+    paintWallet();
+    if (state.route === "token"){
+      renderScreen();
+      refreshSwapBals(findT(state.sym));
+    }
+    if (state.route === "pit") loadPitVotes();
+  }
+  async function tryResumeWallet(){
+    if (suiSession.address || walletResuming) return;
+    var pref = loadWalletPref();
+    if (!pref || !(pref.name || pref.address)) return;
+    var w = findPrefWallet(pref);
+    if (!w) return;
+    walletResuming = true;
+    try {
+      var acc = firstAccount(w);
+      if (!accountAddress(acc)){
+        var feats = w.features || {};
+        if (feats["standard:connect"] && typeof feats["standard:connect"].connect === "function"){
+          try {
+            await feats["standard:connect"].connect({ silent: true });
+          } catch (e) {
+            return;
+          }
+          acc = firstAccount(w);
+        }
+      }
+      var addr = accountAddress(acc);
+      if (!addr) return;
+      applyWalletSession(w, acc, addr);
+    } catch (e) {
+    } finally {
+      walletResuming = false;
+    }
+  }
+  function startWalletResume(){
+    ensureWalletStd();
+    tryResumeWallet();
+    var n = 0;
+    var t = setInterval(function(){
+      n += 1;
+      if (suiSession.address || n > 40){ clearInterval(t); return; }
+      tryResumeWallet();
+    }, 100);
+  }
   function ensureWalletStd(){
     if (stdReady) return;
     stdReady = true;
     function register(wallet){
       if (wallet && stdWallets.indexOf(wallet) < 0) stdWallets.push(wallet);
+      listenWallet(wallet);
+      tryResumeWallet();
+      paintWallet();
     }
     try {
       window.addEventListener("wallet-standard:register-wallet", function(ev){
@@ -1023,6 +1140,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
         var list = m.getWallets ? m.getWallets().get() : [];
         (list || []).forEach(register);
         paintWallet();
+        tryResumeWallet();
       }).catch(function(){});
     } catch (e) {}
   }
@@ -1131,6 +1249,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     } catch (e) {}
     suiSession = { wallet: null, account: null, address: "" };
     state.connected = false;
+    clearWalletPref();
     paintWallet();
     closeWalletPicker();
     closeMetaEditor();
@@ -1157,13 +1276,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     }
     var addr = accountAddress(account);
     if (!addr) throw new Error("Wallet did not share an account");
-    suiSession = { wallet: w, account: account, address: addr };
-    state.connected = true;
-    paintWallet();
-    if (state.route === "token"){
-      renderScreen();
-      refreshSwapBals(findT(state.sym));
-    }
+    applyWalletSession(w, account, addr);
     return suiSession;
   }
   async function loadTransaction(){
@@ -6222,7 +6335,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     });
   }
   loadHop();
-  ensureWalletStd();
+  startWalletResume();
   const parsed = parseHash();
   state.route = parsed.route;
   state.sym = parsed.sym;
