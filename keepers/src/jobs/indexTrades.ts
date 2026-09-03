@@ -8,9 +8,15 @@
  */
 import { APP_URL, GQL, SUI, typeNameOf, USDY, XAGM, XAUM } from "../chain.ts";
 import {
+  burnMistForTicker,
+  getMeta,
+  insertBurn,
   insertTrade,
   listPools,
+  setMeta,
   setPoolCursor,
+  setPoolReserves,
+  tickerByLock,
   tickers,
   tradeCount,
   tradesForTicker,
@@ -25,7 +31,10 @@ const LAUNCH_TYPE = `${EVENT_PKG}::events::InstadexLaunchEvent`;
 const BLUEFIN_ASSET_SWAP =
   "0x3492c874c1e3b3e2984e8c41b589e642d4d0a5d6459e5a9cfc2d52fd7c89c267::events::AssetSwap";
 const PAGE_BUDGET = Number(process.env.ARENA_TRADES_PAGES || 48);
+const BURN_PAGES = Number(process.env.ARENA_BURN_PAGES || 24);
 const TX_PAGE = 50;
+const BURN_TYPE =
+  "0x47ea732e44f21470aa3dd449a7b26731ed2c377e2c02e650f3ede6ea581bf000::events::InstadexBurnEvent";
 
 function sleep(ms: number) {
   return new Promise((r) => setTimeout(r, ms));
@@ -273,8 +282,171 @@ async function publishTicker(ticker: string) {
   return { ticker, count: j.count ?? rows.length };
 }
 
+async function indexBurns(): Promise<number> {
+  let added = 0;
+  let after = getMeta("burns_cursor");
+  const done = getMeta("burns_done") === "1";
+  const max = done ? 2 : BURN_PAGES;
+  const q1 =
+    "query($t:String!,$first:Int!){ events(first:$first, filter:{ type:$t }){ pageInfo { hasNextPage endCursor } nodes { timestamp contents { json } transaction { digest } } } }";
+  const q2 =
+    "query($t:String!,$first:Int!,$after:String!){ events(first:$first, after:$after, filter:{ type:$t }){ pageInfo { hasNextPage endCursor } nodes { timestamp contents { json } transaction { digest } } } }";
+  for (let i = 0; i < max; i++) {
+    const data =
+      !done && after
+        ? await gql(q2, { t: BURN_TYPE, first: 50, after })
+        : await gql(q1, { t: BURN_TYPE, first: 50 });
+    const conn =
+      (data &&
+        (data.events as {
+          pageInfo?: { hasNextPage?: boolean; endCursor?: string };
+          nodes?: {
+            timestamp?: string;
+            contents?: { json?: Record<string, unknown> };
+            transaction?: { digest?: string };
+          }[];
+        })) ||
+      {};
+    const nodes = conn.nodes || [];
+    for (const n of nodes) {
+      const p = (n.contents && n.contents.json) || {};
+      const lock = padId(p.lock_id);
+      if (!lock) continue;
+      const digest = String((n.transaction && n.transaction.digest) || "");
+      const amount = mistStr(p.amount);
+      const id = `${digest}:${lock}:${amount}`;
+      const ticker = tickerByLock(lock);
+      if (
+        insertBurn({
+          id,
+          lock_id: lock,
+          ticker,
+          amount,
+          digest,
+          ts: Date.parse(n.timestamp || "") || 0,
+        })
+      ) {
+        added++;
+      }
+    }
+    if (done) break;
+    if (!conn.pageInfo?.hasNextPage || !conn.pageInfo.endCursor) {
+      setMeta("burns_done", "1");
+      setMeta("burns_cursor", "");
+      break;
+    }
+    after = conn.pageInfo.endCursor;
+    setMeta("burns_cursor", after);
+    await sleep(120);
+  }
+  return added;
+}
+
+async function snapshotPools(): Promise<number> {
+  let n = 0;
+  for (const pool of listPools()) {
+    try {
+      const data = await gql(
+        "query($id:SuiAddress!){ object(address:$id){ asMoveObject { contents { json } } } }",
+        { id: pool.pool_id },
+      );
+      const json =
+        data &&
+        (data.object as { asMoveObject?: { contents?: { json?: Record<string, unknown> } } })?.asMoveObject
+          ?.contents?.json;
+      if (!json) continue;
+      const coinA = mistStr(json.coin_a);
+      const coinB = mistStr(json.coin_b);
+      if (coinA === "0" && coinB === "0") continue;
+      setPoolReserves(pool.pool_id, coinA, coinB);
+      n++;
+    } catch {
+      /* skip one pool */
+    }
+    await sleep(80);
+  }
+  return n;
+}
+
+async function hopUsd(): Promise<Record<string, number>> {
+  try {
+    const r = await fetch(`${APP_URL}/api/hop`);
+    const j = (await r.json()) as Record<string, number>;
+    return {
+      SUI: Number(j.suiUsd) || 0,
+      XAUM: Number(j.xaumUsd) || Number(j.usd) || 0,
+      XAGM: Number(j.xagmUsd) || 0,
+      USDY: Number(j.usdyUsd) || 1,
+    };
+  } catch {
+    return { SUI: 0, XAUM: 0, XAGM: 0, USDY: 1 };
+  }
+}
+
+function poolMcUsd(coinA: string, coinB: string, quote: string, hop: Record<string, number>): number {
+  const a = Number(coinA) / 1e9;
+  const qdec = quote === "USDY" ? 1e6 : 1e9;
+  const b = Number(coinB) / qdec;
+  const u = hop[quote] || 0;
+  if (!(a > 0) || !(b > 0) || !(u > 0)) return 0;
+  return (b / a) * 1e9 * u;
+}
+
+async function publishStats() {
+  const secret = process.env.ARENA_SETTLE_SECRET || process.env.CRON_SECRET || "";
+  if (!secret) return { skipped: "no CRON_SECRET" };
+  const hop = await hopUsd();
+  const out = [];
+  const byTicker = new Map<string, ReturnType<typeof listPools>>();
+  for (const p of listPools()) {
+    const rows = byTicker.get(p.ticker) || [];
+    rows.push(p);
+    byTicker.set(p.ticker, rows);
+  }
+  for (const [ticker, rows] of byTicker) {
+    const pool = rows[0];
+    const burned = burnMistForTicker(ticker);
+    const mcUsd = poolMcUsd(pool.coin_a || "0", pool.coin_b || "0", pool.quote || "SUI", hop);
+    const body = {
+      ticker,
+      burned,
+      coinA: pool.coin_a || "0",
+      coinB: pool.coin_b || "0",
+      quote: pool.quote || "SUI",
+      pool: pool.pool_id,
+      lock: pool.lock_id,
+      mcUsd,
+      updatedMs: Date.now(),
+    };
+    try {
+      const r = await fetch(`${APP_URL}/api/token-stats`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          authorization: `Bearer ${secret}`,
+        },
+        body: JSON.stringify(body),
+      });
+      const raw = await r.text();
+      let j: { error?: string } = {};
+      try {
+        j = raw ? JSON.parse(raw) : {};
+      } catch {
+        j = { error: raw.slice(0, 120) };
+      }
+      if (!r.ok) throw new Error(j.error || `stats ${ticker} ${r.status}`);
+      out.push({ ticker, burned, mcUsd });
+    } catch (e) {
+      out.push({ ticker, error: e instanceof Error ? e.message : String(e) });
+    }
+  }
+  return out;
+}
+
 export async function runIndexTrades() {
   const discovered = await discoverLaunches();
+  const burnedNew = await indexBurns();
+  const snapped = await snapshotPools();
   const pools = listPools();
   const budget = { left: PAGE_BUDGET };
   const dirty = new Set<string>();
@@ -307,12 +479,22 @@ export async function runIndexTrades() {
     }
   }
 
+  let stats: unknown = [];
+  try {
+    stats = await publishStats();
+  } catch (e) {
+    stats = { error: e instanceof Error ? e.message : String(e) };
+  }
+
   return {
     discovered,
     pools: pools.length,
     inserted,
     total: tradeCount(),
+    burnedNew,
+    snapped,
     backfillLeft: listPools().filter((p) => !p.backfill_done).length,
     published,
+    stats,
   };
 }

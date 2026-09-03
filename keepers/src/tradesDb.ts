@@ -16,6 +16,8 @@ export type PoolRow = {
   cursor: string;
   backfill_done: number;
   updated_ms: number;
+  coin_a?: string;
+  coin_b?: string;
 };
 
 export type TradeRow = {
@@ -73,7 +75,24 @@ export function tradesDb(): DatabaseSync {
       key TEXT PRIMARY KEY,
       value TEXT
     );
+    CREATE TABLE IF NOT EXISTS burns (
+      id TEXT PRIMARY KEY,
+      lock_id TEXT NOT NULL,
+      ticker TEXT DEFAULT '',
+      amount TEXT NOT NULL,
+      digest TEXT DEFAULT '',
+      ts INTEGER NOT NULL DEFAULT 0
+    );
+    CREATE INDEX IF NOT EXISTS burns_lock ON burns(lock_id);
+    CREATE INDEX IF NOT EXISTS burns_ticker ON burns(ticker);
   `);
+  for (const col of ["coin_a TEXT DEFAULT '0'", "coin_b TEXT DEFAULT '0'"]) {
+    try {
+      db.exec("ALTER TABLE pools ADD COLUMN " + col);
+    } catch {
+      /* already added */
+    }
+  }
   return db;
 }
 
@@ -110,7 +129,8 @@ export function upsertPool(row: {
 export function listPools(): PoolRow[] {
   return tradesDb()
     .prepare(
-      `SELECT pool_id, ticker, name, token, quote, lock_id, cursor, backfill_done, updated_ms
+      `SELECT pool_id, ticker, name, token, quote, lock_id, cursor, backfill_done, updated_ms,
+              COALESCE(coin_a,'0') AS coin_a, COALESCE(coin_b,'0') AS coin_b
        FROM pools ORDER BY ticker ASC`,
     )
     .all() as PoolRow[];
@@ -173,6 +193,53 @@ export function tickers(): string[] {
   return (tradesDb().prepare(`SELECT DISTINCT ticker FROM pools ORDER BY ticker`).all() as { ticker: string }[]).map(
     (r) => r.ticker,
   );
+}
+
+export function getMeta(key: string): string {
+  const row = tradesDb().prepare(`SELECT value FROM meta WHERE key=?`).get(key) as { value?: string } | undefined;
+  return row && row.value ? String(row.value) : "";
+}
+
+export function setMeta(key: string, value: string) {
+  tradesDb().prepare(`INSERT INTO meta(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value`).run(key, value);
+}
+
+export function insertBurn(row: {
+  id: string;
+  lock_id: string;
+  ticker: string;
+  amount: string;
+  digest: string;
+  ts: number;
+}): boolean {
+  const r = tradesDb()
+    .prepare(
+      `INSERT OR IGNORE INTO burns (id, lock_id, ticker, amount, digest, ts) VALUES (?, ?, ?, ?, ?, ?)`,
+    )
+    .run(row.id, row.lock_id, row.ticker, row.amount, row.digest, row.ts);
+  return Number(r.changes || 0) > 0;
+}
+
+export function burnMistForTicker(ticker: string): string {
+  const rows = tradesDb().prepare(`SELECT amount FROM burns WHERE ticker=?`).all(ticker) as { amount: string }[];
+  let n = 0n;
+  for (const r of rows) {
+    try {
+      n += BigInt(String(r.amount || "0"));
+    } catch {
+      /* skip */
+    }
+  }
+  return n.toString();
+}
+
+export function setPoolReserves(poolId: string, coinA: string, coinB: string) {
+  tradesDb().prepare(`UPDATE pools SET coin_a=?, coin_b=?, updated_ms=? WHERE pool_id=?`).run(coinA, coinB, Date.now(), poolId);
+}
+
+export function tickerByLock(lockId: string): string {
+  const row = tradesDb().prepare(`SELECT ticker FROM pools WHERE lock_id=?`).get(lockId) as { ticker?: string } | undefined;
+  return row && row.ticker ? row.ticker : "";
 }
 
 export function closeTradesDb() {

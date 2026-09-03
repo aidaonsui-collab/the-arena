@@ -1957,6 +1957,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   function usdCap(tk){
     var spot = poolSpotCapUsd(tk);
     if (spot > 0) return spot;
+    if (tk.statsMcUsd > 0) return tk.statsMcUsd;
     const px = quoteUsd(poolQuote(tk));
     if (!(px > 0)) return 0;
     return curveCap(tk) * px;
@@ -2971,8 +2972,35 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     var d = String((b && (b.digest || b.ts)) || "");
     return lock + ":" + amt + ":" + d;
   }
+  function hydrateTokenStats(tk){
+    if (!tk || tk.missing || !tk.t || tk.statsBusy) return;
+    if (tk.statsHydrated && tk.statsAt && Date.now() - tk.statsAt < 15000) return;
+    tk.statsBusy = true;
+    fetch("/api/token-stats?t="+encodeURIComponent(tk.t), { cache: "no-store" }).then(function(r){ return r.json(); }).then(function(j){
+      tk.statsBusy = false;
+      var s = j && j.stats;
+      if (!s) return;
+      tk.statsHydrated = true;
+      tk.statsAt = Date.now();
+      if (s.burned && String(s.burned) !== "0"){
+        tk.burnFloor = s.burned;
+        tk.instadexBurn = s.burned;
+        tk.burnHydrated = true;
+      }
+      if (Number(s.mcUsd) > 0) tk.statsMcUsd = Number(s.mcUsd);
+      if (s.coinA && s.coinB && (!tk.poolSnap || !tk._poolSnapAt)){
+        tk.poolSnap = { coinABig: s.coinA, coinBBig: s.coinB };
+      }
+      persistLaunches();
+      if (state.route === "token" && String(state.sym).toUpperCase() === tk.t){
+        paintAboutBurn(tk);
+        paintCaps();
+      } else if (state.route === "explore") scheduleExploreList();
+    }).catch(function(){ tk.statsBusy = false; });
+  }
   function hydrateTokenBurns(tk, attempt){
     if (!tk || tk.missing || !tk.lockId || tk.burnBusy) return;
+    if (tk.statsHydrated && (Number(tk.burnFloor) || Number(tk.instadexBurn) || 0) > 0) return;
     if (tk.burnHydrated && (Number(tk.instadexBurn) || 0) > 0) return;
     tk.burnBusy = true;
     attempt = Number(attempt) || 0;
@@ -3038,6 +3066,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     if (!tk || tk.missing) return;
     hydrateTokenOverlay(tk);
     hydrateLockBeneficiary(tk);
+    hydrateTokenStats(tk);
     hydrateTokenBurns(tk);
     hydrateTape(tk);
     var t = typeNameStr(tk.token);
