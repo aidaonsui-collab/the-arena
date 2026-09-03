@@ -1945,7 +1945,31 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     const px = quoteUsd(q);
     return px > 0 ? fmtUsd(Number(amt) * px) : "—";
   }
+  function poolSqrtCapUsd(tk){
+    var snap = tk && tk.poolSnap;
+    var sqrt = snap && (snap.sqrt || snap.current_sqrt_price);
+    var s = Number(sqrt);
+    var q = poolQuote(tk);
+    var u = quoteUsd(q);
+    if (!(s > 0) || !(u > 0)) return 0;
+    var raw = (s / BLUEFIN_Q64) * (s / BLUEFIN_Q64);
+    var px = raw * Math.pow(10, 9 - quoteDecimalsOf(q));
+    if (!(px > 0) || !isFinite(px)) return 0;
+    var n = px * VIRTUAL_SUPPLY * u;
+    if (!(n > 0) || n > 1e10) return 0;
+    return n;
+  }
+  function lastTradeCapUsd(tk){
+    if (!tk) return 0;
+    var last = tapeItems(1, tk.t)[0];
+    if (!last) return 0;
+    return fillMcUsd(last, poolQuote(tk));
+  }
   function poolSpotCapUsd(tk){
+    var sqrtCap = poolSqrtCapUsd(tk);
+    if (sqrtCap > 0) return sqrtCap;
+    var tradeCap = lastTradeCapUsd(tk);
+    if (tradeCap > 0) return tradeCap;
     if (!tk || !tk.poolSnap) return 0;
     var q = poolQuote(tk);
     var a = fromBase(tk.poolSnap.coinABig || "0", 9);
@@ -1967,6 +1991,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     return n > 0 ? fmtUsd(n) : "—";
   }
   const VIRTUAL_SUPPLY = 1e9;
+  const BLUEFIN_Q64 = Math.pow(2, 64);
   var INSTADEX_BURN_EVENT = "0x47ea732e44f21470aa3dd449a7b26731ed2c377e2c02e650f3ede6ea581bf000::events::InstadexBurnEvent";
   function burnedOf(tk){
     if (!tk) return 0;
@@ -2988,8 +3013,12 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
         tk.burnHydrated = true;
       }
       if (Number(s.mcUsd) > 0) tk.statsMcUsd = Number(s.mcUsd);
-      if (s.coinA && s.coinB && (!tk.poolSnap || !tk._poolSnapAt)){
-        tk.poolSnap = { coinABig: s.coinA, coinBBig: s.coinB };
+      if (s.sqrt && (!tk.poolSnap || !tk._poolSnapAt)){
+        tk.poolSnap = {
+          sqrt: String(s.sqrt),
+          coinABig: s.coinA || "0",
+          coinBBig: s.coinB || "0"
+        };
       }
       persistLaunches();
       if (state.route === "token" && String(state.sym).toUpperCase() === tk.t){

@@ -18,6 +18,7 @@ export type PoolRow = {
   updated_ms: number;
   coin_a?: string;
   coin_b?: string;
+  sqrt?: string;
 };
 
 export type TradeRow = {
@@ -86,7 +87,7 @@ export function tradesDb(): DatabaseSync {
     CREATE INDEX IF NOT EXISTS burns_lock ON burns(lock_id);
     CREATE INDEX IF NOT EXISTS burns_ticker ON burns(ticker);
   `);
-  for (const col of ["coin_a TEXT DEFAULT '0'", "coin_b TEXT DEFAULT '0'"]) {
+  for (const col of ["coin_a TEXT DEFAULT '0'", "coin_b TEXT DEFAULT '0'", "sqrt TEXT DEFAULT '0'"]) {
     try {
       db.exec("ALTER TABLE pools ADD COLUMN " + col);
     } catch {
@@ -130,7 +131,7 @@ export function listPools(): PoolRow[] {
   return tradesDb()
     .prepare(
       `SELECT pool_id, ticker, name, token, quote, lock_id, cursor, backfill_done, updated_ms,
-              COALESCE(coin_a,'0') AS coin_a, COALESCE(coin_b,'0') AS coin_b
+              COALESCE(coin_a,'0') AS coin_a, COALESCE(coin_b,'0') AS coin_b, COALESCE(sqrt,'0') AS sqrt
        FROM pools ORDER BY ticker ASC`,
     )
     .all() as PoolRow[];
@@ -233,8 +234,10 @@ export function burnMistForTicker(ticker: string): string {
   return n.toString();
 }
 
-export function setPoolReserves(poolId: string, coinA: string, coinB: string) {
-  tradesDb().prepare(`UPDATE pools SET coin_a=?, coin_b=?, updated_ms=? WHERE pool_id=?`).run(coinA, coinB, Date.now(), poolId);
+export function setPoolReserves(poolId: string, coinA: string, coinB: string, sqrt = "") {
+  tradesDb()
+    .prepare(`UPDATE pools SET coin_a=?, coin_b=?, sqrt=?, updated_ms=? WHERE pool_id=?`)
+    .run(coinA, coinB, sqrt || "0", Date.now(), poolId);
 }
 
 export function tickerByLock(lockId: string): string {

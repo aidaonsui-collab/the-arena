@@ -357,8 +357,9 @@ async function snapshotPools(): Promise<number> {
       if (!json) continue;
       const coinA = mistStr(json.coin_a);
       const coinB = mistStr(json.coin_b);
-      if (coinA === "0" && coinB === "0") continue;
-      setPoolReserves(pool.pool_id, coinA, coinB);
+      const sqrt = mistStr(json.current_sqrt_price || json.current_sqrt_price_x64 || json.sqrt_price);
+      if (coinA === "0" && coinB === "0" && sqrt === "0") continue;
+      setPoolReserves(pool.pool_id, coinA, coinB, sqrt);
       n++;
     } catch {
       /* skip one pool */
@@ -383,13 +384,18 @@ async function hopUsd(): Promise<Record<string, number>> {
   }
 }
 
-function poolMcUsd(coinA: string, coinB: string, quote: string, hop: Record<string, number>): number {
-  const a = Number(coinA) / 1e9;
-  const qdec = quote === "USDY" ? 1e6 : 1e9;
-  const b = Number(coinB) / qdec;
+const Q64 = 2 ** 64;
+function poolMcUsd(sqrt: string, quote: string, hop: Record<string, number>): number {
+  const s = Number(sqrt);
   const u = hop[quote] || 0;
-  if (!(a > 0) || !(b > 0) || !(u > 0)) return 0;
-  return (b / a) * 1e9 * u;
+  if (!(s > 0) || !(u > 0)) return 0;
+  const raw = (s / Q64) * (s / Q64);
+  const decB = quote === "USDY" ? 6 : 9;
+  const px = raw * Math.pow(10, 9 - decB);
+  if (!(px > 0) || !isFinite(px)) return 0;
+  const n = px * 1e9 * u;
+  if (!(n > 0) || n > 1e10) return 0;
+  return n;
 }
 
 async function publishStats() {
@@ -406,12 +412,13 @@ async function publishStats() {
   for (const [ticker, rows] of byTicker) {
     const pool = rows[0];
     const burned = burnMistForTicker(ticker);
-    const mcUsd = poolMcUsd(pool.coin_a || "0", pool.coin_b || "0", pool.quote || "SUI", hop);
+    const mcUsd = poolMcUsd(pool.sqrt || "0", pool.quote || "SUI", hop);
     const body = {
       ticker,
       burned,
       coinA: pool.coin_a || "0",
       coinB: pool.coin_b || "0",
+      sqrt: pool.sqrt || "0",
       quote: pool.quote || "SUI",
       pool: pool.pool_id,
       lock: pool.lock_id,

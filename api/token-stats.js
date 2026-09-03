@@ -99,6 +99,7 @@ export async function POST(request) {
     burned: String(body.burned || "0"),
     coinA: String(body.coinA || "0"),
     coinB: String(body.coinB || "0"),
+    sqrt: String(body.sqrt || "0"),
     quote: String(body.quote || "SUI"),
     pool: String(body.pool || ""),
     lock: String(body.lock || ""),
