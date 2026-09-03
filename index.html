@@ -6598,7 +6598,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
         refreshPitObject();
         loadPitVotes();
       }
-      if (!pitStatePollAt || Date.now() - pitStatePollAt >= 120000){
+      if (!pitStatePollAt || Date.now() - pitStatePollAt >= 30000){
         pitStatePollAt = Date.now();
         loadPitState();
       }
