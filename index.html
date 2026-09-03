@@ -629,7 +629,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   let balance = 48.60;
   let xaumBal = 2.40;
   const state = {route:"explore", sym:"VOLT", filter:"All", sort:"Market cap", time:"All", side:"Buy", amt:"1", connected:false, search:"", lName:"", lTick:"", lQuote:"SUI", lPath:"instadex", lMode:"Holders", lTokenAmt:"", lQuoteAmt:"", lFirstBuy:"1", lCap:"", lTokenCoin:"", lQuoteCoin:"", lCoinMode:"create", lDecimals:"9", lSupply:"1000000000", lDesc:"", lX:"", lTg:"", lWeb:"", lPublishedType:"", metricsWindow:"All", tapeTab:"trades", tapeOpen:"", tapePage:0, tapeAge:"age", tapeWallet:"", tapeFilterOpen:false, lFile:null, lArtUrl:"", lArtPreview:"", payWith:"SUI", lNote:"", lNoteErr:false, chartTf:900, chartInd:{vol:true,ma7:true,ma25:true,ma99:false,ema:false}};
-  var metaEdit = { open: false, saving: false, file: null, preview: "", artUrl: "", note: "", err: false, name: "", desc: "", x: "", tg: "", web: "", creator: "" };
+  var metaEdit = { open: false, saving: false, file: null, preview: "", artUrl: "", note: "", err: false, name: "", desc: "", x: "", tg: "", web: "", creator: "", openedCreator: "" };
   let hashLock = false;
   const hop = { suiPerXaum: null, suiPerUsdy: null, suiPerXagm: null, usd: null, suiUsd: null, usdyUsd: null, xagmUsd: null, xaumUsd: null, source: "" };
 
@@ -2641,8 +2641,11 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   function paintCreatorLink(){
     const el = $("#creator-link");
     if (!el) return;
-    const addr = el.getAttribute("data-creator");
+    const tk = findT(state.sym);
+    const addr = padAddr((tk && (tk.lockBeneficiary || tk.creator)) || el.getAttribute("data-creator"));
     if (!addr) return;
+    el.setAttribute("data-creator", addr);
+    el.setAttribute("href", accountUrl(addr));
     el.textContent = "Creator · " + traderLabel(addr);
   }
   function resolveSuins(addrs){
@@ -2803,9 +2806,41 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     const me = suiSession.address;
     if (!me || !tk || tk.missing) return false;
     if (sameAddr(me, platformWallet())) return true;
+    if (tk.lockBeneficiary && sameAddr(me, tk.lockBeneficiary)) return true;
     if (tk.creator && sameAddr(me, tk.creator)) return true;
     if (tk.overlay && tk.overlay.creator && sameAddr(me, tk.overlay.creator)) return true;
     return false;
+  }
+  function applyLockBeneficiary(tk, b){
+    b = padAddr(b);
+    if (!tk || !b) return false;
+    tk.lockBeneficiary = b;
+    if (sameAddr(tk.creator, b)) return false;
+    tk.creator = b;
+    persistLaunches();
+    return true;
+  }
+  function lockBeneficiary(lockId){
+    lockId = padAddr(lockId) || String(lockId || "");
+    if (!lockId) return Promise.resolve("");
+    return moveObject(lockId).then(function(obj){
+      var json = obj && obj.json;
+      var b = json && (json.beneficiary || (json.fields && json.fields.beneficiary));
+      return padAddr(b) || "";
+    }).catch(function(){ return ""; });
+  }
+  function hydrateLockBeneficiary(tk){
+    if (!tk || tk.missing || !tk.lockId || tk.lockBenBusy || tk.lockBenHydrated) return;
+    tk.lockBenBusy = true;
+    lockBeneficiary(tk.lockId).then(function(b){
+      tk.lockBenBusy = false;
+      tk.lockBenHydrated = true;
+      if (!b) return;
+      var changed = applyLockBeneficiary(tk, b);
+      if (changed && state.route === "token" && String(state.sym).toUpperCase() === tk.t && !metaEdit.open){
+        scheduleScreen();
+      }
+    }).catch(function(){ tk.lockBenBusy = false; });
   }
   function applyTokenOverlay(tk, j){
     if (!tk || !j) return;
@@ -2816,7 +2851,8 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     if ("telegram" in j) tk.telegram = j.telegram || "";
     if ("website" in j) tk.website = j.website || "";
     if (j.icon) tk.img = j.icon;
-    if (j.creator && padAddr(j.creator)) tk.creator = padAddr(j.creator);
+    if (tk.lockBeneficiary) tk.creator = tk.lockBeneficiary;
+    else if (j.creator && padAddr(j.creator)) tk.creator = padAddr(j.creator);
   }
   function overlayDirty(tk, j){
     if (!j) return false;
@@ -2854,6 +2890,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   function hydrateTokenMeta(tk){
     if (!tk || tk.missing) return;
     hydrateTokenOverlay(tk);
+    hydrateLockBeneficiary(tk);
     var t = typeNameStr(tk.token);
     if (!t || t.indexOf("::") < 0) return;
     if (tk.metaHydrated && tk.img) return;
@@ -4500,7 +4537,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       tk.virtual_quote = l.virtual_quote;
       tk.virtual_token = l.virtual_token;
       if (l.token) tk.token = typeNameStr(l.token) || l.token;
-      if (l.creator) tk.creator = l.creator;
+      if (l.creator && !tk.creator) tk.creator = l.creator;
     }
     hydrateTokenMeta(tk);
     const pending = bus.bluefinLocks && bus.bluefinLocks[l.pool_id];
@@ -4550,12 +4587,17 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   }
   var seenBurns = {};
   var pendingBurns = {};
+  var pendingBeneficiaries = {};
   function applyBeneficiarySet(b){
     if (!b || !b.lock_id || !b.creator) return;
-    const tk = T.find(function(k){ return k.lockId === b.lock_id; });
-    if (!tk) return;
-    tk.creator = b.creator;
-    persistLaunches();
+    const next = padAddr(b.creator) || b.creator;
+    const lockKey = padAddr(b.lock_id) || b.lock_id;
+    const tk = T.find(function(k){ return k.lockId && sameAddr(k.lockId, b.lock_id); });
+    if (!tk){
+      pendingBeneficiaries[lockKey] = next;
+      return;
+    }
+    applyLockBeneficiary(tk, next);
     if (state.route === "token" && String(state.sym).toUpperCase() === tk.t){
       paintCreatorLink();
     }
@@ -4639,9 +4681,14 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       tk.bluefin = true;
       if (cap > 0) tk.cap = cap;
       if (l.token) tk.token = typeNameStr(l.token) || l.token;
-      if (l.creator) tk.creator = l.creator;
+      if (l.creator && !tk.creator) tk.creator = l.creator;
       if (l.ts){ tk.ts = Number(l.ts); if (!tk.born || tk.born < 1e11) tk.born = Number(l.ts); }
       if (state.lArtUrl && !tk.img) tk.img = state.lArtUrl;
+    }
+    var pendBen = tk.lockId && pendingBeneficiaries[padAddr(tk.lockId) || tk.lockId];
+    if (pendBen){
+      applyLockBeneficiary(tk, pendBen);
+      delete pendingBeneficiaries[padAddr(tk.lockId) || tk.lockId];
     }
     hydrateTokenMeta(tk);
     persistLaunches();
@@ -4853,7 +4900,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
           '</div></div>'+
           '<div><label>Creator rewards wallet</label>'+
             '<input id="m-creator" spellcheck="false" placeholder="0x…" value="'+escAttr(metaEdit.creator)+'">'+
-            '<div style="font-size:12px;color:var(--muted);margin-top:6px">60% of quote LP fees. Current creator or platform can reassign for a CTO.</div></div>'+
+            '<div style="font-size:12px;color:var(--muted);margin-top:6px">60% of quote LP fees. On-chain lock beneficiary is the source of truth. Current creator or platform can reassign for a CTO.</div></div>'+
           '<div class="meta-actions">'+
             '<button type="button" class="btn-trade" id="meta-save"'+(metaEdit.saving?" disabled":"")+'>'+(metaEdit.saving ? "Saving…" : "Save")+'</button>'+
             '<button type="button" class="btn-trade btn-ghost" id="meta-cancel">Cancel</button>'+
@@ -4884,8 +4931,21 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     metaEdit.x = tk.twitter || "";
     metaEdit.tg = tk.telegram || "";
     metaEdit.web = tk.website || "";
-    metaEdit.creator = padAddr(tk.creator) || tk.creator || "";
+    metaEdit.creator = padAddr(tk.lockBeneficiary || tk.creator) || tk.creator || "";
+    metaEdit.openedCreator = metaEdit.creator;
     paintMetaModal();
+    if (tk.lockId){
+      lockBeneficiary(tk.lockId).then(function(b){
+        if (!b || !metaEdit.open || metaEdit.saving) return;
+        applyLockBeneficiary(tk, b);
+        if (sameAddr(metaEdit.creator, metaEdit.openedCreator)){
+          metaEdit.creator = b;
+          metaEdit.openedCreator = b;
+          var el = $("#m-creator");
+          if (el) el.value = b;
+        }
+      });
+    }
   }
   function setMetaNote(text, err){
     metaEdit.note = text || "";
@@ -4895,37 +4955,66 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     el.textContent = metaEdit.note;
     el.style.color = metaEdit.err ? "#FF6640" : "";
   }
+  function creatorTxError(e){
+    var why = walletErrText(e) || (e && e.message) || "Rewards wallet transfer failed";
+    if (/abort[^0-9]*22\b|not_beneficiary|E_NOT_BENEFICIARY/i.test(why)){
+      return "Connect the current creator-rewards wallet or the platform wallet to reassign.";
+    }
+    if (/abort[^0-9]*3\b|zero_amount|0x0/i.test(why)){
+      return "Creator rewards wallet cannot be 0x0.";
+    }
+    if (/AdminCap|not owned|object.*not found/i.test(why) && sameAddr(suiSession.address, platformWallet())){
+      return "Platform AdminCap is missing on this wallet.";
+    }
+    return why;
+  }
   async function transferCreatorRewards(tk, newAddr){
     var CALL = window.ARENA_CALL_PACKAGE || window.ARENA_COLLECT_PACKAGE;
-    if (!CALL || !tk.lockId) throw new Error("This token has no Instant lock to reassign");
+    if (!CALL) throw new Error("Package missing");
+    if (!tk.lockId) throw new Error("This token has no Instant lock to reassign");
     var next = padAddr(newAddr);
     if (!next) throw new Error("Creator rewards wallet must be a Sui address");
+    if (sameAddr(next, "0x0")) throw new Error("Creator rewards wallet cannot be 0x0");
+    var current = await lockBeneficiary(tk.lockId);
+    if (current){
+      tk.lockBeneficiary = current;
+      if (sameAddr(current, next)) return "";
+    }
+    var me = suiSession.address;
     var Transaction = await loadTransaction();
     var tx = new Transaction();
-    tx.setSender(suiSession.address);
-    if (sameAddr(suiSession.address, platformWallet())){
+    tx.setSender(me);
+    if (sameAddr(me, platformWallet())){
       var cap = window.ARENA_ADMIN_CAP;
       if (!cap) throw new Error("ARENA_ADMIN_CAP missing");
       tx.moveCall({
         target: CALL + "::lock::admin_set_beneficiary",
         arguments: [tx.object(tk.lockId), tx.object(cap), txPure(tx, "address", next)]
       });
-    } else {
+    } else if ((current && sameAddr(me, current)) || (!current && tk.creator && sameAddr(me, tk.creator))){
       tx.moveCall({
         target: CALL + "::lock::set_beneficiary",
         arguments: [tx.object(tk.lockId), txPure(tx, "address", next)]
       });
+    } else {
+      throw new Error("Connect the current creator-rewards wallet or the platform wallet to reassign");
     }
-    var result = await walletExec(tx);
-    var digest = result && (result.digest || (result.effects && result.effects.transactionDigest) || result.transactionDigest);
-    if (!digest) throw new Error("Rewards wallet transfer was not sent");
-    return digest;
+    try {
+      var result = await walletExec(tx);
+      var digest = result && (result.digest || (result.effects && result.effects.transactionDigest) || result.transactionDigest);
+      if (!digest) throw new Error("Rewards wallet transfer was not sent");
+      return digest;
+    } catch (e) {
+      throw new Error(creatorTxError(e));
+    }
   }
   async function doSaveMeta(){
     if (metaEdit.saving) return;
     var tk = findT(state.sym);
     if (!tk || tk.missing) return;
     var btn = $("#meta-save");
+    var creatorChanged = false;
+    var creatorTransferred = false;
     try {
       if (!suiSession.address) await connectWallet();
       if (!canEditTokenMeta(tk)) throw new Error("Connect the creator or platform wallet");
@@ -4937,7 +5026,8 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       var website = requireSocial("website", metaEdit.web, normWeb(metaEdit.web));
       var creator = padAddr(metaEdit.creator);
       if (String(metaEdit.creator || "").trim() && !creator) throw new Error("Creator rewards wallet must be a Sui address");
-      if (!creator) creator = padAddr(tk.creator);
+      if (creator && sameAddr(creator, "0x0")) throw new Error("Creator rewards wallet cannot be 0x0");
+      if (!creator) creator = padAddr(tk.lockBeneficiary || tk.creator);
       var type = normType(typeNameStr(tk.token) || demoTypeId(tk));
       if (!type || type.indexOf("::") < 0) throw new Error("Coin type missing");
       metaEdit.saving = true;
@@ -4949,11 +5039,25 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
         icon = await uploadArt(metaEdit.file);
         metaEdit.artUrl = icon;
       }
-      var creatorChanged = creator && !sameAddr(creator, tk.creator);
-      if (creatorChanged && tk.lockId){
+      var onChain = padAddr(tk.lockBeneficiary || "");
+      if (tk.lockId){
+        var live = await lockBeneficiary(tk.lockId);
+        if (live){
+          onChain = live;
+          tk.lockBeneficiary = live;
+        }
+      }
+      if (onChain && (!creator || sameAddr(creator, metaEdit.openedCreator))) creator = onChain;
+      creatorChanged = !!(creator && (!onChain || !sameAddr(creator, onChain)));
+      if (creatorChanged){
+        if (!tk.lockId) throw new Error("This token has no Instant lock to reassign");
         if (btn) btn.textContent = "Updating rewards wallet…";
         setMetaNote("Approve the rewards-wallet transfer in your wallet.", false);
         await transferCreatorRewards(tk, creator);
+        creatorTransferred = true;
+        tk.lockBeneficiary = creator;
+        tk.creator = creator;
+        persistLaunches();
       }
       if (btn) btn.textContent = "Signing…";
       var ts = String(Date.now());
@@ -4984,6 +5088,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       if (!res.ok || !j.meta) throw new Error(j.error || ("save failed (" + res.status + ")"));
       applyTokenOverlay(tk, j.meta);
       if (creator) tk.creator = creator;
+      if (tk.lockBeneficiary) tk.creator = tk.lockBeneficiary;
       tk.overlayHydrated = true;
       persistLaunches();
       closeMetaEditor();
@@ -4991,7 +5096,13 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     } catch (e) {
       metaEdit.saving = false;
       var why = (e && e.message) ? e.message : "Save failed";
-      if (/reject|denied|cancelled|canceled/i.test(why)) why = "Wallet rejected the signature.";
+      if (/reject|denied|cancelled|canceled/i.test(why)){
+        why = creatorTransferred
+          ? "Rewards wallet updated on-chain. Sign again to save the token page."
+          : "Wallet rejected the signature.";
+      } else if (creatorTransferred && !/rewards wallet|reassign|0x0|AdminCap/i.test(why)){
+        why = "Rewards wallet updated on-chain. Token page save failed: " + why + ". Press Save again.";
+      }
       setMetaNote(why, true);
       if (btn){ btn.disabled = false; btn.textContent = "Save"; }
     }

@@ -271,15 +271,46 @@ async function verifyMetaSig(address, signature, ts, coinType) {
   return normalizeSuiAddress(pub.toSuiAddress()) === addr;
 }
 
-async function assertEditor(address, ticker, coinType) {
+function addrOf(v) {
+  try {
+    return normalizeSuiAddress(asString(v));
+  } catch {
+    return "";
+  }
+}
+
+async function lockBeneficiary(lockId) {
+  const id = asString(lockId);
+  if (!id) return "";
+  try {
+    const data = await gql(
+      "query($id:SuiAddress!){ object(address:$id){ asMoveObject { contents { json } } } }",
+      { id }
+    );
+    const json =
+      data &&
+      data.object &&
+      data.object.asMoveObject &&
+      data.object.asMoveObject.contents &&
+      data.object.asMoveObject.contents.json;
+    return addrOf(json && json.beneficiary);
+  } catch {
+    return "";
+  }
+}
+
+async function assertEditor(address, ticker, coinType, ctx) {
   const addr = normalizeSuiAddress(address);
   if (addr === PLATFORM) return "platform";
-  const overlay = await loadTokenOverlay(ticker);
+  const overlay = ctx && "overlay" in ctx ? ctx.overlay : await loadTokenOverlay(ticker);
   if (overlay && overlay.creator && sameAddr(addr, overlay.creator)) return "creator";
-  const launch = await findLaunch(ticker, coinType);
+  const launch = ctx && "launch" in ctx ? ctx.launch : await findLaunch(ticker, coinType);
   if (launch && wantTypeMismatch(launch, coinType)) throw new Error("Token type does not match this ticker");
-  if (launch && launch.creator && sameAddr(addr, launch.creator)) return "creator";
-  throw new Error("Only the creator or platform wallet can update this page");
+  let ben = ctx && ctx.beneficiary;
+  if (!ben && launch && launch.lockId) ben = await lockBeneficiary(launch.lockId);
+  if (ben && sameAddr(addr, ben)) return "creator";
+  if (!ben && launch && launch.creator && sameAddr(addr, launch.creator)) return "creator";
+  throw new Error("Only the current creator or platform wallet can update this page");
 }
 
 function wantTypeMismatch(launch, coinType) {
@@ -327,9 +358,44 @@ export async function POST(request) {
   const ip = clientIp(request);
   if (!rateOk(ip + ":" + address)) return json({ error: "update quota (12/hour)" }, 429, request);
 
+  const overlay = await loadTokenOverlay(ticker);
+  let creatorNext = "";
+  if (Object.prototype.hasOwnProperty.call(body, "creator")) {
+    const rawCreator = asString(body.creator);
+    if (rawCreator) {
+      try {
+        creatorNext = normalizeSuiAddress(rawCreator);
+      } catch {
+        return json({ error: "creator wallet must be a Sui address" }, 400, request);
+      }
+    }
+  }
+  const creatorChanging = !!(
+    creatorNext &&
+    (!overlay || !overlay.creator || !sameAddr(creatorNext, overlay.creator))
+  );
+  let launch = null;
+  let beneficiary = "";
+  if (creatorChanging) {
+    launch = await findLaunch(ticker, coinType);
+    if (launch && wantTypeMismatch(launch, coinType)) {
+      return json({ error: "Token type does not match this ticker" }, 400, request);
+    }
+    if (launch && launch.lockId) beneficiary = await lockBeneficiary(launch.lockId);
+    if (beneficiary && !sameAddr(creatorNext, beneficiary)) {
+      return json({ error: "creator wallet must match the on-chain rewards beneficiary" }, 400, request);
+    }
+  }
+
+  const editorCtx = { overlay };
+  if (creatorChanging) {
+    editorCtx.launch = launch;
+    editorCtx.beneficiary = beneficiary;
+  }
+
   let role;
   try {
-    role = await assertEditor(address, ticker, coinType);
+    role = await assertEditor(address, ticker, coinType, editorCtx);
   } catch (e) {
     const why = e && e.message ? String(e.message) : "not allowed";
     const status = /not found/i.test(why) ? 404 : 403;
@@ -347,23 +413,14 @@ export async function POST(request) {
     return json({ error: (e && e.message) || "invalid social link" }, 400, request);
   }
 
-  const prev = (await loadTokenOverlay(ticker)) || {};
+  const prev = overlay || {};
   const description = asString(body.description).replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g, "").slice(0, 512);
   const name = asString(body.name).replace(/[\u0000-\u001f\u007f]/g, "").slice(0, 48);
   let icon = httpsUrl(body.icon);
   if (asString(body.icon) && !icon) return json({ error: "icon must be an https URL" }, 400, request);
   if (!icon) icon = prev.icon || "";
   let creator = prev.creator || "";
-  if (Object.prototype.hasOwnProperty.call(body, "creator")) {
-    const rawCreator = asString(body.creator);
-    if (rawCreator) {
-      try {
-        creator = normalizeSuiAddress(rawCreator);
-      } catch {
-        return json({ error: "creator wallet must be a Sui address" }, 400, request);
-      }
-    }
-  }
+  if (creatorNext) creator = creatorNext;
 
   const row = {
     ticker,

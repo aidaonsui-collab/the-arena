@@ -633,12 +633,19 @@
     };
   }
 
+  function padId(v) {
+    var a = String(v || "").toLowerCase().replace(/^0x/, "");
+    if (!a || /[^0-9a-f]/.test(a)) return String(v || "");
+    while (a.length < 64) a = "0" + a;
+    return "0x" + a;
+  }
+
   function parseBeneficiarySet(ev) {
     var p = ev.parsedJson || {};
     return {
-      lock_id: String(p.lock_id || ""),
-      old: String(p.old_beneficiary || ""),
-      creator: String(p.new_beneficiary || ""),
+      lock_id: padId(p.lock_id || ""),
+      old: padId(p.old_beneficiary || ""),
+      creator: padId(p.new_beneficiary || ""),
       ts: num(ev.timestampMs) || Date.now()
     };
   }
@@ -839,7 +846,7 @@
       }
       function pullBeneficiary(pkg) {
         if (!pkg || pkg === "0x0") return;
-        collect(rpc, pkg + "::events::BeneficiarySetEvent", parseBeneficiarySet, 2, 50).then(function (rows) {
+        collect(rpc, pkg + "::events::BeneficiarySetEvent", parseBeneficiarySet, 8, 50).then(function (rows) {
           rows.forEach(emitBeneficiary);
         }).catch(function () {});
       }
