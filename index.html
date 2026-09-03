@@ -109,6 +109,8 @@ main{padding:18px 0 72px}
 .diamond{width:11px;height:11px;transform:rotate(45deg);background:#fff;border-radius:2px}
 .feat-name{font-weight:650;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .feat-tick{font-size:12px;color:var(--muted);font-family:"IBM Plex Mono",monospace}
+.pair-quote.gold{color:var(--gold)}
+.pair-quote.silver{color:var(--silver)}
 .btn-buy{margin-left:auto;background:var(--sui);color:#fff;border:0;border-radius:999px;padding:7px 12px;font-weight:650;font-size:13px;flex:none}
 .feat-mcap{font-weight:700;font-size:18px;font-variant-numeric:tabular-nums}
 .chg{font-size:13px;font-weight:600;font-variant-numeric:tabular-nums}
@@ -2865,6 +2867,12 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     if (!b) return "";
     return '<span class="quote-badge '+b.klass+'">'+b.label+'</span>';
   }
+  function pairQuoteHTML(q){
+    q = String(q || "SUI");
+    var klass = q === "XAUM" ? "gold" : (q === "XAGM" ? "silver" : "");
+    if (!klass) return escHtml(q);
+    return '<span class="pair-quote '+klass+'">'+escHtml(q)+'</span>';
+  }
   function avatar(k, sz){
     sz = sz || 42;
     const src = escUrl(k.img);
@@ -3867,7 +3875,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       '<div class="back" data-go="explore">← Explore</div>'+
       '<div class="token-head">'+
         '<div style="display:flex;align-items:center;gap:14px;min-width:0">'+avatar(tk,52)+
-          '<div><h1>'+escHtml(tk.n)+'</h1><div class="feat-tick" style="margin-top:6px">'+escHtml(tk.t)+' / '+q+'</div></div></div>'+
+          '<div><h1>'+escHtml(tk.n)+'</h1><div class="feat-tick" style="margin-top:6px">'+escHtml(tk.t)+' / '+pairQuoteHTML(q)+'</div></div></div>'+
         '<div class="badges">'+
           '<span class="badge">'+tk.st+'</span>'+
           (insta ? '' : '<span class="badge">Pot · '+tk.mode+'</span>')+
@@ -3889,7 +3897,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
             (dexBout
               ? '<div><div class="about-k">Burned</div>'+
                   '<div class="about-v" data-burned-amt>'+fmtBig(burnedN)+'<span class="tick">'+escHtml(tk.t)+'</span></div>'+
-                  '<div class="about-s">Tokens burned (Fight Night + LP collects). Quote still 60/10/30. Bluefin keeps 20%.</div></div>'
+                  '<div class="about-s">Tokens burned (Fight Night + LP collects).</div></div>'
               : '<div><div class="about-k">Burned</div>'+
                   '<div class="about-v" data-burned-amt>'+fmtBig(burnedN)+'<span class="tick">'+escHtml(tk.t)+'</span></div>'+
                   '<div class="about-s">'+burnSub+'</div></div>')+
