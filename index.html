@@ -626,6 +626,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   var pitVoteLoaded = false;
   var pitState = { winner: null, banned: [], bells: [], standing: [], roundEndMs: 0, roundStartedMs: 0, round: 0 };
   var pitStateKey = "";
+  var pitStatePollAt = 0;
   let balance = 48.60;
   let xaumBal = 2.40;
   const state = {route:"explore", sym:"VOLT", filter:"All", sort:"Market cap", time:"All", side:"Buy", amt:"1", connected:false, search:"", lName:"", lTick:"", lQuote:"SUI", lPath:"instadex", lMode:"Holders", lTokenAmt:"", lQuoteAmt:"", lFirstBuy:"1", lCap:"", lTokenCoin:"", lQuoteCoin:"", lCoinMode:"create", lDecimals:"9", lSupply:"1000000000", lDesc:"", lX:"", lTg:"", lWeb:"", lPublishedType:"", metricsWindow:"All", tapeTab:"trades", tapeOpen:"", tapePage:0, tapeAge:"age", tapeWallet:"", tapeFilterOpen:false, lFile:null, lArtUrl:"", lArtPreview:"", payWith:"SUI", lNote:"", lNoteErr:false, chartTf:900, chartInd:{vol:true,ma7:true,ma25:true,ma99:false,ema:false}};
@@ -4947,15 +4948,13 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       refreshSwapBals(findT(state.sym));
       scheduleSwapQuote();
     }
-    if (state.route === "token" || state.route === "pit"){
-      if (state.route === "pit"){
-        refreshPitObject();
-        loadPitVotes();
-      }
+    if (state.route === "pit"){
+      refreshPitObject();
+      loadPitVotes();
       loadPitState();
+      pitStatePollAt = Date.now();
     } else if (state.route === "explore" || state.route === "metrics"){
       refreshPitObject();
-      loadPitState();
     }
     paintCaps();
     paintShareMeta();
@@ -6594,13 +6593,17 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       bshift = 0;
       T.forEach(function(k){ k.buckets.shift(); k.buckets.push(0); k.fbuckets.shift(); k.fbuckets.push(0); });
     }
-    if (state.route === "pit" && bshift % 8 === 0){
-      refreshPitObject();
-      loadPitVotes();
-      loadPitState();
+    if (state.route === "pit"){
+      if (bshift % 8 === 0){
+        refreshPitObject();
+        loadPitVotes();
+      }
+      if (!pitStatePollAt || Date.now() - pitStatePollAt >= 120000){
+        pitStatePollAt = Date.now();
+        loadPitState();
+      }
     } else if ((state.route === "explore" || state.route === "metrics") && bshift % 8 === 0){
       refreshPitObject();
-      loadPitState();
       if (state.route === "explore") paintExploreList();
     }
     paintLive();

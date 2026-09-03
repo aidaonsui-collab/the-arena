@@ -728,51 +728,21 @@ export function OPTIONS(request) {
 export async function GET(request) {
   if (!originOk(request)) return json({ error: "bad origin" }, 403, request);
   const prev = await loadBlob();
-  let overlay = await loadSettles();
-  const now = Date.now();
-  const fresh = prev && now - Number(prev.updatedMs || 0) < 20000 && now < Number(prev.roundEndMs || 0);
-  if (fresh) {
-    const before = JSON.stringify((prev.bells || []).map(function (b) { return [b.amount, b.burned, b.digest]; }));
-    overlay = (await withSettles(prev, overlay, false)) || overlay;
-    if (bellsNeedSettle(prev) || !(prev.bells && prev.bells.length)) {
-      try {
-        overlay = (await withSettles(prev, overlay, true)) || overlay;
-      } catch (e) {}
-    }
-    const after = JSON.stringify((prev.bells || []).map(function (b) { return [b.amount, b.burned, b.digest]; }));
-    const unbanned = applySitoutExempt(prev);
-    attachUsd(prev, prev.quoteUsd);
-    if (before !== after || unbanned) {
-      prev.updatedMs = Date.now();
-      try { await saveBlob(prev); } catch (e) {}
-    }
-    return json(prev, 200, request);
-  }
+  if (!prev) return json(emptyState(Date.now()), 200, request);
   try {
-    const state = await refresh(prev);
-    if (prev && prev.bells) state.bells = mergeBells(state.bells, prev.bells);
-    overlay = (await withSettles(state, overlay, false)) || overlay;
-    if (bellsNeedSettle(state) || !(state.bells && state.bells.length)) {
-      try {
-        overlay = (await withSettles(state, overlay, true)) || overlay;
-      } catch (e) {}
-    }
-    if ((!state.bells || !state.bells.length) && prev && prev.bells && prev.bells.length) {
-      state.bells = prev.bells;
-    }
-    applySitoutExempt(state);
-    attachUsd(state, state.quoteUsd);
-    try { await saveBlob(state); } catch (e) {}
-    return json(state, 200, request);
-  } catch (e) {
-    if (prev) {
-      try { await withSettles(prev, overlay, false); } catch (e2) {}
-      applySitoutExempt(prev);
-      return json(prev, 200, request);
-    }
-    const why = e && e.message ? String(e.message) : "pit-state failed";
-    return json({ error: why.slice(0, 180) }, 502, request);
-  }
+    const overlay = await loadSettles();
+    ensureBellsFromHistory(prev, overlay, null);
+    applySettlesToBells(prev.bells, overlay.byPool, overlay.byTicker);
+  } catch (e) {}
+  applySitoutExempt(prev);
+  attachUsd(prev, prev.quoteUsd);
+  return Response.json(prev, {
+    status: 200,
+    headers: {
+      ...corsHeaders(request),
+      "cache-control": "public, s-maxage=15, stale-while-revalidate=60",
+    },
+  });
 }
 
 export async function POST(request) {
@@ -782,6 +752,24 @@ export async function POST(request) {
     body = await request.json();
   } catch (e) {
     return json({ error: "bad json" }, 400, request);
+  }
+  if (body && body.state && typeof body.state === "object") {
+    const incoming = body.state;
+    const prev = await loadBlob();
+    if (prev && prev.bells && prev.bells.length) {
+      incoming.bells = mergeBells(incoming.bells, prev.bells);
+    }
+    if ((!incoming.bells || !incoming.bells.length) && prev && prev.bells) incoming.bells = prev.bells;
+    applySitoutExempt(incoming);
+    attachUsd(incoming, incoming.quoteUsd);
+    incoming.updatedMs = Date.now();
+    try {
+      await saveBlob(incoming);
+    } catch (e) {
+      const why = e && e.message ? String(e.message) : "save failed";
+      return json({ error: why.slice(0, 180) }, 502, request);
+    }
+    return json(incoming, 200, request);
   }
   const ticker = String(body.ticker || body.t || "").toUpperCase();
   const digest = String(body.digest || "");

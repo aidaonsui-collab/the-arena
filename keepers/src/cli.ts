@@ -1,5 +1,6 @@
 import { runIndexReflections } from "./jobs/indexReflections.ts";
 import { runIndexTrades } from "./jobs/indexTrades.ts";
+import { runRefreshPitState } from "./jobs/refreshPitState.ts";
 import { runRingPit } from "./jobs/ringPit.ts";
 import { runSettleInstadex } from "./jobs/settleInstadex.ts";
 import { runSettlePit } from "./jobs/settlePit.ts";
@@ -11,6 +12,7 @@ const job = process.argv[2];
 const jobs: Record<string, () => Promise<unknown>> = {
   reflections: runIndexReflections,
   trades: runIndexTrades,
+  pit: runRefreshPitState,
   ring: runRingPit,
   settle: async () => ({
     instadex: await runSettleInstadex(),
@@ -22,7 +24,7 @@ const jobs: Record<string, () => Promise<unknown>> = {
 };
 
 if (!job || !jobs[job]) {
-  console.error("usage: tsx src/cli.ts <reflections|trades|ring|settle|instadex|collect|withdraw>");
+  console.error("usage: tsx src/cli.ts <reflections|trades|pit|ring|settle|instadex|collect|withdraw>");
   process.exit(1);
 }
 

@@ -41,11 +41,11 @@ run_job() {
   fi
 }
 
-# Instant trade tape: SQLite on this Mac, then POST /api/trades for the UI.
+# Fight Night standing + Instant tape. Chain work stays on this Mac; Vercel only stores blobs.
+run_job pit
 run_job trades
 
-# Cheap GET: writes the 24h MC bell when the round is over. Buy/burn only if a
-# winner is waiting (ticker, no digest, not skipped). Idle ticks stay off-chain.
+# Buy/burn only if a winner bell is waiting (ticker, no digest, not skipped).
 APP_URL="${ARENA_APP_URL:-https://the-arena-vert.vercel.app}"
 PIT_JSON="$(curl -fsS --max-time 25 "${APP_URL%/}/api/pit-state" 2>/dev/null || true)"
 if [ -z "$PIT_JSON" ]; then
