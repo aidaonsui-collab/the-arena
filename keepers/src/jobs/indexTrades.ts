@@ -24,7 +24,7 @@ const EVENT_PKG =
 const LAUNCH_TYPE = `${EVENT_PKG}::events::InstadexLaunchEvent`;
 const BLUEFIN_ASSET_SWAP =
   "0x3492c874c1e3b3e2984e8c41b589e642d4d0a5d6459e5a9cfc2d52fd7c89c267::events::AssetSwap";
-const PAGE_BUDGET = Number(process.env.ARENA_TRADES_PAGES || 28);
+const PAGE_BUDGET = Number(process.env.ARENA_TRADES_PAGES || 48);
 const TX_PAGE = 50;
 
 function sleep(ms: number) {
@@ -280,24 +280,20 @@ export async function runIndexTrades() {
   const dirty = new Set<string>();
   let inserted = 0;
 
-  // Live head for every pool, then spend leftover pages on unfinished backfills.
-  for (const pool of pools) {
-    if (budget.left <= 0) break;
-    const n = await indexPool(pool, budget, true);
-    if (n > 0) {
+  const unfinished = listPools().filter((p) => !p.backfill_done);
+  if (unfinished.length) {
+    for (const pool of unfinished) {
+      if (budget.left <= 0) break;
+      const n = await indexPool(pool, budget, false);
       inserted += n;
       dirty.add(pool.ticker);
     }
-  }
-  const unfinished = listPools().filter((p) => !p.backfill_done);
-  for (const pool of unfinished) {
-    if (budget.left <= 0) break;
-    const n = await indexPool(pool, budget, false);
-    if (n > 0) {
+  } else {
+    for (const pool of pools) {
+      if (budget.left <= 0) break;
+      const n = await indexPool(pool, budget, true);
+      if (n > 0) dirty.add(pool.ticker);
       inserted += n;
-      dirty.add(pool.ticker);
-    } else {
-      dirty.add(pool.ticker);
     }
   }
 
