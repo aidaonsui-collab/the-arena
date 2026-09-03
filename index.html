@@ -1472,15 +1472,49 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   }
   async function coinsOfExact(owner, coinType){
     var t = "0x2::coin::Coin<" + normType(coinType) + ">";
-    var data = await gql(
-      "query($o:SuiAddress!,$t:String){ address(address:$o){ objects(first:50, filter:{ type:$t }){ nodes { address contents { json } } } } }",
-      { o: owner, t: t }
-    );
-    var nodes = (data && data.address && data.address.objects && data.address.objects.nodes) || [];
-    return nodes.map(function(n){
-      var big = coinValueBig(n.contents && n.contents.json);
-      return { id: n.address, value: Number(big > BigInt(Number.MAX_SAFE_INTEGER) ? Number.MAX_SAFE_INTEGER : big), valueBig: big };
-    }).filter(function(c){ return c.valueBig > 0n; }).sort(function(a,b){ return a.valueBig < b.valueBig ? 1 : -1; });
+    var out = [];
+    var after = null;
+    for (var page = 0; page < 8; page++){
+      var data = after
+        ? await gql(
+            "query($o:SuiAddress!,$t:String!,$after:String!){ address(address:$o){ objects(first:50, after:$after, filter:{ type:$t }){ pageInfo { hasNextPage endCursor } nodes { address contents { json } } } } }",
+            { o: owner, t: t, after: after }
+          )
+        : await gql(
+            "query($o:SuiAddress!,$t:String!){ address(address:$o){ objects(first:50, filter:{ type:$t }){ pageInfo { hasNextPage endCursor } nodes { address contents { json } } } } }",
+            { o: owner, t: t }
+          );
+      var conn = data && data.address && data.address.objects;
+      var nodes = (conn && conn.nodes) || [];
+      for (var i = 0; i < nodes.length; i++){
+        var n = nodes[i];
+        var big = coinValueBig(n.contents && n.contents.json);
+        if (big > 0n){
+          out.push({
+            id: n.address,
+            value: Number(big > BigInt(Number.MAX_SAFE_INTEGER) ? Number.MAX_SAFE_INTEGER : big),
+            valueBig: big
+          });
+        }
+      }
+      if (!(conn && conn.pageInfo && conn.pageInfo.hasNextPage && conn.pageInfo.endCursor)) break;
+      after = conn.pageInfo.endCursor;
+    }
+    out.sort(function(a,b){ return a.valueBig < b.valueBig ? 1 : -1; });
+    return out;
+  }
+  async function coinBalanceOf(owner, coinType){
+    var t = normType(coinType);
+    try {
+      var data = await gql(
+        "query($o:SuiAddress!,$t:String!){ address(address:$o){ balance(coinType:$t){ totalBalance } } }",
+        { o: owner, t: t }
+      );
+      var raw = data && data.address && data.address.balance && data.address.balance.totalBalance;
+      if (raw != null && String(raw) !== "") return BigInt(String(raw));
+    } catch (e) {}
+    var coins = await coinsOfExact(owner, coinType);
+    return (coins || []).reduce(function(a,c){ return a + c.valueBig; }, 0n);
   }
   function fromBase(raw, decimals){
     var d = decimals == null ? 9 : Number(decimals);
@@ -2738,6 +2772,86 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     const curve = last ? fromMist(last.token_reserve) : 0;
     return { list: list, curve: curve > 0 ? curve : 0 };
   }
+  var holderCache = {};
+  function ownerAddress(owner){
+    if (!owner) return "";
+    var t = owner.__typename || "";
+    if (t === "Shared" || t === "Immutable") return "";
+    var a = owner.address;
+    if (a && typeof a === "object") a = a.address;
+    return String(a || "");
+  }
+  function holderSnapOf(tk){
+    var type = tokenTypeOf(tk);
+    if (tk && tk.holderSnap && tk.holderSnap.list) return tk.holderSnap;
+    if (type && holderCache[type] && holderCache[type].list) return holderCache[type];
+    return null;
+  }
+  async function fetchTokenHolders(tk){
+    var type = tokenTypeOf(tk);
+    var poolId = with0x(tk.bluefinPool || "");
+    if (!type && poolId){
+      var snap0 = await poolSnap(poolId);
+      type = snap0 && snap0.a;
+      if (type) tk.token = type;
+    }
+    if (!type) throw new Error("no token type");
+    var coinType = "0x2::coin::Coin<" + type + ">";
+    var frag = "owner { __typename ... on AddressOwner { address { address } } ... on ObjectOwner { address { address } } ... on ConsensusAddressOwner { address { address } } } asMoveObject { contents { json } }";
+    var q1 = "query($t:String!,$first:Int!){ objects(first:$first, filter:{ type:$t }){ pageInfo { hasNextPage endCursor } nodes { "+frag+" } } }";
+    var q2 = "query($t:String!,$first:Int!,$after:String!){ objects(first:$first, after:$after, filter:{ type:$t }){ pageInfo { hasNextPage endCursor } nodes { "+frag+" } } }";
+    var map = {};
+    var after = null;
+    var poolNorm = poolId.replace(/^0x0*/, "0x").toLowerCase();
+    for (var page = 0; page < 40; page++){
+      var data = after
+        ? await gql(q2, { t: coinType, first: 50, after: after })
+        : await gql(q1, { t: coinType, first: 50 });
+      var conn = data && data.objects;
+      var nodes = (conn && conn.nodes) || [];
+      for (var i = 0; i < nodes.length; i++){
+        var n = nodes[i];
+        var addr = ownerAddress(n.owner);
+        if (!addr) continue;
+        var key = ("0x" + addr.replace(/^0x/, "")).toLowerCase();
+        if (poolNorm && key.replace(/^0x0*/, "0x") === poolNorm) continue;
+        var json = n.asMoveObject && n.asMoveObject.contents && n.asMoveObject.contents.json;
+        var big = coinValueBig(json);
+        if (big <= 0n) continue;
+        if (!map[key]) map[key] = { address: addr, balBig: 0n };
+        map[key].balBig += big;
+      }
+      if (!(conn && conn.pageInfo && conn.pageInfo.hasNextPage && conn.pageInfo.endCursor)) break;
+      after = conn.pageInfo.endCursor;
+    }
+    var poolAmt = 0;
+    if (poolId){
+      var snap = await poolSnap(poolId);
+      poolAmt = fromBase(snap.coinABig || "0", 9);
+    }
+    var list = Object.keys(map).map(function(k){
+      return { address: map[k].address, bal: fromBase(map[k].balBig.toString(), 9) };
+    }).filter(function(h){ return h.bal >= 1; });
+    list.sort(function(a,b){ return b.bal - a.bal; });
+    var held = list.reduce(function(s,h){ return s + h.bal; }, 0);
+    var burned = Math.max(0, VIRTUAL_SUPPLY - held - poolAmt);
+    return { list: list, poolAmt: poolAmt, burned: burned, curve: poolAmt, onchain: true, ts: Date.now() };
+  }
+  function scheduleHolders(tk){
+    if (!tk || !isDexBout(tk)) return;
+    var type = tokenTypeOf(tk) || tk.t;
+    var rec = holderCache[type];
+    if (rec && rec.loading) return;
+    if (rec && rec.ts && Date.now() - rec.ts < 25000 && rec.list) return;
+    holderCache[type] = { loading: true, list: rec && rec.list, poolAmt: rec && rec.poolAmt, burned: rec && rec.burned, ts: rec && rec.ts };
+    fetchTokenHolders(tk).then(function(snap){
+      holderCache[type] = snap;
+      tk.holderSnap = snap;
+      if (state.route === "token" && state.tapeTab === "holders") paintTape();
+    }).catch(function(){
+      if (holderCache[type]) holderCache[type].loading = false;
+    });
+  }
   function holderReflCard(tk){
     if (!isRefl(tk)) return "";
     const q = poolQuote(tk);
@@ -2772,19 +2886,23 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       '<div class="holder-amt"><div class="tape-sz">'+fmtBig(amt)+'</div></div></div>';
   }
   function holderHTML(tk){
-    const pack = holdersOf(tk);
-    const list = pack.list;
     const dex = isDexBout(tk);
+    const snap = holderSnapOf(tk);
+    const pack = snap || holdersOf(tk);
+    const list = pack.list || [];
     const held = list.reduce(function(s,h){ return s + h.bal; }, 0);
-    let poolAmt = pack.curve;
+    let poolAmt = (snap && snap.poolAmt > 0) ? snap.poolAmt : pack.curve;
     if (dex && !(poolAmt > 0)){
       poolAmt = Math.max(0, VIRTUAL_SUPPLY - held - (burnedOf(tk) || 0));
     }
-    let total = held + poolAmt;
-    if (!(total > 0)) total = 1;
+    const total = VIRTUAL_SUPPLY > 0 ? VIRTUAL_SUPPLY : 1;
+    const burned = (snap && snap.onchain)
+      ? (snap.burned || 0)
+      : Math.max(0, total - held - poolAmt);
     const refl = holderReflCard(tk);
     if (!list.length && !(poolAmt > 0)) return refl || '<div class="empty">No holders yet.</div>';
     const poolRow = poolAmt > 0 ? holderRow("—", dex ? "Locked LP" : "Bonding curve", poolAmt, poolAmt/total, true) : "";
+    const burnRow = (dex && burned >= 1) ? holderRow("—", "Burned", burned, burned/total, true) : "";
     const creator = String((tk && tk.creator) || "").toLowerCase();
     resolveSuins(list.map(function(h){ return h.address; }).concat(tk && tk.creator ? [tk.creator] : []));
     const rows = list.slice(0, 50).map(function(h, i){
@@ -2793,7 +2911,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       const label = (mine ? "Creator · " : "") + traderLabel(addr);
       return holderRow(String(i+1), label, h.bal, h.bal/total, false, accountUrl(addr));
     }).join("");
-    return refl + poolRow + rows;
+    return refl + poolRow + burnRow + rows;
   }
   function tapeChip(n, label, color){
     if (!(n > 0)) return "";
@@ -3588,9 +3706,6 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     const dex = tk.bluefinPool
       ? "https://dexscreener.com/sui/"+tk.bluefinPool
       : "https://dexscreener.com/sui";
-    const gecko = tk.bluefinPool
-      ? "https://www.geckoterminal.com/sui-network/pools/"+tk.bluefinPool
-      : "https://www.geckoterminal.com/sui-network";
     const xHref = escUrl(tk.twitter) || ("https://x.com/search?q="+xq);
     const aboutLinks =
       (escUrl(tk.website) ? '<a class="about-link" href="'+escUrl(tk.website)+'" target="_blank" rel="noopener">Website</a>' : '')+
@@ -3599,13 +3714,11 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       (escUrl(tk.telegram) ? '<a class="about-link" href="'+escUrl(tk.telegram)+'" target="_blank" rel="noopener">Telegram</a>' : '')+
       (tk.creator ? '<a class="about-link" id="creator-link" data-creator="'+escAttr(tk.creator)+'" href="'+escAttr(accountUrl(tk.creator))+'" target="_blank" rel="noopener">Creator · '+escHtml(traderLabel(tk.creator))+'</a>' : '')+
       '<a class="about-link" href="'+dex+'" target="_blank" rel="noopener">Dexscreener</a>'+
-      '<a class="about-link" href="'+gecko+'" target="_blank" rel="noopener">GeckoTerminal</a>'+
-      '<button type="button" class="about-link" data-copy="'+escAttr(demoTypeId(tk))+'">Contract</button>'+
-      '<button type="button" class="about-link" data-copy="'+(tk.bluefinPool||tk.pool||tk.t)+'">Pool</button>'+
-      (tk.bluefinPool ? '<a class="about-link" href="https://trade.bluefin.io/swap?pool='+tk.bluefinPool+'" target="_blank" rel="noopener">Bluefin</a>' : '')+
-      (tk.lockId ? '<button type="button" class="about-link" data-copy="'+tk.lockId+'">Vault</button>' : '');
+      '<button type="button" class="about-link" data-copy="'+escAttr(demoTypeId(tk))+'">Contract</button>';
     if (tk.creator) resolveSuins([tk.creator]);
-    const holdN = holdersOf(tk).list.length;
+    scheduleHolders(tk);
+    const holdSnap = holderSnapOf(tk);
+    const holdN = holdSnap ? holdSnap.list.length : holdersOf(tk).list.length;
     const tradeN = tapeItems(state.tapeWallet ? 200 : TAPE_CAP, tk.t, state.tapeWallet).length;
     const tab = state.tapeTab === "holders" ? "holders" : "trades";
     const tapeBody = dexBout
@@ -4007,7 +4120,9 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       if (tk.bluefinPool && bus.sub && bus.sub.watchBluefinPool) bus.sub.watchBluefinPool(tk.bluefinPool);
       return;
     }
-    const n = holdersOf(tk).list.length;
+    scheduleHolders(tk);
+    const snap = holderSnapOf(tk);
+    const n = snap ? snap.list.length : holdersOf(tk).list.length;
     const count = document.querySelector(".tape-count");
     if (count) count.textContent = n;
     tapeEl.innerHTML = holderHTML(tk) || '<div class="empty">No holders yet.</div>';
@@ -4750,10 +4865,12 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       state.lCoinMode = "create";
       var creating = true;
       if (firstBuy > 0n){
-        var suiCoins = await coinsOfExact(suiSession.address, SUI_TYPE);
-        var suiBal = (suiCoins || []).reduce(function(a,c){ return a + c.valueBig; }, 0n);
+        var suiBal = await coinBalanceOf(suiSession.address, SUI_TYPE);
         var need = BigInt(LAUNCH_FEE) + firstBuy + 400000000n;
-        if (suiBal < need) throw new Error("Need about "+fromBase(need, 9).toFixed(2)+" SUI for the 1 SUI launch fee, first buy, and gas. First buy is paid in SUI — you do not need "+launchQuote+" in the wallet.");
+        if (suiBal < need){
+          var extra = launchQuote === "SUI" ? "" : " First buy is paid in SUI — you do not need "+launchQuote+" in the wallet.";
+          throw new Error("Need about "+fromBase(need, 9).toFixed(2)+" SUI for the 1 SUI launch fee, first buy, and gas. This wallet has "+fromBase(suiBal, 9).toFixed(2)+" SUI."+extra);
+        }
       }
       var tokenHuman = "";
       state.lDecimals = String(TOKEN_DECIMALS);
@@ -5149,15 +5266,9 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   async function refreshSwapBals(tk){
     if (!suiSession.address || !tk) return;
     try {
-      var suiCoins = await coinsOfExact(suiSession.address, SUI_TYPE);
-      var qCoins = await coinsOfExact(suiSession.address, quoteTypeOf(tk));
-      var tCoins = await coinsOfExact(suiSession.address, tokenTypeOf(tk));
-      function sum(cs){
-        return (cs || []).reduce(function(a,c){ return a + c.valueBig; }, 0n);
-      }
-      swapBals.sui = sum(suiCoins);
-      swapBals.quote = sum(qCoins);
-      swapBals.tok = sum(tCoins);
+      swapBals.sui = await coinBalanceOf(suiSession.address, SUI_TYPE);
+      swapBals.quote = await coinBalanceOf(suiSession.address, quoteTypeOf(tk));
+      swapBals.tok = await coinBalanceOf(suiSession.address, tokenTypeOf(tk));
       paintSwapBox();
     } catch (e) {}
   }
