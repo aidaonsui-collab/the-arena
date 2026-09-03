@@ -256,6 +256,7 @@ function applySettleRow(b, row) {
   if (amt > 0 && amt >= Number(b.amount || 0)) b.amount = row.amount;
   if (brn > 0 && brn >= Number(b.burned || 0)) b.burned = row.burned;
   if (hop > 0 && hop >= Number(b.quoteBought || 0)) b.quoteBought = row.quoteBought;
+  if (Number(row.ts) > Number(b.ts || 0)) b.ts = row.ts;
 }
 
 function applySettlesToBells(bells, byPool, byTicker) {
