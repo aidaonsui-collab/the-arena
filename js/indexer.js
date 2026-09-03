@@ -617,10 +617,12 @@
 
   function parseInstadexBurn(ev) {
     var p = ev.parsedJson || {};
+    var digest = (ev.id && (ev.id.txDigest || ev.id.tx_digest)) || ev.digest || "";
     return {
       lock_id: String(p.lock_id || ""),
       amount: p.amount,
-      ts: num(ev.timestampMs) || Date.now()
+      ts: num(ev.timestampMs) || Date.now(),
+      digest: String(digest || "")
     };
   }
 
@@ -820,7 +822,7 @@
       }
       function pullBurn(pkg) {
         if (!pkg || pkg === "0x0") return;
-        collect(rpc, pkg + "::events::InstadexBurnEvent", parseInstadexBurn, 8, 50).then(function (rows) {
+        collect(rpc, pkg + "::events::InstadexBurnEvent", parseInstadexBurn, 40, 50).then(function (rows) {
           rows.forEach(emitBurn);
         }).catch(function () {});
       }

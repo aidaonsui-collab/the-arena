@@ -581,7 +581,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
         return {
           t: k.t, n: k.n, q: k.q, b: k.b || "", token: k.token, bluefinPool: k.bluefinPool, lockId: k.lockId,
           img: k.img || "", ts: k.ts || 0, born: k.born || 0, twitter: k.twitter || "", telegram: k.telegram || "", website: k.website || "",
-          creator: k.creator || "", instadexBurn: k.instadexBurn || 0
+          creator: k.creator || ""
         };
       });
       localStorage.setItem(LAUNCH_CACHE_KEY, JSON.stringify(rows));
@@ -603,7 +603,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
           q: l.q || "SUI", c: "#298DFF", born: l.born || l.ts || 0, ts: l.ts || 0, instadex: true, graduated: true,
           lpLocked: true, bluefin: true, bluefinPool: l.bluefinPool || "", lockId: l.lockId || "", token: l.token,
           img: l.img || "", twitter: l.twitter || "", telegram: l.telegram || "", website: l.website || "",
-          creator: l.creator || "", instadexBurn: l.instadexBurn || 0,
+          creator: l.creator || "", instadexBurn: 0,
           buckets: Array(12).fill(1), fbuckets: Array(12).fill(1)
         });
       });
@@ -1961,25 +1961,26 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     return n > 0 ? fmtUsd(n) : "—";
   }
   const VIRTUAL_SUPPLY = 1e9;
+  var INSTADEX_BURN_EVENT = "0x47ea732e44f21470aa3dd449a7b26731ed2c377e2c02e650f3ede6ea581bf000::events::InstadexBurnEvent";
   function burnedOf(tk){
     if (!tk) return 0;
     var best = 0;
-    var snap = holderSnapOf(tk);
-    if (snap && snap.onchain && Number(snap.burned) > 0) best = Math.max(best, Number(snap.burned));
+    if (tk.instadexBurn) best = Math.max(best, fromMist(tk.instadexBurn));
     var pitBell = (pitState.bells || []).find(function(b){
       return b && String(b.t || "").toUpperCase() === String(tk.t || "").toUpperCase() && Number(b.burned) > 0;
     });
     if (pitBell) best = Math.max(best, fromMist(pitBell.burned));
-    if (tk.instadexBurn) best = Math.max(best, fromMist(tk.instadexBurn));
-    const rec = bus.index && bus.index.pools && bus.index.pools[tk.t];
-    if (rec && rec.virtual_token != null && rec.total_supply != null){
-      best = Math.max(best, Math.max(0, fromMist(rec.virtual_token) - fromMist(rec.total_supply)));
-    }
-    const bell = BELLS.find(function(b){ return b.t === tk.t && b.burn; });
-    if (bell && bell.burn){
-      const s = String(bell.burn);
-      var demo = /M$/i.test(s) ? parseFloat(s)*1e6 : (/k$/i.test(s) ? parseFloat(s)*1e3 : parseFloat(s)||0);
-      best = Math.max(best, demo);
+    if (!LIVE){
+      const rec = bus.index && bus.index.pools && bus.index.pools[tk.t];
+      if (rec && rec.virtual_token != null && rec.total_supply != null){
+        best = Math.max(best, Math.max(0, fromMist(rec.virtual_token) - fromMist(rec.total_supply)));
+      }
+      const bell = BELLS.find(function(b){ return b.t === tk.t && b.burn; });
+      if (bell && bell.burn){
+        const s = String(bell.burn);
+        var demo = /M$/i.test(s) ? parseFloat(s)*1e6 : (/k$/i.test(s) ? parseFloat(s)*1e3 : parseFloat(s)||0);
+        best = Math.max(best, demo);
+      }
     }
     return best;
   }
@@ -2887,10 +2888,63 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       tk.overlayHydrated = false;
     });
   }
+  function burnEventKey(b){
+    var lock = padAddr(b && b.lock_id) || String((b && b.lock_id) || "");
+    var amt = String((b && b.amount) || "");
+    var d = String((b && (b.digest || b.ts)) || "");
+    return lock + ":" + amt + ":" + d;
+  }
+  function hydrateTokenBurns(tk){
+    if (!tk || tk.missing || !tk.lockId || tk.burnBusy || tk.burnHydrated) return;
+    tk.burnBusy = true;
+    var lock = padAddr(tk.lockId) || tk.lockId;
+    var sum = 0;
+    var after = null;
+    var pages = 0;
+    var q = "query($t:String!,$first:Int!,$after:String){ events(first:$first, after:$after, filter:{ type:$t }){ pageInfo { hasNextPage endCursor } nodes { timestamp contents { json } transaction { digest } } } }";
+    function done(){
+      tk.burnBusy = false;
+      tk.burnHydrated = true;
+      tk.instadexBurn = sum;
+      if (state.route === "token" && String(state.sym).toUpperCase() === tk.t){
+        paintAboutBurn(tk);
+        if (state.tapeTab === "holders") paintTape();
+      }
+    }
+    function step(){
+      if (pages >= 40) return done();
+      pages++;
+      gql(q, { t: INSTADEX_BURN_EVENT, first: 50, after: after }).then(function(data){
+        var conn = data && data.events;
+        var nodes = (conn && conn.nodes) || [];
+        for (var i = 0; i < nodes.length; i++){
+          var n = nodes[i];
+          var p = (n.contents && n.contents.json) || {};
+          var row = {
+            lock_id: p.lock_id || "",
+            amount: p.amount,
+            ts: Date.parse(n.timestamp) || 0,
+            digest: (n.transaction && n.transaction.digest) || ""
+          };
+          var keys = [burnEventKey(row)];
+          if (row.digest) keys.push((padAddr(row.lock_id) || row.lock_id) + ":" + String(row.amount || "") + ":" + String(row.ts || ""));
+          for (var k = 0; k < keys.length; k++) seenBurns[keys[k]] = 1;
+          if (row.lock_id && sameAddr(row.lock_id, lock)) sum += Number(row.amount) || 0;
+        }
+        if (conn && conn.pageInfo && conn.pageInfo.hasNextPage && conn.pageInfo.endCursor){
+          after = conn.pageInfo.endCursor;
+          return step();
+        }
+        done();
+      }).catch(function(){ tk.burnBusy = false; });
+    }
+    step();
+  }
   function hydrateTokenMeta(tk){
     if (!tk || tk.missing) return;
     hydrateTokenOverlay(tk);
     hydrateLockBeneficiary(tk);
+    hydrateTokenBurns(tk);
     var t = typeNameStr(tk.token);
     if (!t || t.indexOf("::") < 0) return;
     if (tk.metaHydrated && tk.img) return;
@@ -3026,8 +3080,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     }).filter(function(h){ return h.bal >= 1; });
     list.sort(function(a,b){ return b.bal - a.bal; });
     var held = list.reduce(function(s,h){ return s + h.bal; }, 0);
-    var burned = Math.max(0, VIRTUAL_SUPPLY - held - poolAmt);
-    return { list: list, poolAmt: poolAmt, burned: burned, curve: poolAmt, onchain: true, ts: Date.now() };
+    return { list: list, poolAmt: poolAmt, burned: 0, held: held, curve: poolAmt, onchain: true, complete: true, ts: Date.now() };
   }
   function scheduleHolders(tk){
     if (!tk || !isDexBout(tk)) return;
@@ -3096,9 +3149,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       poolAmt = Math.max(0, VIRTUAL_SUPPLY - held - (burnedOf(tk) || 0));
     }
     const total = VIRTUAL_SUPPLY > 0 ? VIRTUAL_SUPPLY : 1;
-    const burned = (snap && snap.onchain)
-      ? (snap.burned || 0)
-      : Math.max(0, total - held - poolAmt);
+    const burned = burnedOf(tk);
     const refl = holderReflCard(tk);
     if (!list.length && !(poolAmt > 0)) return refl || '<div class="empty">No holders yet.</div>';
     const poolRow = poolAmt > 0 ? holderRow("—", dex ? "Locked LP" : "Bonding curve", poolAmt, poolAmt/total, true) : "";
@@ -4604,15 +4655,16 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   }
   function applyInstadexBurn(b){
     if (!b || !b.lock_id) return;
-    const key = b.lock_id + ":" + (b.ts || "") + ":" + (b.amount || "");
+    const key = burnEventKey(b);
     if (seenBurns[key]) return;
     seenBurns[key] = 1;
     const n = Number(b.amount) || 0;
     const tk = T.find(function(k){
-      return k.lockId === b.lock_id || k.mintLock === b.lock_id;
+      return (k.lockId && sameAddr(k.lockId, b.lock_id)) || (k.mintLock && sameAddr(k.mintLock, b.lock_id));
     });
     if (!tk){
-      pendingBurns[b.lock_id] = (Number(pendingBurns[b.lock_id]) || 0) + n;
+      var pendKey = padAddr(b.lock_id) || b.lock_id;
+      pendingBurns[pendKey] = (Number(pendingBurns[pendKey]) || 0) + n;
       return;
     }
     tk.instadexBurn = (Number(tk.instadexBurn) || 0) + n;
@@ -4671,9 +4723,12 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       tk.pool = "";
       tk.bluefinPool = bf || tk.bluefinPool;
       tk.lockId = l.lock_id || tk.lockId;
-      if (tk.lockId && pendingBurns[tk.lockId]){
-        tk.instadexBurn = (Number(tk.instadexBurn) || 0) + Number(pendingBurns[tk.lockId] || 0);
-        delete pendingBurns[tk.lockId];
+      var pendBurnKey = padAddr(tk.lockId) || tk.lockId;
+      if (pendBurnKey && pendingBurns[pendBurnKey] && !tk.burnHydrated){
+        tk.instadexBurn = (Number(tk.instadexBurn) || 0) + Number(pendingBurns[pendBurnKey] || 0);
+        delete pendingBurns[pendBurnKey];
+      } else if (pendBurnKey){
+        delete pendingBurns[pendBurnKey];
       }
       tk.positionId = l.position_id || tk.positionId;
       tk.unlockMs = l.unlock_ms;
