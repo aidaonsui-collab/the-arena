@@ -282,10 +282,13 @@ a.btn-trade{display:block;text-align:center;text-decoration:none;box-sizing:bord
 .tape-quote{text-align:right}
 .tape-ago{text-align:right;color:var(--muted);font-size:12px}
 .tape-count{margin-left:auto}
-.tape-pager{display:flex;align-items:center;justify-content:center;gap:10px;margin-top:10px}
+.tape-pager{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:8px;margin-top:10px}
 .tape-pager button{border:1px solid var(--line);background:#16171A;color:var(--ink);border-radius:999px;padding:6px 12px;font-size:12px;font-weight:650;cursor:pointer}
 .tape-pager button:disabled{opacity:.4;cursor:not-allowed}
-.tape-pager span{font-size:12px;color:var(--muted);font-family:"IBM Plex Mono",ui-monospace,monospace}
+.tape-pager span,.tape-pager .tape-pg{font-size:12px;color:var(--muted);font-family:"IBM Plex Mono",ui-monospace,monospace}
+.tape-pager .tape-pg{display:inline-flex;align-items:center;gap:6px;padding:0 2px}
+.tape-pager .tape-pg button{padding:2px 6px;border:0;background:transparent;color:var(--ink);font:inherit;text-decoration:underline;text-underline-offset:3px}
+.tape-pager .tape-pg button:disabled{text-decoration:none;color:var(--muted)}
 .q-mark{width:14px;height:14px;display:inline-block;vertical-align:-2px;margin-left:5px;flex:none}
 .tape-quote .tape-sz{display:inline-flex;align-items:center;justify-content:flex-end}
 .holder-row{display:grid;grid-template-columns:28px minmax(0,1fr) minmax(48px,auto) minmax(64px,auto);gap:8px;align-items:center;padding:10px 2px;border-bottom:1px solid var(--line)}
@@ -3411,11 +3414,19 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
           tx+
         '</div></div>';
     }).join("");
+    const atFirst = state.tapePage <= 0;
+    const atLast = state.tapePage >= pages - 1;
     const pager = pages > 1
       ? '<div class="tape-pager">'+
-          '<button type="button" data-tape-page="prev"'+(state.tapePage<=0?" disabled":"")+'>Prev</button>'+
-          '<span>'+(state.tapePage+1)+' / '+pages+'</span>'+
-          '<button type="button" data-tape-page="next"'+(state.tapePage>=pages-1?" disabled":"")+'>Next</button>'+
+          '<button type="button" data-tape-page="first"'+(atFirst?" disabled":"")+'>First</button>'+
+          '<button type="button" data-tape-page="prev"'+(atFirst?" disabled":"")+'>Prev</button>'+
+          '<span class="tape-pg">'+
+            '<span>'+(state.tapePage+1)+'</span>'+
+            '<span>/</span>'+
+            '<button type="button" data-tape-page="last" data-pages="'+pages+'" title="Last page"'+(atLast?" disabled":"")+'>'+pages+'</button>'+
+          '</span>'+
+          '<button type="button" data-tape-page="next"'+(atLast?" disabled":"")+'>Next</button>'+
+          '<button type="button" data-tape-page="last" data-pages="'+pages+'"'+(atLast?" disabled":"")+'>Last</button>'+
         '</div>'
       : "";
     return funnelPanel+'<div class="tape-wrap">'+head+body+'</div>'+pager;
@@ -6412,10 +6423,13 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     const tapePageBtn = e.target.closest("[data-tape-page]");
     if (tapePageBtn && !tapePageBtn.disabled){
       const dir = tapePageBtn.getAttribute("data-tape-page");
+      const lastPage = Math.max(0, Number(tapePageBtn.getAttribute("data-pages") || 1) - 1);
       if (dir === "next") state.tapePage += 1;
       else if (dir === "prev") state.tapePage = Math.max(0, state.tapePage - 1);
+      else if (dir === "first") state.tapePage = 0;
+      else if (dir === "last") state.tapePage = lastPage;
       var pageTk = findT(state.sym);
-      if (dir === "next" && pageTk && pageTk.tapeNext) loadMoreTape(pageTk);
+      if ((dir === "next" || dir === "last") && pageTk && pageTk.tapeNext) loadMoreTape(pageTk);
       paintTape();
       return;
     }
