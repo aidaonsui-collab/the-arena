@@ -2446,11 +2446,6 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       if (state.route !== "token") dropLwChart();
       return;
     }
-    var tk = findT(state.sym);
-    if (isDexBout(tk)){
-      paintLocalChart(host, tk);
-      return;
-    }
     var pool = host.getAttribute("data-chart-pool");
     var frame = host.querySelector("iframe");
     if (frame && frame.getAttribute("data-ready") === pool) return;
@@ -4329,7 +4324,6 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       var liveTk = findT(state.sym);
       refreshPoolSnap(liveTk);
       paintAboutBurn(liveTk);
-      if (lw.chart && lw.ticker === liveTk.t) applyLwData(liveTk);
     }
     if (state.route === "pit") paintPitVotes();
   }
