@@ -7,7 +7,8 @@
     "settle": "npx tsx src/cli.ts settle",
     "instadex": "npx tsx src/cli.ts instadex",
     "collect": "npx tsx src/cli.ts collect",
-    "reflections": "npx tsx src/cli.ts reflections"
+    "reflections": "npx tsx src/cli.ts reflections",
+    "trades": "npx tsx src/cli.ts trades"
   },
   "dependencies": {
     "@mysten/sui": "^1.37.0"

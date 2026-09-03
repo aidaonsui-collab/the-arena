@@ -41,6 +41,9 @@ run_job() {
   fi
 }
 
+# Instant trade tape: SQLite on this Mac, then POST /api/trades for the UI.
+run_job trades
+
 # Cheap GET: writes the 24h MC bell when the round is over. Buy/burn only if a
 # winner is waiting (ticker, no digest, not skipped). Idle ticks stay off-chain.
 APP_URL="${ARENA_APP_URL:-https://the-arena-vert.vercel.app}"

@@ -10,6 +10,7 @@ Cron jobs for The Arena launchpad. Reflection payouts **accrue on every fill** i
 | `*/5 * * * *` | `/api/ring` | Sign `pit::ring` when Clock >= `round_end_ms` and the previous winner is settled. |
 | `*/5 * * * *` | `/api/settle` | Only if `/api/pit-state` has an unsettled 24h MC winner. AdminCap drains `Pit<SUI>`, hops to quote, Bluefin-buys, burns. Then leftover curve `pool::settle_pit` if an on-chain winner is pending. |
 | `0 * * * *` | `/api/collect` | Poke `launch::collect_instadex_fees` on every Instadex lock with accrued LP fees. Burns coin A, splits quote 60/10/30. Then `withdraw` (`config::withdraw_treasury` + `withdraw_platform`) into the platform wallet. Home Mac LaunchAgent runs this hourly (`ARENA_COLLECT_EVERY_S=3600`). |
+| every 5 min (Air) | `tsx src/cli.ts trades` | Index Bluefin AssetSwap per Instant pool into SQLite (`keepers/data/trades.sqlite`) and publish `/api/trades` for the token-page tape. |
 
 HTTP cron routes require `Authorization: Bearer $CRON_SECRET` (Vercel Cron sends this). The CLI (`npx tsx src/cli.ts …`) does not.
 
@@ -50,6 +51,7 @@ Manual one-shot (no LaunchAgent):
 npx tsx src/cli.ts instadex
 npx tsx src/cli.ts collect
 npx tsx src/cli.ts withdraw
+npx tsx src/cli.ts trades
 ```
 
 ## Events for the UI indexer
