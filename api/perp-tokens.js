@@ -159,6 +159,56 @@ function sameAddr(a, b) {
   }
 }
 
+const AF = "https://aftermath.finance/api/perpetuals";
+const OBJECT_ID_RE = /^0x[0-9a-f]{1,64}$/i;
+
+/// A listed AMC vault is one the platform controls. The launch flow ends by
+/// handing the VaultCap to the platform wallet ("Sign 3 of 3 · hand to Vice"),
+/// and the keeper already refuses to trade a vault it does not own. Nothing
+/// enforced that on the way in, so the catalog would accept any vaultId — and
+/// the buy path feeds vaultId straight into Aftermath's deposit builder, so a
+/// vault the lister still controls collects other people's USDC.
+///
+/// Fails closed: if Aftermath cannot be reached, or the owner does not match,
+/// the write is rejected rather than trusted.
+async function readVault(vaultId) {
+  try {
+    const r = await fetch(AF + "/vaults", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ vaultIds: [vaultId] }),
+    });
+    if (!r.ok) return { err: "could not reach Aftermath to check the vault" };
+    const j = await r.json();
+    return { vault: (Array.isArray(j && j.vaults) ? j.vaults[0] : null) || null };
+  } catch {
+    return { err: "could not reach Aftermath to check the vault" };
+  }
+}
+
+async function vaultOwnedByPlatform(vaultId) {
+  if (!OBJECT_ID_RE.test(vaultId)) return { ok: false, why: "vaultId is not an object id" };
+  // The launch flow hands the VaultCap over and posts in the next breath, so
+  // Aftermath's view of the owner can lag the transfer by a second or two.
+  // Retry briefly rather than failing a launch that is actually correct.
+  let vault = null;
+  let why = "no such Aftermath vault";
+  for (let attempt = 0; attempt < 4; attempt++) {
+    if (attempt) await new Promise((r) => setTimeout(r, 400 * attempt));
+    const got = await readVault(vaultId);
+    if (got.err) { why = got.err; continue; }
+    vault = got.vault;
+    if (!vault) { why = "no such Aftermath vault"; continue; }
+    if (sameAddr(vault.ownerAddress, PLATFORM)) break;
+    why = "vault is not controlled by Vice — hand the VaultCap over first";
+    vault = null;
+  }
+  if (!vault) return { ok: false, why };
+  // Take lpCoinType from the vault rather than the request: it scales withdraw
+  // amounts by 1e6 vs 1e9 in the sell path, so a wrong value is a real error.
+  return { ok: true, lpCoinType: String(vault.lpCoinType || "") };
+}
+
 async function verifyPerpSig(address, signature, ts, ticker) {
   const t = Number(ts);
   if (!address || !signature || !Number.isFinite(t)) return false;
@@ -232,15 +282,31 @@ export async function POST(request) {
   if (prev.creator && !sameAddr(addr, prev.creator) && !isPlatform) {
     return json({ error: "only the creator or platform can update this AMC token" }, 403, request);
   }
+  // vaultId decides where buyer deposits land, so it is not ordinary metadata.
+  // Once a verified vault is attached only the platform may repoint it, which
+  // also means a replayed signature cannot move an existing listing.
+  const wantVault = asString(body.vaultId);
+  let vaultId = prev.vaultId || "";
+  let lpCoinType = prev.lpCoinType || "";
+  if (wantVault && wantVault !== vaultId) {
+    if (vaultId && !isPlatform) {
+      return json({ error: "this listing already has a vault; only the platform can repoint it" }, 403, request);
+    }
+    const check = await vaultOwnedByPlatform(wantVault);
+    if (!check.ok) return json({ error: check.why }, 400, request);
+    vaultId = wantVault;
+    lpCoinType = check.lpCoinType || asString(body.lpCoinType) || lpCoinType;
+  }
+
   const merged = Object.assign({}, prev, {
     ticker,
     name: asString(body.name) || prev.name || ticker,
     desc: asString(body.desc) || prev.desc || "",
     img: asString(body.img) || prev.img || "",
     creator: prev.creator || addr,
-    vaultId: asString(body.vaultId) || prev.vaultId || "",
-    lpCoinType: asString(body.lpCoinType) || prev.lpCoinType || "",
-    pending: body.pending != null ? !!body.pending : prev.pending || !asString(body.vaultId),
+    vaultId,
+    lpCoinType,
+    pending: body.pending != null ? !!body.pending : prev.pending || !vaultId,
   });
   const token = await saveTicker(merged);
   return json({ token }, 200, request);
