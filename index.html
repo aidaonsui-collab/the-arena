@@ -580,7 +580,8 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   const LIVE = !!(window.ARENA_PACKAGE_ID && window.ARENA_PACKAGE_ID !== "0x0");
   if (LIVE) T.splice(0, T.length);
   var LAUNCH_CACHE_KEY = "vice-launches-v1";
-  function persistLaunches(){
+  var persistTimer = 0;
+  function persistLaunchesNow(){
     try {
       var rows = T.filter(function(k){ return k && k.t && !k.missing && (k.instadex || k.bluefinPool || k.vaultId || k.mode === "AMC"); }).slice(-200).map(function(k){
         return {
@@ -592,6 +593,13 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       });
       localStorage.setItem(LAUNCH_CACHE_KEY, JSON.stringify(rows));
     } catch (e) {}
+  }
+  function persistLaunches(){
+    if (persistTimer) return;
+    persistTimer = setTimeout(function(){
+      persistTimer = 0;
+      persistLaunchesNow();
+    }, 250);
   }
   function restoreLaunches(){
     try {
@@ -1729,6 +1737,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   var screenTimer = 0;
   var exploreTimer = 0;
   var tokenMissTimer = 0;
+  var livePaintTimer = 0;
   function scheduleScreen(){
     if (screenTimer) return;
     screenTimer = setTimeout(function(){
@@ -1736,6 +1745,17 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       if (state.route === "token") paintLive();
       else renderScreen();
     }, 180);
+  }
+  function scheduleLivePaint(){
+    if (livePaintTimer) return;
+    livePaintTimer = setTimeout(function(){
+      livePaintTimer = 0;
+      paintLive();
+    }, 180);
+  }
+  function scheduleAfterChain(){
+    if (state.route === "explore") scheduleExploreList();
+    else if (state.route === "token" || state.route === "pit" || state.route === "metrics") scheduleScreen();
   }
   function exploreSortKey(k){
     var s = state.sort;
@@ -2634,10 +2654,9 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   }
   function lastPx(sym){
     const id = (sym && sym.t) ? sym.t : (sym || state.sym);
-    const rows = bus.trades.filter(function(t){ return matchesPool(t, id); });
-    if (!rows.length) return isDexBout(findT(id)) ? 0 : 4.65e-6;
-    rows.sort(function(a,b){ return (a.ts||0)-(b.ts||0); });
-    return tradeQuotePx(rows[rows.length-1], poolQuote(id));
+    const last = tapeItems(1, id)[0];
+    if (!last) return isDexBout(findT(id)) ? 0 : 4.65e-6;
+    return tradeQuotePx(last, poolQuote(id));
   }
   function fromMist(s){ return Index ? Index.fromMist(s) : Number(s||0)/1e9; }
   const TAPE_PAGE = 25;
@@ -4386,24 +4405,39 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     prevPot = txt;
   }
   function paintCaps(){
-    T.forEach(function(k){
-      $$('[data-usd-cap="'+escAttr(k.t)+'"]').forEach(function(el){
-        const txt = usdCapText(k);
-        el.textContent = el.classList.contains("feat-mcap") ? txt+" MC" : txt;
-      });
-      $$('[data-cap="'+escAttr(k.t)+'"]').forEach(function(el){
-        const cap = isDexBout(k) ? curveCap(k) : k.cap;
-        el.textContent = money(cap, poolQuote(k));
-      });
-      $$('[data-bar="'+escAttr(k.t)+'"]').forEach(function(el){ el.style.width = barPct(k); });
-      $$('[data-chg="'+escAttr(k.t)+'"]').forEach(function(el){
-        el.textContent = chgText(k);
-        el.style.color = Math.abs(Number(k.ch)) > 0.05 ? chColor(k) : "";
-      });
-      $$('[data-usd-vol="'+escAttr(k.t)+'"]').forEach(function(el){
-        const n = volUsd24h(k);
-        el.textContent = n > 0 ? fmtUsd(n) : "—";
-      });
+    function capTok(tick){
+      tick = String(tick || "").toUpperCase();
+      if (!tick) return null;
+      return T.find(function(k){ return k && k.t === tick; }) || null;
+    }
+    $$("[data-usd-cap]").forEach(function(el){
+      var k = capTok(el.getAttribute("data-usd-cap"));
+      if (!k) return;
+      const txt = usdCapText(k);
+      el.textContent = el.classList.contains("feat-mcap") ? txt+" MC" : txt;
+    });
+    $$("[data-cap]").forEach(function(el){
+      var k = capTok(el.getAttribute("data-cap"));
+      if (!k) return;
+      const cap = isDexBout(k) ? curveCap(k) : k.cap;
+      el.textContent = money(cap, poolQuote(k));
+    });
+    $$("[data-bar]").forEach(function(el){
+      var k = capTok(el.getAttribute("data-bar"));
+      if (!k) return;
+      el.style.width = barPct(k);
+    });
+    $$("[data-chg]").forEach(function(el){
+      var k = capTok(el.getAttribute("data-chg"));
+      if (!k) return;
+      el.textContent = chgText(k);
+      el.style.color = Math.abs(Number(k.ch)) > 0.05 ? chColor(k) : "";
+    });
+    $$("[data-usd-vol]").forEach(function(el){
+      var k = capTok(el.getAttribute("data-usd-vol"));
+      if (!k) return;
+      const n = volUsd24h(k);
+      el.textContent = n > 0 ? fmtUsd(n) : "—";
     });
   }
   function tokenDecimals(tk){
@@ -4856,7 +4890,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     hydrateTokenMeta(tk);
     const pending = bus.bluefinLocks && bus.bluefinLocks[l.pool_id];
     if (pending) applyBluefinLock(pending);
-    if (state.route === "explore" || state.route === "token" || state.route === "pit") renderScreen();
+    scheduleAfterChain();
   }
   function applyGraduate(g){
     if (!g) return;
@@ -4866,7 +4900,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     tk.st = "Graduated";
     tk.b = "Curve frozen. LP vault next.";
     if (g.raised != null) tk.cap = fromMist(g.raised);
-    if (state.route === "explore" || state.route === "token" || state.route === "pit") renderScreen();
+    scheduleAfterChain();
   }
   function applyLock(g){
     if (!g) return;
@@ -4879,7 +4913,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     tk.unlockMs = g.unlock_ms;
     tk.mode = "LP locked";
     tk.b = "Graduated. Reserves in a 180-day vault.";
-    if (state.route === "explore" || state.route === "token" || state.route === "pit") renderScreen();
+    scheduleAfterChain();
   }
   function applyBluefinLock(g){
     if (!g) return;
@@ -4897,7 +4931,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     tk.mode = "Bluefin LP locked";
     tk.b = "Graduated onto Bluefin. Position vaulted 180 days.";
     if (g.beneficiary && !tk.creator) tk.creator = g.beneficiary;
-    if (state.route === "explore" || state.route === "token" || state.route === "pit") renderScreen();
+    scheduleAfterChain();
   }
   var seenBurns = {};
   var pendingBurns = {};
@@ -4931,8 +4965,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       return;
     }
     tk.instadexBurn = (Number(tk.instadexBurn) || 0) + n;
-    if (state.route === "token") paintLive();
-    else if (state.route === "explore") renderScreen();
+    if (viewingToken(tk)) scheduleScreen();
   }
   function upsertInstadex(l){
     if (!l) return;
@@ -7128,14 +7161,10 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
         else if (ev && ev.bluefin){
           const k = T.find(function(t){ return matchesPool(ev, t); });
           if (k){
-            const last = tapeItems(1, k.t)[0];
-            const px = tradeQuotePx(last || ev, poolQuote(k));
+            const px = tradeQuotePx(ev, poolQuote(k));
             if (px > 0) k.cap = px * VIRTUAL_SUPPLY;
           }
         }
-        paintTape();
-        paintPx();
-        paintCaps();
         if (state.route === "explore") scheduleExploreList();
         if (state.route === "token"){
           if (lw.chart) applyLwData(findT(state.sym));
@@ -7144,7 +7173,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
             if (ch) paintLocalChart(ch, findT(state.sym));
           }
         }
-        updateChartLive();
+        scheduleLivePaint();
       },
       onLaunch: function(l){
         if (l && l.instadex) upsertInstadex(l);
@@ -7163,7 +7192,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       lockPackages: [window.ARENA_INSTADEX_PACKAGE, window.ARENA_LOCK_PACKAGE, window.ARENA_BLUEFIN_EVENT_PACKAGE].filter(Boolean)
     });
     bus.trades = bus.sub.trades;
-    hydrating = false;
+    setTimeout(function(){ hydrating = false; }, 2000);
     T.forEach(function(k){
       if (k && k.bluefinPool && bus.sub.watchBluefinPool) bus.sub.watchBluefinPool(k.bluefinPool);
     });
