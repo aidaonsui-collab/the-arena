@@ -18,7 +18,7 @@ HTTP cron routes require `Authorization: Bearer $CRON_SECRET` (Vercel Cron sends
 
 The keepers run on the home Mac Air (Jessicas-MacBook-Air / `jessica-m1`), next to `com.eve.arc-sniper` and `com.eve.awake`. Not Vercel, and not the office Mac. Fight Night `refresh()` (launches, Bluefin sqrt MC, bells) runs here as `tsx src/cli.ts pit` and POSTs the blob. Vercel `GET /api/pit-state` only reads that blob. The Fight Night page polls it every 30s; Explore does not.
 
-`tsx src/cli.ts perp` refreshes AMC vault NAV into `/api/perp-tokens` (blob-only GET). Does not place AMC orders unless `ARENA_PERP_TRADE=1`.
+`tsx src/cli.ts perp` refreshes AMC vault NAV into `/api/perp-tokens` (blob-only GET). Does not place AMC orders unless `ARENA_PERP_TRADE=1`. Vault create/deposit is signed in the browser; Air only writes NAV.
 
 ```
 ssh jessica-m1

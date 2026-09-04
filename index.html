@@ -545,7 +545,7 @@ window.ARENA_USDY_USDC_POOL = "0xdcd762ad374686fa890fc4f3b9bbfe2a244e713d7bffbfb
 window.ARENA_XAGM_USDC_POOL = "0x4d3cc875e334440ad3485d4455d7ee072ea01b18c526ad64f9ebe2aa0a4f01b9";
 window.ARENA_USDC_SUI_POOL = "0x51e883ba7c0b566a26cbc8a94cd33eb0abd418a77cc1e60ad22fd9b1f29cd2ab";
 window.ARENA_AMC_MARKET = "0x8d7bfd380f89e0998a0d71cf46615948f4f2fab3d3904fe8a522c50a8cb0f3df";
-window.ARENA_PERP_LIVE = window.ARENA_PERP_LIVE || false;
+window.ARENA_PERP_LIVE = true;
 window.ARENA_CETUS_CLMM = "0x25ebb9a7c50eb17b3fa9c5a30fb8b5ad8f97caaf4928943acbcff7153dfee5e3";
 window.ARENA_CETUS_CONFIG = "0xdaa46292632c3c4d8f31f23ea0f9b36a28ff3677e9684980e4438403a67a3d8f";
 window.ARENA_PIT_SUI = "0x8ec38e9bcac0838bf474680e71d0c3f302f4ea2f757d759b7b399701f904389c";
@@ -4063,8 +4063,8 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
           '<button type="button" class="btn-trade" id="launch-go">'+launchBtnLabel()+'</button>'+
           '<div id="launch-note" style="font-size:12px;color:'+(state.lNoteErr?"#FF6640":"var(--muted)")+';margin-top:8px;text-align:center">'+
             escHtml(state.lNote || (state.lQuote==="AMC"
-              ? (window.ARENA_PERP_LIVE ? "Pay 1 SUI. Vice opens the AMC vault. Buyers fund the book." : "AMC books are listed here. Opening the Aftermath vault is not live yet — no on-chain vault tx until Vice turns it on.")
-              : (Number(state.lFirstBuy)>0
+              ? "Pay 1 SUI. Need about $1 USDC (or SUI to hop) to open the AMC vault. Buyers fund the rest."
+              : (Number(state.lFirstBuy)>0)
               ? ("Pay 1 SUI launch fee, then a first buy of "+state.lFirstBuy+" SUI"+(state.lQuote==="SUI"?"":state.lQuote==="USDY"?" hopped through Cetus USDY":" hopped through "+state.lQuote)+".")
               : "Pay 1 SUI launch fee. 0 quote LP.")))+
           '</div>'+
@@ -4074,14 +4074,14 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   function pairTicket(tk, q, insta){
     if (isAmcToken(tk)){
       const buyOn = state.side !== "Sell";
-      const live = !!(tk.vaultId && !tk.pending && window.ARENA_PERP_LIVE);
+      const live = !!(tk.vaultId && window.ARENA_PERP_LIVE);
       const amtVal = escAttr(state.amt || "1");
       return '<div class="ticket" id="swap-box">'+
         '<div class="pit-kicker">AMC</div>'+
         '<div style="font-size:22px;font-weight:700;letter-spacing:-.03em;margin:8px 0 10px">'+(buyOn?"Buy":"Sell")+'</div>'+
-        '<p style="color:var(--muted);margin:0 0 12px">'+(tk.pending || !tk.vaultId
-          ? "Listed. The AMC vault is not open yet — Vice turns that on; no perp tx until then."
-          : "Pay SUI (hopped to USDC) to mint the vault share. Sell requests USDC back after the lock.")+'</p>'+
+        '<p style="color:var(--muted);margin:0 0 12px">'+(live
+          ? "Pay SUI (hopped to USDC) or USDC to mint the vault share. Sell requests USDC back after the lock."
+          : "Listed. Opening the AMC vault — refresh in a few seconds.")+'</p>'+
         '<div class="sides">'+
           '<div id="btn-buy" data-side="Buy"'+(buyOn?' class="on-buy"':'')+'>Buy</div>'+
           '<div id="btn-sell" data-side="Sell"'+(buyOn?'':' class="on-sell"')+'>Sell</div>'+
@@ -4098,7 +4098,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
         '<div class="kv"><span style="color:var(--muted)">AMC</span><span>'+(tk.amcPx>0?fmtUsd(tk.amcPx):"—")+'</span></div>'+
         '<div class="kv"><span style="color:var(--muted)">Vault NAV</span><span>'+(usdCapText(tk))+'</span></div>'+
         '<div class="kv"><span style="color:var(--muted)">Lock</span><span>1 day on sell</span></div>'+
-        '<button type="button" class="btn-trade" id="trade-btn" data-trade'+(live?"":" disabled")+'>'+(live?"Connect wallet":"Vault not live")+'</button>'+
+        '<button type="button" class="btn-trade" id="trade-btn" data-trade'+(live?"":" disabled")+'>'+(live?"Connect wallet":"Opening vault…")+'</button>'+
         '<div id="swap-err" class="swap-err"></div>'+
         '<div style="margin-top:10px;text-align:center;font-size:11px;color:var(--muted)">Not Instant. Not Bluefin. Share of an Aftermath AMC-USDC book.</div>'+
       '</div>';
@@ -5274,19 +5274,97 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     if (!r.ok) throw new Error(j.error || raw.slice(0, 180) || ("Aftermath " + r.status));
     return j;
   }
-  async function execAfTxKind(txKind){
+  function afB64Bytes(b64){
+    var bin = atob(b64);
+    var bytes = new Uint8Array(bin.length);
+    for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    return bytes;
+  }
+  function createdMoveObjects(result){
+    var rows = [];
+    flattenObjectChanges(result).forEach(function(ch){
+      ch = ch || {};
+      var t = "";
+      var id = ch.objectId || ch.address || "";
+      if (ch.type === "created") t = String(ch.objectType || "");
+      else if (ch.outputState && ch.outputState.asMoveObject){
+        if (ch.idCreated === false) return;
+        var cont = ch.outputState.asMoveObject.contents || {};
+        t = String((cont.type && (cont.type.repr || cont.type)) || "");
+      } else return;
+      if (id && t) rows.push({ id: id, type: t });
+    });
+    return rows;
+  }
+  function pickCreated(rows, needle){
+    needle = String(needle || "").toLowerCase();
+    var hit = (rows || []).find(function(r){ return String(r.type || "").toLowerCase().indexOf(needle) >= 0; });
+    return hit || null;
+  }
+  function pickVaultObj(rows){
+    rows = rows || [];
+    return pickCreated(rows, "marketmakingvault")
+      || rows.find(function(r){
+        var t = String(r.type || "").toLowerCase();
+        return t.indexOf("vault") >= 0 && t.indexOf("cap") < 0 && t.indexOf("treasury") < 0 && t.indexOf("metadata") < 0;
+      })
+      || null;
+  }
+  async function waitAfCreated(digest, needles){
+    var last = "";
+    for (var i = 0; i < 18; i++){
+      try {
+        var tx = await fetchPublishTx(digest);
+        if (tx){
+          var rows = createdMoveObjects(tx);
+          var out = {};
+          var ok = true;
+          needles.forEach(function(n){
+            var hit = pickCreated(rows, n);
+            if (hit) out[n] = hit;
+            else ok = false;
+          });
+          out.rows = rows;
+          if (ok) return out;
+          last = rows.map(function(r){ return r.type.split("::").slice(-1)[0]; }).join(", ") || "no created objects yet";
+        }
+      } catch (e) {
+        last = (e && e.message) ? e.message : String(e);
+      }
+      await sleep(400 + i * 120);
+    }
+    throw new Error("Aftermath tx " + digest.slice(0, 8) + " indexed but objects are still catching up" + (last ? " (" + last + ")" : ""));
+  }
+  async function usdcBalanceMist(){
+    var coins = await coinsOf(suiSession.address, window.ARENA_USDC_TYPE);
+    var n = 0;
+    coins.forEach(function(c){ n += Number(c.value) || 0; });
+    return Math.floor(n);
+  }
+  async function hopSuiToUsdc(suiMist){
+    suiMist = BigInt(String(suiMist));
+    if (suiMist <= 0n) throw new Error("SUI hop amount must be > 0");
+    var Transaction = await loadTransaction();
+    var tx = new Transaction();
+    tx.setSender(suiSession.address);
+    var coinIn = await takeSwapCoin(tx, SUI_TYPE, suiMist);
+    var hopd = await sevenkOnto(tx, coinIn, SUI_TYPE, window.ARENA_USDC_TYPE, suiMist);
+    hopd.tx.transferObjects([hopd.coinOut], suiSession.address);
+    return walletExec(hopd.tx, true);
+  }
+  async function execAfTxKind(txKind, withLaunchFee){
     if (!txKind) throw new Error("Aftermath did not return a transaction");
     var Transaction = await loadTransaction();
-    var tx;
-    if (typeof Transaction.fromKind === "function"){
-      var bin = atob(txKind);
-      var bytes = new Uint8Array(bin.length);
-      for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-      tx = Transaction.fromKind(bytes);
-    } else {
-      throw new Error("Wallet SDK cannot wrap Aftermath txKind");
-    }
+    if (typeof Transaction.fromKind !== "function") throw new Error("Wallet SDK cannot wrap Aftermath txKind");
+    var tx = Transaction.fromKind(afB64Bytes(txKind));
     if (typeof tx.setSender === "function") tx.setSender(suiSession.address);
+    if (withLaunchFee){
+      try {
+        var feeSplit = tx.splitCoins(tx.gas, [txAmt(LAUNCH_FEE)]);
+        var feeArg = Array.isArray(feeSplit) ? feeSplit[0] : feeSplit;
+        tx.transferObjects([feeArg], platformWallet());
+      } catch (e) {}
+    }
     return walletExec(tx);
   }
   async function doAmcLaunch(){
@@ -5309,8 +5387,102 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       pending: true
     });
     persistLaunches();
-    if (btn){ btn.disabled = true; btn.textContent = "Listed"; }
-    setLaunchNote("Listed $"+tick+". The AMC vault is not open on-chain yet — Vice will turn that on. No Aftermath tx was sent.", false);
+    var seedUsdc = 1000000;
+    var firstSui = toSmallestBig(state.lFirstBuy, 9);
+    if (firstSui > 0n && hop.suiUsd > 0) seedUsdc = Math.max(seedUsdc, Math.floor(Number(firstSui) / 1e9 * hop.suiUsd * 1e6 * 0.98));
+    var have = await usdcBalanceMist();
+    if (have < 1000000){
+      if (btn) btn.textContent = "Sign hop SUI → USDC…";
+      setLaunchNote("Need about $1 USDC to open the book. Hopping SUI → USDC.", false);
+      var hopMist = firstSui > 0n ? firstSui : 2000000000n;
+      if (hopMist < 1500000000n) hopMist = 1500000000n;
+      await hopSuiToUsdc(hopMist);
+      have = await usdcBalanceMist();
+      if (have < 1000000) throw new Error("Still under $1 USDC after the hop. Add USDC or more SUI and retry.");
+      seedUsdc = Math.max(1000000, have);
+    } else if (have < seedUsdc) seedUsdc = have;
+    if (btn) btn.textContent = "Sign 1 of 3 · share coin…";
+    setLaunchNote("Aftermath mints the vault share coin. 1 SUI listing fee to Vice.", false);
+    var capBuilt = await afPerp("/vault/transactions/create-vault-cap", {
+      walletAddress: suiSession.address,
+      lpCoinMetadata: {
+        name: name,
+        symbol: tick.replace(/[^A-Z0-9_]/g, "").slice(0, 10) || tick.slice(0, 10),
+        description: (state.lDesc || ("Tracks AMC · " + tick)).slice(0, 200),
+        iconUrl: state.lArtUrl || null
+      }
+    });
+    var capRes = await execAfTxKind(capBuilt.txKind, true);
+    var capDigest = txDigest(capRes);
+    if (!capDigest) throw new Error("Share-coin tx did not return a digest");
+    var capObjs = createdMoveObjects(capRes);
+    var capHit = pickCreated(capObjs, "TreasuryCap") || (await waitAfCreated(capDigest, ["TreasuryCap"])).TreasuryCap;
+    var metaHit = pickCreated(capObjs, "CoinMetadata") || (await waitAfCreated(capDigest, ["CoinMetadata"])).CoinMetadata;
+    if (!capHit || !metaHit) throw new Error("TreasuryCap or CoinMetadata missing from the share-coin tx");
+    var lpType = "";
+    var capType = String(capHit.type || "");
+    var lt = capType.indexOf("TreasuryCap<");
+    if (lt >= 0) lpType = capType.slice(lt + "TreasuryCap<".length, capType.lastIndexOf(">"));
+    if (btn) btn.textContent = "Sign 2 of 3 · open vault…";
+    setLaunchNote("Opening the AMC vault with " + (seedUsdc / 1e6).toFixed(2) + " USDC seed.", false);
+    var vaultBuilt = await afPerp("/vault/transactions/create-vault", {
+      walletAddress: suiSession.address,
+      coinMetadataId: metaHit.id,
+      treasuryCapId: capHit.id,
+      collateralCoinType: window.ARENA_USDC_TYPE,
+      lockPeriodMs: 86400000,
+      forceWithdrawDelayMs: 3600000,
+      performanceFeePercentage: 0,
+      initialDepositAmount: String(seedUsdc) + "n",
+      metadata: {
+        name: name.slice(0, 80),
+        description: ("Vice AMC vault · $" + tick).slice(0, 200),
+        curatorName: "Vice",
+        curatorUrl: "https://vicefun.com"
+      }
+    });
+    var vaultRes = await execAfTxKind(vaultBuilt.txKind, false);
+    var vaultDigest = txDigest(vaultRes);
+    if (!vaultDigest) throw new Error("Vault tx did not return a digest");
+    var vaultObjs = createdMoveObjects(vaultRes);
+    var vaultHit = pickVaultObj(vaultObjs);
+    var vaultCapHit = pickCreated(vaultObjs, "VaultCap") || pickCreated(capObjs, "VaultCap");
+    if (!vaultHit){
+      for (var wi = 0; wi < 18 && !vaultHit; wi++){
+        await sleep(400 + wi * 120);
+        var txw = await fetchPublishTx(vaultDigest);
+        vaultObjs = createdMoveObjects(txw);
+        vaultHit = pickVaultObj(vaultObjs);
+        if (!vaultCapHit) vaultCapHit = pickCreated(vaultObjs, "VaultCap");
+      }
+    }
+    if (!vaultHit) throw new Error("Vault object missing from the open-vault tx");
+    if (vaultCapHit){
+      if (btn) btn.textContent = "Sign 3 of 3 · hand to Vice…";
+      setLaunchNote("Moving vault control to Vice so you never manage the perp.", false);
+      try {
+        var xfer = await afPerp("/transactions/transfer-cap", {
+          walletAddress: suiSession.address,
+          recipientAddress: platformWallet(),
+          capObjectId: vaultCapHit.id
+        });
+        await execAfTxKind(xfer.txKind, false);
+      } catch (e) {
+        setLaunchNote("Vault is open but handing the cap to Vice failed: " + ((e && e.message) || e) + ". Vault " + vaultHit.id.slice(0, 10) + "…", true);
+      }
+    }
+    tk = await postPerpOverlay({
+      ticker: tick,
+      name: name,
+      desc: state.lDesc || "",
+      img: state.lArtUrl || "",
+      vaultId: vaultHit.id,
+      lpCoinType: lpType,
+      pending: false
+    });
+    persistLaunches();
+    if (btn){ btn.disabled = true; btn.textContent = "Launched"; }
+    setLaunchNote("AMC vault live. Buyers deposit USDC (or SUI hopped to USDC).", false);
     state.sym = tick;
     go("token", tick);
   }
@@ -5322,7 +5494,17 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     if (!(amt > 0)) throw new Error("Enter an amount");
     var buyOn = state.side !== "Sell";
     if (buyOn){
-      var usdcAmt = state.payWith === "USDC" ? Math.round(amt * 1e6) : Math.round(amt * (hop.suiUsd || 0) * 1e6);
+      var usdcAmt = 0;
+      if (state.payWith === "USDC") usdcAmt = Math.round(amt * 1e6);
+      else {
+        var suiMist = Math.round(amt * 1e9);
+        if (!(suiMist > 0)) throw new Error("Enter a SUI amount");
+        var before = await usdcBalanceMist();
+        await hopSuiToUsdc(suiMist);
+        var after = await usdcBalanceMist();
+        usdcAmt = Math.max(0, after - before);
+        if (!(usdcAmt > 0)) usdcAmt = Math.round(amt * (hop.suiUsd || 0) * 1e6 * 0.97);
+      }
       if (!(usdcAmt > 0)) throw new Error("Need a USDC size (SUI price still loading)");
       var dep = await afPerp("/vault/transactions/deposit", {
         walletAddress: suiSession.address,
@@ -5333,10 +5515,11 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       });
       return execAfTxKind(dep.txKind);
     }
+    var lpAmt = tk.lpCoinType && /::usdc::/i.test(tk.lpCoinType) ? Math.round(amt * 1e6) : Math.round(amt * 1e9);
     var wd = await afPerp("/vault/transactions/create-withdraw-request", {
       walletAddress: suiSession.address,
       vaultId: tk.vaultId,
-      lpWithdrawAmount: String(Math.round(amt * 1e9)) + "n",
+      lpWithdrawAmount: String(lpAmt) + "n",
       minCollateralAmountOut: "0n"
     });
     return execAfTxKind(wd.txKind);
