@@ -118,7 +118,7 @@ export async function GET(request) {
     },
     200,
     request,
-    { "cache-control": "public, s-maxage=10, stale-while-revalidate=30" },
+    { "cache-control": "public, s-maxage=30, stale-while-revalidate=60" },
   );
 }
 

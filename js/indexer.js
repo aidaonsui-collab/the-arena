@@ -855,13 +855,13 @@
       var benPkgs = (opts.beneficiaryPackages || burnPkgs).slice();
       benPkgs.forEach(pullBeneficiary);
       if (opts.live) {
-        instaTimer = setInterval(refreshInstadex, opts.instadexMs || 12000);
+        instaTimer = setInterval(refreshInstadex, opts.instadexMs || 60000);
         setInterval(function () {
           burnPkgs.forEach(pullBurn);
           mintPkgs.forEach(pullMintLock);
           benPkgs.forEach(pullBeneficiary);
-        }, opts.instadexMs || 12000);
-        bluefinTimer = setInterval(function () { refreshBluefin(); }, opts.bluefinMs || 8000);
+        }, opts.instadexMs || 60000);
+        bluefinTimer = setInterval(function () { refreshBluefin(); }, opts.bluefinMs || 30000);
       }
     }
 

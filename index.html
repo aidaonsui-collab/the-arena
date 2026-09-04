@@ -2662,9 +2662,13 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     const cap = limit == null ? 8 : limit;
     return rows.slice(0, cap);
   }
+  function viewingToken(tk){
+    return !!(tk && state.route === "token" && tk.t && String(state.sym).toUpperCase() === String(tk.t).toUpperCase());
+  }
   function hydrateTape(tk){
     if (!tk || tk.missing || !tk.t || tk.tapeBusy) return;
-    if (tk.tapeLoaded && tk.tapeAt && Date.now() - tk.tapeAt < 20000 && !state.tapeWallet) return;
+    if (!viewingToken(tk)) return;
+    if (tk.tapeLoaded && tk.tapeAt && Date.now() - tk.tapeAt < 90000 && !state.tapeWallet) return;
     tk.tapeBusy = true;
     var url = "/api/trades?t="+encodeURIComponent(tk.t)+"&limit=200";
     if (tk.bluefinPool) url += "&pool="+encodeURIComponent(tk.bluefinPool);
@@ -3003,7 +3007,8 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   }
   function hydrateTokenStats(tk){
     if (!tk || tk.missing || !tk.t || tk.statsBusy) return;
-    if (tk.statsHydrated && tk.statsAt && Date.now() - tk.statsAt < 15000) return;
+    if (!viewingToken(tk)) return;
+    if (tk.statsHydrated && tk.statsAt && Date.now() - tk.statsAt < 90000) return;
     tk.statsBusy = true;
     fetch("/api/token-stats?t="+encodeURIComponent(tk.t)).then(function(r){ return r.json(); }).then(function(j){
       tk.statsBusy = false;
@@ -3099,9 +3104,11 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     if (!tk || tk.missing) return;
     hydrateTokenOverlay(tk);
     hydrateLockBeneficiary(tk);
-    hydrateTokenStats(tk);
-    hydrateTokenBurns(tk);
-    hydrateTape(tk);
+    if (viewingToken(tk)) {
+      hydrateTokenStats(tk);
+      hydrateTokenBurns(tk);
+      hydrateTape(tk);
+    }
     var t = typeNameStr(tk.token);
     if (!t || t.indexOf("::") < 0) return;
     if (tk.metaHydrated && tk.img) return;
@@ -3125,7 +3132,8 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       }
       if (meta.decimals != null) tk.decimals = meta.decimals;
       persistLaunches();
-      if (state.route === "token" || state.route === "explore" || state.route === "pit") scheduleScreen();
+      if (viewingToken(tk)) scheduleScreen();
+      else if (state.route === "explore") scheduleExploreList();
     }).catch(function(){ tk.metaBusy = false; tk.metaHydrated = false; });
   }
   function quoteBadgeMeta(k){
@@ -6611,7 +6619,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
         refreshPitObject();
         loadPitVotes();
       }
-      if (!pitStatePollAt || Date.now() - pitStatePollAt >= 30000){
+      if (!pitStatePollAt || Date.now() - pitStatePollAt >= 120000){
         pitStatePollAt = Date.now();
         loadPitState();
       }

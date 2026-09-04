@@ -69,7 +69,7 @@ export async function GET(request) {
   if (!ticker) return json({ error: "ticker required" }, 400, request);
   const row = await loadStats(ticker);
   return json({ stats: row }, 200, request, {
-    "cache-control": "public, s-maxage=10, stale-while-revalidate=30",
+    "cache-control": "public, s-maxage=30, stale-while-revalidate=60",
   });
 }
 
