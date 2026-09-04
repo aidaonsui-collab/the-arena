@@ -1,4 +1,5 @@
-import { put, list } from "@vercel/blob";
+import { put } from "@vercel/blob";
+import { readJsonBlob, rememberJsonBlob } from "./_blob-json.js";
 
 const TICKER_RE = /^[A-Z][A-Z0-9_.\-]{0,15}$/;
 
@@ -53,22 +54,9 @@ function authOk(request) {
 }
 
 async function loadStats(ticker) {
-  try {
-    const { blobs } = await list({ prefix: blobPath(ticker), limit: 8 });
-    const path = blobPath(ticker);
-    const hit =
-      (blobs || []).find(function (b) {
-        return b.pathname === path || String(b.pathname || "").endsWith("/" + path);
-      }) || (blobs || [])[0];
-    if (!hit) return null;
-    const r = await fetch(hit.url, { cache: "no-store" });
-    if (!r.ok) return null;
-    const row = await r.json();
-    if (!row || typeof row !== "object") return null;
-    return row;
-  } catch {
-    return null;
-  }
+  const row = await readJsonBlob(blobPath(ticker), null);
+  if (!row || typeof row !== "object") return null;
+  return row;
 }
 
 export function OPTIONS(request) {
@@ -80,7 +68,9 @@ export async function GET(request) {
   const ticker = safeTicker(url.searchParams.get("t") || url.searchParams.get("ticker"));
   if (!ticker) return json({ error: "ticker required" }, 400, request);
   const row = await loadStats(ticker);
-  return json({ stats: row }, 200, request, { "cache-control": "no-store" });
+  return json({ stats: row }, 200, request, {
+    "cache-control": "public, s-maxage=10, stale-while-revalidate=30",
+  });
 }
 
 export async function POST(request) {
@@ -114,6 +104,7 @@ export async function POST(request) {
       contentType: "application/json",
       cacheControlMaxAge: 15,
     });
+    rememberJsonBlob(blobPath(ticker), row);
   } catch (e) {
     const why = e && e.message ? String(e.message) : "blob put failed";
     return json({ error: why.slice(0, 180) }, 502, request);

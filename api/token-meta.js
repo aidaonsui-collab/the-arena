@@ -1,4 +1,5 @@
-import { put, list } from "@vercel/blob";
+import { put } from "@vercel/blob";
+import { readJsonBlob, rememberJsonBlob } from "./_blob-json.js";
 import { verifyPersonalMessageSignature } from "@mysten/sui/verify";
 import { normalizeSuiAddress } from "@mysten/sui/utils";
 
@@ -192,22 +193,9 @@ function publicMeta(row) {
 export async function loadTokenOverlay(ticker) {
   const t = safeTicker(ticker);
   if (!t) return null;
-  try {
-    const { blobs } = await list({ prefix: blobPath(t), limit: 8 });
-    const path = blobPath(t);
-    const hit =
-      (blobs || []).find(function (b) {
-        return b.pathname === path || String(b.pathname || "").endsWith("/" + path);
-      }) || (blobs || [])[0];
-    if (!hit) return null;
-    const r = await fetch(hit.url, { cache: "no-store" });
-    if (!r.ok) return null;
-    const row = await r.json();
-    if (!row || typeof row !== "object") return null;
-    return publicMeta(row);
-  } catch {
-    return null;
-  }
+  const row = await readJsonBlob(blobPath(t), null);
+  if (!row || typeof row !== "object") return null;
+  return publicMeta(row);
 }
 
 async function gql(query, variables) {
@@ -328,7 +316,9 @@ export async function GET(request) {
   const ticker = safeTicker(url.searchParams.get("t") || url.searchParams.get("ticker"));
   if (!ticker) return json({ error: "ticker required" }, 400, request);
   const meta = await loadTokenOverlay(ticker);
-  return json({ meta }, 200, request, { "cache-control": "no-store" });
+  return json({ meta }, 200, request, {
+    "cache-control": "public, s-maxage=30, stale-while-revalidate=120",
+  });
 }
 
 export async function POST(request) {
@@ -444,6 +434,7 @@ export async function POST(request) {
       contentType: "application/json",
       cacheControlMaxAge: 15,
     });
+    rememberJsonBlob(blobPath(ticker), row);
   } catch (e) {
     const why = e && e.message ? String(e.message) : "blob put failed";
     return json({ error: why.slice(0, 180) }, 502, request);

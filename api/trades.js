@@ -1,4 +1,5 @@
-import { put, list } from "@vercel/blob";
+import { put } from "@vercel/blob";
+import { readJsonBlob, rememberJsonBlob } from "./_blob-json.js";
 
 const TICKER_RE = /^[A-Z][A-Z0-9_.\-]{0,15}$/;
 const MAX_LIMIT = 500;
@@ -61,28 +62,16 @@ function authOk(request) {
 }
 
 async function loadTicker(ticker) {
-  try {
-    const { blobs } = await list({ prefix: blobPath(ticker), limit: 8 });
-    const path = blobPath(ticker);
-    const hit =
-      (blobs || []).find(function (b) {
-        return b.pathname === path || String(b.pathname || "").endsWith("/" + path);
-      }) || (blobs || [])[0];
-    if (!hit) return { ticker, trades: [], count: 0, updatedMs: 0 };
-    const r = await fetch(hit.url, { cache: "no-store" });
-    if (!r.ok) return { ticker, trades: [], count: 0, updatedMs: 0 };
-    const row = await r.json();
-    if (!row || typeof row !== "object") return { ticker, trades: [], count: 0, updatedMs: 0 };
-    const trades = Array.isArray(row.trades) ? row.trades : [];
-    return {
-      ticker: row.ticker || ticker,
-      trades,
-      count: Number(row.count || trades.length) || trades.length,
-      updatedMs: Number(row.updatedMs || 0) || 0,
-    };
-  } catch {
-    return { ticker, trades: [], count: 0, updatedMs: 0 };
-  }
+  const empty = { ticker, trades: [], count: 0, updatedMs: 0 };
+  const row = await readJsonBlob(blobPath(ticker), empty);
+  if (!row || typeof row !== "object") return empty;
+  const trades = Array.isArray(row.trades) ? row.trades : [];
+  return {
+    ticker: row.ticker || ticker,
+    trades,
+    count: Number(row.count || trades.length) || trades.length,
+    updatedMs: Number(row.updatedMs || 0) || 0,
+  };
 }
 
 function tradeId(t) {
@@ -129,7 +118,7 @@ export async function GET(request) {
     },
     200,
     request,
-    { "cache-control": "no-store" },
+    { "cache-control": "public, s-maxage=10, stale-while-revalidate=30" },
   );
 }
 
@@ -171,6 +160,7 @@ export async function POST(request) {
       contentType: "application/json",
       cacheControlMaxAge: 15,
     });
+    rememberJsonBlob(blobPath(ticker), row);
   } catch (e) {
     const why = e && e.message ? String(e.message) : "blob put failed";
     return json({ error: why.slice(0, 180) }, 502, request);

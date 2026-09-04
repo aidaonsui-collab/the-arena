@@ -2669,7 +2669,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     var url = "/api/trades?t="+encodeURIComponent(tk.t)+"&limit=200";
     if (tk.bluefinPool) url += "&pool="+encodeURIComponent(tk.bluefinPool);
     if (state.tapeWallet) url += "&wallet="+encodeURIComponent(state.tapeWallet);
-    fetch(url, { cache: "no-store" }).then(function(r){ return r.json(); }).then(function(j){
+    fetch(url).then(function(r){ return r.json(); }).then(function(j){
       tk.tapeBusy = false;
       tk.tapeAt = Date.now();
       if (!j || !Array.isArray(j.trades)) return;
@@ -2976,7 +2976,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   function hydrateTokenOverlay(tk){
     if (!tk || tk.missing || !tk.t || tk.overlayBusy || tk.overlayHydrated) return;
     tk.overlayBusy = true;
-    fetch("/api/token-meta?t="+encodeURIComponent(tk.t), { cache: "no-store" }).then(function(res){
+    fetch("/api/token-meta?t="+encodeURIComponent(tk.t)).then(function(res){
       return res.json().then(function(j){ return { ok: res.ok, j: j }; });
     }).then(function(out){
       tk.overlayBusy = false;
@@ -3005,7 +3005,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     if (!tk || tk.missing || !tk.t || tk.statsBusy) return;
     if (tk.statsHydrated && tk.statsAt && Date.now() - tk.statsAt < 15000) return;
     tk.statsBusy = true;
-    fetch("/api/token-stats?t="+encodeURIComponent(tk.t), { cache: "no-store" }).then(function(r){ return r.json(); }).then(function(j){
+    fetch("/api/token-stats?t="+encodeURIComponent(tk.t)).then(function(r){ return r.json(); }).then(function(j){
       tk.statsBusy = false;
       var s = j && j.stats;
       if (!s) return;
@@ -3593,7 +3593,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   }
   function leaderTileHTML(k){
     if (!k || !k.t || k.t === "—" || k.missing) return "";
-    hydrateTokenMeta(k);
+    hydrateTokenOverlay(k);
     const volN = volUsd24h(k);
     const ch = chgText(k);
     const up = k.ch > 0.05;
@@ -3714,7 +3714,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     return [j.round, j.roundEndMs, w, banned, stand, bells].join("|");
   }
   function loadPitState(){
-    return fetch("/api/pit-state", { cache: "no-store" }).then(function(r){ return r.json(); }).then(function(j){
+    return fetch("/api/pit-state").then(function(r){ return r.json(); }).then(function(j){
       if (!j || j.error) return;
       const key = rankingKey(j);
       const changed = key !== pitStateKey;
@@ -3806,7 +3806,6 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   function pitHTML(){
     const win = pitWinnerTok();
     const rows = pitContenders().map(function(k,i){
-      hydrateTokenMeta(k);
       const mine = pitVotes.mine === k.t;
       const banned = pitBannedTicker(k.t);
       const lead = !!(win && win.t === k.t && !banned);
