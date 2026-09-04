@@ -6,6 +6,7 @@ cd "$ROOT" || exit 1
 export PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:$PATH"
 export SUI_RPC="${SUI_RPC:-https://mainnet.suiet.app}"
 export ARENA_KEEPER_ADDRESS="${ARENA_KEEPER_ADDRESS:-0x92a32ac7fd525f8bd37ed359423b8d7d858cad26224854dfbff1914b75ee658b}"
+export ARENA_PERP_TRADE="${ARENA_PERP_TRADE:-1}"
 if [ -f "$ROOT/.env.local" ]; then
   set -a
   # shellcheck disable=SC1091
