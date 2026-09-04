@@ -544,8 +544,6 @@ window.ARENA_USDC_TYPE = "0xdba34672e30cb065b1f93e3ab55318768fd6fef66c15942c9f7c
 window.ARENA_USDY_USDC_POOL = "0xdcd762ad374686fa890fc4f3b9bbfe2a244e713d7bffbfbd1b9221cb290da2ed";
 window.ARENA_XAGM_USDC_POOL = "0x4d3cc875e334440ad3485d4455d7ee072ea01b18c526ad64f9ebe2aa0a4f01b9";
 window.ARENA_USDC_SUI_POOL = "0x51e883ba7c0b566a26cbc8a94cd33eb0abd418a77cc1e60ad22fd9b1f29cd2ab";
-window.ARENA_AMC_MARKET = "0x8d7bfd380f89e0998a0d71cf46615948f4f2fab3d3904fe8a522c50a8cb0f3df";
-window.ARENA_PERP_LIVE = true;
 window.ARENA_CETUS_CLMM = "0x25ebb9a7c50eb17b3fa9c5a30fb8b5ad8f97caaf4928943acbcff7153dfee5e3";
 window.ARENA_CETUS_CONFIG = "0xdaa46292632c3c4d8f31f23ea0f9b36a28ff3677e9684980e4438403a67a3d8f";
 window.ARENA_PIT_SUI = "0x8ec38e9bcac0838bf474680e71d0c3f302f4ea2f757d759b7b399701f904389c";
@@ -583,12 +581,11 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   var persistTimer = 0;
   function persistLaunchesNow(){
     try {
-      var rows = T.filter(function(k){ return k && k.t && !k.missing && (k.instadex || k.bluefinPool || k.vaultId || k.mode === "AMC"); }).slice(-200).map(function(k){
+      var rows = T.filter(function(k){ return k && k.t && !k.missing && (k.instadex || k.bluefinPool); }).slice(-200).map(function(k){
         return {
           t: k.t, n: k.n, q: k.q, b: k.b || "", token: k.token, bluefinPool: k.bluefinPool, lockId: k.lockId,
           img: k.img || "", ts: k.ts || 0, born: k.born || 0, twitter: k.twitter || "", telegram: k.telegram || "", website: k.website || "",
-          creator: k.creator || "", burnFloor: Number(k.burnFloor) || (k.burnHydrated ? Number(k.instadexBurn) || 0 : 0),
-          vaultId: k.vaultId || "", lpCoinType: k.lpCoinType || "", mode: k.mode || "", navUsd: Number(k.navUsd) || 0, pending: !!k.pending
+          creator: k.creator || "", burnFloor: Number(k.burnFloor) || (k.burnHydrated ? Number(k.instadexBurn) || 0 : 0)
         };
       });
       localStorage.setItem(LAUNCH_CACHE_KEY, JSON.stringify(rows));
@@ -612,17 +609,16 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
         var tick = safeSym(l.t);
         if (!tick) return;
         if (T.some(function(k){ return k.t === tick; })) return;
-        var amc = l.mode === "AMC" || !!l.vaultId;
+        if (l.mode === "AMC" || l.vaultId || l.q === "AMC") return;
         T.push({
           t: tick, n: safeName(l.n) || tick, b: l.b || "", cap: 0, ch: 0, h: 1,
-          st: amc ? (l.pending ? "Pending" : "AMC") : "Instadex",
-          mode: amc ? "AMC" : "Instadex",
-          q: l.q || (amc ? "AMC" : "SUI"), c: amc ? "#FF2EA6" : "#298DFF", born: l.born || l.ts || 0, ts: l.ts || 0,
-          instadex: !amc, graduated: !amc,
-          lpLocked: !amc, bluefin: !amc, bluefinPool: l.bluefinPool || "", lockId: l.lockId || "", token: l.token,
+          st: "Instadex",
+          mode: "Instadex",
+          q: l.q || "SUI", c: "#298DFF", born: l.born || l.ts || 0, ts: l.ts || 0,
+          instadex: true, graduated: true,
+          lpLocked: true, bluefin: true, bluefinPool: l.bluefinPool || "", lockId: l.lockId || "", token: l.token,
           img: l.img || "", twitter: l.twitter || "", telegram: l.telegram || "", website: l.website || "",
           creator: l.creator || "", instadexBurn: 0, burnFloor: Number(l.burnFloor) || 0,
-          vaultId: l.vaultId || "", lpCoinType: l.lpCoinType || "", navUsd: Number(l.navUsd) || 0, pending: !!l.pending,
           buckets: Array(12).fill(1), fbuckets: Array(12).fill(1)
         });
       });
@@ -687,21 +683,15 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     SUI: { label:"SUI", type:SUI_TYPE, metadata:window.ARENA_SUI_METADATA, decimals:9, name:"Sui", what:"Native Sui", create:true, chips:["0.5","1","5","10","Max"], virtualHuman:"≈ $3.5k", pit:window.ARENA_PIT_SUI, color:"#4DA2FF" },
     USDY: { label:"USDY", type:window.ARENA_USDY_TYPE, metadata:window.ARENA_USDY_METADATA, decimals:6, name:"Ondo US Dollar Yield", what:"Ondo tokenized US Treasury bills", create:true, chips:["1","5","10","25","Max"], virtualHuman:"≈ $3.5k", pit:window.ARENA_PIT_USDY, color:"#3ECF8E" },
     XAGM: { label:"XAGM", type:window.ARENA_XAGM_TYPE, metadata:window.ARENA_XAGM_METADATA, decimals:9, name:"Matrixdock Silver", what:"Matrixdock silver, 1 oz", create:true, chips:["0.01","0.05","0.1","0.25","Max"], virtualHuman:"≈ $3.5k", pit:window.ARENA_PIT_XAGM, color:"#C0C7D1" },
-    XAUM: { label:"XAUM", type:window.ARENA_XAUM_TYPE, metadata:window.ARENA_XAUM_METADATA, decimals:9, name:"Matrixdock Gold", what:"Matrixdock gold, 1 oz", create:true, chips:["0.01","0.05","0.1","0.25","Max"], virtualHuman:"≈ $3.5k", pit:window.ARENA_PIT_XAUM, color:"#C9A97E" },
-    AMC: { label:"AMC", type:window.ARENA_USDC_TYPE, metadata:"", decimals:6, name:"AMC Entertainment", what:"Aftermath AMC perp, USDC-margined", create:true, chips:["1","5","10","25","Max"], virtualHuman:"NAV", pit:"", color:"#FF2EA6" }
+    XAUM: { label:"XAUM", type:window.ARENA_XAUM_TYPE, metadata:window.ARENA_XAUM_METADATA, decimals:9, name:"Matrixdock Gold", what:"Matrixdock gold, 1 oz", create:true, chips:["0.01","0.05","0.1","0.25","Max"], virtualHuman:"≈ $3.5k", pit:window.ARENA_PIT_XAUM, color:"#C9A97E" }
   };
-  var CREATE_QUOTES = ["SUI","USDY","XAGM","XAUM","AMC"];
+  var CREATE_QUOTES = ["SUI","USDY","XAGM","XAUM"];
   function quoteRec(q){
     var lab = (Index && Index.quoteLabel) ? Index.quoteLabel(q) : String(q || "SUI");
     return QUOTES[lab] || QUOTES.SUI;
   }
   function quoteDecimalsOf(q){ return quoteRec(q).decimals; }
   function firstBuyPreview(){
-    if (state.lQuote === "AMC"){
-      var buy = Number(state.lFirstBuy);
-      if (!(buy > 0)) return "0 lists the ticker. Buyers fund the AMC book.";
-      return "First deposit ≈ " + buy + " SUI hopped to USDC into the AMC vault.";
-    }
     var buy = Number(state.lFirstBuy);
     if (!(buy > 0)) return "0 skips the first buy.";
     var suiUsd = hop.suiUsd;
@@ -721,15 +711,6 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   }
   function lpBlurb(){
     var q = quoteRec(state.lQuote).label;
-    if (q === "AMC"){
-      return '<ul class="launch-points">'+
-        '<li>Tracks AMC on Aftermath</li>'+
-        '<li>Buyers fund the book in USDC</li>'+
-        '<li>You do not trade the perp</li>'+
-        '<li>1 SUI listing fee</li>'+
-        '<li>Pay SUI — hopped to USDC</li>'+
-      '</ul>';
-    }
     var dex = q === "USDY"
       ? '<li>Instant Bluefin · T-bills hop Cetus</li>'
       : '<li>Instant launch on Bluefin DEX</li>';
@@ -1262,7 +1243,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     if (launching) return "Launching…";
     if (!hasSuiWallet() && !suiSession.address) return "No Sui wallet found";
     if (!suiSession.address) return "Connect wallet to launch";
-    return state.lQuote === "AMC" ? "Launch AMC token" : "Launch Instadex";
+    return "Launch Instadex";
   }
   function paintLaunchBtn(){
     var el = $("#launch-go");
@@ -2026,7 +2007,6 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     return (b / a) * VIRTUAL_SUPPLY * u;
   }
   function usdCap(tk){
-    if (isAmcToken(tk) && Number(tk.tvlUsd || tk.navUsd) > 0) return Number(tk.tvlUsd || tk.navUsd);
     var spot = poolSpotCapUsd(tk);
     if (spot > 0) return spot;
     if (tk.statsMcUsd > 0) return tk.statsMcUsd;
@@ -2129,6 +2109,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   function isHiddenToken(k){
     const t = String((k && k.t) || "").toUpperCase();
     if (t === "BFLN" || t === "GRAD" || t === "SMOKE" || t === "IDEX" || t === "SILVER") return true;
+    if (k && (k.mode === "AMC" || k.q === "AMC" || k.vaultId)) return true;
     const n = String((k && k.n) || "");
     return /^Arena (Bluefin|Grad|Smoke)$/i.test(n) || /^INSTA$/i.test(n);
   }
@@ -2239,12 +2220,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   }
   function isDexBout(tk){
     tk = tk && tk.t ? tk : (tk ? findT(tk) : null);
-    if (isAmcToken(tk)) return false;
     return !!(tk && (isInstadex(tk) || tk.bluefinPool));
-  }
-  function isAmcToken(tk){
-    tk = tk && typeof tk === "object" ? tk : findT(tk);
-    return !!(tk && (tk.mode === "AMC" || tk.vaultId || tk.q === "AMC"));
   }
   function chartInd(){
     return state.chartInd || (state.chartInd = {vol:true,ma7:true,ma25:true,ma99:false,ema:false});
@@ -4044,9 +4020,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
             '<div><input id="l-art" type="file" accept="image/png,image/jpeg,image/webp,image/gif">'+
             '<div class="art-note" id="l-art-note">'+(state.lArtUrl?"Ready · Blob URL set":"png, jpeg, webp, or gif · 2MB")+'</div></div></div></div>'+
           '<div><label>Coin</label>'+
-            '<div style="font-size:12px;color:var(--muted);margin-top:6px">'+(state.lQuote==="AMC"
-              ? "Tracks AMC. Buyers deposit USDC (pay SUI, hopped). You do not open a vault or trade the perp."
-              : "1,000,000,000 supply · 9 decimals. Publish, seed, then first buy in SUI.")+'</div></div>'+
+            '<div style="font-size:12px;color:var(--muted);margin-top:6px">1,000,000,000 supply · 9 decimals. Publish, seed, then first buy in SUI.</div></div>'+
           '<div><label>Description · optional</label><input id="l-desc" placeholder="One line about the token" value="'+escAttr(state.lDesc)+'"></div>'+
           '<div><label>Socials · optional</label><div class="social-row">'+
             '<input id="l-x" spellcheck="false" placeholder="x.com/handle" value="'+escAttr(state.lX)+'">'+
@@ -4059,31 +4033,22 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
             var klass = "pill"+(on?" on":"");
             if (q === "XAGM") klass += " quote-xagm";
             if (q === "XAUM") klass += " quote-xaum";
-            if (q === "AMC") klass += " quote-amc";
             return '<button type="button" class="'+klass+'" data-set="lQuote" data-val="'+q+'">'+q+'</button>';
           }).join("")+'</div>'+
-            '<div style="font-size:12px;color:var(--muted);margin-top:6px">'+(state.lQuote==="AMC"
-              ? "Aftermath AMC-USDC perp. The token is a vault share. NAV follows AMC. Not Instant, not Fight Night."
-              : quoteRec(state.lQuote).what+'. TOKEN/'+state.lQuote+'. Starting market cap ≈ $3,500, same for every quote. No '+state.lQuote+' required for LP.')+'</div></div>'+
-          '<div><label>'+(state.lQuote==="AMC"?"First deposit · SUI":"First buy · SUI")+'</label><input id="l-first-buy" inputmode="decimal" placeholder="1" value="'+escAttr(state.lFirstBuy)+'"></div>'+
+            '<div style="font-size:12px;color:var(--muted);margin-top:6px">'+quoteRec(state.lQuote).what+'. TOKEN/'+state.lQuote+'. Starting market cap ≈ $3,500, same for every quote. No '+state.lQuote+' required for LP.</div></div>'+
+          '<div><label>First buy · SUI</label><input id="l-first-buy" inputmode="decimal" placeholder="1" value="'+escAttr(state.lFirstBuy)+'"></div>'+
             '<div id="l-first-buy-preview" style="font-size:13px;color:var(--text);margin-top:6px">'+escHtml(firstBuyPreview())+'</div>'+
-            '<div style="font-size:12px;color:var(--muted);margin-top:4px">'+(state.lQuote==="AMC"
-              ? "Paid in SUI, hopped to USDC, deposited into the AMC vault. 0 lists without a first deposit."
-              : state.lQuote==="SUI"
+            '<div style="font-size:12px;color:var(--muted);margin-top:4px">'+(state.lQuote==="SUI"
               ? "SUI swapped into TOKEN/SUI right after seed. Puts quote in the pool so the first sell can land. 0 skips."
               : state.lQuote==="USDY"
               ? "Paid in SUI. Hopped SUI → USDC → USDY on Cetus, then TOKEN/USDY on Bluefin. You do not need USDY in the wallet. 0 skips."
               : "Paid in SUI. Hopped SUI → "+state.lQuote+" → TOKEN after seed on Bluefin. You do not need "+state.lQuote+" in the wallet. 0 skips.")+'</div>'+
           '<div><label>Name</label><input id="l-name" placeholder="Gladius Token" value="'+escAttr(state.lName)+'"></div>'+
           '<div><label>Ticker</label><input id="l-tick" placeholder="GLADIUS" maxlength="12" value="'+escAttr(state.lTick)+'"></div>'+
-          '<div id="l-type-hint" style="font-size:12px;color:var(--muted);margin-top:-4px">'+(state.lQuote==="AMC"
-            ? "Aftermath mints the vault share coin. Ticker is the listing name on Vice."
-            : (tickerToIdent(state.lTick) ? "Coin type will be <code>…::"+escHtml(tickerToIdent(state.lTick))+"::"+escHtml(tickerToIdent(state.lTick).toUpperCase())+"</code>" : ""))+'</div>'+
+          '<div id="l-type-hint" style="font-size:12px;color:var(--muted);margin-top:-4px">'+(tickerToIdent(state.lTick) ? "Coin type will be <code>…::"+escHtml(tickerToIdent(state.lTick))+"::"+escHtml(tickerToIdent(state.lTick).toUpperCase())+"</code>" : "")+'</div>'+
           '<button type="button" class="btn-trade" id="launch-go">'+launchBtnLabel()+'</button>'+
           '<div id="launch-note" style="font-size:12px;color:'+(state.lNoteErr?"#FF6640":"var(--muted)")+';margin-top:8px;text-align:center">'+
-            escHtml(state.lNote || (state.lQuote==="AMC"
-              ? "Pay 1 SUI. Need about $1 USDC (or SUI to hop) to open the AMC vault. Buyers fund the rest."
-              : Number(state.lFirstBuy)>0
+            escHtml(state.lNote || (Number(state.lFirstBuy)>0
               ? ("Pay 1 SUI launch fee, then a first buy of "+state.lFirstBuy+" SUI"+(state.lQuote==="SUI"?"":state.lQuote==="USDY"?" hopped through Cetus USDY":" hopped through "+state.lQuote)+".")
               : "Pay 1 SUI launch fee. 0 quote LP."))+
           '</div>'+
@@ -4091,37 +4056,6 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       footerHTML()+'</div>';
   }
   function pairTicket(tk, q, insta){
-    if (isAmcToken(tk)){
-      const buyOn = state.side !== "Sell";
-      const live = !!(tk.vaultId && window.ARENA_PERP_LIVE);
-      const amtVal = escAttr(state.amt || "1");
-      return '<div class="ticket" id="swap-box">'+
-        '<div class="pit-kicker">AMC</div>'+
-        '<div style="font-size:22px;font-weight:700;letter-spacing:-.03em;margin:8px 0 10px">'+(buyOn?"Buy":"Sell")+'</div>'+
-        '<p style="color:var(--muted);margin:0 0 12px">'+(live
-          ? "Pay SUI (hopped to USDC) or USDC to mint the vault share. Sell requests USDC back after the lock."
-          : "Listed. Opening the AMC vault — refresh in a few seconds.")+'</p>'+
-        '<div class="sides">'+
-          '<div id="btn-buy" data-side="Buy"'+(buyOn?' class="on-buy"':'')+'>Buy</div>'+
-          '<div id="btn-sell" data-side="Sell"'+(buyOn?'':' class="on-sell"')+'>Sell</div>'+
-        '</div>'+
-        '<div class="chips" id="pay-route" style="margin-top:10px">'+
-          '<div data-pay="SUI"'+(state.payWith!=="USDC"?" class=\"on\"":"")+'>'+(buyOn?"Pay SUI":"Get SUI")+'</div>'+
-          '<div data-pay="USDC"'+(state.payWith==="USDC"?" class=\"on\"":"")+'>'+(buyOn?"Pay USDC":"Get USDC")+'</div>'+
-        '</div>'+
-        '<div style="margin-top:12px">'+
-          '<div class="kv" style="border:0;padding:0 0 8px"><span id="pay-label">'+(buyOn?"Pay":"Sell "+tk.t)+'</span><span id="bal-text" class="mono" style="color:var(--muted)">—</span></div>'+
-          '<input id="amt" class="amt" inputmode="decimal" autocomplete="off" value="'+amtVal+'">'+
-          '<div class="chips" id="amt-chips"></div>'+
-        '</div>'+
-        '<div class="kv"><span style="color:var(--muted)">AMC</span><span>'+(tk.amcPx>0?fmtUsd(tk.amcPx):"—")+'</span></div>'+
-        '<div class="kv"><span style="color:var(--muted)">Vault NAV</span><span>'+(usdCapText(tk))+'</span></div>'+
-        '<div class="kv"><span style="color:var(--muted)">Lock</span><span>1 day on sell</span></div>'+
-        '<button type="button" class="btn-trade" id="trade-btn" data-trade'+(live?"":" disabled")+'>'+(live?"Connect wallet":"Opening vault…")+'</button>'+
-        '<div id="swap-err" class="swap-err"></div>'+
-        '<div style="margin-top:10px;text-align:center;font-size:11px;color:var(--muted)">Not Instant. Not Bluefin. Share of an Aftermath AMC-USDC book.</div>'+
-      '</div>';
-    }
     const permanent = insta || Number(tk.unlockMs)===0;
     const lockLabel = permanent ? "Permanent" : (tk.unlockMs ? new Date(tk.unlockMs).toLocaleDateString() : "—");
     const kicker = insta ? "Instadex" : (tk.bluefinPool ? "Bluefin" : "Legacy");
@@ -4203,21 +4137,17 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
         '<div class="card" style="padding:28px;margin-top:14px;color:var(--muted)">Loading this launch. Hang on a second — no need to refresh.</div>'+
         footerHTML()+'</div>';
     }
-    if (!isAmcToken(tk)) hydrateTokenMeta(tk);
-    else hydrateTokenOverlay(tk);
-    const q = isAmcToken(tk) ? "AMC" : poolQuote(tk);
+    hydrateTokenMeta(tk);
+    const q = poolQuote(tk);
     const insta = isInstadex(tk);
     const dexBout = isDexBout(tk);
-    const amc = isAmcToken(tk);
     const capN = curveCap(tk);
     const burnedN = burnedOf(tk);
     const burnedQ = burnedN * lastPx(tk.t);
     const burnedPct = VIRTUAL_SUPPLY > 0 ? (burnedN / VIRTUAL_SUPPLY * 100) : 0;
-    const capSub = amc
-      ? (tk.amcPx > 0 ? ("AMC "+fmtUsd(tk.amcPx)+" · vault share") : "Aftermath AMC vault share")
-      : (dexBout
+    const capSub = dexBout
       ? "Price and volume live on Bluefin"
-      : fmtBig(capN)+' '+q+' · '+chText(tk)+' · '+tk.h+' holders');
+      : fmtBig(capN)+' '+q+' · '+chText(tk)+' · '+tk.h+' holders';
     const burnSub = burnedN > 0
       ? money(burnedQ, q)+' · '+burnedPct.toFixed(2)+'% of supply'
       : (dexBout || tk.mode === "Buy & burn" ? "No pot burns yet" : "Holders mode · no burn");
@@ -4232,10 +4162,8 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
         '<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.172-5.397 6.172H2.75l7.73-8.835L1.254 2.25H8.08l4.253 5.622L18.244 2.25zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>X</a>'+
       (escUrl(tk.telegram) ? '<a class="about-link" href="'+escUrl(tk.telegram)+'" target="_blank" rel="noopener">Telegram</a>' : '')+
       (tk.creator ? '<a class="about-link" id="creator-link" data-creator="'+escAttr(tk.creator)+'" href="'+escAttr(accountUrl(tk.creator))+'" target="_blank" rel="noopener">Creator · '+escHtml(traderLabel(tk.creator))+'</a>' : '')+
-      (amc
-        ? '<a class="about-link" href="https://aftermath.finance/perpetuals/AMC-USDC" target="_blank" rel="noopener">AMC perp</a>'
-        : '<a class="about-link" href="'+dex+'" target="_blank" rel="noopener">Dexscreener</a>')+
-      '<button type="button" class="about-link" data-copy="'+escAttr(tk.lpCoinType || demoTypeId(tk))+'">Contract</button>';
+      '<a class="about-link" href="'+dex+'" target="_blank" rel="noopener">Dexscreener</a>'+
+      '<button type="button" class="about-link" data-copy="'+escAttr(demoTypeId(tk))+'">Contract</button>';
     if (tk.creator) resolveSuins([tk.creator]);
     scheduleHolders(tk);
     const holdSnap = holderSnapOf(tk);
@@ -4266,10 +4194,10 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
           '<div><h1>'+escHtml(tk.n)+'</h1><div class="feat-tick" style="margin-top:6px">'+escHtml(tk.t)+' / '+pairQuoteHTML(q)+'</div></div></div>'+
         '<div class="badges">'+
           '<span class="badge">'+tk.st+'</span>'+
-          (amc ? '<span class="badge">Aftermath AMC</span>' : (insta ? '' : '<span class="badge">Pot · '+tk.mode+'</span>'))+
+          (insta ? '' : '<span class="badge">Pot · '+tk.mode+'</span>')+
           (tk.bluefinPool ? '<span class="badge">Bluefin · '+escHtml(tk.t)+'/'+q+'</span>' : '')+
           (tk.bluefinPool ? '<span class="badge">Pool · '+shortAddr(tk.bluefinPool)+'</span>' : '')+
-          (amc ? '<span class="badge">'+(tk.pending || !tk.vaultId ? "Vault pending" : "Vault share")+'</span>' : (tk.lpLocked ? '<span class="badge">'+(insta || Number(tk.unlockMs)===0 ? "Lock · permanent" : ("Vault · "+(tk.unlockMs ? new Date(tk.unlockMs).toLocaleDateString() : "180d")))+'</span>' : ''))+
+          (tk.lpLocked ? '<span class="badge">'+(insta || Number(tk.unlockMs)===0 ? "Lock · permanent" : ("Vault · "+(tk.unlockMs ? new Date(tk.unlockMs).toLocaleDateString() : "180d")))+'</span>' : '')+
           '<span class="badge">'+q+'</span></div></div>'+
       '<div class="split">'+
         '<div class="split-about">'+
@@ -4282,29 +4210,20 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
             '<div><div class="about-k">Market cap</div>'+
               '<div class="about-v"><span data-usd-cap="'+escAttr(tk.t)+'">'+usdCapText(tk)+'</span><span class="tick">mc</span></div>'+
               '<div class="about-s">'+capSub+'</div></div>'+
-            (amc
-              ? '<div><div class="about-k">AMC</div>'+
-                  '<div class="about-v">'+(tk.amcPx>0?fmtUsd(tk.amcPx):"—")+'</div>'+
-                  '<div class="about-s">Mark on Aftermath. Token NAV is the vault, not a Bluefin pool.</div></div>'
-              : (dexBout
+            (dexBout
               ? '<div><div class="about-k">Burned</div>'+
                   '<div class="about-v" data-burned-amt>'+fmtBig(burnedN)+'<span class="tick">'+escHtml(tk.t)+'</span></div>'+
                   '<div class="about-s">Tokens burned (Fight Night + LP collects).</div></div>'
               : '<div><div class="about-k">Burned</div>'+
                   '<div class="about-v" data-burned-amt>'+fmtBig(burnedN)+'<span class="tick">'+escHtml(tk.t)+'</span></div>'+
-                  '<div class="about-s">'+burnSub+'</div></div>'))+
+                  '<div class="about-s">'+burnSub+'</div></div>')+
             '</div>'+
           '<div class="about-links">'+aboutLinks+'</div></div></div>'+
         pairTicket(tk, q, insta)+
         '<div class="split-main">'+
-          (amc
-            ? '<div class="card" style="padding:22px;margin-top:12px;color:var(--muted)">'+
-                '<div class="pit-kicker">AMC</div>'+
-                '<div style="font-size:28px;font-weight:700;color:var(--ink);margin:8px 0 6px">'+(tk.amcPx>0?fmtUsd(tk.amcPx):"AMC mark")+'</div>'+
-                '<p style="margin:0">No Dexscreener until this share lists on Bluefin. Price is Aftermath AMC, NAV is the vault.</p></div>'
-            : '<div class="card chart-card" data-pool="'+(tk.bluefinPool||"")+'" style="margin-top:12px">'+
-                dexEmbed(tk.bluefinPool)+'</div>')+
-          (amc ? '' : tapeBody)+'</div></div>'+
+          '<div class="card chart-card" data-pool="'+(tk.bluefinPool||"")+'" style="margin-top:12px">'+
+            dexEmbed(tk.bluefinPool)+'</div>'+
+          tapeBody+'</div></div>'+
       footerHTML()+'</div>';
   }
   function hashFor(route, sym){
@@ -5097,7 +5016,6 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     paintShareMeta();
     if (state.route === "token"){
       mountDexChart();
-      if (isAmcToken(findT(state.sym))) loadPerpNav(findT(state.sym));
     }
     try {
       if (typeof window.va === "function"){
@@ -5213,349 +5131,6 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     var ts = String(Date.now());
     var sig = await signPersonal("arena-upload:" + ts);
     return { ts: ts, sig: sig, address: suiSession.address };
-  }
-  var perpNavAt = 0;
-  function upsertAmcToken(row){
-    if (!row || !row.ticker) return null;
-    var tick = safeSym(row.ticker);
-    if (!tick) return null;
-    var tk = findT(tick);
-    if (!tk){
-      tk = {
-        t: tick, n: safeName(row.name) || tick, b: row.desc || "", cap: 0, ch: 0, h: 1,
-        st: row.pending ? "Pending" : "AMC", mode: "AMC", q: "AMC", c: "#FF2EA6",
-        born: Date.now(), ts: Date.now(), instadex: false, graduated: false,
-        lpLocked: false, bluefin: false, bluefinPool: "", token: row.lpCoinType || "",
-        img: row.img || "", creator: row.creator || "", buckets: Array(12).fill(1), fbuckets: Array(12).fill(1)
-      };
-      T.push(tk);
-    }
-    tk.mode = "AMC";
-    tk.q = "AMC";
-    tk.instadex = false;
-    tk.bluefin = false;
-    tk.st = row.pending || !row.vaultId ? "Pending" : "AMC";
-    if (row.name) tk.n = safeName(row.name);
-    if (row.desc) tk.b = row.desc;
-    if (row.img) tk.img = row.img;
-    if (row.creator) tk.creator = row.creator;
-    tk.vaultId = row.vaultId || tk.vaultId || "";
-    tk.lpCoinType = row.lpCoinType || tk.lpCoinType || "";
-    tk.token = tk.lpCoinType || tk.token;
-    tk.navUsd = Number(row.navUsd) || tk.navUsd || 0;
-    tk.tvlUsd = Number(row.tvlUsd) || tk.tvlUsd || 0;
-    tk.amcPx = Number(row.amcPx) || tk.amcPx || 0;
-    tk.pending = !!row.pending || !tk.vaultId;
-    persistLaunches();
-    return tk;
-  }
-  function loadPerpCatalog(){
-    return fetch("/api/perp-tokens").then(function(r){ return r.json(); }).then(function(j){
-      (j && j.tokens || []).forEach(upsertAmcToken);
-      if (state.route === "explore") paintExploreList();
-      if (state.route === "token" && isAmcToken(findT(state.sym))) scheduleScreen();
-    }).catch(function(){});
-  }
-  function loadPerpNav(tk){
-    tk = tk && tk.t ? tk : findT(state.sym);
-    if (!isAmcToken(tk) || !viewingToken(tk)) return;
-    if (perpNavAt && Date.now() - perpNavAt < 25000) return;
-    perpNavAt = Date.now();
-    fetch("/api/perp-tokens?t="+encodeURIComponent(tk.t)).then(function(r){ return r.json(); }).then(function(j){
-      if (j && j.token) upsertAmcToken(j.token);
-      if (state.route === "token" && viewingToken(tk)){
-        paintCaps();
-        var box = $("#swap-box");
-        if (box) scheduleScreen();
-      }
-    }).catch(function(){});
-  }
-  async function postPerpOverlay(row){
-    if (!suiSession.address) await connectWallet();
-    var ts = String(Date.now());
-    var sig = await signPersonal("vice-perp:" + ts + ":" + row.ticker);
-    var res = await fetch("/api/perp-tokens", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        ticker: row.ticker,
-        name: row.name || "",
-        desc: row.desc || "",
-        img: row.img || "",
-        vaultId: row.vaultId || "",
-        lpCoinType: row.lpCoinType || "",
-        pending: row.pending != null ? row.pending : true,
-        address: suiSession.address,
-        signature: sig,
-        ts: ts
-      })
-    });
-    var j = {};
-    try { j = await res.json(); } catch (e) {}
-    if (!res.ok || !j.token) throw new Error(j.error || ("save failed (" + res.status + ")"));
-    return upsertAmcToken(j.token);
-  }
-  async function afPerp(path, body){
-    var r = await fetch("https://aftermath.finance/api/perpetuals" + path, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(body || {})
-    });
-    var raw = await r.text();
-    var j = {};
-    try { j = raw ? JSON.parse(raw) : {}; } catch (e) { j = { error: raw.slice(0, 180) }; }
-    if (!r.ok) throw new Error(j.error || raw.slice(0, 180) || ("Aftermath " + r.status));
-    return j;
-  }
-  function afB64Bytes(b64){
-    var bin = atob(b64);
-    var bytes = new Uint8Array(bin.length);
-    for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-    return bytes;
-  }
-  function createdMoveObjects(result){
-    var rows = [];
-    flattenObjectChanges(result).forEach(function(ch){
-      ch = ch || {};
-      var t = "";
-      var id = ch.objectId || ch.address || "";
-      if (ch.type === "created") t = String(ch.objectType || "");
-      else if (ch.outputState && ch.outputState.asMoveObject){
-        if (ch.idCreated === false) return;
-        var cont = ch.outputState.asMoveObject.contents || {};
-        t = String((cont.type && (cont.type.repr || cont.type)) || "");
-      } else return;
-      if (id && t) rows.push({ id: id, type: t });
-    });
-    return rows;
-  }
-  function pickCreated(rows, needle){
-    needle = String(needle || "").toLowerCase();
-    var hit = (rows || []).find(function(r){ return String(r.type || "").toLowerCase().indexOf(needle) >= 0; });
-    return hit || null;
-  }
-  function pickVaultObj(rows){
-    rows = rows || [];
-    return pickCreated(rows, "marketmakingvault")
-      || rows.find(function(r){
-        var t = String(r.type || "").toLowerCase();
-        return t.indexOf("vault") >= 0 && t.indexOf("cap") < 0 && t.indexOf("treasury") < 0 && t.indexOf("metadata") < 0;
-      })
-      || null;
-  }
-  async function waitAfCreated(digest, needles){
-    var last = "";
-    for (var i = 0; i < 18; i++){
-      try {
-        var tx = await fetchPublishTx(digest);
-        if (tx){
-          var rows = createdMoveObjects(tx);
-          var out = {};
-          var ok = true;
-          needles.forEach(function(n){
-            var hit = pickCreated(rows, n);
-            if (hit) out[n] = hit;
-            else ok = false;
-          });
-          out.rows = rows;
-          if (ok) return out;
-          last = rows.map(function(r){ return r.type.split("::").slice(-1)[0]; }).join(", ") || "no created objects yet";
-        }
-      } catch (e) {
-        last = (e && e.message) ? e.message : String(e);
-      }
-      await sleep(400 + i * 120);
-    }
-    throw new Error("Aftermath tx " + digest.slice(0, 8) + " indexed but objects are still catching up" + (last ? " (" + last + ")" : ""));
-  }
-  async function usdcBalanceMist(){
-    var coins = await coinsOf(suiSession.address, window.ARENA_USDC_TYPE);
-    var n = 0;
-    coins.forEach(function(c){ n += Number(c.value) || 0; });
-    return Math.floor(n);
-  }
-  async function hopSuiToUsdc(suiMist){
-    suiMist = BigInt(String(suiMist));
-    if (suiMist <= 0n) throw new Error("SUI hop amount must be > 0");
-    var Transaction = await loadTransaction();
-    var tx = new Transaction();
-    tx.setSender(suiSession.address);
-    var coinIn = await takeSwapCoin(tx, SUI_TYPE, suiMist);
-    var hopd = await sevenkOnto(tx, coinIn, SUI_TYPE, window.ARENA_USDC_TYPE, suiMist);
-    hopd.tx.transferObjects([hopd.coinOut], suiSession.address);
-    return walletExec(hopd.tx, true);
-  }
-  async function execAfTxKind(txKind, withLaunchFee){
-    if (!txKind) throw new Error("Aftermath did not return a transaction");
-    var Transaction = await loadTransaction();
-    if (typeof Transaction.fromKind !== "function") throw new Error("Wallet SDK cannot wrap Aftermath txKind");
-    var tx = Transaction.fromKind(afB64Bytes(txKind));
-    if (typeof tx.setSender === "function") tx.setSender(suiSession.address);
-    if (withLaunchFee){
-      try {
-        var feeSplit = tx.splitCoins(tx.gas, [txAmt(LAUNCH_FEE)]);
-        var feeArg = Array.isArray(feeSplit) ? feeSplit[0] : feeSplit;
-        tx.transferObjects([feeArg], platformWallet());
-      } catch (e) {}
-    }
-    return walletExec(tx);
-  }
-  async function doAmcLaunch(){
-    var btn = $("#launch-go");
-    var tick = String(state.lTick || "").toUpperCase().replace(/[^A-Z0-9_.\-]/g, "").slice(0, 12);
-    var name = String(state.lName || tick).trim();
-    if (!tick || tick.length < 2) throw new Error("Ticker required");
-    if (!name) throw new Error("Name required");
-    if (!suiSession.address) await connectWallet();
-    if (state.lFile && !state.lArtUrl){
-      if (btn) btn.textContent = "Uploading art…";
-      state.lArtUrl = await uploadArt(state.lFile);
-    }
-    if (btn) btn.textContent = "Saving listing…";
-    var tk = await postPerpOverlay({
-      ticker: tick,
-      name: name,
-      desc: state.lDesc || "",
-      img: state.lArtUrl || "",
-      pending: true
-    });
-    persistLaunches();
-    var seedUsdc = 1000000;
-    var firstSui = toSmallestBig(state.lFirstBuy, 9);
-    if (firstSui > 0n && hop.suiUsd > 0) seedUsdc = Math.max(seedUsdc, Math.floor(Number(firstSui) / 1e9 * hop.suiUsd * 1e6 * 0.98));
-    var have = await usdcBalanceMist();
-    if (have < 1000000){
-      if (btn) btn.textContent = "Sign hop SUI → USDC…";
-      setLaunchNote("Need about $1 USDC to open the book. Hopping SUI → USDC.", false);
-      var hopMist = firstSui > 0n ? firstSui : 2000000000n;
-      if (hopMist < 1500000000n) hopMist = 1500000000n;
-      await hopSuiToUsdc(hopMist);
-      have = await usdcBalanceMist();
-      if (have < 1000000) throw new Error("Still under $1 USDC after the hop. Add USDC or more SUI and retry.");
-      seedUsdc = Math.max(1000000, have);
-    } else if (have < seedUsdc) seedUsdc = have;
-    if (btn) btn.textContent = "Sign 1 of 3 · share coin…";
-    setLaunchNote("Aftermath mints the vault share coin. 1 SUI listing fee to Vice.", false);
-    var capBuilt = await afPerp("/vault/transactions/create-vault-cap", {
-      walletAddress: suiSession.address,
-      lpCoinMetadata: {
-        name: name,
-        symbol: tick.replace(/[^A-Z0-9_]/g, "").slice(0, 10) || tick.slice(0, 10),
-        description: (state.lDesc || ("Tracks AMC · " + tick)).slice(0, 200),
-        iconUrl: state.lArtUrl || null
-      }
-    });
-    var capRes = await execAfTxKind(capBuilt.txKind, true);
-    var capDigest = txDigest(capRes);
-    if (!capDigest) throw new Error("Share-coin tx did not return a digest");
-    var capObjs = createdMoveObjects(capRes);
-    var capHit = pickCreated(capObjs, "TreasuryCap") || (await waitAfCreated(capDigest, ["TreasuryCap"])).TreasuryCap;
-    var metaHit = pickCreated(capObjs, "CoinMetadata") || (await waitAfCreated(capDigest, ["CoinMetadata"])).CoinMetadata;
-    if (!capHit || !metaHit) throw new Error("TreasuryCap or CoinMetadata missing from the share-coin tx");
-    var lpType = "";
-    var capType = String(capHit.type || "");
-    var lt = capType.indexOf("TreasuryCap<");
-    if (lt >= 0) lpType = capType.slice(lt + "TreasuryCap<".length, capType.lastIndexOf(">"));
-    if (btn) btn.textContent = "Sign 2 of 3 · open vault…";
-    setLaunchNote("Opening the AMC vault with " + (seedUsdc / 1e6).toFixed(2) + " USDC seed.", false);
-    var vaultBuilt = await afPerp("/vault/transactions/create-vault", {
-      walletAddress: suiSession.address,
-      coinMetadataId: metaHit.id,
-      treasuryCapId: capHit.id,
-      collateralCoinType: window.ARENA_USDC_TYPE,
-      lockPeriodMs: 86400000,
-      forceWithdrawDelayMs: 3600000,
-      performanceFeePercentage: 0,
-      initialDepositAmount: String(seedUsdc) + "n",
-      metadata: {
-        name: name.slice(0, 80),
-        description: ("Vice AMC vault · $" + tick).slice(0, 200),
-        curatorName: "Vice",
-        curatorUrl: "https://vicefun.com"
-      }
-    });
-    var vaultRes = await execAfTxKind(vaultBuilt.txKind, false);
-    var vaultDigest = txDigest(vaultRes);
-    if (!vaultDigest) throw new Error("Vault tx did not return a digest");
-    var vaultObjs = createdMoveObjects(vaultRes);
-    var vaultHit = pickVaultObj(vaultObjs);
-    var vaultCapHit = pickCreated(vaultObjs, "VaultCap") || pickCreated(capObjs, "VaultCap");
-    if (!vaultHit){
-      for (var wi = 0; wi < 18 && !vaultHit; wi++){
-        await sleep(400 + wi * 120);
-        var txw = await fetchPublishTx(vaultDigest);
-        vaultObjs = createdMoveObjects(txw);
-        vaultHit = pickVaultObj(vaultObjs);
-        if (!vaultCapHit) vaultCapHit = pickCreated(vaultObjs, "VaultCap");
-      }
-    }
-    if (!vaultHit) throw new Error("Vault object missing from the open-vault tx");
-    if (vaultCapHit){
-      if (btn) btn.textContent = "Sign 3 of 3 · hand to Vice…";
-      setLaunchNote("Moving vault control to Vice so you never manage the perp.", false);
-      try {
-        var xfer = await afPerp("/transactions/transfer-cap", {
-          walletAddress: suiSession.address,
-          recipientAddress: platformWallet(),
-          capObjectId: vaultCapHit.id
-        });
-        await execAfTxKind(xfer.txKind, false);
-      } catch (e) {
-        setLaunchNote("Vault is open but handing the cap to Vice failed: " + ((e && e.message) || e) + ". Vault " + vaultHit.id.slice(0, 10) + "…", true);
-      }
-    }
-    tk = await postPerpOverlay({
-      ticker: tick,
-      name: name,
-      desc: state.lDesc || "",
-      img: state.lArtUrl || "",
-      vaultId: vaultHit.id,
-      lpCoinType: lpType,
-      pending: false
-    });
-    persistLaunches();
-    if (btn){ btn.disabled = true; btn.textContent = "Launched"; }
-    setLaunchNote("AMC vault live. Buyers deposit USDC (or SUI hopped to USDC).", false);
-    state.sym = tick;
-    go("token", tick);
-  }
-  async function doAmcTrade(){
-    var tk = findT(state.sym);
-    if (!isAmcToken(tk) || !tk.vaultId || !window.ARENA_PERP_LIVE) throw new Error("AMC vault is not live");
-    if (!suiSession.address) await connectWallet();
-    var amt = Number(state.amt);
-    if (!(amt > 0)) throw new Error("Enter an amount");
-    var buyOn = state.side !== "Sell";
-    if (buyOn){
-      var usdcAmt = 0;
-      if (state.payWith === "USDC") usdcAmt = Math.round(amt * 1e6);
-      else {
-        var suiMist = Math.round(amt * 1e9);
-        if (!(suiMist > 0)) throw new Error("Enter a SUI amount");
-        var before = await usdcBalanceMist();
-        await hopSuiToUsdc(suiMist);
-        var after = await usdcBalanceMist();
-        usdcAmt = Math.max(0, after - before);
-        if (!(usdcAmt > 0)) usdcAmt = Math.round(amt * (hop.suiUsd || 0) * 1e6 * 0.97);
-      }
-      if (!(usdcAmt > 0)) throw new Error("Need a USDC size (SUI price still loading)");
-      var dep = await afPerp("/vault/transactions/deposit", {
-        walletAddress: suiSession.address,
-        vaultId: tk.vaultId,
-        minLpAmountOut: "0n",
-        depositAmount: String(usdcAmt) + "n",
-        collateralCoinType: window.ARENA_USDC_TYPE
-      });
-      return execAfTxKind(dep.txKind);
-    }
-    var lpAmt = tk.lpCoinType && /::usdc::/i.test(tk.lpCoinType) ? Math.round(amt * 1e6) : Math.round(amt * 1e9);
-    var wd = await afPerp("/vault/transactions/create-withdraw-request", {
-      walletAddress: suiSession.address,
-      vaultId: tk.vaultId,
-      lpWithdrawAmount: String(lpAmt) + "n",
-      minCollateralAmountOut: "0n"
-    });
-    return execAfTxKind(wd.txKind);
   }
   function closeMetaEditor(){
     var modal = $("#meta-modal");
@@ -5715,26 +5290,6 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     try {
       if (!suiSession.address) await connectWallet();
       if (!canEditTokenMeta(tk)) throw new Error("Connect the creator or platform wallet");
-      if (isAmcToken(tk)){
-        metaEdit.saving = true;
-        if (btn){ btn.disabled = true; btn.textContent = "Saving…"; }
-        await postPerpOverlay({
-          ticker: tk.t,
-          name: safeName(metaEdit.name) || tk.t,
-          desc: String(metaEdit.desc || "").trim(),
-          img: tk.img || "",
-          vaultId: tk.vaultId || "",
-          lpCoinType: tk.lpCoinType || "",
-          pending: tk.pending
-        });
-        tk.n = safeName(metaEdit.name) || tk.t;
-        tk.b = String(metaEdit.desc || "").trim();
-        persistLaunches();
-        metaEdit.saving = false;
-        closeMetaEditor();
-        renderScreen();
-        return;
-      }
       var name = safeName(metaEdit.name) || tk.t;
       var desc = String(metaEdit.desc || "").trim();
       if (desc.length > 512) throw new Error("Description is too long");
@@ -5846,14 +5401,6 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     if (launching) return;
     var launchedOk = false;
     try {
-      if (state.lQuote === "AMC"){
-        launching = true;
-        if (btn){ btn.disabled = true; btn.textContent = "Launching…"; }
-        await doAmcLaunch();
-        launching = false;
-        paintLaunchBtn();
-        return;
-      }
       if (!hasSuiWallet() && !suiSession.address){
         if (btn){ btn.disabled = false; btn.textContent = "No Sui wallet found"; }
         setLaunchNote("Install Slush or another Sui wallet. Launch was not sent.", true);
@@ -6638,28 +6185,6 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     var btn = $("#trade-btn");
     var tk = findT(state.sym);
     var err = $("#swap-err");
-    if (isAmcToken(tk)){
-      try {
-        if (!hasSuiWallet() && !suiSession.address){
-          if (btn) btn.textContent = "No Sui wallet found";
-          return;
-        }
-        if (!suiSession.address) await connectWallet();
-        swapping = true;
-        if (btn){ btn.disabled = true; btn.textContent = "Signing…"; }
-        if (err) err.textContent = "";
-        var result = await doAmcTrade();
-        var digest = txDigest(result);
-        if (btn){ btn.disabled = false; btn.textContent = digest ? ("Done · " + String(digest).slice(0, 8)) : "Done"; }
-        swapping = false;
-      } catch (err2){
-        swapping = false;
-        var msg = (err2 && err2.message) ? err2.message : String(err2 || "Trade failed");
-        if (btn){ btn.disabled = false; btn.textContent = msg.length > 32 ? "Failed" : msg; }
-        if (err) err.textContent = msg;
-      }
-      return;
-    }
     if (!tk || !tk.bluefinPool) return;
     try {
       if (!hasSuiWallet() && !suiSession.address){
@@ -7141,8 +6666,6 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     } else if ((state.route === "explore" || state.route === "metrics") && bshift % 8 === 0){
       refreshPitObject();
       if (state.route === "explore") paintExploreList();
-    } else if (state.route === "token" && isAmcToken(findT(state.sym))){
-      if (!perpNavAt || Date.now() - perpNavAt >= 30000) loadPerpNav(findT(state.sym));
     }
     paintLive();
   }, 1000);
@@ -7231,7 +6754,6 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       if (state.route === "metrics" || state.route === "pit") renderScreen();
       else if (state.route === "explore") paintExploreList();
     }
-    if (!SHOT) loadPerpCatalog();
     fetch("/api/hop").then(function(r){ return r.ok ? r.json() : Promise.reject(); }).then(apply).catch(function(){
       Promise.all([
         fetch("https://api.dexpaprika.com/networks/sui/pools/0xdcd762ad374686fa890fc4f3b9bbfe2a244e713d7bffbfbd1b9221cb290da2ed").then(function(r){ return r.json(); }),

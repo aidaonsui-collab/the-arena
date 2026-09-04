@@ -6,7 +6,6 @@ cd "$ROOT" || exit 1
 export PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:$PATH"
 export SUI_RPC="${SUI_RPC:-https://mainnet.suiet.app}"
 export ARENA_KEEPER_ADDRESS="${ARENA_KEEPER_ADDRESS:-0x92a32ac7fd525f8bd37ed359423b8d7d858cad26224854dfbff1914b75ee658b}"
-export ARENA_PERP_TRADE="${ARENA_PERP_TRADE:-1}"
 if [ -f "$ROOT/.env.local" ]; then
   set -a
   # shellcheck disable=SC1091
@@ -44,7 +43,6 @@ run_job() {
 
 # Fight Night standing + Instant tape. Chain work stays on this Mac; Vercel only stores blobs.
 run_job pit
-run_job perp
 run_job trades
 
 # Buy/burn only if a winner bell is waiting (ticker, no digest, not skipped).
