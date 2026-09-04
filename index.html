@@ -4064,9 +4064,9 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
           '<div id="launch-note" style="font-size:12px;color:'+(state.lNoteErr?"#FF6640":"var(--muted)")+';margin-top:8px;text-align:center">'+
             escHtml(state.lNote || (state.lQuote==="AMC"
               ? "Pay 1 SUI. Need about $1 USDC (or SUI to hop) to open the AMC vault. Buyers fund the rest."
-              : (Number(state.lFirstBuy)>0)
+              : Number(state.lFirstBuy)>0
               ? ("Pay 1 SUI launch fee, then a first buy of "+state.lFirstBuy+" SUI"+(state.lQuote==="SUI"?"":state.lQuote==="USDY"?" hopped through Cetus USDY":" hopped through "+state.lQuote)+".")
-              : "Pay 1 SUI launch fee. 0 quote LP.")))+
+              : "Pay 1 SUI launch fee. 0 quote LP."))+
           '</div>'+
         '</div></div>'+
       footerHTML()+'</div>';
