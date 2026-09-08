@@ -512,6 +512,11 @@ html.shot,html.shot *{animation:none!important;transition:none!important}
 .bridge-tick{border:1px solid var(--line);background:#120814;color:var(--muted);border-radius:999px;padding:5px 9px;font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:11px;font-weight:600;letter-spacing:.03em;cursor:pointer}
 .bridge-tick:hover{color:var(--ink);border-color:#5a3a56}
 .bridge-tick.on{background:var(--sui);color:#fff;border-color:var(--sui)}
+.bridge-dirs{display:flex;gap:8px;margin:0 0 12px}
+.bridge-dirs .pill{flex:1;text-align:center;padding:10px 12px;border-radius:12px;background:#140e14;border-color:var(--line);color:var(--muted);font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:none}
+.bridge-dirs .pill:hover{color:var(--ink);border-color:#5a3a56}
+.bridge-dirs .pill.on{background:var(--sui);color:#fff;border-color:var(--sui)}
+.bridge-dirs .pill.on:hover{color:#fff;filter:brightness(1.05)}
 .bridge-bal{margin-top:8px;font-size:12px;color:var(--muted)}
 .bridge-bal button{border:0;background:transparent;color:var(--ink);font:inherit;font-weight:700;cursor:pointer;padding:0;margin:0;letter-spacing:.04em}
 .bridge-bal button:hover{color:var(--sui)}
@@ -4346,9 +4351,9 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       '</div>'+
       '<div class="bridge-wrap">'+
         '<div class="bridge-card">'+
-          '<div class="toggle" style="margin:0 0 12px">'+
-            '<button type="button" class="'+(dirOut?"":"on")+'" data-bridge-dir="in">RH → Sui</button>'+
-            '<button type="button" class="'+(dirOut?"on":"")+'" data-bridge-dir="out">Sui → RH</button>'+
+          '<div class="bridge-dirs" role="tablist">'+
+            '<button type="button" class="pill'+(!dirOut?" on":"")+'" data-bridge-dir="in">RH → Sui</button>'+
+            '<button type="button" class="pill'+(dirOut?" on":"")+'" data-bridge-dir="out">Sui → RH</button>'+
           '</div>'+
           '<div class="bridge-panel">'+
             '<div class="bridge-panel-head">'+
