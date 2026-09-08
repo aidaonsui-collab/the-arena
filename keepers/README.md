@@ -87,3 +87,7 @@ Snapshot file (default `./data/reflections.json`) is the shape the token page ca
 - `SUI_GRAPHQL` (default `https://graphql.mainnet.sui.io/graphql`)
 - Platform launch + swap-fee withdraws: Odyssey admin `0x92a32ac7fd525f8bd37ed359423b8d7d858cad26224854dfbff1914b75ee658b` holds `AdminCap`
 - `KEEPERS_CURSOR_PATH`
+
+## Stock wrap attestor
+
+RH → Sui mint keeper lives in `../keepers-stocks/` (CLI mint / watch-rh / webhook).

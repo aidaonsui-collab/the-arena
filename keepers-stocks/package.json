@@ -1,0 +1,17 @@
+{
+  "name": "arena-keepers-stocks",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "mint": "npx tsx src/cli.ts mint",
+    "watch-rh": "npx tsx src/cli.ts watch-rh",
+    "webhook": "npx tsx src/cli.ts webhook"
+  },
+  "dependencies": {
+    "@mysten/sui": "^1.37.0"
+  },
+  "devDependencies": {
+    "tsx": "^4.20.0",
+    "typescript": "^5.9.0"
+  }
+}
