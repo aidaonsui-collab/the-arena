@@ -489,6 +489,61 @@ html.shot,html.shot *{animation:none!important;transition:none!important}
   .split-about,.split-main,.tape-wrap,.card{min-width:0;max-width:100%}
 }
 
+/* RH → Sui stock bridge (scaffold) */
+.bridge-page{padding:8px 0 0}
+.bridge-hero{text-align:center;margin:6px 0 18px}
+.bridge-hero h1{font-size:clamp(28px,5vw,44px);font-weight:700;letter-spacing:-.03em;margin:0;line-height:1.1}
+.bridge-hero h1 em{font-style:normal;color:var(--sui)}
+.bridge-hero p{margin:10px auto 0;color:var(--muted);font-size:14px;max-width:46ch;line-height:1.45}
+.bridge-wrap{max-width:440px;margin:0 auto}
+.bridge-card{background:var(--card);border-radius:24px;padding:18px 16px 16px;box-shadow:var(--shadow);border:1px solid rgba(255,255,255,.04)}
+.bridge-panel{background:#140e14;border:1px solid var(--line);border-radius:16px;padding:12px 14px 14px;position:relative}
+.bridge-panel + .bridge-arrow{display:flex;justify-content:center;margin:-6px 0;position:relative;z-index:1}
+.bridge-arrow span{width:32px;height:32px;border-radius:999px;background:var(--lift);border:1px solid var(--line);display:grid;place-items:center;color:var(--muted);font-size:14px;line-height:1}
+.bridge-panel-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:0 0 10px}
+.bridge-panel-lab{font-size:11px;font-weight:650;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.bridge-chain{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:4px 10px;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase}
+.bridge-chain.rh{background:rgba(0,200,83,.12);color:#3DDC84}
+.bridge-chain.sui{background:rgba(41,141,255,.14);color:var(--sui)}
+.bridge-chain i{width:6px;height:6px;border-radius:99px;background:currentColor;display:inline-block}
+.bridge-panel-body{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.bridge-amt-col{flex:1;min-width:0}
+.bridge-amt-col .amt{width:100%;border:0;background:transparent;padding:0;font-size:28px;font-weight:650;border-radius:0;outline:none;color:var(--ink)}
+.bridge-amt-col .amt:focus{border:0;background:transparent;box-shadow:none}
+.bridge-out{font-size:28px;font-weight:650;font-variant-numeric:tabular-nums;letter-spacing:-.02em;line-height:1.2;min-height:1.2em}
+.bridge-asset{display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex:none}
+.bridge-pick{display:flex;align-items:center;gap:6px;background:#1c101c;border:1px solid var(--line);border-radius:999px;padding:6px 8px 6px 10px}
+.bridge-pick .bridge-tick-mark{width:22px;height:22px;border-radius:99px;background:var(--lift);display:grid;place-items:center;font-size:10px;font-weight:700;color:var(--ink);flex:none}
+.bridge-ticks{display:flex;flex-wrap:wrap;gap:4px;justify-content:flex-end;max-width:168px}
+.bridge-tick{border:1px solid var(--line);background:#120814;color:var(--muted);border-radius:999px;padding:5px 9px;font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:11px;font-weight:600;letter-spacing:.03em;cursor:pointer}
+.bridge-tick:hover{color:var(--ink);border-color:#5a3a56}
+.bridge-tick.on{background:var(--sui);color:#fff;border-color:var(--sui)}
+.bridge-bal{margin-top:8px;font-size:12px;color:var(--muted)}
+.bridge-bal button{border:0;background:transparent;color:var(--ink);font:inherit;font-weight:700;cursor:pointer;padding:0;margin:0;letter-spacing:.04em}
+.bridge-bal button:hover{color:var(--sui)}
+.bridge-meta{margin-top:6px}
+.bridge-meta .kv{padding:8px 2px;font-size:13px;border-top-color:rgba(58,36,56,.7)}
+.bridge-meta .kv:first-child{border-top:0}
+.bridge-meta .kv a{color:var(--sui)}
+.bridge-copy{border:0;background:transparent;color:var(--muted);cursor:pointer;padding:0 0 0 6px;font-size:12px;vertical-align:middle}
+.bridge-copy:hover{color:var(--ink)}
+.bridge-uni{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:10px 2px 2px;padding:8px 0;font-size:13px;color:var(--muted);border-top:1px solid var(--line)}
+.bridge-uni:hover{color:var(--ink)}
+.bridge-card .btn-trade{margin-top:14px;border-radius:14px;background:#2a1a28;color:var(--ink)}
+.bridge-card .btn-trade:hover{filter:brightness(1.08)}
+.bridge-card .btn-trade:disabled{opacity:.55}
+.bridge-note{margin:12px 2px 2px;font-size:12px;color:var(--muted);text-align:center;line-height:1.4}
+@media (max-width:720px){
+  .bridge-wrap{max-width:none}
+  .bridge-card{padding:14px 12px 12px;border-radius:20px}
+  .bridge-panel-body{flex-direction:column;align-items:stretch}
+  .bridge-asset{align-items:flex-start}
+  .bridge-ticks{justify-content:flex-start;max-width:none}
+  .bridge-out,.bridge-amt-col .amt{font-size:24px}
+  .bridge-hero{margin-bottom:14px;text-align:left}
+}
+html[data-route="bridge"] .search-row{display:none}
+
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important}}
 </style>
 <script>
@@ -644,7 +699,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   var pitStatePollAt = 0;
   let balance = 48.60;
   let xaumBal = 2.40;
-  const state = {route:"explore", sym:"VOLT", filter:"All", sort:"Market cap", time:"All", side:"Buy", amt:"1", connected:false, search:"", lName:"", lTick:"", lQuote:"SUI", lPath:"instadex", lMode:"Holders", lTokenAmt:"", lQuoteAmt:"", lFirstBuy:"1", lCap:"", lTokenCoin:"", lQuoteCoin:"", lCoinMode:"create", lDecimals:"9", lSupply:"1000000000", lDesc:"", lX:"", lTg:"", lWeb:"", lPublishedType:"", metricsWindow:"All", tapeTab:"trades", tapeOpen:"", tapePage:0, tapeAge:"age", tapeWallet:"", tapeFilterOpen:false, lFile:null, lArtUrl:"", lArtPreview:"", payWith:"SUI", lNote:"", lNoteErr:false, chartTf:900, chartInd:{vol:true,ma7:true,ma25:true,ma99:false,ema:false}};
+  const state = {route:"explore", sym:"VOLT", filter:"All", sort:"Market cap", time:"All", side:"Buy", amt:"1", connected:false, search:"", lName:"", lTick:"", lQuote:"SUI", lPath:"instadex", lMode:"Holders", lTokenAmt:"", lQuoteAmt:"", lFirstBuy:"1", lCap:"", lTokenCoin:"", lQuoteCoin:"", lCoinMode:"create", lDecimals:"9", lSupply:"1000000000", lDesc:"", lX:"", lTg:"", lWeb:"", lPublishedType:"", metricsWindow:"All", tapeTab:"trades", tapeOpen:"", tapePage:0, tapeAge:"age", tapeWallet:"", tapeFilterOpen:false, lFile:null, lArtUrl:"", lArtPreview:"", payWith:"SUI", lNote:"", lNoteErr:false, chartTf:900, chartInd:{vol:true,ma7:true,ma25:true,ma99:false,ema:false}, bridgeTick:"NVDA", bridgeAmt:""};
   var metaEdit = { open: false, saving: false, file: null, preview: "", artUrl: "", note: "", err: false, name: "", desc: "", x: "", tg: "", web: "", creator: "", openedCreator: "" };
   let hashLock = false;
   const hop = { suiPerXaum: null, suiPerUsdy: null, suiPerXagm: null, usd: null, suiUsd: null, usdyUsd: null, xagmUsd: null, xaumUsd: null, source: "" };
@@ -686,6 +741,22 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     XAUM: { label:"XAUM", type:window.ARENA_XAUM_TYPE, metadata:window.ARENA_XAUM_METADATA, decimals:9, name:"Matrixdock Gold", what:"Matrixdock gold, 1 oz", create:true, chips:["0.01","0.05","0.1","0.25","Max"], virtualHuman:"≈ $3.5k", pit:window.ARENA_PIT_XAUM, color:"#C9A97E" }
   };
   var CREATE_QUOTES = ["SUI","USDY","XAGM","XAUM"];
+
+  // Secondary wrap only: RH stock → vault lock → 1:1 Sui mint. Not RH primary mint.
+  // TODO(Arena Code): replace placeholder addresses with live RH vault + Sui wrapped coin types.
+  // Later Create will surface these wrappers as Instadex quote chips beside SUI/XAUM (see CREATE_QUOTES).
+  var STOCKS = {
+    // rhToken = From-side RH/Arc stock token (Arena Code). Vault + Sui wrap still placeholders.
+    NVDA: { ticker:"NVDA", name:"NVIDIA", rhToken:"0xd0601CE157Db5bdC3162BbaC2a2C8aF5320D9EEC", suiCoin:"0xSTOCK0000000000000000000000000000000000000000000000000000nvda", rhVault:"0xVAULT0000000000000000000000000000000000000000000000000000nvda", rhExplorer:"https://explorer.robinhood.com/address/0xd0601CE157Db5bdC3162BbaC2a2C8aF5320D9EEC", uniswap:"https://app.uniswap.org/explore/tokens/ethereum/0xb8ce59fc3717ada4c02eadf9682a9e934f625ebb" },
+    AMC:  { ticker:"AMC",  rhToken:"", name:"AMC",    suiCoin:"0xSTOCK00000000000000000000000000000000000000000000000000000amc", rhVault:"0xVAULT00000000000000000000000000000000000000000000000000000amc", rhExplorer:"https://explorer.robinhood.com/address/0xVAULT00000000000000000000000000000000000000000000000000000amc", uniswap:"https://app.uniswap.org/" },
+    GME:  { ticker:"GME",  rhToken:"", name:"GME",    suiCoin:"0xSTOCK00000000000000000000000000000000000000000000000000000gme", rhVault:"0xVAULT00000000000000000000000000000000000000000000000000000gme", rhExplorer:"https://explorer.robinhood.com/address/0xVAULT00000000000000000000000000000000000000000000000000000gme", uniswap:"https://app.uniswap.org/" },
+    TSLA: { ticker:"TSLA", rhToken:"", name:"Tesla",  suiCoin:"0xSTOCK0000000000000000000000000000000000000000000000000000tsla", rhVault:"0xVAULT0000000000000000000000000000000000000000000000000000tsla", rhExplorer:"https://explorer.robinhood.com/address/0xVAULT0000000000000000000000000000000000000000000000000000tsla", uniswap:"https://app.uniswap.org/" }
+  };
+  var STOCK_TICKERS = ["NVDA","AMC","GME","TSLA"];
+  function stockRec(t){
+    t = String(t || state.bridgeTick || "NVDA").toUpperCase();
+    return STOCKS[t] || STOCKS.NVDA;
+  }
   function quoteRec(q){
     var lab = (Index && Index.quoteLabel) ? Index.quoteLabel(q) : String(q || "SUI");
     return QUOTES[lab] || QUOTES.SUI;
@@ -3658,7 +3729,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     return '<footer class="footer">'+
       '<div><div class="brand-name" style="margin-bottom:8px">vice.</div>'+
         '<p style="margin:0;max-width:42ch">Fair launches on Sui. Instant seeds Bluefin in block one. T-bills hop Cetus. Quote is SUI, USDY, XAGM, or XAUM. LP locked forever.</p></div>'+
-      '<div><h4>Product</h4><div data-go="explore">The Strip</div><div data-go="pit">Fight Night</div><div data-go="metrics">Books</div><div data-go="launch">Create</div><a href="https://x.com/ViceFun" target="_blank" rel="noopener">X</a></div>'+
+      '<div><h4>Product</h4><div data-go="explore">The Strip</div><div data-go="pit">Fight Night</div><div data-go="metrics">Books</div><div data-go="bridge">Bridge</div><div data-go="launch">Create</div><a href="https://x.com/ViceFun" target="_blank" rel="noopener">X</a></div>'+
       '<div><h4>Fees</h4>Bluefin 1% on the pair (keeps 20%).<br>Our 80% quote split 60/10/30 creator/platform/pot.<br>Token-side LP fees burn.</div></footer>';
   }
   function exploreHTML(){
@@ -4226,11 +4297,88 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
           tapeBody+'</div></div>'+
       footerHTML()+'</div>';
   }
+
+  function bridgeHTML(){
+    const st = stockRec(state.bridgeTick);
+    const tick = st.ticker;
+    const amt = state.bridgeAmt || "";
+    const dest = amt === "" ? "0.0" : amt;
+    const ticks = STOCK_TICKERS.map(function(t){
+      return '<button type="button" class="bridge-tick'+(t===tick?" on":"")+'" data-bridge-tick="'+t+'">'+t+'</button>';
+    }).join("");
+    const cta = suiSession.address
+      ? '<button type="button" class="btn-trade" id="bridge-go" disabled>Bridge coming soon</button>'
+      : '<button type="button" class="btn-trade" id="bridge-go" data-wallet>Connect wallet</button>';
+    const destLine = suiSession.address ? escHtml(shortAddr(suiSession.address)) : "—";
+    return '<div data-screen-label="Bridge" class="shell bridge-page">'+
+      '<div class="bridge-hero">'+
+        '<div class="pit-kicker">Stock bridge</div>'+
+        '<h1>Real stocks.<em> Now on Sui.</em></h1>'+
+        '<p>Move Robinhood Chain stock tokens to Sui 1:1. Lock in the RH vault, mint the wrap, burn to unlock. Secondary wrap only.</p>'+
+      '</div>'+
+      '<div class="bridge-wrap">'+
+        '<div class="bridge-card">'+
+          '<div class="bridge-panel">'+
+            '<div class="bridge-panel-head">'+
+              '<span class="bridge-panel-lab">From RH</span>'+
+              '<span class="bridge-chain rh"><i></i>RH</span>'+
+            '</div>'+
+            '<div class="bridge-panel-body">'+
+              '<div class="bridge-amt-col">'+
+                '<input id="bridge-amt" class="amt" inputmode="decimal" autocomplete="off" placeholder="0.0" value="'+escAttr(amt)+'">'+
+                '<div class="bridge-bal">bal — · <button type="button" data-bridge-max>MAX</button></div>'+
+              '</div>'+
+              '<div class="bridge-asset">'+
+                '<div class="bridge-pick"><span class="bridge-tick-mark">'+escHtml(tick.charAt(0))+'</span><span class="mono" style="font-size:13px;font-weight:650">'+escHtml(tick)+'</span></div>'+
+                '<div class="bridge-ticks">'+ticks+'</div>'+
+              '</div>'+
+            '</div>'+
+          '</div>'+
+          '<div class="bridge-arrow" aria-hidden="true"><span>↓</span></div>'+
+          '<div class="bridge-panel">'+
+            '<div class="bridge-panel-head">'+
+              '<span class="bridge-panel-lab">To Sui</span>'+
+              '<span class="bridge-chain sui"><i></i>Sui</span>'+
+            '</div>'+
+            '<div class="bridge-panel-body">'+
+              '<div class="bridge-amt-col"><div class="bridge-out mono" id="bridge-dest">'+escHtml(dest)+'</div></div>'+
+              '<div class="bridge-asset">'+
+                '<div class="bridge-pick"><span class="bridge-tick-mark">'+escHtml(tick.charAt(0))+'</span><span class="mono" style="font-size:13px;font-weight:650">'+escHtml(tick)+'</span></div>'+
+              '</div>'+
+            '</div>'+
+          '</div>'+
+          '<div class="bridge-meta">'+
+            '<div class="kv"><span style="color:var(--muted)">Rate</span><span class="mono">1 : 1</span></div>'+
+            '<div class="kv"><span style="color:var(--muted)">Protocol fee</span><span>—</span></div>'+
+            '<div class="kv"><span style="color:var(--muted)">Est. time</span><span>~1–2 min</span></div>'+
+            (st.rhToken
+              ? '<div class="kv"><span style="color:var(--muted)">'+escHtml(tick)+' on Robinhood</span>'+
+                  '<span><span class="mono">'+escHtml(shortAddr(st.rhToken))+'</span>'+
+                  '<button type="button" class="bridge-copy" data-copy="'+escAttr(st.rhToken)+'" title="Copy">⧉</button></span></div>'
+              : '')+
+            '<div class="kv"><span style="color:var(--muted)">'+escHtml(tick)+' on Sui</span>'+
+              '<span><span class="mono">'+escHtml(shortAddr(st.suiCoin))+'</span>'+
+              '<button type="button" class="bridge-copy" data-copy="'+escAttr(st.suiCoin)+'" title="Copy">⧉</button></span></div>'+
+            '<div class="kv"><span style="color:var(--muted)">'+escHtml(tick)+' vault on Robinhood</span>'+
+              '<span><a href="'+escAttr(st.rhExplorer)+'" target="_blank" rel="noopener">explorer ↗</a> '+
+              '<span class="mono">'+escHtml(shortAddr(st.rhVault))+'</span>'+
+              '<button type="button" class="bridge-copy" data-copy="'+escAttr(st.rhVault)+'" title="Copy">⧉</button></span></div>'+
+          '</div>'+
+          '<a class="bridge-uni" href="'+escAttr(st.uniswap)+'" target="_blank" rel="noopener"><span>Need '+escHtml(tick)+' on Robinhood? Get it on Uniswap</span><span>↗</span></a>'+
+          '<div class="kv" style="border-top:1px solid var(--line);margin:0 2px"><span style="color:var(--muted)">Destination</span><span class="mono">'+destLine+'</span></div>'+
+          cta+
+          '<p class="bridge-note">Secondary wrap. Not RH primary mint.</p>'+
+        '</div>'+
+      '</div>'+
+      footerHTML()+'</div>';
+  }
+
   function hashFor(route, sym){
     if (route === "token") return "/t/"+encodeURIComponent(String(sym||state.sym||"").toUpperCase());
     if (route === "explore" || route === "floor" || route === "discover") return "#/";
     if (route === "pit") return "#/night";
     if (route === "metrics") return "#/books";
+    if (route === "bridge") return "#/bridge";
     return "#/"+route;
   }
   function parseHash(){
@@ -4249,6 +4397,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     if (r === "pit" || r === "pot" || r === "night" || r === "fight") return {route:"pit", sym:state.sym};
     if (r === "books") return {route:"metrics", sym:state.sym};
     if (r === "launch" || r === "metrics" || r === "analytics") return {route: r==="analytics"?"metrics":r, sym:state.sym};
+    if (r === "bridge") return {route:"bridge", sym:state.sym};
     return {route:"explore", sym:state.sym};
   }
   function paintShareMeta(){
@@ -4291,7 +4440,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     if (can) can.setAttribute("href", url);
   }
   function paintNav(){
-    const nav = [["The Strip","explore"],["Fight Night","pit"],["Books","metrics"]];
+    const nav = [["The Strip","explore"],["Fight Night","pit"],["Books","metrics"],["Bridge","bridge"]];
     $("#nav-pill").innerHTML = nav.map(function(n){
       const on = state.route === n[1] || (n[1]==="explore" && state.route==="token");
       return '<div class="nav-item'+(on?" on":"")+'" data-go="'+n[1]+'">'+n[0]+'</div>';
@@ -4980,7 +5129,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     var keepCard = host && host.querySelector(".chart-card[data-pool]");
     var keepPool = keepCard ? (keepCard.getAttribute("data-pool") || "") : "";
     dropTv();
-    const map = {explore:exploreHTML, pit:pitHTML, token:tokenHTML, launch:launchHTML, metrics:metricsHTML};
+    const map = {explore:exploreHTML, pit:pitHTML, token:tokenHTML, launch:launchHTML, metrics:metricsHTML, bridge:bridgeHTML};
     host.innerHTML = (map[state.route] || exploreHTML)();
     var slot = host.querySelector(".chart-card[data-pool]");
     if (keepCard && keepPool && slot && slot.getAttribute("data-pool") === keepPool){
@@ -6517,6 +6666,17 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       }
       return;
     }
+    const bridgeTick = e.target.closest("[data-bridge-tick]");
+    if (bridgeTick){
+      state.bridgeTick = bridgeTick.getAttribute("data-bridge-tick") || "NVDA";
+      if (state.route === "bridge") renderScreen();
+      return;
+    }
+    if (e.target.closest("[data-bridge-max]")){
+      state.bridgeAmt = "";
+      if (state.route === "bridge") renderScreen();
+      return;
+    }
     const scrollEl = e.target.closest("[data-scroll]");
     if (scrollEl){
       const id = scrollEl.getAttribute("data-scroll");
@@ -6532,6 +6692,11 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     }
   });
   document.addEventListener("input", function(e){
+    if (e.target && e.target.id === "bridge-amt"){
+      state.bridgeAmt = e.target.value;
+      var dest = $("#bridge-dest");
+      if (dest) dest.textContent = state.bridgeAmt === "" ? "0.0" : state.bridgeAmt;
+    }
     if (e.target && e.target.id === "amt"){
       state.amt = e.target.value;
       paintTicket();
