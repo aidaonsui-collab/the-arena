@@ -1,3 +1,17 @@
+## Compatible security upgrade (pit auth / dividend accounting)
+
+Public entrypoints that previously accepted caller-supplied pit/metric/round
+inputs or returned the pot to the caller are **retired** (`errors::retired()` /
+code 29) and keep their signatures for the Compatible upgrade policy. Logic
+moved to `public(package)` twins (`nudge_internal`, `ring_internal`,
+`take_fee_internal`, `settle_*_internal`, `burn_from_pit_internal`) and
+`config::ring_pit` / `config::create_pit` (AdminCap). Curve buy/sell check the
+official pit DF (`OfficialPitKey`) when registered. Graduation measures
+`quote_reserve` (not wash-tradable `raised`). Selling requires registry weight.
+
+Post-upgrade runbook (human / signing out of scope here): `register_pit` for
+live `Pit<SUI>` / `Pit<XAUM>` if not already bound, then Compatible upgrade.
+
 # Arena Move package
 
 Fair launches on Sui. Bonding curve, no presale.
@@ -47,7 +61,7 @@ Graduation for XAUM defaults to **1 XAUM** (not 2,000 units). 2,000 SUI is only 
   - Reflection: 50/20/20/10 holders/creator/pit/platform.
 - Instant pit: highest Instant USD market cap over 24 hours wins. Previous winner sits out 48 hours. Votes are display-only (0.1 SUI still goes in the pot).
   - Buy and burn only. `config::take_pit_pot_for_burn` (AdminCap) drains the official pit; the keeper hops SUI to the winner's quote, Bluefin-buys the token, and `launch::burn_pit_buy` burns it through `InstadexMintLock`.
-  - Leftover curve `pit::ring` / `pool::settle_pit` still exist. Instant take marks the pit settled so a leftover curve winner cannot strand `ring`.
+  - Leftover curve `config::ring_pit` / `pool::settle_pit` still exist. Instant take marks the pit settled so a leftover curve winner cannot strand `ring`.
 
 ## Launch (two transactions)
 
@@ -83,7 +97,7 @@ token_amount, quote_amount, unlock_ms, name, symbol
 
 `token` / `quote` are `TypeName` via `type_name::with_defining_ids`. `unlock_ms` is always 0. Instant sets `quote_amount` to 0. Also emits `InstadexMintLockEvent { lock_id, mint_lock_id }` (Compatible parallel event; do not add fields to `InstadexLaunchEvent`). Does not emit `LaunchEvent`, `LockEvent`, `BluefinLockEvent`, or `GraduationEvent`.
 
-Anyone can poke `launch::collect_instadex_fees<A, B>` — Bluefin LP fees accrue on the vaulted NFT. Quote (coin B) splits 60/10/30 creator/platform/pit via `config::take_platform` and `pit::take_fee` (remainder dust to creator). Token (coin A) is burned via `InstadexMintLock.cap`. Emits `CollectLpFeesEvent` (quote split) plus `InstadexBurnEvent` (A amount). `collect_lp_fees` aborts `use_instadex_collect` (24). `collect_bluefin_fees` aborts `use_split_collect` (23). `claim_bluefin_position` aborts (`still_locked`) while `unlock_ms == 0`.
+Anyone can poke `launch::collect_instadex_fees<A, B>` — Bluefin LP fees accrue on the vaulted NFT. Quote (coin B) splits 60/10/30 creator/platform/pit via `config::take_platform` and `pit::take_fee_internal` (remainder dust to creator). Token (coin A) is burned via `InstadexMintLock.cap`. Emits `CollectLpFeesEvent` (quote split) plus `InstadexBurnEvent` (A amount). `collect_lp_fees` aborts `use_instadex_collect` (24). `collect_bluefin_fees` aborts `use_split_collect` (23). `claim_bluefin_position` aborts (`still_locked`) while `unlock_ms == 0`.
 
 **Collect PTB** — `launch::collect_instadex_fees<T, Q>` (permissionless; NFT stays in the vault):
 
