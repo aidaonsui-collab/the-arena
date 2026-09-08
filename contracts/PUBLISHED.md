@@ -103,3 +103,8 @@ Graduate PTB objects: Pool, Config, Clock, Bluefin GlobalConfig, CoinMetadata `<
 - Pit SUI pot 1132498 → 1156497 (+23999)
 - `collect_lp_fees` on v6 dry-run aborts `use_instadex_collect` (24)
 - Position NFT still in lock `0x529a…`, liquidity 316227766, `unlock_ms` 0. `graduation_sui` left at 2000 SUI.
+
+## Stock wraps (sibling package)
+
+RH → Sui 1:1 wrappers live in **`contracts-stocks/`** (`stocks` package), not in this Arena upgrade package — see `contracts-stocks/README.md`. Not published yet (`stocks = "0x0"`). Tickers: NVDA, AMC, GME, TSLA. Bridge: `BridgeVault<T>` + `MinterCap`.
+
