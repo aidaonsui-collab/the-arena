@@ -11,6 +11,14 @@ export const STOCKS_PACKAGE =
 export const MINTER_HOLDER =
   "0x92a32ac7fd525f8bd37ed359423b8d7d858cad26224854dfbff1914b75ee658b";
 
+/** Robinhood Chain mainnet StockLockVault (chainId 4663). */
+export const DEFAULT_RH_RPC = "https://rpc.mainnet.chain.robinhood.com";
+export const DEFAULT_RH_VAULT_ADDRESS =
+  "0xB0DbeAa279A4D1c5BBB67f7083a3C5445Af3c058";
+
+/** Sui Move u64 max — RH amounts above this cannot be minted as-is. */
+export const U64_MAX = (1n << 64n) - 1n;
+
 export type Ticker = "NVDA" | "AMC" | "GME" | "TSLA";
 
 export type StockConfig = {
@@ -70,11 +78,19 @@ export function env() {
   const graphql = process.env.SUI_GRAPHQL ?? "https://graphql.mainnet.sui.io/graphql";
   const dryRunDefault = process.env.STOCKS_MINT_DRY_RUN === "1";
   const dataDir = process.env.STOCKS_DATA_DIR ?? join(rootPath(), "data");
-  return { rpc, graphql, dryRunDefault, dataDir, packageId: STOCKS_PACKAGE };
+  const rhRpc = process.env.RH_RPC ?? DEFAULT_RH_RPC;
+  const rhVaultAddress = (process.env.RH_VAULT_ADDRESS ?? DEFAULT_RH_VAULT_ADDRESS).trim();
+  return { rpc, graphql, dryRunDefault, dataDir, packageId: STOCKS_PACKAGE, rhRpc, rhVaultAddress };
 }
 
 function rootPath() {
   return fileURLToPath(new URL("..", import.meta.url));
+}
+
+
+export function tickerFromRhToken(token: string): Ticker | undefined {
+  const want = token.trim().toLowerCase();
+  return Object.values(STOCKS).find((s) => s.rhToken && s.rhToken.toLowerCase() === want)?.ticker;
 }
 
 export function stockOf(ticker: string): StockConfig {

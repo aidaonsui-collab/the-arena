@@ -2,7 +2,7 @@
  * CLI for RH → Sui stock wrap attestor.
  *
  *   npx tsx src/cli.ts mint --ticker NVDA --amount <base 18dec> --recipient 0x… --rh-ref <hex|string> [--dry-run]
- *   npx tsx src/cli.ts watch-rh
+ *   npx tsx src/cli.ts watch-rh   # once; RH_WATCH_LOOP=1 for continuous
  *   npx tsx src/cli.ts webhook
  */
 import { runMint } from "./mint.ts";
@@ -12,7 +12,7 @@ import { runWebhookServer } from "./webhook.ts";
 function usage(exit = 1): never {
   console.error(`usage:
   tsx src/cli.ts mint --ticker NVDA --amount <base units 18dec> --recipient 0x… --rh-ref <hex/string> [--dry-run]
-  tsx src/cli.ts watch-rh
+  tsx src/cli.ts watch-rh   # RH_WATCH_LOOP=1 continuous; STOCKS_MINT_DRY_RUN=1 dry-run
   tsx src/cli.ts webhook
 `);
   process.exit(exit);
