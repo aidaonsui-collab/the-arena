@@ -106,5 +106,9 @@ Graduate PTB objects: Pool, Config, Clock, Bluefin GlobalConfig, CoinMetadata `<
 
 ## Stock wraps (sibling package)
 
-RH → Sui 1:1 wrappers live in **`contracts-stocks/`** (`stocks` package), not in this Arena upgrade package — see `contracts-stocks/README.md`. Not published yet (`stocks = "0x0"`). Tickers: NVDA, AMC, GME, TSLA. Bridge: `BridgeVault<T>` + `MinterCap`.
+RH → Sui 1:1 wrappers live in **`contracts-stocks/`** (`stocks` package), not in this Arena upgrade package — see `contracts-stocks/PUBLISHED.md`.
+
+- Package: `0x0f01d0b041f98c02a29c8d1efffd03d60db42b3a20f5899ff5e0f663f0ea09db`
+- Publish tx: `BTaWMYoGiLk8WUHZQY1okrzpKA2VWNoFmiGP2imZ38z9`
+- Tickers: NVDA, AMC, GME, TSLA — BridgeVault + MinterCap per ticker (ids in `contracts-stocks/PUBLISHED.md`)
 

@@ -36,7 +36,8 @@ sui move test
 sui move build
 ```
 
-Do **not** publish from this scaffold task until addresses and keeper ops are ready. First publish uses `stocks = "0x0"`.
+**Mainnet published** — see [`PUBLISHED.md`](./PUBLISHED.md) for package id, BridgeVaults, MinterCaps, CoinMetadata, and tx digest.
+`Move.toml` `published-at` / `stocks` address = `0x0f01d0b041f98c02a29c8d1efffd03d60db42b3a20f5899ff5e0f663f0ea09db`.
 
 ## Bridge UI / Arena integration
 
