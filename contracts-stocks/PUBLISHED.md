@@ -1,3 +1,13 @@
+> **Stale — needs republish.** The package below is 18-decimal and has no
+> on-chain replay guard. Both are fixed in source; the ids here are from the
+> superseded publish and must be regenerated. Safe to replace: `nextDepositId`
+> on the RH vault is still 1 (no deposits ever), and the only mint was the
+> `smoke-2026-09-08-nvda-001` test, burned the same day, so supply is zero and
+> there is nothing to migrate.
+>
+> After republishing, update every id here plus `keepers-stocks/src/config.ts`
+> and the frontend `STOCKS` config.
+
 # Mainnet — stocks (RH → Sui wrap)
 
 Published from `0x92a32ac7fd525f8bd37ed359423b8d7d858cad26224854dfbff1914b75ee658b` (elegant-tourmaline).
