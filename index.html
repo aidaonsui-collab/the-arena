@@ -313,7 +313,7 @@ a.btn-trade{display:block;text-align:center;text-decoration:none;box-sizing:bord
 .quote-dd{position:relative;max-width:320px}
 .quote-dd-btn{width:100%;display:flex;align-items:center;gap:10px;background:#140e14;border:1px solid var(--line);border-radius:12px;padding:10px 12px;color:var(--ink);font:inherit;font-weight:650;cursor:pointer;text-align:left}
 .quote-dd-btn:hover{border-color:#5a3a56}
-.quote-dd-btn .q-logo{width:22px;height:22px;border-radius:7px;object-fit:cover;flex:none;background:#1c101c}
+.quote-dd-btn .q-logo{width:22px;height:22px;border-radius:7px;object-fit:contain;flex:none;background:#1c101c;padding:2px;box-sizing:border-box}
 .quote-dd-btn .q-meta{flex:1;min-width:0}
 .quote-dd-btn .q-meta small{display:block;font-size:11px;font-weight:500;color:var(--muted);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .quote-dd-btn .q-chev{color:var(--muted);font-size:12px;margin-left:auto}
@@ -321,7 +321,7 @@ a.btn-trade{display:block;text-align:center;text-decoration:none;box-sizing:bord
 .quote-dd.open .quote-dd-menu{display:block}
 .quote-dd-item{width:100%;display:flex;align-items:center;gap:10px;border:0;background:transparent;color:var(--ink);border-radius:10px;padding:9px 10px;font:inherit;font-weight:600;cursor:pointer;text-align:left}
 .quote-dd-item:hover,.quote-dd-item.on{background:var(--lift)}
-.quote-dd-item .q-logo{width:22px;height:22px;border-radius:7px;object-fit:cover;flex:none;background:#1c101c}
+.quote-dd-item .q-logo{width:22px;height:22px;border-radius:7px;object-fit:contain;flex:none;background:#1c101c;padding:2px;box-sizing:border-box}
 .quote-dd-item .q-meta{flex:1;min-width:0}
 .quote-dd-item .q-meta small{display:block;font-size:11px;font-weight:500;color:var(--muted);margin-top:1px}
 .quote-dd-item .q-check{color:var(--sui);font-size:12px;opacity:0}
@@ -524,7 +524,9 @@ html.shot,html.shot *{animation:none!important;transition:none!important}
 .bridge-out{font-size:28px;font-weight:650;font-variant-numeric:tabular-nums;letter-spacing:-.02em;line-height:1.2;min-height:1.2em}
 .bridge-asset{display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex:none}
 .bridge-pick{display:flex;align-items:center;gap:6px;background:#1c101c;border:1px solid var(--line);border-radius:999px;padding:6px 8px 6px 10px}
-.bridge-pick .bridge-tick-mark{width:22px;height:22px;border-radius:99px;background:var(--lift);display:grid;place-items:center;font-size:10px;font-weight:700;color:var(--ink);flex:none}
+.bridge-pick .bridge-tick-mark,.bridge-pick .bridge-tick-logo{width:22px;height:22px;border-radius:99px;background:var(--lift);display:grid;place-items:center;font-size:10px;font-weight:700;color:var(--ink);flex:none;object-fit:contain;padding:2px;box-sizing:border-box}
+.bridge-chain img{width:12px;height:12px;border-radius:99px;object-fit:contain;margin-right:2px;vertical-align:middle}
+.bridge-tick .bridge-tick-logo{width:14px;height:14px;border-radius:4px;object-fit:contain;margin-right:4px;vertical-align:-2px}
 .bridge-ticks{display:flex;flex-wrap:wrap;gap:4px;justify-content:flex-end;max-width:168px}
 .bridge-tick{border:1px solid var(--line);background:#120814;color:var(--muted);border-radius:999px;padding:5px 9px;font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:11px;font-weight:600;letter-spacing:.03em;cursor:pointer}
 .bridge-tick:hover{color:var(--ink);border-color:#5a3a56}
@@ -760,11 +762,11 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   var INSTANT_START_USD = 3500;
   var QUOTES = {
     SUI: { label:"SUI", type:SUI_TYPE, metadata:window.ARENA_SUI_METADATA, decimals:9, name:"Sui", what:"Native Sui", create:true, chips:["0.5","1","5","10","Max"], virtualHuman:"≈ $3.5k", pit:window.ARENA_PIT_SUI, color:"#4DA2FF", logo:"/brand/quotes/sui.svg" },
-    USDY: { label:"USDY", type:window.ARENA_USDY_TYPE, metadata:window.ARENA_USDY_METADATA, decimals:6, name:"Ondo US Dollar Yield", what:"Ondo tokenized US Treasury bills", create:true, chips:["1","5","10","25","Max"], virtualHuman:"≈ $3.5k", pit:window.ARENA_PIT_USDY, color:"#3ECF8E", logo:"/brand/quotes/usdy.svg" },
-    XAGM: { label:"XAGM", type:window.ARENA_XAGM_TYPE, metadata:window.ARENA_XAGM_METADATA, decimals:9, name:"Matrixdock Silver", what:"Matrixdock silver, 1 oz", create:true, chips:["0.01","0.05","0.1","0.25","Max"], virtualHuman:"≈ $3.5k", pit:window.ARENA_PIT_XAGM, color:"#C0C7D1", logo:"/brand/quotes/xagm.svg" },
-    XAUM: { label:"XAUM", type:window.ARENA_XAUM_TYPE, metadata:window.ARENA_XAUM_METADATA, decimals:9, name:"Matrixdock Gold", what:"Matrixdock gold, 1 oz", create:true, chips:["0.01","0.05","0.1","0.25","Max"], virtualHuman:"≈ $3.5k", pit:window.ARENA_PIT_XAUM, color:"#C9A97E", logo:"/brand/quotes/xaum.svg" },
-    NVDA: { label:"NVDA", type:window.ARENA_STOCK_NVDA_TYPE, metadata:window.ARENA_STOCK_NVDA_METADATA, decimals:18, name:"NVIDIA wrap", what:"RH→Sui stock wrap (NVDA)", create:true, stock:true, chips:["0.01","0.1","1","5","Max"], virtualHuman:"≈ $3.5k", pit:"", color:"#76B900", logo:"/brand/quotes/nvda.svg" },
-    AMC:  { label:"AMC",  type:window.ARENA_STOCK_AMC_TYPE,  metadata:window.ARENA_STOCK_AMC_METADATA,  decimals:18, name:"AMC wrap", what:"RH→Sui stock wrap (AMC)", create:true, stock:true, chips:["0.01","0.1","1","5","Max"], virtualHuman:"≈ $3.5k", pit:"", color:"#E11D2E", logo:"/brand/quotes/amc.svg" },
+    USDY: { label:"USDY", type:window.ARENA_USDY_TYPE, metadata:window.ARENA_USDY_METADATA, decimals:6, name:"Ondo US Dollar Yield", what:"Ondo tokenized US Treasury bills", create:true, chips:["1","5","10","25","Max"], virtualHuman:"≈ $3.5k", pit:window.ARENA_PIT_USDY, color:"#3ECF8E", logo:"/brand/quotes/usdy.png" },
+    XAGM: { label:"XAGM", type:window.ARENA_XAGM_TYPE, metadata:window.ARENA_XAGM_METADATA, decimals:9, name:"Matrixdock Silver", what:"Matrixdock silver, 1 oz", create:true, chips:["0.01","0.05","0.1","0.25","Max"], virtualHuman:"≈ $3.5k", pit:window.ARENA_PIT_XAGM, color:"#C0C7D1", logo:"/brand/quotes/xagm.png" },
+    XAUM: { label:"XAUM", type:window.ARENA_XAUM_TYPE, metadata:window.ARENA_XAUM_METADATA, decimals:9, name:"Matrixdock Gold", what:"Matrixdock gold, 1 oz", create:true, chips:["0.01","0.05","0.1","0.25","Max"], virtualHuman:"≈ $3.5k", pit:window.ARENA_PIT_XAUM, color:"#C9A97E", logo:"/brand/quotes/xaum.png" },
+    NVDA: { label:"NVDA", type:window.ARENA_STOCK_NVDA_TYPE, metadata:window.ARENA_STOCK_NVDA_METADATA, decimals:18, name:"NVIDIA wrap", what:"RH→Sui stock wrap (NVDA)", create:true, stock:true, chips:["0.01","0.1","1","5","Max"], virtualHuman:"≈ $3.5k", pit:"", color:"#76B900", logo:"/brand/quotes/nvda-mark.svg" },
+    AMC:  { label:"AMC",  type:window.ARENA_STOCK_AMC_TYPE,  metadata:window.ARENA_STOCK_AMC_METADATA,  decimals:18, name:"AMC wrap", what:"RH→Sui stock wrap (AMC)", create:true, stock:true, chips:["0.01","0.1","1","5","Max"], virtualHuman:"≈ $3.5k", pit:"", color:"#E11D2E", logo:"/brand/quotes/amc.png" },
     GME:  { label:"GME",  type:window.ARENA_STOCK_GME_TYPE,  metadata:window.ARENA_STOCK_GME_METADATA,  decimals:18, name:"GME wrap", what:"RH→Sui stock wrap (GME)", create:true, stock:true, chips:["0.01","0.1","1","5","Max"], virtualHuman:"≈ $3.5k", pit:"", color:"#EF4444", logo:"/brand/quotes/gme.svg" },
     TSLA: { label:"TSLA", type:window.ARENA_STOCK_TSLA_TYPE, metadata:window.ARENA_STOCK_TSLA_METADATA, decimals:18, name:"Tesla wrap", what:"RH→Sui stock wrap (TSLA)", create:true, stock:true, chips:["0.01","0.1","1","5","Max"], virtualHuman:"≈ $3.5k", pit:"", color:"#CC0000", logo:"/brand/quotes/tsla.svg" }
   };
@@ -773,12 +775,18 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   // Secondary wrap only: RH stock → vault lock → 1:1 Sui mint. Not RH primary mint.
   // Live package 0x0f01d0b041f98c02a29c8d1efffd03d60db42b3a20f5899ff5e0f663f0ea09db (see contracts-stocks/PUBLISHED.md).
   var STOCKS = {
-    NVDA: { ticker:"NVDA", name:"NVIDIA", rhToken:"0xd0601CE157Db5bdC3162BbaC2a2C8aF5320D9EEC", suiCoin:"0x0f01d0b041f98c02a29c8d1efffd03d60db42b3a20f5899ff5e0f663f0ea09db::nvda::NVDA", suiVault:"0xc221abc5c9f94ae90cb02db643ffa532db5944afac3d1d5006a74987dc52727d", metadata:"0xdc869b6282ec456089b68c92fab602054bb6315602b08f4664b204f5bdd60683", rhExplorer:"https://explorer.robinhood.com/address/0xd0601CE157Db5bdC3162BbaC2a2C8aF5320D9EEC", uniswap:"https://app.uniswap.org/explore/tokens/ethereum/0xb8ce59fc3717ada4c02eadf9682a9e934f625ebb", decimals:18 },
+    NVDA: { ticker:"NVDA", name:"NVIDIA", rhToken:"0xd0601CE157Db5bdC3162BbaC2a2C8aF5320D9EEC", suiCoin:"0x0f01d0b041f98c02a29c8d1efffd03d60db42b3a20f5899ff5e0f663f0ea09db::nvda::NVDA", suiVault:"0xc221abc5c9f94ae90cb02db643ffa532db5944afac3d1d5006a74987dc52727d", metadata:"0xdc869b6282ec456089b68c92fab602054bb6315602b08f4664b204f5bdd60683", rhExplorer:"https://explorer.robinhood.com/address/0xd0601CE157Db5bdC3162BbaC2a2C8aF5320D9EEC", uniswap:"https://app.uniswap.org/explore/tokens/ethereum/0xb8ce59fc3717ada4c02eadf9682a9e934f625ebb", logo:"/brand/quotes/nvda-mark.svg", decimals:18 },
     AMC:  { ticker:"AMC",  name:"AMC",    rhToken:"", suiCoin:"0x0f01d0b041f98c02a29c8d1efffd03d60db42b3a20f5899ff5e0f663f0ea09db::amc::AMC", suiVault:"0xb2b480f907479831aedb115fa1f10e0acc81f00a5f44bab0507358e431ae22cf", metadata:"0x06a18ab1fa5f6170b46752cfdec7739b609cb35adadfcc18d5f57d23c00625ac", rhExplorer:"", uniswap:"https://app.uniswap.org/", decimals:18 },
     GME:  { ticker:"GME",  name:"GME",    rhToken:"", suiCoin:"0x0f01d0b041f98c02a29c8d1efffd03d60db42b3a20f5899ff5e0f663f0ea09db::gme::GME", suiVault:"0xc743951e4330499438635579a2049b28af65068fb9d5c4af3e5618229ac6cfa2", metadata:"0x81cc6fd95c21880cfae8d73e089ed1ea6d40ccbe2500c4bc0c1c4e125e3e8bfe", rhExplorer:"", uniswap:"https://app.uniswap.org/", decimals:18 },
-    TSLA: { ticker:"TSLA", name:"Tesla",  rhToken:"", suiCoin:"0x0f01d0b041f98c02a29c8d1efffd03d60db42b3a20f5899ff5e0f663f0ea09db::tsla::TSLA", suiVault:"0xef39c0154e56c5c4159aa0dd12332d48f8f8c843142787a7d4dbd59b0587a4c5", metadata:"0x63f7e1a16f8fa1b2289f662692b09105ef7bd9e7d5867980597ec9af9e02b74e", rhExplorer:"", uniswap:"https://app.uniswap.org/", decimals:18 }
+    TSLA: { ticker:"TSLA", name:"Tesla",  rhToken:"", suiCoin:"0x0f01d0b041f98c02a29c8d1efffd03d60db42b3a20f5899ff5e0f663f0ea09db::tsla::TSLA", suiVault:"0xef39c0154e56c5c4159aa0dd12332d48f8f8c843142787a7d4dbd59b0587a4c5", metadata:"0x63f7e1a16f8fa1b2289f662692b09105ef7bd9e7d5867980597ec9af9e02b74e", rhExplorer:"", uniswap:"https://app.uniswap.org/", logo:"/brand/quotes/tsla.svg", decimals:18 }
   };
   var STOCK_TICKERS = ["NVDA","AMC","GME","TSLA"];
+  function stockLogoHtml(tick, cls){
+    var st = stockRec(tick);
+    var url = (st && st.logo) || "";
+    if (url) return '<img class="'+(cls||"bridge-tick-logo")+'" src="'+escAttr(url)+'" alt="" width="22" height="22" loading="lazy">';
+    return '<span class="bridge-tick-mark">'+escHtml(String(tick||"?").charAt(0))+'</span>';
+  }
   function stockRec(t){
     t = String(t || state.bridgeTick || "NVDA").toUpperCase();
     return STOCKS[t] || STOCKS.NVDA;
@@ -4361,7 +4369,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     const dest = amt === "" ? "0.0" : amt;
     const dirOut = state.bridgeDir !== "in";
     const ticks = STOCK_TICKERS.map(function(t){
-      return '<button type="button" class="bridge-tick'+(t===tick?" on":"")+'" data-bridge-tick="'+t+'">'+t+'</button>';
+      return '<button type="button" class="bridge-tick'+(t===tick?" on":"")+'" data-bridge-tick="'+t+'">'+stockLogoHtml(t,'bridge-tick-logo')+' '+t+'</button>';
     }).join("");
     var balTxt = state.bridgeBalHuman != null ? state.bridgeBalHuman : "—";
     var cta;
@@ -4375,8 +4383,8 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     const destLine = suiSession.address ? escHtml(shortAddr(suiSession.address)) : "—";
     const fromLab = dirOut ? "From Sui" : "From RH";
     const toLab = dirOut ? "To RH" : "To Sui";
-    const fromChain = dirOut ? '<span class="bridge-chain sui"><i></i>Sui</span>' : '<span class="bridge-chain rh"><i></i>RH</span>';
-    const toChain = dirOut ? '<span class="bridge-chain rh"><i></i>RH</span>' : '<span class="bridge-chain sui"><i></i>Sui</span>';
+    const fromChain = dirOut ? '<span class="bridge-chain sui"><img src="/brand/quotes/sui.svg" alt="">Sui</span>' : '<span class="bridge-chain rh"><img src="/brand/quotes/rh.svg" alt="">RH</span>';
+    const toChain = dirOut ? '<span class="bridge-chain rh"><img src="/brand/quotes/rh.svg" alt="">RH</span>' : '<span class="bridge-chain sui"><img src="/brand/quotes/sui.svg" alt="">Sui</span>';
     const note = state.bridgeNote
       ? '<p class="bridge-note" style="color:'+(state.bridgeNoteErr?"var(--pink)":"var(--muted)")+'">'+escHtml(state.bridgeNote)+'</p>'
       : '<p class="bridge-note">'+(dirOut
@@ -4404,7 +4412,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
                 '<div class="bridge-bal">bal '+escHtml(balTxt)+' · <button type="button" data-bridge-max>MAX</button></div>'+
               '</div>'+
               '<div class="bridge-asset">'+
-                '<div class="bridge-pick"><span class="bridge-tick-mark">'+escHtml(tick.charAt(0))+'</span><span class="mono" style="font-size:13px;font-weight:650">'+escHtml(tick)+'</span></div>'+
+                '<div class="bridge-pick">'+stockLogoHtml(tick)+'<span class="mono" style="font-size:13px;font-weight:650">'+escHtml(tick)+'</span></div>'+
                 '<div class="bridge-ticks">'+ticks+'</div>'+
               '</div>'+
             '</div>'+
@@ -4417,7 +4425,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
             '<div class="bridge-panel-body">'+
               '<div class="bridge-amt-col"><div class="bridge-out mono" id="bridge-dest">'+escHtml(dest)+'</div></div>'+
               '<div class="bridge-asset">'+
-                '<div class="bridge-pick"><span class="bridge-tick-mark">'+escHtml(tick.charAt(0))+'</span><span class="mono" style="font-size:13px;font-weight:650">'+escHtml(tick)+'</span></div>'+
+                '<div class="bridge-pick">'+stockLogoHtml(tick)+'<span class="mono" style="font-size:13px;font-weight:650">'+escHtml(tick)+'</span></div>'+
               '</div>'+
             '</div>'+
           '</div>'+
