@@ -708,7 +708,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   var pitStatePollAt = 0;
   let balance = 48.60;
   let xaumBal = 2.40;
-  const state = {route:"explore", sym:"VOLT", filter:"All", sort:"Market cap", time:"All", side:"Buy", amt:"1", connected:false, search:"", lName:"", lTick:"", lQuote:"SUI", lPath:"instadex", lMode:"Holders", lTokenAmt:"", lQuoteAmt:"", lFirstBuy:"1", lCap:"", lTokenCoin:"", lQuoteCoin:"", lCoinMode:"create", lDecimals:"9", lSupply:"1000000000", lDesc:"", lX:"", lTg:"", lWeb:"", lPublishedType:"", metricsWindow:"All", tapeTab:"trades", tapeOpen:"", tapePage:0, tapeAge:"age", tapeWallet:"", tapeFilterOpen:false, lFile:null, lArtUrl:"", lArtPreview:"", payWith:"SUI", lNote:"", lNoteErr:false, chartTf:900, chartInd:{vol:true,ma7:true,ma25:true,ma99:false,ema:false}, bridgeTick:"NVDA", bridgeAmt:""};
+  const state = {route:"explore", sym:"VOLT", filter:"All", sort:"Market cap", time:"All", side:"Buy", amt:"1", connected:false, search:"", lName:"", lTick:"", lQuote:"SUI", lPath:"instadex", lMode:"Holders", lTokenAmt:"", lQuoteAmt:"", lFirstBuy:"1", lCap:"", lTokenCoin:"", lQuoteCoin:"", lCoinMode:"create", lDecimals:"9", lSupply:"1000000000", lDesc:"", lX:"", lTg:"", lWeb:"", lPublishedType:"", metricsWindow:"All", tapeTab:"trades", tapeOpen:"", tapePage:0, tapeAge:"age", tapeWallet:"", tapeFilterOpen:false, lFile:null, lArtUrl:"", lArtPreview:"", payWith:"SUI", lNote:"", lNoteErr:false, chartTf:900, chartInd:{vol:true,ma7:true,ma25:true,ma99:false,ema:false}, bridgeTick:"NVDA", bridgeAmt:"", bridgeDir:"in", bridgeNote:"", bridgeBusy:false};
   var metaEdit = { open: false, saving: false, file: null, preview: "", artUrl: "", note: "", err: false, name: "", desc: "", x: "", tg: "", web: "", creator: "", openedCreator: "" };
   let hashLock = false;
   const hop = { suiPerXaum: null, suiPerUsdy: null, suiPerXagm: null, usd: null, suiUsd: null, usdyUsd: null, xagmUsd: null, xaumUsd: null, source: "" };
@@ -4322,13 +4322,29 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     const tick = st.ticker;
     const amt = state.bridgeAmt || "";
     const dest = amt === "" ? "0.0" : amt;
+    const dirOut = state.bridgeDir !== "in";
     const ticks = STOCK_TICKERS.map(function(t){
       return '<button type="button" class="bridge-tick'+(t===tick?" on":"")+'" data-bridge-tick="'+t+'">'+t+'</button>';
     }).join("");
-    const cta = suiSession.address
-      ? '<button type="button" class="btn-trade" id="bridge-go" disabled>Bridge coming soon</button>'
-      : '<button type="button" class="btn-trade" id="bridge-go" data-wallet>Connect wallet</button>';
+    var balTxt = state.bridgeBalHuman != null ? state.bridgeBalHuman : "—";
+    var cta;
+    if (!suiSession.address){
+      cta = '<button type="button" class="btn-trade" id="bridge-go" data-wallet>Connect wallet</button>';
+    } else if (dirOut){
+      cta = '<button type="button" class="btn-trade" id="bridge-go" data-bridge-burn'+(state.bridgeBusy?" disabled":"")+'>'+(state.bridgeBusy?"Burning…":"Burn & redeem")+'</button>';
+    } else {
+      cta = '<button type="button" class="btn-trade" id="bridge-go" disabled>Lock on RH — mint is automatic</button>';
+    }
     const destLine = suiSession.address ? escHtml(shortAddr(suiSession.address)) : "—";
+    const fromLab = dirOut ? "From Sui" : "From RH";
+    const toLab = dirOut ? "To RH" : "To Sui";
+    const fromChain = dirOut ? '<span class="bridge-chain sui"><i></i>Sui</span>' : '<span class="bridge-chain rh"><i></i>RH</span>';
+    const toChain = dirOut ? '<span class="bridge-chain rh"><i></i>RH</span>' : '<span class="bridge-chain sui"><i></i>Sui</span>';
+    const note = state.bridgeNote
+      ? '<p class="bridge-note" style="color:'+(state.bridgeNoteErr?"var(--pink)":"var(--muted)")+'">'+escHtml(state.bridgeNote)+'</p>'
+      : '<p class="bridge-note">'+(dirOut
+          ? "Burns your Sui wrap and emits RedeemBurned for the RH unlock watcher."
+          : "Lock "+tick+" on Robinhood. Keeper mints the Sui wrap — you never hold the MinterCap.")+'</p>';
     return '<div data-screen-label="Bridge" class="shell bridge-page">'+
       '<div class="bridge-hero">'+
         '<div class="pit-kicker">Stock bridge</div>'+
@@ -4337,15 +4353,18 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       '</div>'+
       '<div class="bridge-wrap">'+
         '<div class="bridge-card">'+
+          '<div class="toggle" style="margin:0 0 12px">'+
+            '<button type="button" class="'+(dirOut?"":"on")+'" data-bridge-dir="in">RH → Sui</button>'+
+            '<button type="button" class="'+(dirOut?"on":"")+'" data-bridge-dir="out">Sui → RH</button>'+
+          '</div>'+
           '<div class="bridge-panel">'+
             '<div class="bridge-panel-head">'+
-              '<span class="bridge-panel-lab">From RH</span>'+
-              '<span class="bridge-chain rh"><i></i>RH</span>'+
+              '<span class="bridge-panel-lab">'+fromLab+'</span>'+fromChain+
             '</div>'+
             '<div class="bridge-panel-body">'+
               '<div class="bridge-amt-col">'+
                 '<input id="bridge-amt" class="amt" inputmode="decimal" autocomplete="off" placeholder="0.0" value="'+escAttr(amt)+'">'+
-                '<div class="bridge-bal">bal — · <button type="button" data-bridge-max>MAX</button></div>'+
+                '<div class="bridge-bal">bal '+escHtml(balTxt)+' · <button type="button" data-bridge-max>MAX</button></div>'+
               '</div>'+
               '<div class="bridge-asset">'+
                 '<div class="bridge-pick"><span class="bridge-tick-mark">'+escHtml(tick.charAt(0))+'</span><span class="mono" style="font-size:13px;font-weight:650">'+escHtml(tick)+'</span></div>'+
@@ -4356,8 +4375,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
           '<div class="bridge-arrow" aria-hidden="true"><span>↓</span></div>'+
           '<div class="bridge-panel">'+
             '<div class="bridge-panel-head">'+
-              '<span class="bridge-panel-lab">To Sui</span>'+
-              '<span class="bridge-chain sui"><i></i>Sui</span>'+
+              '<span class="bridge-panel-lab">'+toLab+'</span>'+toChain+
             '</div>'+
             '<div class="bridge-panel-body">'+
               '<div class="bridge-amt-col"><div class="bridge-out mono" id="bridge-dest">'+escHtml(dest)+'</div></div>'+
@@ -4386,10 +4404,82 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
           '<a class="bridge-uni" href="'+escAttr(st.uniswap)+'" target="_blank" rel="noopener"><span>Need '+escHtml(tick)+' on Robinhood? Get it on Uniswap</span><span>↗</span></a>'+
           '<div class="kv" style="border-top:1px solid var(--line);margin:0 2px"><span style="color:var(--muted)">Destination</span><span class="mono">'+destLine+'</span></div>'+
           cta+
-          '<p class="bridge-note">Secondary wrap. Not RH primary mint.</p>'+
+          note+
         '</div>'+
       '</div>'+
       footerHTML()+'</div>';
+  }
+
+  async function refreshBridgeBal(){
+    if (state.route !== "bridge" || !suiSession.address){
+      state.bridgeBalHuman = "—";
+      return;
+    }
+    try {
+      var st = stockRec(state.bridgeTick);
+      var raw = await coinBalanceOf(suiSession.address, st.suiCoin);
+      state.bridgeBalRaw = raw;
+      state.bridgeBalHuman = fromBaseStr(raw, st.decimals || 18);
+      var el = document.querySelector(".bridge-bal");
+      if (el) el.innerHTML = "bal "+escHtml(state.bridgeBalHuman)+' · <button type="button" data-bridge-max>MAX</button>';
+    } catch (e) {
+      state.bridgeBalHuman = "—";
+      state.bridgeBalRaw = 0n;
+    }
+  }
+  async function doBridgeBurn(){
+    if (state.bridgeBusy) return;
+    var st = stockRec(state.bridgeTick);
+    var btn = $("#bridge-go");
+    try {
+      if (!suiSession.address) { openWalletPicker(); return; }
+      if (!st.suiVault || !st.suiCoin) throw new Error("Vault or coin type missing for "+st.ticker);
+      var amount = toSmallestBig(state.bridgeAmt, st.decimals || 18);
+      if (!(amount > 0n)) throw new Error("Enter an amount to burn");
+      state.bridgeBusy = true;
+      state.bridgeNote = "";
+      state.bridgeNoteErr = false;
+      if (btn){ btn.disabled = true; btn.textContent = "Building…"; }
+      var bal = await coinBalanceOf(suiSession.address, st.suiCoin);
+      if (bal < amount) throw new Error("Need "+fromBaseStr(amount, st.decimals||18)+" "+st.ticker+" wrap. Wallet has "+fromBaseStr(bal, st.decimals||18)+".");
+      var Transaction = await loadTransaction();
+      var tx = new Transaction();
+      tx.setSender(suiSession.address);
+      if (typeof tx.setGasBudget === "function") tx.setGasBudget(50000000);
+      var coinArg = await takeSwapCoin(tx, st.suiCoin, amount);
+      var PKG = window.ARENA_STOCKS_PACKAGE;
+      if (!PKG) throw new Error("ARENA_STOCKS_PACKAGE missing");
+      tx.moveCall({
+        target: PKG + "::bridge::burn",
+        typeArguments: [st.suiCoin],
+        arguments: [tx.object(st.suiVault), coinArg]
+      });
+      if (btn) btn.textContent = "Sign burn…";
+      var result = await walletExec(tx);
+      var digest = txDigest(result);
+      state.bridgeNote = digest
+        ? ("Burned. RedeemBurned emitted — RH unlock watcher picks it up. "+String(digest).slice(0,10)+"…")
+        : "Burned. RedeemBurned emitted for the RH unlock watcher.";
+      state.bridgeNoteErr = false;
+      state.bridgeAmt = "";
+      await refreshBridgeBal();
+      if (state.route === "bridge") renderScreen();
+    } catch (e) {
+      var msg = (e && e.message) ? e.message : String(e || "burn failed");
+      if (/reject|denied|cancelled|canceled/i.test(msg)) msg = "Wallet rejected the burn.";
+      state.bridgeNote = msg;
+      state.bridgeNoteErr = true;
+      if (state.route === "bridge") renderScreen();
+    } finally {
+      state.bridgeBusy = false;
+      if (state.route === "bridge") {
+        var b2 = $("#bridge-go");
+        if (b2 && state.bridgeDir !== "in" && suiSession.address){
+          b2.disabled = false;
+          b2.textContent = "Burn & redeem";
+        }
+      }
+    }
   }
 
   function hashFor(route, sym){
@@ -5163,6 +5253,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     document.documentElement.setAttribute("data-route", state.route);
     paintNav();
     paintWallet();
+    if (state.route === "bridge") refreshBridgeBal();
     paintTicker();
     const q = $("#q");
     if (q) q.value = state.search;
@@ -6688,11 +6779,37 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     const bridgeTick = e.target.closest("[data-bridge-tick]");
     if (bridgeTick){
       state.bridgeTick = bridgeTick.getAttribute("data-bridge-tick") || "NVDA";
-      if (state.route === "bridge") renderScreen();
+      state.bridgeBalHuman = null;
+      if (state.route === "bridge"){ renderScreen(); refreshBridgeBal(); }
+      return;
+    }
+    const bridgeDir = e.target.closest("[data-bridge-dir]");
+    if (bridgeDir){
+      state.bridgeDir = bridgeDir.getAttribute("data-bridge-dir") || "out";
+      state.bridgeNote = "";
+      state.bridgeNoteErr = false;
+      if (state.route === "bridge"){ renderScreen(); refreshBridgeBal(); }
+      return;
+    }
+    if (e.target.closest("[data-bridge-burn]")){
+      doBridgeBurn();
       return;
     }
     if (e.target.closest("[data-bridge-max]")){
-      state.bridgeAmt = "";
+      if (state.bridgeDir === "in"){
+        state.bridgeAmt = "";
+      } else {
+        var stMax = stockRec(state.bridgeTick);
+        var raw = state.bridgeBalRaw;
+        if (raw == null){
+          refreshBridgeBal().then(function(){
+            state.bridgeAmt = fromBaseStr(state.bridgeBalRaw || 0n, stMax.decimals || 18);
+            if (state.route === "bridge") renderScreen();
+          });
+          return;
+        }
+        state.bridgeAmt = fromBaseStr(raw || 0n, stMax.decimals || 18);
+      }
       if (state.route === "bridge") renderScreen();
       return;
     }
