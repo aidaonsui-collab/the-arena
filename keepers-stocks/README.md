@@ -26,7 +26,7 @@ npx tsx src/cli.ts webhook
 
 ```bash
 export RH_RPC=https://rpc.mainnet.chain.robinhood.com
-export RH_VAULT_ADDRESS=0x…          # StockLockVault
+export RH_VAULT_ADDRESS=0xB0DbeAa279A4D1c5BBB67f7083a3C5445Af3c058  # StockLockVault (RH mainnet 4663)
 # optional: RH_WATCH_POLL_MS=15000 RH_WATCH_LOOKBACK=2000 RH_WATCH_LOOP=1
 npx tsx src/cli.ts watch-rh
 ```

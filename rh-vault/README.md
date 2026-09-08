@@ -4,6 +4,13 @@ Lock vault for **RH → Sui** stock wrap on [The Arena](../). Users deposit allo
 
 Sui wrap package (live): `0x0f01d0b041f98c02a29c8d1efffd03d60db42b3a20f5899ff5e0f663f0ea09db`
 
+
+## Published (mainnet 4663)
+
+- **RH_VAULT_ADDRESS**: [`0xB0DbeAa279A4D1c5BBB67f7083a3C5445Af3c058`](https://robinhoodchain.blockscout.com/address/0xB0DbeAa279A4D1c5BBB67f7083a3C5445Af3c058)
+- **Create tx**: [`0x971feabc20d09c63cbb738226a234aa48f48aad84dc094b2b99cc02b2e95d27d`](https://robinhoodchain.blockscout.com/tx/0x971feabc20d09c63cbb738226a234aa48f48aad84dc094b2b99cc02b2e95d27d)
+- Details: [`PUBLISHED.md`](./PUBLISHED.md)
+
 ## Chain
 
 | Network | chainId | RPC | Explorer |
@@ -62,7 +69,7 @@ After deploy, set keeper env:
 
 ```bash
 export RH_RPC=https://rpc.mainnet.chain.robinhood.com
-export RH_VAULT_ADDRESS=0x…   # StockLockVault address
+export RH_VAULT_ADDRESS=0xB0DbeAa279A4D1c5BBB67f7083a3C5445Af3c058   # StockLockVault address
 ```
 
 ## Roles
@@ -167,7 +174,7 @@ const receipt = await tx.wait();
 
 ```bash
 export RH_RPC=https://rpc.mainnet.chain.robinhood.com
-export RH_VAULT_ADDRESS=0x…
+export RH_VAULT_ADDRESS=0xB0DbeAa279A4D1c5BBB67f7083a3C5445Af3c058
 export RH_WATCH_POLL_MS=15000   # optional
 npx tsx src/cli.ts watch-rh
 ```
