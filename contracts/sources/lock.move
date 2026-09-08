@@ -1,8 +1,10 @@
 /// Time vault for graduated bonding-curve liquidity.
 ///
 /// Two production-adjacent paths:
-/// 1. `lock_graduated_lp` — raw remaining `token_reserve` + `quote_reserve` into a
-///    shared `LpLock<T, Q>`. Kept for tests and as a fallback.
+/// 1. `lock_graduated_lp_admin` — raw remaining `token_reserve` + `quote_reserve`
+///    into a shared `LpLock<T, Q>`. AdminCap-gated fallback. The old
+///    permissionless `lock_graduated_lp` raced the Bluefin seed for the same
+///    one-shot `lp_locked` flag; it is retired and aborts.
 /// 2. `seed_and_lock_bluefin` / `seed_and_lock_bluefin_with_fee` — production path.
 ///    Permissionless after graduation: drain curve reserves, create a Bluefin Spot
 ///    pool, seed full-range liquidity at the curve spot, share the pool, and
@@ -60,17 +62,30 @@ public struct BluefinPositionLock has key {
     unlock_ms: u64,
 }
 
-/// Permissionless. Moves remaining curve balances into a shared vault. Once only.
-/// Fallback / test path — production calls `seed_and_lock_bluefin*`.
+/// Retired. `take_reserves_for_lock` can only ever run once, so this raced
+/// `seed_and_lock_bluefin` for the same one-shot flag — even when creator-gated,
+/// a griefing / delayed-rug path remains. Use `lock_graduated_lp_admin`.
 public fun lock_graduated_lp<T, Q>(
+    _pool: &mut Pool<T, Q>,
+    _config: &Config,
+    _clock: &Clock,
+    _ctx: &mut TxContext,
+) {
+    abort errors::retired()
+}
+
+/// AdminCap-gated fallback vault, for a graduation that cannot be seeded on
+/// Bluefin. Moves remaining curve balances into a shared vault. Once only.
+/// Production path is `seed_and_lock_bluefin*`.
+public fun lock_graduated_lp_admin<T, Q>(
     pool: &mut Pool<T, Q>,
     config: &Config,
+    _: &AdminCap,
     clock: &Clock,
     ctx: &mut TxContext,
 ) {
     let pool_id = object::id(pool);
     let beneficiary = pool.creator();
-    assert!(ctx.sender() == beneficiary, errors::not_creator());
     let (token, quote) = pool::take_reserves_for_lock(pool);
     let token_amount = token.value();
     let quote_amount = quote.value();
@@ -416,7 +431,7 @@ public(package) fun collect_lp_fees_return_token<A, B>(
         config.std_pit_bps(),
     );
     config::take_platform(config, bal_b.split(platform_amt));
-    pit::take_fee(pit, bal_b.split(pit_amt));
+    pit::take_fee_internal(pit, bal_b.split(pit_amt));
     events::emit_collect_lp_fees(
         object::id(lock),
         beneficiary,

@@ -30,6 +30,18 @@ const E_WRONG_PIT: u64 = 25;
 const E_PIT_NOT_REGISTERED: u64 = 26;
 const E_WRONG_POOL: u64 = 27;
 const E_STILL_BURNABLE: u64 = 28;
+/// A public entrypoint that was reachable by anyone has been retired. The
+/// signature stays for `Compatible` upgrade linkage; the body aborts here and
+/// the real logic moved to a `public(package)` twin.
+const E_RETIRED: u64 = 29;
+/// Seller has no registry weight for the amount being sold.
+const E_UNREGISTERED_SELLER: u64 = 30;
+/// Nothing to distribute to: the pool has zero registered supply.
+const E_NO_HOLDERS: u64 = 31;
+/// The pool's curve reserves are already vaulted, so it cannot absorb a burn.
+const E_RESERVES_LOCKED: u64 = 32;
+/// A config value outside the range the protocol can operate on.
+const E_BAD_PARAM: u64 = 33;
 
 public fun paused(): u64 { E_PAUSED }
 public fun invalid_fee(): u64 { E_INVALID_FEE }
@@ -59,3 +71,8 @@ public fun wrong_pit(): u64 { E_WRONG_PIT }
 public fun pit_not_registered(): u64 { E_PIT_NOT_REGISTERED }
 public fun wrong_pool(): u64 { E_WRONG_POOL }
 public fun still_burnable(): u64 { E_STILL_BURNABLE }
+public fun retired(): u64 { E_RETIRED }
+public fun unregistered_seller(): u64 { E_UNREGISTERED_SELLER }
+public fun no_holders(): u64 { E_NO_HOLDERS }
+public fun reserves_locked(): u64 { E_RESERVES_LOCKED }
+public fun bad_param(): u64 { E_BAD_PARAM }

@@ -1,12 +1,14 @@
 /**
- * Permissionless `pit::ring` once Clock >= round_end_ms and the previous winner is settled.
+ * Permissionless `config::ring_pit` once Clock >= round_end_ms and the previous winner is settled.
+ * Takes the Pit, Config and Clock; the round length comes from Config, not the
+ * caller. The old `pit::ring` took `round_ms` as an argument and is retired.
  */
 import { Transaction } from "@mysten/sui/transactions";
 import { CALL_PKG, CLOCK, CONFIG, PIT_SUI, PIT_XAUM, SUI, XAUM, objectFields } from "../chain.ts";
 import { loadSigner } from "../loadSigner.ts";
 import { client } from "../sui.ts";
 
-async function ringOne(pitId: string, quote: string, roundMs: string) {
+async function ringOne(pitId: string, quote: string) {
   const pit = await objectFields(pitId);
   if (!pit) return { pitId, skipped: true, reason: "pit missing" };
   const end = Number(pit.fields.round_end_ms || 0);
@@ -17,9 +19,9 @@ async function ringOne(pitId: string, quote: string, roundMs: string) {
   const kp = loadSigner();
   const tx = new Transaction();
   tx.moveCall({
-    target: `${CALL_PKG}::pit::ring`,
+    target: `${CALL_PKG}::config::ring_pit`,
     typeArguments: [quote],
-    arguments: [tx.object(pitId), tx.pure.u64(BigInt(roundMs)), tx.object(CLOCK)],
+    arguments: [tx.object(pitId), tx.object(CONFIG), tx.object(CLOCK)],
   });
   const sent = await client().signAndExecuteTransaction({
     signer: kp,
@@ -39,10 +41,10 @@ export async function runRingPit() {
     [PIT_XAUM, XAUM],
   ] as const) {
     try {
-      results.push(await ringOne(id, quote, roundMs));
+      results.push(await ringOne(id, quote));
     } catch (e) {
       results.push({ pitId: id, error: e instanceof Error ? e.message : String(e) });
     }
   }
-  return { callPackage: CALL_PKG, roundMs, results };
+  return { callPackage: CALL_PKG, fn: `${CALL_PKG}::config::ring_pit`, roundMs, results };
 }
