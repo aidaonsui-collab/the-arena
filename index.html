@@ -4566,7 +4566,79 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       if (state.route === "bridge") renderScreen();
     }
   }
-  async function doBridgeDeposit(){
+  
+  function normSuiAddr(a){
+    a = String(a || "").trim().toLowerCase();
+    if (a.indexOf("0x") !== 0) a = "0x" + a;
+    var hex = a.slice(2).replace(/^0+/, "") || "0";
+    return "0x" + hex.padStart(64, "0");
+  }
+  async function queryStockMinted(limit){
+    var pkg = window.ARENA_STOCKS_PACKAGE;
+    if (!pkg) return [];
+    var rpc = window.SUI_RPC || "https://mainnet.suiet.app";
+    var type = pkg + "::bridge::MintedEvent";
+    var body = {
+      jsonrpc: "2.0", id: 1, method: "suix_queryEvents",
+      params: [{ MoveEventType: type }, null, limit || 25, true]
+    };
+    var res = await fetch(rpc, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(body)
+    });
+    if (!res.ok) throw new Error("Sui RPC " + res.status);
+    var j = await res.json();
+    if (j.error) throw new Error(j.error.message || "queryEvents failed");
+    return ((j.result && j.result.data) || []).map(function(ev){
+      var pj = ev.parsedJson || {};
+      return {
+        recipient: String(pj.recipient || ""),
+        amount: pj.amount,
+        ticker: pj.ticker,
+        ts: Number(ev.timestampMs) || 0,
+        digest: (ev.id && ev.id.txDigest) || ""
+      };
+    });
+  }
+  async function waitForStockMint(opts){
+    opts = opts || {};
+    var want = normSuiAddr(opts.recipient);
+    var wantAmt = opts.amount != null ? BigInt(String(opts.amount)) : null;
+    var since = opts.sinceMs || (Date.now() - 5000);
+    var deadline = Date.now() + (opts.timeoutMs || 120000);
+    var tick = String(opts.ticker || "").toUpperCase();
+    while (Date.now() < deadline){
+      try {
+        var rows = await queryStockMinted(40);
+        for (var i = 0; i < rows.length; i++){
+          var r = rows[i];
+          if (r.ts && r.ts + 2000 < since) continue;
+          if (normSuiAddr(r.recipient) !== want) continue;
+          if (wantAmt != null && BigInt(String(r.amount || 0)) !== wantAmt) continue;
+          // ticker is vector<u8> in event — may arrive as number[] or string
+          if (tick){
+            var tk = r.ticker;
+            var tks = "";
+            if (typeof tk === "string") tks = tk;
+            else if (Array.isArray(tk)) tks = String.fromCharCode.apply(null, tk.map(Number));
+            if (tks && tks.toUpperCase() !== tick) continue;
+          }
+          return r;
+        }
+      } catch (e) {}
+      state.bridgeNote = "Locked on RH. Waiting for keeper MintedEvent…";
+      state.bridgeNoteErr = false;
+      if (state.route === "bridge"){
+        var noteEl = document.querySelector(".bridge-note");
+        if (noteEl){ noteEl.style.color = "var(--muted)"; noteEl.textContent = state.bridgeNote; }
+      }
+      await new Promise(function(r){ setTimeout(r, 5000); });
+    }
+    return null;
+  }
+
+async function doBridgeDeposit(){
     if (state.bridgeBusy) return;
     var st = stockRec(state.bridgeTick);
     var btn = $("#bridge-go");
@@ -4620,12 +4692,29 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       var depositTx = await vault.deposit(st.rhToken, amount, suiRecipient);
       var depositRc = await depositTx.wait();
       var depositHash = (depositRc && depositRc.hash) || depositTx.hash || "";
-      var noteParts = ["Locked on RH. Keeper mints Sui wrap."];
+      var noteParts = ["Locked on RH. Waiting for keeper mint…"];
       if (approveHash) noteParts.push("approve "+String(approveHash).slice(0,10)+"…");
       if (depositHash) noteParts.push("deposit "+String(depositHash).slice(0,10)+"…");
       state.bridgeNote = noteParts.join(" ");
       state.bridgeNoteErr = false;
       state.bridgeAmt = "";
+      if (state.route === "bridge") renderScreen();
+      if (btn) btn.textContent = "Waiting for mint…";
+      var minted = await waitForStockMint({
+        recipient: suiSession.address,
+        amount: amount,
+        ticker: st.ticker,
+        sinceMs: Date.now() - 15000,
+        timeoutMs: 180000
+      });
+      if (minted){
+        state.bridgeNote = "Minted on Sui. Wrap balance updated."+(minted.digest ? (" "+String(minted.digest).slice(0,10)+"…") : "");
+        state.bridgeNoteErr = false;
+        state.bridgeDir = "out";
+      } else {
+        state.bridgeNote = "Lock landed, but MintedEvent not seen yet. Keeper may still be catching up — refresh Bridge shortly.";
+        state.bridgeNoteErr = false;
+      }
       await refreshBridgeBal();
       if (state.route === "bridge") renderScreen();
     } catch (e) {
