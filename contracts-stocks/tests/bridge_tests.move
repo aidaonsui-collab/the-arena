@@ -19,7 +19,7 @@ fun mint_then_burn_supply_zero() {
 
     assert!(bridge::total_supply(&vault) == 0, 0);
 
-    let amount = 1_000_000_000_000_000_000; // 1 NVDA @ 18 decimals
+    let amount = 1_000_000_000; // 1 NVDA @ 9 decimals
     bridge::mint(
         &mut vault,
         &minter,
@@ -77,6 +77,84 @@ fun minter_bound_to_vault_id() {
     transfer::public_freeze_object(metadata);
     assert!(bridge::vault_id_of_minter(&minter) == bridge::vault_id(&vault), 0);
     assert!(bridge::ticker(&vault) == b"NVDA", 1);
+    bridge::destroy_minter_for_testing(minter);
+    bridge::destroy_vault_for_testing(vault, scenario.ctx());
+    scenario.end();
+}
+
+/// BRG-02: the same RH lock must not mint twice, even if the attestor asks.
+#[test]
+#[expected_failure(abort_code = stocks::bridge::EAlreadyMinted)]
+fun replaying_an_rh_ref_aborts() {
+    let mut scenario = ts::begin(ADMIN);
+    let (mut vault, minter, metadata) = nvda::init_vault_for_testing(scenario.ctx());
+    transfer::public_freeze_object(metadata);
+
+    let rh_ref = b"0xdeadbeef:7";
+    bridge::mint(&mut vault, &minter, 1_000_000_000, USER, rh_ref, scenario.ctx());
+    assert!(bridge::is_minted(&vault, rh_ref), 0);
+
+    // A restart on an empty dedupe store, or a second watcher, replays this.
+    bridge::mint(&mut vault, &minter, 1_000_000_000, USER, rh_ref, scenario.ctx());
+
+    abort 42
+}
+
+/// An empty rh_ref cannot be deduplicated, so it is refused outright.
+#[test]
+#[expected_failure(abort_code = stocks::bridge::EEmptyRhRef)]
+fun empty_rh_ref_aborts() {
+    let mut scenario = ts::begin(ADMIN);
+    let (mut vault, minter, metadata) = nvda::init_vault_for_testing(scenario.ctx());
+    transfer::public_freeze_object(metadata);
+    bridge::mint(&mut vault, &minter, 1_000_000_000, USER, b"", scenario.ctx());
+    abort 42
+}
+
+/// Distinct locks still mint independently, and the guard tracks each one.
+#[test]
+fun distinct_rh_refs_both_mint() {
+    let mut scenario = ts::begin(ADMIN);
+    let (mut vault, minter, metadata) = nvda::init_vault_for_testing(scenario.ctx());
+    transfer::public_freeze_object(metadata);
+
+    assert!(!bridge::is_minted(&vault, b"lock-1"), 0);
+    bridge::mint(&mut vault, &minter, 1_000_000_000, USER, b"lock-1", scenario.ctx());
+    bridge::mint(&mut vault, &minter, 2_000_000_000, USER, b"lock-2", scenario.ctx());
+
+    assert!(bridge::is_minted(&vault, b"lock-1"), 1);
+    assert!(bridge::is_minted(&vault, b"lock-2"), 2);
+    assert!(!bridge::is_minted(&vault, b"lock-3"), 3);
+    assert!(bridge::total_supply(&vault) == 3_000_000_000, 4);
+
+    scenario.next_tx(USER);
+    let a = scenario.take_from_sender<Coin<NVDA>>();
+    let b = scenario.take_from_sender<Coin<NVDA>>();
+    bridge::burn(&mut vault, a, scenario.ctx());
+    bridge::burn(&mut vault, b, scenario.ctx());
+
+    bridge::destroy_minter_for_testing(minter);
+    bridge::destroy_vault_for_testing(vault, scenario.ctx());
+    scenario.end();
+}
+
+/// BRG-01: a realistic position fits now. At 18 decimals, 100 shares was
+/// 1e20 base units — over u64 max — so the mint was refused and the RH
+/// deposit sat locked with nothing issued.
+#[test]
+fun a_hundred_shares_fits_in_u64() {
+    let mut scenario = ts::begin(ADMIN);
+    let (mut vault, minter, metadata) = nvda::init_vault_for_testing(scenario.ctx());
+    transfer::public_freeze_object(metadata);
+
+    let hundred_shares = 100_000_000_000; // 100 @ 9dp
+    bridge::mint(&mut vault, &minter, hundred_shares, USER, b"lock-big", scenario.ctx());
+    assert!(bridge::total_supply(&vault) == hundred_shares, 0);
+
+    scenario.next_tx(USER);
+    let c = scenario.take_from_sender<Coin<NVDA>>();
+    bridge::burn(&mut vault, c, scenario.ctx());
+
     bridge::destroy_minter_for_testing(minter);
     bridge::destroy_vault_for_testing(vault, scenario.ctx());
     scenario.end();

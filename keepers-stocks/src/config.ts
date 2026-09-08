@@ -18,6 +18,8 @@ export const DEFAULT_RH_VAULT_ADDRESS =
 
 /** Sui Move u64 max — RH amounts above this cannot be minted as-is. */
 export const U64_MAX = (1n << 64n) - 1n;
+/** RH stock tokens are 18dp; Sui wrappers are 9dp. Divide RH base units by this. */
+export const RH_TO_SUI_SCALE = 10n ** 9n;
 
 export type Ticker = "NVDA" | "AMC" | "GME" | "TSLA";
 
