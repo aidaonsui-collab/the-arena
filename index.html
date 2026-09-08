@@ -605,6 +605,15 @@ window.ARENA_PIT_SUI = "0x8ec38e9bcac0838bf474680e71d0c3f302f4ea2f757d759b7b3997
 window.ARENA_PIT_XAUM = "0xa8a391bf380914c04be5deb478474b42754a5aa8c29c0955f267d73190a98783";
 window.ARENA_PIT_USDY = window.ARENA_PIT_USDY || "";
 window.ARENA_PIT_XAGM = window.ARENA_PIT_XAGM || "";
+window.ARENA_STOCKS_PACKAGE = "0x0f01d0b041f98c02a29c8d1efffd03d60db42b3a20f5899ff5e0f663f0ea09db";
+window.ARENA_STOCK_NVDA_TYPE = window.ARENA_STOCKS_PACKAGE + "::nvda::NVDA";
+window.ARENA_STOCK_AMC_TYPE = window.ARENA_STOCKS_PACKAGE + "::amc::AMC";
+window.ARENA_STOCK_GME_TYPE = window.ARENA_STOCKS_PACKAGE + "::gme::GME";
+window.ARENA_STOCK_TSLA_TYPE = window.ARENA_STOCKS_PACKAGE + "::tsla::TSLA";
+window.ARENA_STOCK_NVDA_METADATA = "0xdc869b6282ec456089b68c92fab602054bb6315602b08f4664b204f5bdd60683";
+window.ARENA_STOCK_AMC_METADATA = "0x06a18ab1fa5f6170b46752cfdec7739b609cb35adadfcc18d5f57d23c00625ac";
+window.ARENA_STOCK_GME_METADATA = "0x81cc6fd95c21880cfae8d73e089ed1ea6d40ccbe2500c4bc0c1c4e125e3e8bfe";
+window.ARENA_STOCK_TSLA_METADATA = "0x63f7e1a16f8fa1b2289f662692b09105ef7bd9e7d5867980597ec9af9e02b74e";
 window.SUI_RPC = window.SUI_RPC || "https://mainnet.suiet.app";
 window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graphql";
 </script>
@@ -738,19 +747,21 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     SUI: { label:"SUI", type:SUI_TYPE, metadata:window.ARENA_SUI_METADATA, decimals:9, name:"Sui", what:"Native Sui", create:true, chips:["0.5","1","5","10","Max"], virtualHuman:"≈ $3.5k", pit:window.ARENA_PIT_SUI, color:"#4DA2FF" },
     USDY: { label:"USDY", type:window.ARENA_USDY_TYPE, metadata:window.ARENA_USDY_METADATA, decimals:6, name:"Ondo US Dollar Yield", what:"Ondo tokenized US Treasury bills", create:true, chips:["1","5","10","25","Max"], virtualHuman:"≈ $3.5k", pit:window.ARENA_PIT_USDY, color:"#3ECF8E" },
     XAGM: { label:"XAGM", type:window.ARENA_XAGM_TYPE, metadata:window.ARENA_XAGM_METADATA, decimals:9, name:"Matrixdock Silver", what:"Matrixdock silver, 1 oz", create:true, chips:["0.01","0.05","0.1","0.25","Max"], virtualHuman:"≈ $3.5k", pit:window.ARENA_PIT_XAGM, color:"#C0C7D1" },
-    XAUM: { label:"XAUM", type:window.ARENA_XAUM_TYPE, metadata:window.ARENA_XAUM_METADATA, decimals:9, name:"Matrixdock Gold", what:"Matrixdock gold, 1 oz", create:true, chips:["0.01","0.05","0.1","0.25","Max"], virtualHuman:"≈ $3.5k", pit:window.ARENA_PIT_XAUM, color:"#C9A97E" }
+    XAUM: { label:"XAUM", type:window.ARENA_XAUM_TYPE, metadata:window.ARENA_XAUM_METADATA, decimals:9, name:"Matrixdock Gold", what:"Matrixdock gold, 1 oz", create:true, chips:["0.01","0.05","0.1","0.25","Max"], virtualHuman:"≈ $3.5k", pit:window.ARENA_PIT_XAUM, color:"#C9A97E" },
+    NVDA: { label:"NVDA", type:window.ARENA_STOCK_NVDA_TYPE, metadata:window.ARENA_STOCK_NVDA_METADATA, decimals:18, name:"NVIDIA wrap", what:"RH→Sui stock wrap (NVDA)", create:true, stock:true, chips:["0.01","0.1","1","5","Max"], virtualHuman:"≈ $3.5k", pit:"", color:"#76B900" },
+    AMC:  { label:"AMC",  type:window.ARENA_STOCK_AMC_TYPE,  metadata:window.ARENA_STOCK_AMC_METADATA,  decimals:18, name:"AMC wrap", what:"RH→Sui stock wrap (AMC)", create:true, stock:true, chips:["0.01","0.1","1","5","Max"], virtualHuman:"≈ $3.5k", pit:"", color:"#E11D2E" },
+    GME:  { label:"GME",  type:window.ARENA_STOCK_GME_TYPE,  metadata:window.ARENA_STOCK_GME_METADATA,  decimals:18, name:"GME wrap", what:"RH→Sui stock wrap (GME)", create:true, stock:true, chips:["0.01","0.1","1","5","Max"], virtualHuman:"≈ $3.5k", pit:"", color:"#EF4444" },
+    TSLA: { label:"TSLA", type:window.ARENA_STOCK_TSLA_TYPE, metadata:window.ARENA_STOCK_TSLA_METADATA, decimals:18, name:"Tesla wrap", what:"RH→Sui stock wrap (TSLA)", create:true, stock:true, chips:["0.01","0.1","1","5","Max"], virtualHuman:"≈ $3.5k", pit:"", color:"#CC0000" }
   };
-  var CREATE_QUOTES = ["SUI","USDY","XAGM","XAUM"];
+  var CREATE_QUOTES = ["SUI","USDY","XAGM","XAUM","NVDA","AMC","GME","TSLA"];
 
   // Secondary wrap only: RH stock → vault lock → 1:1 Sui mint. Not RH primary mint.
-  // TODO(Arena Code): replace placeholder addresses with live RH vault + Sui wrapped coin types.
-  // Later Create will surface these wrappers as Instadex quote chips beside SUI/XAUM (see CREATE_QUOTES).
+  // Live package 0x0f01d0b041f98c02a29c8d1efffd03d60db42b3a20f5899ff5e0f663f0ea09db (see contracts-stocks/PUBLISHED.md).
   var STOCKS = {
-    // rhToken = From-side RH/Arc stock token (Arena Code). Vault + Sui wrap still placeholders.
-    NVDA: { ticker:"NVDA", name:"NVIDIA", rhToken:"0xd0601CE157Db5bdC3162BbaC2a2C8aF5320D9EEC", suiCoin:"0xSTOCK0000000000000000000000000000000000000000000000000000nvda", rhVault:"0xVAULT0000000000000000000000000000000000000000000000000000nvda", rhExplorer:"https://explorer.robinhood.com/address/0xd0601CE157Db5bdC3162BbaC2a2C8aF5320D9EEC", uniswap:"https://app.uniswap.org/explore/tokens/ethereum/0xb8ce59fc3717ada4c02eadf9682a9e934f625ebb" },
-    AMC:  { ticker:"AMC",  rhToken:"", name:"AMC",    suiCoin:"0xSTOCK00000000000000000000000000000000000000000000000000000amc", rhVault:"0xVAULT00000000000000000000000000000000000000000000000000000amc", rhExplorer:"https://explorer.robinhood.com/address/0xVAULT00000000000000000000000000000000000000000000000000000amc", uniswap:"https://app.uniswap.org/" },
-    GME:  { ticker:"GME",  rhToken:"", name:"GME",    suiCoin:"0xSTOCK00000000000000000000000000000000000000000000000000000gme", rhVault:"0xVAULT00000000000000000000000000000000000000000000000000000gme", rhExplorer:"https://explorer.robinhood.com/address/0xVAULT00000000000000000000000000000000000000000000000000000gme", uniswap:"https://app.uniswap.org/" },
-    TSLA: { ticker:"TSLA", rhToken:"", name:"Tesla",  suiCoin:"0xSTOCK0000000000000000000000000000000000000000000000000000tsla", rhVault:"0xVAULT0000000000000000000000000000000000000000000000000000tsla", rhExplorer:"https://explorer.robinhood.com/address/0xVAULT0000000000000000000000000000000000000000000000000000tsla", uniswap:"https://app.uniswap.org/" }
+    NVDA: { ticker:"NVDA", name:"NVIDIA", rhToken:"0xd0601CE157Db5bdC3162BbaC2a2C8aF5320D9EEC", suiCoin:"0x0f01d0b041f98c02a29c8d1efffd03d60db42b3a20f5899ff5e0f663f0ea09db::nvda::NVDA", suiVault:"0xc221abc5c9f94ae90cb02db643ffa532db5944afac3d1d5006a74987dc52727d", metadata:"0xdc869b6282ec456089b68c92fab602054bb6315602b08f4664b204f5bdd60683", rhExplorer:"https://explorer.robinhood.com/address/0xd0601CE157Db5bdC3162BbaC2a2C8aF5320D9EEC", uniswap:"https://app.uniswap.org/explore/tokens/ethereum/0xb8ce59fc3717ada4c02eadf9682a9e934f625ebb", decimals:18 },
+    AMC:  { ticker:"AMC",  name:"AMC",    rhToken:"", suiCoin:"0x0f01d0b041f98c02a29c8d1efffd03d60db42b3a20f5899ff5e0f663f0ea09db::amc::AMC", suiVault:"0xb2b480f907479831aedb115fa1f10e0acc81f00a5f44bab0507358e431ae22cf", metadata:"0x06a18ab1fa5f6170b46752cfdec7739b609cb35adadfcc18d5f57d23c00625ac", rhExplorer:"", uniswap:"https://app.uniswap.org/", decimals:18 },
+    GME:  { ticker:"GME",  name:"GME",    rhToken:"", suiCoin:"0x0f01d0b041f98c02a29c8d1efffd03d60db42b3a20f5899ff5e0f663f0ea09db::gme::GME", suiVault:"0xc743951e4330499438635579a2049b28af65068fb9d5c4af3e5618229ac6cfa2", metadata:"0x81cc6fd95c21880cfae8d73e089ed1ea6d40ccbe2500c4bc0c1c4e125e3e8bfe", rhExplorer:"", uniswap:"https://app.uniswap.org/", decimals:18 },
+    TSLA: { ticker:"TSLA", name:"Tesla",  rhToken:"", suiCoin:"0x0f01d0b041f98c02a29c8d1efffd03d60db42b3a20f5899ff5e0f663f0ea09db::tsla::TSLA", suiVault:"0xef39c0154e56c5c4159aa0dd12332d48f8f8c843142787a7d4dbd59b0587a4c5", metadata:"0x63f7e1a16f8fa1b2289f662692b09105ef7bd9e7d5867980597ec9af9e02b74e", rhExplorer:"", uniswap:"https://app.uniswap.org/", decimals:18 }
   };
   var STOCK_TICKERS = ["NVDA","AMC","GME","TSLA"];
   function stockRec(t){
@@ -2621,7 +2632,15 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   }
   function shortAddr(a){
     if (!a) return "0x…";
-    if (String(a).indexOf("…") >= 0) return a;
+    a = String(a);
+    if (a.indexOf("…") >= 0) return a;
+    if (a.indexOf("::") >= 0){
+      var parts = a.split("::");
+      var pkg = parts[0];
+      var tail = parts.slice(1).join("::");
+      if (pkg.length > 12) pkg = pkg.slice(0,6)+"…"+pkg.slice(-4);
+      return pkg+"::"+tail;
+    }
     if (a.length <= 12) return a;
     return a.slice(0,6)+"…"+a.slice(-4);
   }
@@ -4359,10 +4378,10 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
             '<div class="kv"><span style="color:var(--muted)">'+escHtml(tick)+' on Sui</span>'+
               '<span><span class="mono">'+escHtml(shortAddr(st.suiCoin))+'</span>'+
               '<button type="button" class="bridge-copy" data-copy="'+escAttr(st.suiCoin)+'" title="Copy">⧉</button></span></div>'+
-            '<div class="kv"><span style="color:var(--muted)">'+escHtml(tick)+' vault on Robinhood</span>'+
-              '<span><a href="'+escAttr(st.rhExplorer)+'" target="_blank" rel="noopener">explorer ↗</a> '+
-              '<span class="mono">'+escHtml(shortAddr(st.rhVault))+'</span>'+
-              '<button type="button" class="bridge-copy" data-copy="'+escAttr(st.rhVault)+'" title="Copy">⧉</button></span></div>'+
+            '<div class="kv"><span style="color:var(--muted)">'+escHtml(tick)+' vault on Sui</span>'+
+              '<span><a href="https://suiscan.xyz/mainnet/object/'+escAttr(st.suiVault)+'" target="_blank" rel="noopener">suiscan ↗</a> '+
+              '<span class="mono">'+escHtml(shortAddr(st.suiVault))+'</span>'+
+              '<button type="button" class="bridge-copy" data-copy="'+escAttr(st.suiVault)+'" title="Copy">⧉</button></span></div>'+
           '</div>'+
           '<a class="bridge-uni" href="'+escAttr(st.uniswap)+'" target="_blank" rel="noopener"><span>Need '+escHtml(tick)+' on Robinhood? Get it on Uniswap</span><span>↗</span></a>'+
           '<div class="kv" style="border-top:1px solid var(--line);margin:0 2px"><span style="color:var(--muted)">Destination</span><span class="mono">'+destLine+'</span></div>'+

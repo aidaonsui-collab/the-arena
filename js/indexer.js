@@ -49,6 +49,10 @@
     if (s === "USDY" || s === USDY_TYPE || /usdy/i.test(s)) return "USDY";
     if (s === "XAGM" || s === XAGM_TYPE || /xagm/i.test(s)) return "XAGM";
     if (s === "XAUM" || s === XAUM_TYPE || /xaum/i.test(s)) return "XAUM";
+    if (/::nvda::NVDA$/i.test(s) || s === "NVDA") return "NVDA";
+    if (/::amc::AMC$/i.test(s) || s === "AMC") return "AMC";
+    if (/::gme::GME$/i.test(s) || s === "GME") return "GME";
+    if (/::tsla::TSLA$/i.test(s) || s === "TSLA") return "TSLA";
     if (s === "SUI" || s === SUI_TYPE || /::sui::sui$/i.test(s)) return "SUI";
     // Falls back to the type's last segment, which is a Move identifier and so
     // alphanumeric — but this string is rendered, so clamp rather than trust
@@ -58,7 +62,10 @@
   }
 
   function quoteDecimals(quote) {
-    return quoteLabel(quote) === "USDY" ? 6 : 9;
+    var lab = quoteLabel(quote);
+    if (lab === "USDY") return 6;
+    if (lab === "NVDA" || lab === "AMC" || lab === "GME" || lab === "TSLA") return 18;
+    return 9;
   }
 
   function quoteType(quote) {
@@ -66,6 +73,12 @@
     if (lab === "USDY") return USDY_TYPE;
     if (lab === "XAGM") return XAGM_TYPE;
     if (lab === "XAUM") return XAUM_TYPE;
+    if (typeof window !== "undefined") {
+      if (lab === "NVDA" && window.ARENA_STOCK_NVDA_TYPE) return window.ARENA_STOCK_NVDA_TYPE;
+      if (lab === "AMC" && window.ARENA_STOCK_AMC_TYPE) return window.ARENA_STOCK_AMC_TYPE;
+      if (lab === "GME" && window.ARENA_STOCK_GME_TYPE) return window.ARENA_STOCK_GME_TYPE;
+      if (lab === "TSLA" && window.ARENA_STOCK_TSLA_TYPE) return window.ARENA_STOCK_TSLA_TYPE;
+    }
     if (lab === "SUI") return SUI_TYPE;
     return SUI_TYPE;
   }
