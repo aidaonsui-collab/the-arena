@@ -42,7 +42,7 @@ export const STOCKS: Record<Ticker, StockConfig> = {
     coinType: `${PKG}::amc::AMC`,
     vaultId: "0xb2b480f907479831aedb115fa1f10e0acc81f00a5f44bab0507358e431ae22cf",
     minterCapId: "0x4b264731e6ad60edf571d4c841f8a5c8113d6508d587f4e153869d52a535410e",
-    rhToken: "",
+    rhToken: "0x05a3d1Cd21d0C88145E82600E62e7E496e0F222B",
     decimals: 18,
   },
   GME: {
@@ -51,7 +51,7 @@ export const STOCKS: Record<Ticker, StockConfig> = {
     coinType: `${PKG}::gme::GME`,
     vaultId: "0xc743951e4330499438635579a2049b28af65068fb9d5c4af3e5618229ac6cfa2",
     minterCapId: "0xbcbb7c683fe1148a6432c83152516bc86268f8e89d56caab130b663a88dbd342",
-    rhToken: "",
+    rhToken: "0x1b0E319c6A659F002271B69dB8A7df2F911c153E",
     decimals: 18,
   },
   TSLA: {
@@ -60,7 +60,7 @@ export const STOCKS: Record<Ticker, StockConfig> = {
     coinType: `${PKG}::tsla::TSLA`,
     vaultId: "0xef39c0154e56c5c4159aa0dd12332d48f8f8c843142787a7d4dbd59b0587a4c5",
     minterCapId: "0x5661c3f1b77d8ac2facb9bbbf48b1010a6c77ab3f5b55945e9b53295a866ac13",
-    rhToken: "",
+    rhToken: "0x322F0929c4625eD5bAd873c95208D54E1c003b2d",
     decimals: 18,
   },
 };
