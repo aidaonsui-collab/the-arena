@@ -556,6 +556,14 @@ html.shot,html.shot *{animation:none!important;transition:none!important}
 .bridge-wallets button{border:0;background:transparent;color:var(--sui);font:inherit;cursor:pointer;padding:0}
 .bridge-wallets button:hover{color:var(--ink)}
 .bridge-wallets .mono{color:var(--ink)}
+.bridge-dest-field{border-top:1px solid var(--line);margin:10px 2px 0;padding-top:12px}
+.bridge-dest-lab{color:var(--muted);font-size:13px;margin-bottom:6px;display:flex;gap:6px;align-items:center}
+.bridge-dest-req{color:var(--pink);font-size:11px;font-weight:600;letter-spacing:.03em;text-transform:uppercase}
+.bridge-dest-input{width:100%;box-sizing:border-box;background:#140e14;border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:13px;color:var(--ink);outline:none}
+.bridge-dest-input::placeholder{color:var(--muted);opacity:.8}
+.bridge-dest-input:focus{border-color:var(--sui)}
+.bridge-dest-input.bad{border-color:var(--pink)}
+.bridge-dest-hint{margin:6px 0 0;font-size:12px;color:var(--muted);line-height:1.4}
 @media (max-width:720px){
   .bridge-wrap{max-width:none}
   .bridge-card{padding:14px 12px 12px;border-radius:20px}
@@ -734,7 +742,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   var pitStatePollAt = 0;
   let balance = 48.60;
   let xaumBal = 2.40;
-  const state = {route:"explore", sym:"VOLT", filter:"All", sort:"Market cap", time:"All", side:"Buy", amt:"1", connected:false, search:"", lName:"", lTick:"", lQuote:"SUI", lPath:"instadex", lMode:"Holders", lTokenAmt:"", lQuoteAmt:"", lFirstBuy:"1", lCap:"", lTokenCoin:"", lQuoteCoin:"", lCoinMode:"create", lDecimals:"9", lSupply:"1000000000", lDesc:"", lX:"", lTg:"", lWeb:"", lPublishedType:"", metricsWindow:"All", tapeTab:"trades", tapeOpen:"", tapePage:0, tapeAge:"age", tapeWallet:"", tapeFilterOpen:false, lFile:null, lArtUrl:"", lArtPreview:"", payWith:"SUI", lNote:"", lNoteErr:false, chartTf:900, chartInd:{vol:true,ma7:true,ma25:true,ma99:false,ema:false}, bridgeTick:"NVDA", bridgeAmt:"", bridgeDir:"in", bridgeNote:"", bridgeBusy:false, quoteOpen:false};
+  const state = {route:"explore", sym:"VOLT", filter:"All", sort:"Market cap", time:"All", side:"Buy", amt:"1", connected:false, search:"", lName:"", lTick:"", lQuote:"SUI", lPath:"instadex", lMode:"Holders", lTokenAmt:"", lQuoteAmt:"", lFirstBuy:"1", lCap:"", lTokenCoin:"", lQuoteCoin:"", lCoinMode:"create", lDecimals:"9", lSupply:"1000000000", lDesc:"", lX:"", lTg:"", lWeb:"", lPublishedType:"", metricsWindow:"All", tapeTab:"trades", tapeOpen:"", tapePage:0, tapeAge:"age", tapeWallet:"", tapeFilterOpen:false, lFile:null, lArtUrl:"", lArtPreview:"", payWith:"SUI", lNote:"", lNoteErr:false, chartTf:900, chartInd:{vol:true,ma7:true,ma25:true,ma99:false,ema:false}, bridgeTick:"NVDA", bridgeAmt:"", bridgeDir:"in", bridgeRhDest:"", bridgeNote:"", bridgeBusy:false, quoteOpen:false};
   var metaEdit = { open: false, saving: false, file: null, preview: "", artUrl: "", note: "", err: false, name: "", desc: "", x: "", tg: "", web: "", creator: "", openedCreator: "" };
   let hashLock = false;
   const hop = { suiPerXaum: null, suiPerUsdy: null, suiPerXagm: null, usd: null, suiUsd: null, usdyUsd: null, xagmUsd: null, xaumUsd: null, source: "" };
@@ -853,6 +861,9 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     return eth || null;
   }
   function hasEvmWallet(){ return !!evmProvider(); }
+  /// A 0x-prefixed 20-byte hex address — the shape `bridge::burn`'s rh_dest
+  /// argument requires. Doesn't check EIP-55 checksum casing, only shape.
+  function isEvmAddr(s){ return /^0x[0-9a-fA-F]{40}$/.test(String(s || "").trim()); }
   async function evmRequest(method, params){
     var p = evmProvider();
     if (!p || typeof p.request !== "function") throw new Error("No EVM wallet found. Install MetaMask, Rabby, or Coinbase Wallet.");
@@ -909,6 +920,12 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     if (!addr) throw new Error("EVM wallet returned no account");
     evmSession.address = addr;
     try { localStorage.setItem(EVM_PREF_KEY, JSON.stringify({ address: addr })); } catch (e) {}
+    // Convenience default for the redeem destination — still a plain
+    // editable field, not a binding source of truth. Only auto-fill if the
+    // user hasn't typed anything themselves, so this never clobbers an
+    // address they entered on purpose (e.g. releasing to a different
+    // wallet than the one they happened to connect).
+    if (!state.bridgeRhDest) state.bridgeRhDest = addr;
     state.bridgeNote = "";
     state.bridgeNoteErr = false;
     if (state.route === "bridge"){ renderScreen(); refreshBridgeBal(); }
@@ -1957,6 +1974,21 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     if (tx.pure && typeof tx.pure[kind] === "function") return tx.pure[kind](v);
     if (typeof tx.pure === "function") return tx.pure(kind, v);
     throw new Error("Transaction.pure." + kind + " missing");
+  }
+  function txPureBytes(tx, bytes){
+    var arr = Array.from(bytes);
+    if (tx.pure && typeof tx.pure.vector === "function") return tx.pure.vector("u8", arr);
+    if (tx.pure && typeof tx.pure.array === "function") return tx.pure.array("u8", arr);
+    if (typeof tx.pure === "function") return tx.pure(arr, "vector<u8>");
+    throw new Error("Transaction.pure.vector missing");
+  }
+  /// "0x…" (40 hex chars) → 20 raw bytes, for bridge::burn's rh_dest arg.
+  /// Caller must validate with isEvmAddr first.
+  function evmAddrToBytes(hex){
+    var h = String(hex || "").trim().replace(/^0x/i, "");
+    var out = new Uint8Array(20);
+    for (var i = 0; i < 20; i++) out[i] = parseInt(h.substr(i * 2, 2), 16);
+    return out;
   }
   /// Wallet JSON cannot carry BigInt. u64 values that fit Number stay numbers;
   /// anything bigger is a decimal string, which @mysten/sui BCS accepts.
@@ -4504,12 +4536,18 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     var balTxt = state.bridgeBalHuman != null ? state.bridgeBalHuman : "—";
     var amtReady = Number(String(state.bridgeAmt || "").replace(/,/g, "")) > 0;
     var ctaReady = amtReady ? " ready" : "";
+    var rhDestValid = isEvmAddr(state.bridgeRhDest);
     var cta;
     if (dirOut){
       if (!suiSession.address){
         cta = '<button type="button" class="btn-trade" id="bridge-go" data-wallet>Connect Sui wallet</button>';
       } else {
-        cta = '<button type="button" class="btn-trade'+ctaReady+'" id="bridge-go" data-bridge-burn'+(state.bridgeBusy?" disabled":"")+'>'+(state.bridgeBusy?"Burning…":"Burn & redeem")+'</button>';
+        // rh_dest is required on-chain (bridge::burn aborts without one) —
+        // gate the button the same way so the wallet signer never even
+        // opens on a burn that would just abort. Covers Slush/mobile users
+        // who have no way to connect an EVM wallet at all: they still get
+        // a plain paste-in field instead of being unable to redeem.
+        cta = '<button type="button" class="btn-trade'+((ctaReady && rhDestValid)?" ready":"")+'" id="bridge-go" data-bridge-burn'+((state.bridgeBusy || !rhDestValid)?" disabled":"")+'>'+(state.bridgeBusy?"Burning…":(rhDestValid?"Burn & redeem":"Enter RH destination"))+'</button>';
       }
     } else if (!evmSession.address){
       cta = '<button type="button" class="btn-trade" id="bridge-go" data-evm-wallet>'+(hasEvmWallet()?"Connect RH wallet":"Install an EVM wallet")+'</button>';
@@ -4520,7 +4558,15 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     } else {
       cta = '<button type="button" class="btn-trade'+ctaReady+'" id="bridge-go" data-bridge-deposit'+(state.bridgeBusy?" disabled":"")+'>'+(state.bridgeBusy?"Locking…":"Lock on RH")+'</button>';
     }
-    const destLine = suiSession.address ? escHtml(shortAddr(suiSession.address)) : "—";
+    const destDirty = state.bridgeRhDest !== "";
+    const destBad = destDirty && !rhDestValid;
+    const destRow = dirOut
+      ? '<div class="bridge-dest-field">'+
+          '<div class="bridge-dest-lab">RH destination'+(rhDestValid?"":' <span class="bridge-dest-req">Required</span>')+'</div>'+
+          '<input id="bridge-rhdest" class="mono bridge-dest-input'+(destBad?" bad":"")+'" inputmode="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="0x… EVM wallet on Robinhood Chain" value="'+escAttr(state.bridgeRhDest||"")+'">'+
+          '<p class="bridge-dest-hint">Where '+escHtml(tick)+' is released on Robinhood Chain after the burn. Not read from any wallet connection — paste it yourself'+(destBad?', not a valid 0x… address (20 bytes).':'.')+'</p>'+
+        '</div>'
+      : '<div class="kv" style="border-top:1px solid var(--line);margin:0 2px"><span style="color:var(--muted)">Destination</span><span class="mono">'+(suiSession.address ? escHtml(shortAddr(suiSession.address)) : "—")+'</span></div>';
     const rhLine = evmSession.address
       ? '<span class="mono">'+escHtml(shortAddr(evmSession.address))+'</span> <button type="button" data-evm-disconnect>Disconnect</button>'
       : '<button type="button" data-evm-wallet>'+(hasEvmWallet()?"Connect RH wallet":"Install MetaMask")+'</button>';
@@ -4605,7 +4651,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
               '<button type="button" class="bridge-copy" data-copy="'+escAttr(st.suiVault)+'" title="Copy">⧉</button></span></div>'+
           '</div>'+
           '<a class="bridge-uni" href="'+escAttr(st.uniswap)+'" target="_blank" rel="noopener"><span>Need '+escHtml(tick)+' on Robinhood Chain? Get it on Dexscreener</span><span>↗</span></a>'+
-          '<div class="kv" style="border-top:1px solid var(--line);margin:0 2px"><span style="color:var(--muted)">Destination</span><span class="mono">'+destLine+'</span></div>'+
+          destRow+
           cta+
           note+
         '</div>'+
@@ -4886,6 +4932,7 @@ async function doBridgeDeposit(){
       if (!st.suiVault || !st.suiCoin) throw new Error("Vault or coin type missing for "+st.ticker);
       var amount = toSmallestBig(state.bridgeAmt, st.decimals || 18);
       if (!(amount > 0n)) throw new Error("Enter an amount to burn");
+      if (!isEvmAddr(state.bridgeRhDest)) throw new Error("Enter the RH wallet that should receive "+st.ticker+" — a Sui address can't receive it.");
       state.bridgeBusy = true;
       state.bridgeNote = "";
       state.bridgeNoteErr = false;
@@ -4895,14 +4942,21 @@ async function doBridgeDeposit(){
       var Transaction = await loadTransaction();
       var tx = new Transaction();
       tx.setSender(suiSession.address);
-      if (typeof tx.setGasBudget === "function") tx.setGasBudget(50000000);
+      // No hardcoded gas budget — a burn is one object-take + one moveCall,
+      // the same class of tx as swap/vote/deposit elsewhere in this file,
+      // none of which set a budget either. A fixed 0.05 SUI budget forced
+      // the wallet's gas coin to hold that much even though the tx itself
+      // costs a small fraction of it, so wallets under 0.05 SUI got
+      // "Balance of gas object ... lower than the needed amount" even
+      // though they had plenty to actually pay for the transaction.
       var coinArg = await takeSwapCoin(tx, st.suiCoin, amount);
       var PKG = window.ARENA_STOCKS_PACKAGE;
       if (!PKG) throw new Error("ARENA_STOCKS_PACKAGE missing");
+      var rhDestArg = txPureBytes(tx, evmAddrToBytes(state.bridgeRhDest));
       tx.moveCall({
         target: PKG + "::bridge::burn",
         typeArguments: [st.suiCoin],
-        arguments: [tx.object(st.suiVault), coinArg]
+        arguments: [tx.object(st.suiVault), coinArg, rhDestArg]
       });
       if (btn) btn.textContent = "Sign burn…";
       var result = await walletExec(tx);
@@ -7286,7 +7340,36 @@ async function doBridgeDeposit(){
       if (dest) dest.textContent = state.bridgeAmt === "" ? "0.0" : state.bridgeAmt;
       var go = $("#bridge-go");
       if (go && (go.hasAttribute("data-bridge-deposit") || go.hasAttribute("data-bridge-burn"))){
-        go.classList.toggle("ready", Number(String(state.bridgeAmt || "").replace(/,/g, "")) > 0);
+        var amtOk = Number(String(state.bridgeAmt || "").replace(/,/g, "")) > 0;
+        go.classList.toggle("ready", amtOk && (!go.hasAttribute("data-bridge-burn") || isEvmAddr(state.bridgeRhDest)));
+      }
+    }
+    if (e.target && e.target.id === "bridge-rhdest"){
+      state.bridgeRhDest = e.target.value;
+      var okDest = isEvmAddr(state.bridgeRhDest);
+      var el = e.target;
+      el.classList.toggle("bad", state.bridgeRhDest !== "" && !okDest);
+      var lab = el.closest(".bridge-dest-field");
+      if (lab){
+        var req = lab.querySelector(".bridge-dest-req");
+        if (okDest && req) req.remove();
+        else if (!okDest && !req){
+          var labLine = lab.querySelector(".bridge-dest-lab");
+          if (labLine) labLine.insertAdjacentHTML("beforeend", ' <span class="bridge-dest-req">Required</span>');
+        }
+        var hint = lab.querySelector(".bridge-dest-hint");
+        if (hint){
+          var tick = stockRec(state.bridgeTick).ticker;
+          hint.textContent = "Where " + tick + " is released on Robinhood Chain after the burn. Not read from any wallet connection — paste it yourself" +
+            (state.bridgeRhDest !== "" && !okDest ? ", not a valid 0x… address (20 bytes)." : ".");
+        }
+      }
+      var goDest = $("#bridge-go");
+      if (goDest && goDest.hasAttribute("data-bridge-burn")){
+        var amtOkDest = Number(String(state.bridgeAmt || "").replace(/,/g, "")) > 0;
+        goDest.disabled = !okDest || state.bridgeBusy;
+        goDest.classList.toggle("ready", okDest && amtOkDest);
+        if (!state.bridgeBusy) goDest.textContent = okDest ? "Burn & redeem" : "Enter RH destination";
       }
     }
     if (e.target && e.target.id === "amt"){
