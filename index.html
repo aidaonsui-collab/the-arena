@@ -551,6 +551,10 @@ html.shot,html.shot *{animation:none!important;transition:none!important}
 .bridge-card .btn-trade:hover{filter:brightness(1.08)}
 .bridge-card .btn-trade:disabled{opacity:.55}
 .bridge-note{margin:12px 2px 2px;font-size:12px;color:var(--muted);text-align:center;line-height:1.4}
+.bridge-wallets{display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px 14px;margin:0 2px 12px;font-size:12px;color:var(--muted)}
+.bridge-wallets button{border:0;background:transparent;color:var(--sui);font:inherit;cursor:pointer;padding:0}
+.bridge-wallets button:hover{color:var(--ink)}
+.bridge-wallets .mono{color:var(--ink)}
 @media (max-width:720px){
   .bridge-wrap{max-width:none}
   .bridge-card{padding:14px 12px 12px;border-radius:20px}
@@ -779,11 +783,23 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   // Secondary wrap only: RH stock → vault lock → 1:1 Sui mint. Not RH primary mint.
   // Live package 0x0f01d0b041f98c02a29c8d1efffd03d60db42b3a20f5899ff5e0f663f0ea09db (see contracts-stocks/PUBLISHED.md).
   var STOCKS = {
-    NVDA: { ticker:"NVDA", name:"NVIDIA", rhToken:"0xd0601CE157Db5bdC3162BbaC2a2C8aF5320D9EEC", rhVault:window.ARENA_RH_VAULT, suiCoin:"0x0f01d0b041f98c02a29c8d1efffd03d60db42b3a20f5899ff5e0f663f0ea09db::nvda::NVDA", suiVault:"0xc221abc5c9f94ae90cb02db643ffa532db5944afac3d1d5006a74987dc52727d", metadata:"0xdc869b6282ec456089b68c92fab602054bb6315602b08f4664b204f5bdd60683", rhExplorer:"https://robinhoodchain.blockscout.com/address/0xd0601CE157Db5bdC3162BbaC2a2C8aF5320D9EEC", uniswap:"https://app.uniswap.org/explore/tokens/ethereum/0xb8ce59fc3717ada4c02eadf9682a9e934f625ebb", logo:"/brand/quotes/nvda.png", color:"#76B900", decimals:18 },
-    AMC:  { ticker:"AMC",  name:"AMC",    rhToken:"0x05a3d1Cd21d0C88145E82600E62e7E496e0F222B", rhVault:window.ARENA_RH_VAULT, suiCoin:"0x0f01d0b041f98c02a29c8d1efffd03d60db42b3a20f5899ff5e0f663f0ea09db::amc::AMC", suiVault:"0xb2b480f907479831aedb115fa1f10e0acc81f00a5f44bab0507358e431ae22cf", metadata:"0x06a18ab1fa5f6170b46752cfdec7739b609cb35adadfcc18d5f57d23c00625ac", rhExplorer:"https://robinhoodchain.blockscout.com/address/0x05a3d1Cd21d0C88145E82600E62e7E496e0F222B", uniswap:"https://app.uniswap.org/", logo:"/brand/quotes/amc.png", color:"#E11D2E", decimals:18 },
-    GME:  { ticker:"GME",  name:"GME",    rhToken:"0x1b0E319c6A659F002271B69dB8A7df2F911c153E", rhVault:window.ARENA_RH_VAULT, suiCoin:"0x0f01d0b041f98c02a29c8d1efffd03d60db42b3a20f5899ff5e0f663f0ea09db::gme::GME", suiVault:"0xc743951e4330499438635579a2049b28af65068fb9d5c4af3e5618229ac6cfa2", metadata:"0x81cc6fd95c21880cfae8d73e089ed1ea6d40ccbe2500c4bc0c1c4e125e3e8bfe", rhExplorer:"https://robinhoodchain.blockscout.com/address/0x1b0E319c6A659F002271B69dB8A7df2F911c153E", uniswap:"https://app.uniswap.org/", logo:"/brand/quotes/gme.png", color:"#E60012", decimals:18 },
-    TSLA: { ticker:"TSLA", name:"Tesla",  rhToken:"0x322F0929c4625eD5bAd873c95208D54E1c003b2d", rhVault:window.ARENA_RH_VAULT, suiCoin:"0x0f01d0b041f98c02a29c8d1efffd03d60db42b3a20f5899ff5e0f663f0ea09db::tsla::TSLA", suiVault:"0xef39c0154e56c5c4159aa0dd12332d48f8f8c843142787a7d4dbd59b0587a4c5", metadata:"0x63f7e1a16f8fa1b2289f662692b09105ef7bd9e7d5867980597ec9af9e02b74e", rhExplorer:"https://robinhoodchain.blockscout.com/address/0x322F0929c4625eD5bAd873c95208D54E1c003b2d", uniswap:"https://app.uniswap.org/", logo:"/brand/quotes/tsla.png", color:"#CC0000", decimals:18 }
+    NVDA: { ticker:"NVDA", name:"NVIDIA", rhToken:"0xd0601CE157Db5bdC3162BbaC2a2C8aF5320D9EEC", rhVault:window.ARENA_RH_VAULT, suiCoin:"0x0f01d0b041f98c02a29c8d1efffd03d60db42b3a20f5899ff5e0f663f0ea09db::nvda::NVDA", suiVault:"0xc221abc5c9f94ae90cb02db643ffa532db5944afac3d1d5006a74987dc52727d", metadata:"0xdc869b6282ec456089b68c92fab602054bb6315602b08f4664b204f5bdd60683", rhExplorer:"https://robinhoodchain.blockscout.com/token/0xd0601CE157Db5bdC3162BbaC2a2C8aF5320D9EEC", uniswap:"https://dexscreener.com/robinhood/0xd0601CE157Db5bdC3162BbaC2a2C8aF5320D9EEC", logo:"/brand/quotes/nvda.png", color:"#76B900", decimals:18 },
+    AMC:  { ticker:"AMC",  name:"AMC",    rhToken:"0x05a3d1Cd21d0C88145E82600E62e7E496e0F222B", rhVault:window.ARENA_RH_VAULT, suiCoin:"0x0f01d0b041f98c02a29c8d1efffd03d60db42b3a20f5899ff5e0f663f0ea09db::amc::AMC", suiVault:"0xb2b480f907479831aedb115fa1f10e0acc81f00a5f44bab0507358e431ae22cf", metadata:"0x06a18ab1fa5f6170b46752cfdec7739b609cb35adadfcc18d5f57d23c00625ac", rhExplorer:"https://robinhoodchain.blockscout.com/token/0x05a3d1Cd21d0C88145E82600E62e7E496e0F222B", uniswap:"https://dexscreener.com/robinhood/0x05a3d1Cd21d0C88145E82600E62e7E496e0F222B", logo:"/brand/quotes/amc.png", color:"#E11D2E", decimals:18 },
+    GME:  { ticker:"GME",  name:"GME",    rhToken:"0x1b0E319c6A659F002271B69dB8A7df2F911c153E", rhVault:window.ARENA_RH_VAULT, suiCoin:"0x0f01d0b041f98c02a29c8d1efffd03d60db42b3a20f5899ff5e0f663f0ea09db::gme::GME", suiVault:"0xc743951e4330499438635579a2049b28af65068fb9d5c4af3e5618229ac6cfa2", metadata:"0x81cc6fd95c21880cfae8d73e089ed1ea6d40ccbe2500c4bc0c1c4e125e3e8bfe", rhExplorer:"https://robinhoodchain.blockscout.com/token/0x1b0E319c6A659F002271B69dB8A7df2F911c153E", uniswap:"https://dexscreener.com/robinhood/0x1b0E319c6A659F002271B69dB8A7df2F911c153E", logo:"/brand/quotes/gme.png", color:"#E60012", decimals:18 },
+    TSLA: { ticker:"TSLA", name:"Tesla",  rhToken:"0x322F0929c4625eD5bAd873c95208D54E1c003b2d", rhVault:window.ARENA_RH_VAULT, suiCoin:"0x0f01d0b041f98c02a29c8d1efffd03d60db42b3a20f5899ff5e0f663f0ea09db::tsla::TSLA", suiVault:"0xef39c0154e56c5c4159aa0dd12332d48f8f8c843142787a7d4dbd59b0587a4c5", metadata:"0x63f7e1a16f8fa1b2289f662692b09105ef7bd9e7d5867980597ec9af9e02b74e", rhExplorer:"https://robinhoodchain.blockscout.com/token/0x322F0929c4625eD5bAd873c95208D54E1c003b2d", uniswap:"https://dexscreener.com/robinhood/0x322F0929c4625eD5bAd873c95208D54E1c003b2d", logo:"/brand/quotes/tsla.png", color:"#CC0000", decimals:18 }
+
   };
+  var RH_CHAIN = {
+    id: 4663,
+    hex: "0x1237",
+    name: "Robinhood Chain",
+    rpc: "https://rpc.mainnet.chain.robinhood.com",
+    explorer: "https://robinhoodchain.blockscout.com",
+    currency: { name: "Ether", symbol: "ETH", decimals: 18 }
+  };
+  var EVM_PREF_KEY = "vice-evm-v1";
+  var evmSession = { address: "", chainId: 0 };
+  var evmListening = false;
   var STOCK_TICKERS = ["NVDA","AMC","GME","TSLA"];
   function stockLogoHtml(tick, cls){
     var st = stockRec(tick);
@@ -827,6 +843,110 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
         '<span class="q-meta">'+escHtml(cur.label)+'<small>'+escHtml(cur.name||cur.what||"")+'</small></span>'+
         '<span class="q-chev">'+(open?"▴":"▾")+'</span></button>'+
       '<div class="quote-dd-menu" role="listbox">'+items+'</div></div>';
+  }
+  function evmProvider(){
+    var eth = window.ethereum;
+    if (eth && Array.isArray(eth.providers) && eth.providers.length){
+      return eth.providers.find(function(p){ return p.isMetaMask || p.isRabby || p.isCoinbaseWallet; }) || eth.providers[0];
+    }
+    return eth || null;
+  }
+  function hasEvmWallet(){ return !!evmProvider(); }
+  async function evmRequest(method, params){
+    var p = evmProvider();
+    if (!p || typeof p.request !== "function") throw new Error("No EVM wallet found. Install MetaMask, Rabby, or Coinbase Wallet.");
+    return p.request({ method: method, params: params || [] });
+  }
+  function listenEvm(){
+    var p = evmProvider();
+    if (!p || evmListening || typeof p.on !== "function") return;
+    evmListening = true;
+    p.on("accountsChanged", function(accs){
+      evmSession.address = (accs && accs[0]) || "";
+      if (!evmSession.address){
+        try { localStorage.removeItem(EVM_PREF_KEY); } catch (e) {}
+      }
+      if (state.route === "bridge"){ renderScreen(); refreshBridgeBal(); }
+    });
+    p.on("chainChanged", function(id){
+      evmSession.chainId = parseInt(id, 16) || 0;
+      if (state.route === "bridge"){ renderScreen(); refreshBridgeBal(); }
+    });
+  }
+  async function ensureRhChainForEvm(){
+    var id = await evmRequest("eth_chainId");
+    evmSession.chainId = parseInt(id, 16) || 0;
+    if (evmSession.chainId === RH_CHAIN.id) return;
+    try {
+      await evmRequest("wallet_switchEthereumChain", [{ chainId: RH_CHAIN.hex }]);
+    } catch (e) {
+      var code = e && e.code;
+      var msg = String((e && e.message) || "");
+      if (code === 4902 || /unrecognized|not added|unknown chain/i.test(msg)){
+        await evmRequest("wallet_addEthereumChain", [{
+          chainId: RH_CHAIN.hex,
+          chainName: RH_CHAIN.name,
+          nativeCurrency: RH_CHAIN.currency,
+          rpcUrls: [RH_CHAIN.rpc],
+          blockExplorerUrls: [RH_CHAIN.explorer]
+        }]);
+      } else if (code === 4001 || /reject|denied|cancel/i.test(msg)){
+        throw new Error("Wallet rejected the Robinhood Chain switch.");
+      } else {
+        throw e;
+      }
+    }
+    var after = await evmRequest("eth_chainId");
+    evmSession.chainId = parseInt(after, 16) || 0;
+    if (evmSession.chainId !== RH_CHAIN.id) throw new Error("Switch the wallet to Robinhood Chain (chain id 4663).");
+  }
+  async function connectEvmWallet(){
+    listenEvm();
+    await ensureRhChainForEvm();
+    var accs = await evmRequest("eth_requestAccounts");
+    var addr = (accs && accs[0]) || "";
+    if (!addr) throw new Error("EVM wallet returned no account");
+    evmSession.address = addr;
+    try { localStorage.setItem(EVM_PREF_KEY, JSON.stringify({ address: addr })); } catch (e) {}
+    state.bridgeNote = "";
+    state.bridgeNoteErr = false;
+    if (state.route === "bridge"){ renderScreen(); refreshBridgeBal(); }
+  }
+  function disconnectEvmWallet(){
+    evmSession = { address: "", chainId: 0 };
+    try { localStorage.removeItem(EVM_PREF_KEY); } catch (e) {}
+    state.bridgeBalHuman = null;
+    state.bridgeBalRaw = 0n;
+    if (state.route === "bridge") renderScreen();
+  }
+  async function tryResumeEvm(){
+    if (evmSession.address) return;
+    var p = evmProvider();
+    if (!p) return;
+    listenEvm();
+    try {
+      var accs = await evmRequest("eth_accounts");
+      if (accs && accs[0]){
+        evmSession.address = accs[0];
+        try {
+          var id = await evmRequest("eth_chainId");
+          evmSession.chainId = parseInt(id, 16) || 0;
+        } catch (e) {}
+        if (state.route === "bridge") refreshBridgeBal();
+      }
+    } catch (e) {}
+  }
+  function padEvmTopic(a){
+    a = String(a || "").replace(/^0x/i, "").toLowerCase();
+    while (a.length < 64) a = "0" + a;
+    return a;
+  }
+  async function rhTokenBalance(token, owner){
+    if (!token || !owner) return 0n;
+    var data = "0x70a08231" + padEvmTopic(owner);
+    var raw = await evmRequest("eth_call", [{ to: token, data: data }, "latest"]);
+    if (!raw || raw === "0x") return 0n;
+    return BigInt(raw);
   }
   function quoteRec(q){
     var lab = (Index && Index.quoteLabel) ? Index.quoteLabel(q) : String(q || "SUI");
@@ -4384,18 +4504,26 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     var cta;
     if (dirOut){
       if (!suiSession.address){
-        cta = '<button type="button" class="btn-trade" id="bridge-go" data-wallet>Connect wallet</button>';
+        cta = '<button type="button" class="btn-trade" id="bridge-go" data-wallet>Connect Sui wallet</button>';
       } else {
         cta = '<button type="button" class="btn-trade" id="bridge-go" data-bridge-burn'+(state.bridgeBusy?" disabled":"")+'>'+(state.bridgeBusy?"Burning…":"Burn & redeem")+'</button>';
       }
-    } else if (!window.ethereum){
-      cta = '<button type="button" class="btn-trade" id="bridge-go" data-bridge-rh-connect>Connect RH wallet</button>';
+    } else if (!evmSession.address){
+      cta = '<button type="button" class="btn-trade" id="bridge-go" data-evm-wallet>'+(hasEvmWallet()?"Connect RH wallet":"Install an EVM wallet")+'</button>';
+    } else if (evmSession.chainId && evmSession.chainId !== RH_CHAIN.id){
+      cta = '<button type="button" class="btn-trade" id="bridge-go" data-evm-wallet>Switch to Robinhood Chain</button>';
     } else if (!suiSession.address){
-      cta = '<button type="button" class="btn-trade" id="bridge-go" data-wallet>Connect wallet</button>';
+      cta = '<button type="button" class="btn-trade" id="bridge-go" data-wallet>Connect Sui wallet</button>';
     } else {
       cta = '<button type="button" class="btn-trade" id="bridge-go" data-bridge-deposit'+(state.bridgeBusy?" disabled":"")+'>'+(state.bridgeBusy?"Locking…":"Lock on RH")+'</button>';
     }
     const destLine = suiSession.address ? escHtml(shortAddr(suiSession.address)) : "—";
+    const rhLine = evmSession.address
+      ? '<span class="mono">'+escHtml(shortAddr(evmSession.address))+'</span> <button type="button" data-evm-disconnect>Disconnect</button>'
+      : '<button type="button" data-evm-wallet>'+(hasEvmWallet()?"Connect RH wallet":"Install MetaMask")+'</button>';
+    const suiLine = suiSession.address
+      ? '<span class="mono">'+escHtml(shortAddr(suiSession.address))+'</span>'
+      : '<button type="button" data-wallet>Connect Sui</button>';
     const fromLab = dirOut ? "From Sui" : "From RH";
     const toLab = dirOut ? "To RH" : "To Sui";
     const fromChain = dirOut ? '<span class="bridge-chain sui"><img src="/brand/quotes/sui.svg" alt="">Sui</span>' : '<span class="bridge-chain rh"><img src="/brand/quotes/rh.svg" alt="">RH</span>';
@@ -4404,7 +4532,9 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       ? '<p class="bridge-note" style="color:'+(state.bridgeNoteErr?"var(--pink)":"var(--muted)")+'">'+escHtml(state.bridgeNote)+'</p>'
       : '<p class="bridge-note">'+(dirOut
           ? "Burns your Sui wrap and emits RedeemBurned for the RH unlock watcher."
-          : "Lock "+tick+" on Robinhood. Keeper mints the Sui wrap — you never hold the MinterCap.")+'</p>';
+          : (!evmSession.address
+            ? "Connect an EVM wallet on Robinhood Chain to read your "+tick+" balance."
+            : "Lock "+tick+" on Robinhood. Keeper mints the Sui wrap to your Sui wallet — you never hold the MinterCap."))+'</p>';
     return '<div data-screen-label="Bridge" class="shell bridge-page">'+
       '<div class="bridge-hero">'+
         '<div class="pit-kicker">Stock bridge</div>'+
@@ -4413,6 +4543,10 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       '</div>'+
       '<div class="bridge-wrap">'+
         '<div class="bridge-card">'+
+          '<div class="bridge-wallets">'+
+            '<div>RH · '+rhLine+'</div>'+
+            '<div>Sui · '+suiLine+'</div>'+
+          '</div>'+
           '<div class="bridge-dirs" role="tablist">'+
             '<button type="button" class="pill'+(!dirOut?" on":"")+'" data-bridge-dir="in">RH → Sui</button>'+
             '<button type="button" class="pill'+(dirOut?" on":"")+'" data-bridge-dir="out">Sui → RH</button>'+
@@ -4467,7 +4601,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
               '<span class="mono">'+escHtml(shortAddr(st.suiVault))+'</span>'+
               '<button type="button" class="bridge-copy" data-copy="'+escAttr(st.suiVault)+'" title="Copy">⧉</button></span></div>'+
           '</div>'+
-          '<a class="bridge-uni" href="'+escAttr(st.uniswap)+'" target="_blank" rel="noopener"><span>Need '+escHtml(tick)+' on Robinhood? Get it on Uniswap</span><span>↗</span></a>'+
+          '<a class="bridge-uni" href="'+escAttr(st.uniswap)+'" target="_blank" rel="noopener"><span>Need '+escHtml(tick)+' on Robinhood Chain? Get it on Dexscreener</span><span>↗</span></a>'+
           '<div class="kv" style="border-top:1px solid var(--line);margin:0 2px"><span style="color:var(--muted)">Destination</span><span class="mono">'+destLine+'</span></div>'+
           cta+
           note+
@@ -4481,21 +4615,25 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       state.bridgeBalHuman = "—";
       return;
     }
-    if (state.bridgeDir === "in"){
-      // Optional RH ERC-20 bal skipped; show dash on RH→Sui.
-      state.bridgeBalHuman = "—";
-      state.bridgeBalRaw = null;
-      var elIn = document.querySelector(".bridge-bal");
-      if (elIn) elIn.innerHTML = 'bal — · <button type="button" data-bridge-max>MAX</button>';
-      return;
-    }
-    if (!suiSession.address){
-      state.bridgeBalHuman = "—";
-      return;
-    }
+    var st = stockRec(state.bridgeTick);
+    var dirOut = state.bridgeDir !== "in";
     try {
-      var st = stockRec(state.bridgeTick);
-      var raw = await coinBalanceOf(suiSession.address, st.suiCoin);
+      var raw = 0n;
+      if (dirOut){
+        if (!suiSession.address){ state.bridgeBalHuman = "—"; state.bridgeBalRaw = 0n; return; }
+        raw = await coinBalanceOf(suiSession.address, st.suiCoin);
+      } else {
+        if (!evmSession.address){ state.bridgeBalHuman = "—"; state.bridgeBalRaw = 0n; return; }
+        if (!st.rhToken){ state.bridgeBalHuman = "—"; state.bridgeBalRaw = 0n; return; }
+        if (evmSession.chainId && evmSession.chainId !== RH_CHAIN.id){
+          state.bridgeBalHuman = "wrong chain";
+          state.bridgeBalRaw = 0n;
+          var wrong = document.querySelector(".bridge-bal");
+          if (wrong) wrong.innerHTML = "bal wrong chain · <button type=\"button\" data-evm-wallet>Switch</button>";
+          return;
+        }
+        raw = await rhTokenBalance(st.rhToken, evmSession.address);
+      }
       state.bridgeBalRaw = raw;
       state.bridgeBalHuman = fromBaseStr(raw, st.decimals || 18);
       var el = document.querySelector(".bridge-bal");
@@ -4661,6 +4799,7 @@ async function doBridgeDeposit(){
       await window.ethereum.request({ method: "eth_requestAccounts" });
       var provider = new ethers.BrowserProvider(window.ethereum);
       var signer = await provider.getSigner();
+      try { evmSession.address = await signer.getAddress(); } catch (e) {}
       var decimals = st.decimals || 18;
       var amount = ethers.parseUnits(amountHuman, decimals);
       if (!(amount > 0n)) throw new Error("Enter an amount to lock");
@@ -7095,25 +7234,31 @@ async function doBridgeDeposit(){
       doBridgeDeposit();
       return;
     }
-    if (e.target.closest("[data-bridge-rh-connect]")){
-      connectRhWallet();
+    if (e.target.closest("[data-evm-wallet]")){
+      connectEvmWallet().catch(function(err){
+        var msg = (err && err.message) ? err.message : String(err || "Could not connect RH wallet");
+        if (/reject|denied|cancel/i.test(msg)) msg = "Wallet rejected the Robinhood Chain connect.";
+        state.bridgeNote = msg;
+        state.bridgeNoteErr = true;
+        if (state.route === "bridge") renderScreen();
+      });
+      return;
+    }
+    if (e.target.closest("[data-evm-disconnect]")){
+      disconnectEvmWallet();
       return;
     }
     if (e.target.closest("[data-bridge-max]")){
-      if (state.bridgeDir === "in"){
-        state.bridgeAmt = "";
-      } else {
-        var stMax = stockRec(state.bridgeTick);
-        var raw = state.bridgeBalRaw;
-        if (raw == null){
-          refreshBridgeBal().then(function(){
-            state.bridgeAmt = fromBaseStr(state.bridgeBalRaw || 0n, stMax.decimals || 18);
-            if (state.route === "bridge") renderScreen();
-          });
-          return;
-        }
-        state.bridgeAmt = fromBaseStr(raw || 0n, stMax.decimals || 18);
+      var stMax = stockRec(state.bridgeTick);
+      var rawMax = state.bridgeBalRaw;
+      if (rawMax == null){
+        refreshBridgeBal().then(function(){
+          state.bridgeAmt = fromBaseStr(state.bridgeBalRaw || 0n, stMax.decimals || 18);
+          if (state.route === "bridge") renderScreen();
+        });
+        return;
       }
+      state.bridgeAmt = fromBaseStr(rawMax || 0n, stMax.decimals || 18);
       if (state.route === "bridge") renderScreen();
       return;
     }
@@ -7384,6 +7529,7 @@ async function doBridgeDeposit(){
   }
   loadHop();
   startWalletResume();
+  tryResumeEvm();
   const parsed = parseHash();
   state.route = parsed.route;
   state.sym = parsed.sym;
