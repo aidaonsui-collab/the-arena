@@ -15,6 +15,10 @@ export const MINTER_HOLDER =
 export const DEFAULT_RH_RPC = "https://rpc.mainnet.chain.robinhood.com";
 export const DEFAULT_RH_VAULT_ADDRESS =
   "0xB0DbeAa279A4D1c5BBB67f7083a3C5445Af3c058";
+export const RH_CHAIN_ID = 4663;
+/** Public RELEASER_ROLE holder (not a key). Used as eth_call `from` in dry-run. */
+export const DEFAULT_RH_RELEASER_ADDRESS =
+  "0xDE0d5aea396D5b937149E36ddBfd6b49f26f19bc";
 
 /** Sui Move u64 max — RH amounts above this cannot be minted as-is. */
 export const U64_MAX = (1n << 64n) - 1n;
@@ -82,7 +86,22 @@ export function env() {
   const dataDir = process.env.STOCKS_DATA_DIR ?? join(rootPath(), "data");
   const rhRpc = process.env.RH_RPC ?? DEFAULT_RH_RPC;
   const rhVaultAddress = (process.env.RH_VAULT_ADDRESS ?? DEFAULT_RH_VAULT_ADDRESS).trim();
-  return { rpc, graphql, dryRunDefault, dataDir, packageId: STOCKS_PACKAGE, rhRpc, rhVaultAddress };
+  const rhReleaserAddress = (process.env.RH_RELEASER_ADDRESS ?? DEFAULT_RH_RELEASER_ADDRESS).trim();
+  return {
+    rpc,
+    graphql,
+    dryRunDefault,
+    dataDir,
+    packageId: STOCKS_PACKAGE,
+    rhRpc,
+    rhVaultAddress,
+    rhReleaserAddress,
+  };
+}
+
+/** Live RH release() is opt-in. Default is dry-run/log-only. */
+export function releaseLiveRequested(cliLive = false): boolean {
+  return cliLive === true || process.env.STOCKS_RELEASE_LIVE === "1";
 }
 
 function rootPath() {

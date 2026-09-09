@@ -5,10 +5,14 @@
   "scripts": {
     "mint": "npx tsx src/cli.ts mint",
     "watch-rh": "npx tsx src/cli.ts watch-rh",
-    "webhook": "npx tsx src/cli.ts webhook"
+    "watch-redeem": "npx tsx src/cli.ts watch-redeem",
+    "webhook": "npx tsx src/cli.ts webhook",
+    "test": "npx tsx --test src/*.test.ts"
   },
   "dependencies": {
-    "@mysten/sui": "^1.37.0"
+    "@mysten/sui": "^1.37.0",
+    "@noble/curves": "^1.9.4",
+    "@noble/hashes": "^1.8.0"
   },
   "devDependencies": {
     "tsx": "^4.20.0",
