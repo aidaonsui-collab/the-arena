@@ -3,9 +3,11 @@
  *
  *   npx tsx src/cli.ts mint --ticker NVDA --amount <base 18dec> --recipient 0x… --rh-ref <hex|string> [--dry-run]
  *   npx tsx src/cli.ts watch-rh   # once; RH_WATCH_LOOP=1 for continuous
+ *   npx tsx src/cli.ts watch-redeem  # RedeemBurned → RH release(); dry-run by default
  *   npx tsx src/cli.ts webhook
  */
 import { runMint } from "./mint.ts";
+import { runRedeemWatcher } from "./redeemWatcher.ts";
 import { runRhWatcher } from "./rhWatcher.ts";
 import { runWebhookServer } from "./webhook.ts";
 
@@ -13,6 +15,7 @@ function usage(exit = 1): never {
   console.error(`usage:
   tsx src/cli.ts mint --ticker NVDA --amount <base units 18dec> --recipient 0x… --rh-ref <hex/string> [--dry-run]
   tsx src/cli.ts watch-rh   # RH_WATCH_LOOP=1 continuous; STOCKS_MINT_DRY_RUN=1 dry-run
+  tsx src/cli.ts watch-redeem   # dry-run FIFO release plan; --live + STOCKS_RELEASE_LIVE=1 to broadcast
   tsx src/cli.ts webhook
 `);
   process.exit(exit);
@@ -24,6 +27,10 @@ function parseFlags(argv: string[]): Record<string, string | boolean> {
     const a = argv[i];
     if (a === "--dry-run" || a === "-n") {
       out["dry-run"] = true;
+      continue;
+    }
+    if (a === "--live") {
+      out.live = true;
       continue;
     }
     if (a.startsWith("--")) {
@@ -63,6 +70,13 @@ if (cmd === "mint") {
 
 if (cmd === "watch-rh") {
   const out = await runRhWatcher();
+  console.log(JSON.stringify(out, null, 2));
+  process.exit(0);
+}
+
+if (cmd === "watch-redeem") {
+  const f = parseFlags(process.argv.slice(3));
+  const out = await runRedeemWatcher({ live: f.live === true });
   console.log(JSON.stringify(out, null, 2));
   process.exit(0);
 }
