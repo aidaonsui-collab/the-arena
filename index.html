@@ -547,9 +547,10 @@ html.shot,html.shot *{animation:none!important;transition:none!important}
 .bridge-copy:hover{color:var(--ink)}
 .bridge-uni{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:10px 2px 2px;padding:8px 0;font-size:13px;color:var(--muted);border-top:1px solid var(--line)}
 .bridge-uni:hover{color:var(--ink)}
-.bridge-card .btn-trade{margin-top:14px;border-radius:14px;background:#2a1a28;color:var(--ink)}
-.bridge-card .btn-trade:hover{filter:brightness(1.08)}
-.bridge-card .btn-trade:disabled{opacity:.55}
+.bridge-card .btn-trade{margin-top:14px;border-radius:14px;background:#2a1a28;color:var(--muted)}
+.bridge-card .btn-trade.ready,.bridge-card .btn-trade[data-wallet],.bridge-card .btn-trade[data-evm-wallet]{background:var(--sui);color:#fff}
+.bridge-card .btn-trade.ready:hover,.bridge-card .btn-trade[data-wallet]:hover,.bridge-card .btn-trade[data-evm-wallet]:hover{filter:brightness(1.08);color:#fff}
+.bridge-card .btn-trade:disabled{opacity:.7}
 .bridge-note{margin:12px 2px 2px;font-size:12px;color:var(--muted);text-align:center;line-height:1.4}
 .bridge-wallets{display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px 14px;margin:0 2px 12px;font-size:12px;color:var(--muted)}
 .bridge-wallets button{border:0;background:transparent;color:var(--sui);font:inherit;cursor:pointer;padding:0}
@@ -4501,12 +4502,14 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       return '<button type="button" class="bridge-tick'+(t===tick?" on":"")+'" data-bridge-tick="'+t+'">'+stockLogoHtml(t,'bridge-tick-logo')+' '+t+'</button>';
     }).join("");
     var balTxt = state.bridgeBalHuman != null ? state.bridgeBalHuman : "—";
+    var amtReady = Number(String(state.bridgeAmt || "").replace(/,/g, "")) > 0;
+    var ctaReady = amtReady ? " ready" : "";
     var cta;
     if (dirOut){
       if (!suiSession.address){
         cta = '<button type="button" class="btn-trade" id="bridge-go" data-wallet>Connect Sui wallet</button>';
       } else {
-        cta = '<button type="button" class="btn-trade" id="bridge-go" data-bridge-burn'+(state.bridgeBusy?" disabled":"")+'>'+(state.bridgeBusy?"Burning…":"Burn & redeem")+'</button>';
+        cta = '<button type="button" class="btn-trade'+ctaReady+'" id="bridge-go" data-bridge-burn'+(state.bridgeBusy?" disabled":"")+'>'+(state.bridgeBusy?"Burning…":"Burn & redeem")+'</button>';
       }
     } else if (!evmSession.address){
       cta = '<button type="button" class="btn-trade" id="bridge-go" data-evm-wallet>'+(hasEvmWallet()?"Connect RH wallet":"Install an EVM wallet")+'</button>';
@@ -4515,7 +4518,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     } else if (!suiSession.address){
       cta = '<button type="button" class="btn-trade" id="bridge-go" data-wallet>Connect Sui wallet</button>';
     } else {
-      cta = '<button type="button" class="btn-trade" id="bridge-go" data-bridge-deposit'+(state.bridgeBusy?" disabled":"")+'>'+(state.bridgeBusy?"Locking…":"Lock on RH")+'</button>';
+      cta = '<button type="button" class="btn-trade'+ctaReady+'" id="bridge-go" data-bridge-deposit'+(state.bridgeBusy?" disabled":"")+'>'+(state.bridgeBusy?"Locking…":"Lock on RH")+'</button>';
     }
     const destLine = suiSession.address ? escHtml(shortAddr(suiSession.address)) : "—";
     const rhLine = evmSession.address
@@ -7281,6 +7284,10 @@ async function doBridgeDeposit(){
       state.bridgeAmt = e.target.value;
       var dest = $("#bridge-dest");
       if (dest) dest.textContent = state.bridgeAmt === "" ? "0.0" : state.bridgeAmt;
+      var go = $("#bridge-go");
+      if (go && (go.hasAttribute("data-bridge-deposit") || go.hasAttribute("data-bridge-burn"))){
+        go.classList.toggle("ready", Number(String(state.bridgeAmt || "").replace(/,/g, "")) > 0);
+      }
     }
     if (e.target && e.target.id === "amt"){
       state.amt = e.target.value;
