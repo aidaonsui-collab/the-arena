@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 
 export const STOCKS_PACKAGE =
   process.env.ARENA_STOCKS_PACKAGE ??
-  "0x0f01d0b041f98c02a29c8d1efffd03d60db42b3a20f5899ff5e0f663f0ea09db";
+  "0x9a4ba3338384d36033065f9cf0c58078033a718a92f091f12a551f6984c290c5";
 
 /** Publisher / MinterCap holder — do NOT transfer caps off this address. */
 export const MINTER_HOLDER =
@@ -41,37 +41,37 @@ export const STOCKS: Record<Ticker, StockConfig> = {
     ticker: "NVDA",
     module: "nvda",
     coinType: `${PKG}::nvda::NVDA`,
-    vaultId: "0xc221abc5c9f94ae90cb02db643ffa532db5944afac3d1d5006a74987dc52727d",
-    minterCapId: "0x13e05950b45c5dff193b22e9d1da79fc1fe206faf38d46352dfbd63e2e2630f8",
+    vaultId: "0xf6a8f80cf7d75f7e9e83712d10722b9f5302eaaf585ee6c149497379b8647bbc",
+    minterCapId: "0x5fd6af65b81cd8582eb9864f5ab0378270bd621cfc92de994b1a86d9fcb3fc02",
     rhToken: "0xd0601CE157Db5bdC3162BbaC2a2C8aF5320D9EEC",
-    decimals: 18,
+    decimals: 9,
   },
   AMC: {
     ticker: "AMC",
     module: "amc",
     coinType: `${PKG}::amc::AMC`,
-    vaultId: "0xb2b480f907479831aedb115fa1f10e0acc81f00a5f44bab0507358e431ae22cf",
-    minterCapId: "0x4b264731e6ad60edf571d4c841f8a5c8113d6508d587f4e153869d52a535410e",
+    vaultId: "0x091bb1a2da97f685c19c607d71fe2bd1b9e5198768bac3d8898562802b739f61",
+    minterCapId: "0x54a3b56fd06994726716e1df74834c6736e6dd907d22ef601f0e773fb3de6417",
     rhToken: "0x05a3d1Cd21d0C88145E82600E62e7E496e0F222B",
-    decimals: 18,
+    decimals: 9,
   },
   GME: {
     ticker: "GME",
     module: "gme",
     coinType: `${PKG}::gme::GME`,
-    vaultId: "0xc743951e4330499438635579a2049b28af65068fb9d5c4af3e5618229ac6cfa2",
-    minterCapId: "0xbcbb7c683fe1148a6432c83152516bc86268f8e89d56caab130b663a88dbd342",
+    vaultId: "0x6f832d8b04c1e59863cd37a9191554f9fc3654e85e5ae06520d495f761afa680",
+    minterCapId: "0x77c8cf4185f0a3cc098f1ab9bd96674d454ef822d8ba69ac739c77662d9da90d",
     rhToken: "0x1b0E319c6A659F002271B69dB8A7df2F911c153E",
-    decimals: 18,
+    decimals: 9,
   },
   TSLA: {
     ticker: "TSLA",
     module: "tsla",
     coinType: `${PKG}::tsla::TSLA`,
-    vaultId: "0xef39c0154e56c5c4159aa0dd12332d48f8f8c843142787a7d4dbd59b0587a4c5",
-    minterCapId: "0x5661c3f1b77d8ac2facb9bbbf48b1010a6c77ab3f5b55945e9b53295a866ac13",
+    vaultId: "0xc91e4691e2df8cd6cfee17356687b2387fe26fa81793d6fd8cd4c52afd489b65",
+    minterCapId: "0x7f6f580c1232d1474b9c09e755bdf2f0b468b7e7b6d69ffd4d77bc4a7c0d955e",
     rhToken: "0x322F0929c4625eD5bAd873c95208D54E1c003b2d",
-    decimals: 18,
+    decimals: 9,
   },
 };
 

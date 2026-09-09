@@ -37,7 +37,7 @@ sui move build
 ```
 
 **Mainnet published** — see [`PUBLISHED.md`](./PUBLISHED.md) for package id, BridgeVaults, MinterCaps, CoinMetadata, and tx digest.
-`Move.toml` `published-at` / `stocks` address = `0x0f01d0b041f98c02a29c8d1efffd03d60db42b3a20f5899ff5e0f663f0ea09db`.
+`Move.toml` `published-at` / `stocks` address = `0x9a4ba3338384d36033065f9cf0c58078033a718a92f091f12a551f6984c290c5`.
 
 ## Bridge UI / Arena integration
 

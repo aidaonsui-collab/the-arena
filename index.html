@@ -635,15 +635,15 @@ window.ARENA_PIT_SUI = "0x8ec38e9bcac0838bf474680e71d0c3f302f4ea2f757d759b7b3997
 window.ARENA_PIT_XAUM = "0xa8a391bf380914c04be5deb478474b42754a5aa8c29c0955f267d73190a98783";
 window.ARENA_PIT_USDY = window.ARENA_PIT_USDY || "";
 window.ARENA_PIT_XAGM = window.ARENA_PIT_XAGM || "";
-window.ARENA_STOCKS_PACKAGE = "0x0f01d0b041f98c02a29c8d1efffd03d60db42b3a20f5899ff5e0f663f0ea09db";
+window.ARENA_STOCKS_PACKAGE = "0x9a4ba3338384d36033065f9cf0c58078033a718a92f091f12a551f6984c290c5";
 window.ARENA_STOCK_NVDA_TYPE = window.ARENA_STOCKS_PACKAGE + "::nvda::NVDA";
 window.ARENA_STOCK_AMC_TYPE = window.ARENA_STOCKS_PACKAGE + "::amc::AMC";
 window.ARENA_STOCK_GME_TYPE = window.ARENA_STOCKS_PACKAGE + "::gme::GME";
 window.ARENA_STOCK_TSLA_TYPE = window.ARENA_STOCKS_PACKAGE + "::tsla::TSLA";
-window.ARENA_STOCK_NVDA_METADATA = "0xdc869b6282ec456089b68c92fab602054bb6315602b08f4664b204f5bdd60683";
-window.ARENA_STOCK_AMC_METADATA = "0x06a18ab1fa5f6170b46752cfdec7739b609cb35adadfcc18d5f57d23c00625ac";
-window.ARENA_STOCK_GME_METADATA = "0x81cc6fd95c21880cfae8d73e089ed1ea6d40ccbe2500c4bc0c1c4e125e3e8bfe";
-window.ARENA_STOCK_TSLA_METADATA = "0x63f7e1a16f8fa1b2289f662692b09105ef7bd9e7d5867980597ec9af9e02b74e";
+window.ARENA_STOCK_NVDA_METADATA = "0x516c4a864e787ac6a0ba5c0daef5ec3149dd2b47d59fbe1b556aadf81415e24b";
+window.ARENA_STOCK_AMC_METADATA = "0x10c505d214b92e25fb2b93dff0cf303ec6799a915c521bf525f18a496f6882a2";
+window.ARENA_STOCK_GME_METADATA = "0x4837967923626e9b625c33a119166638d4668fe500a4f4ed0d2bb20abfa7f54a";
+window.ARENA_STOCK_TSLA_METADATA = "0xe088b2a8e8b87df689d09cc0dfdea9eb62e1d49fac83a9420fbe36a509077943";
 window.ARENA_RH_VAULT = "0xB0DbeAa279A4D1c5BBB67f7083a3C5445Af3c058";
 window.ARENA_RH_CHAIN_ID = 4663;
 window.ARENA_RH_RPC = "https://rpc.mainnet.chain.robinhood.com";
@@ -790,12 +790,12 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   var CREATE_QUOTES = ["SUI","USDY","XAGM","XAUM","NVDA","AMC","GME","TSLA"];
 
   // Secondary wrap only: RH stock → vault lock → 1:1 Sui mint. Not RH primary mint.
-  // Live package 0x0f01d0b041f98c02a29c8d1efffd03d60db42b3a20f5899ff5e0f663f0ea09db (see contracts-stocks/PUBLISHED.md).
+  // Live package 0x9a4ba3338384d36033065f9cf0c58078033a718a92f091f12a551f6984c290c5 (see contracts-stocks/PUBLISHED.md).
   var STOCKS = {
-    NVDA: { ticker:"NVDA", name:"NVIDIA", rhToken:"0xd0601CE157Db5bdC3162BbaC2a2C8aF5320D9EEC", rhVault:window.ARENA_RH_VAULT, suiCoin:"0x0f01d0b041f98c02a29c8d1efffd03d60db42b3a20f5899ff5e0f663f0ea09db::nvda::NVDA", suiVault:"0xc221abc5c9f94ae90cb02db643ffa532db5944afac3d1d5006a74987dc52727d", metadata:"0xdc869b6282ec456089b68c92fab602054bb6315602b08f4664b204f5bdd60683", rhExplorer:"https://robinhoodchain.blockscout.com/token/0xd0601CE157Db5bdC3162BbaC2a2C8aF5320D9EEC", uniswap:"https://dexscreener.com/robinhood/0xd0601CE157Db5bdC3162BbaC2a2C8aF5320D9EEC", logo:"/brand/quotes/nvda.png", color:"#76B900", decimals:18 },
-    AMC:  { ticker:"AMC",  name:"AMC",    rhToken:"0x05a3d1Cd21d0C88145E82600E62e7E496e0F222B", rhVault:window.ARENA_RH_VAULT, suiCoin:"0x0f01d0b041f98c02a29c8d1efffd03d60db42b3a20f5899ff5e0f663f0ea09db::amc::AMC", suiVault:"0xb2b480f907479831aedb115fa1f10e0acc81f00a5f44bab0507358e431ae22cf", metadata:"0x06a18ab1fa5f6170b46752cfdec7739b609cb35adadfcc18d5f57d23c00625ac", rhExplorer:"https://robinhoodchain.blockscout.com/token/0x05a3d1Cd21d0C88145E82600E62e7E496e0F222B", uniswap:"https://dexscreener.com/robinhood/0x05a3d1Cd21d0C88145E82600E62e7E496e0F222B", logo:"/brand/quotes/amc.png", color:"#E11D2E", decimals:18 },
-    GME:  { ticker:"GME",  name:"GME",    rhToken:"0x1b0E319c6A659F002271B69dB8A7df2F911c153E", rhVault:window.ARENA_RH_VAULT, suiCoin:"0x0f01d0b041f98c02a29c8d1efffd03d60db42b3a20f5899ff5e0f663f0ea09db::gme::GME", suiVault:"0xc743951e4330499438635579a2049b28af65068fb9d5c4af3e5618229ac6cfa2", metadata:"0x81cc6fd95c21880cfae8d73e089ed1ea6d40ccbe2500c4bc0c1c4e125e3e8bfe", rhExplorer:"https://robinhoodchain.blockscout.com/token/0x1b0E319c6A659F002271B69dB8A7df2F911c153E", uniswap:"https://dexscreener.com/robinhood/0x1b0E319c6A659F002271B69dB8A7df2F911c153E", logo:"/brand/quotes/gme.png", color:"#E60012", decimals:18 },
-    TSLA: { ticker:"TSLA", name:"Tesla",  rhToken:"0x322F0929c4625eD5bAd873c95208D54E1c003b2d", rhVault:window.ARENA_RH_VAULT, suiCoin:"0x0f01d0b041f98c02a29c8d1efffd03d60db42b3a20f5899ff5e0f663f0ea09db::tsla::TSLA", suiVault:"0xef39c0154e56c5c4159aa0dd12332d48f8f8c843142787a7d4dbd59b0587a4c5", metadata:"0x63f7e1a16f8fa1b2289f662692b09105ef7bd9e7d5867980597ec9af9e02b74e", rhExplorer:"https://robinhoodchain.blockscout.com/token/0x322F0929c4625eD5bAd873c95208D54E1c003b2d", uniswap:"https://dexscreener.com/robinhood/0x322F0929c4625eD5bAd873c95208D54E1c003b2d", logo:"/brand/quotes/tsla.png", color:"#CC0000", decimals:18 }
+    NVDA: { ticker:"NVDA", name:"NVIDIA", rhToken:"0xd0601CE157Db5bdC3162BbaC2a2C8aF5320D9EEC", rhVault:window.ARENA_RH_VAULT, suiCoin:"0x9a4ba3338384d36033065f9cf0c58078033a718a92f091f12a551f6984c290c5::nvda::NVDA", suiVault:"0xf6a8f80cf7d75f7e9e83712d10722b9f5302eaaf585ee6c149497379b8647bbc", metadata:"0x516c4a864e787ac6a0ba5c0daef5ec3149dd2b47d59fbe1b556aadf81415e24b", rhExplorer:"https://robinhoodchain.blockscout.com/token/0xd0601CE157Db5bdC3162BbaC2a2C8aF5320D9EEC", uniswap:"https://dexscreener.com/robinhood/0xd0601CE157Db5bdC3162BbaC2a2C8aF5320D9EEC", logo:"/brand/quotes/nvda.png", color:"#76B900", decimals:9 },
+    AMC:  { ticker:"AMC",  name:"AMC",    rhToken:"0x05a3d1Cd21d0C88145E82600E62e7E496e0F222B", rhVault:window.ARENA_RH_VAULT, suiCoin:"0x9a4ba3338384d36033065f9cf0c58078033a718a92f091f12a551f6984c290c5::amc::AMC", suiVault:"0x091bb1a2da97f685c19c607d71fe2bd1b9e5198768bac3d8898562802b739f61", metadata:"0x10c505d214b92e25fb2b93dff0cf303ec6799a915c521bf525f18a496f6882a2", rhExplorer:"https://robinhoodchain.blockscout.com/token/0x05a3d1Cd21d0C88145E82600E62e7E496e0F222B", uniswap:"https://dexscreener.com/robinhood/0x05a3d1Cd21d0C88145E82600E62e7E496e0F222B", logo:"/brand/quotes/amc.png", color:"#E11D2E", decimals:9 },
+    GME:  { ticker:"GME",  name:"GME",    rhToken:"0x1b0E319c6A659F002271B69dB8A7df2F911c153E", rhVault:window.ARENA_RH_VAULT, suiCoin:"0x9a4ba3338384d36033065f9cf0c58078033a718a92f091f12a551f6984c290c5::gme::GME", suiVault:"0x6f832d8b04c1e59863cd37a9191554f9fc3654e85e5ae06520d495f761afa680", metadata:"0x4837967923626e9b625c33a119166638d4668fe500a4f4ed0d2bb20abfa7f54a", rhExplorer:"https://robinhoodchain.blockscout.com/token/0x1b0E319c6A659F002271B69dB8A7df2F911c153E", uniswap:"https://dexscreener.com/robinhood/0x1b0E319c6A659F002271B69dB8A7df2F911c153E", logo:"/brand/quotes/gme.png", color:"#E60012", decimals:9 },
+    TSLA: { ticker:"TSLA", name:"Tesla",  rhToken:"0x322F0929c4625eD5bAd873c95208D54E1c003b2d", rhVault:window.ARENA_RH_VAULT, suiCoin:"0x9a4ba3338384d36033065f9cf0c58078033a718a92f091f12a551f6984c290c5::tsla::TSLA", suiVault:"0xc91e4691e2df8cd6cfee17356687b2387fe26fa81793d6fd8cd4c52afd489b65", metadata:"0xe088b2a8e8b87df689d09cc0dfdea9eb62e1d49fac83a9420fbe36a509077943", rhExplorer:"https://robinhoodchain.blockscout.com/token/0x322F0929c4625eD5bAd873c95208D54E1c003b2d", uniswap:"https://dexscreener.com/robinhood/0x322F0929c4625eD5bAd873c95208D54E1c003b2d", logo:"/brand/quotes/tsla.png", color:"#CC0000", decimals:9 }
 
   };
   var RH_CHAIN = {

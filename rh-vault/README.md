@@ -2,7 +2,7 @@
 
 Lock vault for **RH → Sui** stock wrap on [The Arena](../). Users deposit allowlisted Robinhood stock ERC-20s; keepers mint 1:1 wraps on Sui after `DepositLocked`. After Sui `RedeemBurned`, a `RELEASER` unlocks tokens back to the user.
 
-Sui wrap package (live): `0x0f01d0b041f98c02a29c8d1efffd03d60db42b3a20f5899ff5e0f663f0ea09db`
+Sui wrap package (live): `0x9a4ba3338384d36033065f9cf0c58078033a718a92f091f12a551f6984c290c5`
 
 
 ## Published (mainnet 4663)
