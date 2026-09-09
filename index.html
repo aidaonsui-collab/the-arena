@@ -4895,7 +4895,13 @@ async function doBridgeDeposit(){
       var Transaction = await loadTransaction();
       var tx = new Transaction();
       tx.setSender(suiSession.address);
-      if (typeof tx.setGasBudget === "function") tx.setGasBudget(50000000);
+      // No hardcoded gas budget — a burn is one object-take + one moveCall,
+      // the same class of tx as swap/vote/deposit elsewhere in this file,
+      // none of which set a budget either. A fixed 0.05 SUI budget forced
+      // the wallet's gas coin to hold that much even though the tx itself
+      // costs a small fraction of it, so wallets under 0.05 SUI got
+      // "Balance of gas object ... lower than the needed amount" even
+      // though they had plenty to actually pay for the transaction.
       var coinArg = await takeSwapCoin(tx, st.suiCoin, amount);
       var PKG = window.ARENA_STOCKS_PACKAGE;
       if (!PKG) throw new Error("ARENA_STOCKS_PACKAGE missing");
