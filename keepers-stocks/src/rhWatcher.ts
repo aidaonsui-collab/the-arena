@@ -23,6 +23,7 @@ import {
   DEFAULT_RH_VAULT_ADDRESS,
   STOCKS,
   U64_MAX,
+  RH_TO_SUI_SCALE,
   tickerFromRhToken,
 } from "./config.ts";
 import { runMint } from "./mint.ts";
@@ -196,14 +197,27 @@ export async function mintFromDeposit(ev: DepositLockedLog): Promise<MintAttempt
     return { event: ev, ok: false, skipped: msg };
   }
 
-  if (amountBn > U64_MAX) {
-    const msg = `amount ${ev.amount} exceeds u64 max (${U64_MAX}) — cannot mint; split deposit or extend bridge`;
-    console.error(JSON.stringify({ event: "DepositLocked", action: "skip", reason: msg, ticker: ev.ticker, rhRef: ev.rhRef }));
-    return { event: ev, ok: false, skipped: msg };
-  }
   if (amountBn <= 0n) {
     const msg = "amount must be > 0";
     console.error(JSON.stringify({ event: "DepositLocked", action: "skip", reason: msg, ...ev }));
+    return { event: ev, ok: false, skipped: msg };
+  }
+
+  // RH stock tokens are 18dp; the Sui wrappers are 9dp because Sui amounts are
+  // u64. Scale down by 1e9. Anything below 1e9 RH base units is under a
+  // nano-share and cannot be represented, so it is refused rather than minted
+  // as zero — and the remainder above that is dust the redeem does not owe,
+  // since release() returns the whole original lock regardless.
+  const suiAmountBn = amountBn / RH_TO_SUI_SCALE;
+  if (suiAmountBn <= 0n) {
+    const msg = `amount ${ev.amount} is below one wrapper unit (${RH_TO_SUI_SCALE} RH base units)`;
+    console.error(JSON.stringify({ event: "DepositLocked", action: "skip", reason: msg, ticker: ev.ticker, rhRef: ev.rhRef }));
+    return { event: ev, ok: false, skipped: msg };
+  }
+  if (suiAmountBn > U64_MAX) {
+    // Unreachable at 9dp for any real position (~18.4bn shares), kept as a guard.
+    const msg = `scaled amount ${suiAmountBn} exceeds u64 max (${U64_MAX})`;
+    console.error(JSON.stringify({ event: "DepositLocked", action: "skip", reason: msg, ticker: ev.ticker, rhRef: ev.rhRef }));
     return { event: ev, ok: false, skipped: msg };
   }
 
@@ -213,6 +227,7 @@ export async function mintFromDeposit(ev: DepositLockedLog): Promise<MintAttempt
       action: "mint",
       ticker: ev.ticker,
       amount: ev.amount,
+      suiAmount: suiAmountBn.toString(),
       recipient: ev.suiRecipient,
       rhRef: ev.rhRef,
       depositId: ev.depositId,
@@ -224,7 +239,7 @@ export async function mintFromDeposit(ev: DepositLockedLog): Promise<MintAttempt
   try {
     const mint = await runMint({
       ticker: ev.ticker,
-      amount: ev.amount,
+      amount: suiAmountBn,
       recipient: ev.suiRecipient,
       rhRef: ev.rhRef,
     });

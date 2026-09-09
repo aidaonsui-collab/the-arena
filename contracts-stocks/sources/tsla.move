@@ -10,10 +10,14 @@ module stocks::tsla {
     fun init(otw: TSLA, ctx: &mut TxContext) {
         let (treasury, metadata) = coin::create_currency(
             otw,
-            18,
+            // 9, not 18. Sui amounts are u64, so at 18 decimals the largest
+            // mintable balance is ~18.44 shares — a normal position would lock
+            // on RH with nothing minted. At 9 the ceiling is ~18.4bn shares and
+            // the attestor scales RH 1e18 base units down by 1e9 on the way in.
+            9,
             b"TSLA",
             b"Arena Wrapped TSLA",
-            b"1:1 Arena wrap of Robinhood Chain TSLA. Lock RH → mint; burn → RH release.",
+            b"1:1 Arena wrap of Robinhood Chain TSLA (9dp). Lock RH → mint; burn → RH release.",
             option::none(),
             ctx,
         );
