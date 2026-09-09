@@ -18,6 +18,9 @@ module stocks::bridge {
     const EAlreadyMinted: u64 = 3;
     /// rh_ref must identify the RH lock; an empty one cannot be deduplicated.
     const EEmptyRhRef: u64 = 4;
+    /// rh_dest must be a 20-byte EVM address; an empty/malformed one gives the
+    /// releaser nothing to release to.
+    const EBadRhDest: u64 = 5;
 
     /// Shared vault holding the sole `TreasuryCap<T>` for a wrapped stock coin.
     public struct BridgeVault<phantom T> has key {
@@ -56,6 +59,10 @@ module stocks::bridge {
         ticker: vector<u8>,
         amount: u64,
         burner: address,
+        /// Caller-specified RH release address (20-byte EVM address). The
+        /// only source of truth for where `release()` should pay out — the
+        /// Sui `burner` above is never a valid EVM address on its own.
+        rh_dest: vector<u8>,
     }
 
     /// Create a vault from a freshly created `TreasuryCap` and a ticker label.
@@ -111,20 +118,25 @@ module stocks::bridge {
     }
 
     /// Burn a wrapper coin. Anyone holding `Coin<T>` may redeem; emits `RedeemBurned`
-    /// for the off-chain RH release watcher.
+    /// for the off-chain RH release watcher. `rh_dest` is the 20-byte EVM address
+    /// the RH vault should release to — required, since `burner` (a Sui address)
+    /// is never a usable RH release target on its own.
     public fun burn<T>(
         vault: &mut BridgeVault<T>,
         c: Coin<T>,
+        rh_dest: vector<u8>,
         ctx: &TxContext,
     ) {
         let amount = coin::value(&c);
         assert!(amount > 0, EZeroAmount);
+        assert!(rh_dest.length() == 20, EBadRhDest);
         coin::burn(&mut vault.treasury, c);
         event::emit(RedeemBurned {
             coin_type: type_name::with_defining_ids<T>(),
             ticker: vault.ticker,
             amount,
             burner: ctx.sender(),
+            rh_dest,
         });
     }
 

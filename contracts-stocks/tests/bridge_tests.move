@@ -9,6 +9,8 @@ use sui::test_scenario::{Self as ts};
 
 const ADMIN: address = @0xAD;
 const USER: address = @0xB1;
+// A well-formed 20-byte EVM address, arbitrary for tests.
+const RH_DEST: vector<u8> = x"1111111111111111111111111111111111111111";
 
 #[test]
 fun mint_then_burn_supply_zero() {
@@ -34,7 +36,7 @@ fun mint_then_burn_supply_zero() {
     let wrapped = scenario.take_from_sender<Coin<NVDA>>();
     assert!(coin::value(&wrapped) == amount, 2);
 
-    bridge::burn(&mut vault, wrapped, scenario.ctx());
+    bridge::burn(&mut vault, wrapped, RH_DEST, scenario.ctx());
     assert!(bridge::total_supply(&vault) == 0, 3);
 
     bridge::destroy_minter_for_testing(minter);
@@ -130,8 +132,8 @@ fun distinct_rh_refs_both_mint() {
     scenario.next_tx(USER);
     let a = scenario.take_from_sender<Coin<NVDA>>();
     let b = scenario.take_from_sender<Coin<NVDA>>();
-    bridge::burn(&mut vault, a, scenario.ctx());
-    bridge::burn(&mut vault, b, scenario.ctx());
+    bridge::burn(&mut vault, a, RH_DEST, scenario.ctx());
+    bridge::burn(&mut vault, b, RH_DEST, scenario.ctx());
 
     bridge::destroy_minter_for_testing(minter);
     bridge::destroy_vault_for_testing(vault, scenario.ctx());
@@ -153,9 +155,41 @@ fun a_hundred_shares_fits_in_u64() {
 
     scenario.next_tx(USER);
     let c = scenario.take_from_sender<Coin<NVDA>>();
-    bridge::burn(&mut vault, c, scenario.ctx());
+    bridge::burn(&mut vault, c, RH_DEST, scenario.ctx());
 
     bridge::destroy_minter_for_testing(minter);
     bridge::destroy_vault_for_testing(vault, scenario.ctx());
     scenario.end();
+}
+
+/// The whole point of rh_dest: a Sui address is never a usable RH release
+/// target, so an absent/malformed destination is refused at burn time
+/// instead of silently emitting a RedeemBurned no releaser can act on.
+#[test]
+#[expected_failure(abort_code = stocks::bridge::EBadRhDest)]
+fun empty_rh_dest_aborts() {
+    let mut scenario = ts::begin(ADMIN);
+    let (mut vault, minter, metadata) = nvda::init_vault_for_testing(scenario.ctx());
+    transfer::public_freeze_object(metadata);
+
+    bridge::mint(&mut vault, &minter, 1_000_000_000, USER, b"lock-1", scenario.ctx());
+    scenario.next_tx(USER);
+    let c = scenario.take_from_sender<Coin<NVDA>>();
+    bridge::burn(&mut vault, c, b"", scenario.ctx());
+    abort 42
+}
+
+/// A too-short destination (e.g. a truncated paste) is refused the same way.
+#[test]
+#[expected_failure(abort_code = stocks::bridge::EBadRhDest)]
+fun short_rh_dest_aborts() {
+    let mut scenario = ts::begin(ADMIN);
+    let (mut vault, minter, metadata) = nvda::init_vault_for_testing(scenario.ctx());
+    transfer::public_freeze_object(metadata);
+
+    bridge::mint(&mut vault, &minter, 1_000_000_000, USER, b"lock-1", scenario.ctx());
+    scenario.next_tx(USER);
+    let c = scenario.take_from_sender<Coin<NVDA>>();
+    bridge::burn(&mut vault, c, x"1111", scenario.ctx());
+    abort 42
 }
