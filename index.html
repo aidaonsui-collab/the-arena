@@ -326,6 +326,10 @@ a.btn-trade{display:block;text-align:center;text-decoration:none;box-sizing:bord
 .quote-dd-item .q-meta small{display:block;font-size:11px;font-weight:500;color:var(--muted);margin-top:1px}
 .quote-dd-item .q-check{color:var(--sui);font-size:12px;opacity:0}
 .quote-dd-item.on .q-check{opacity:1}
+.quote-dd-item.soon{opacity:.55;cursor:not-allowed}
+.quote-dd-item.soon:hover{background:transparent}
+.quote-dd-item .q-soon{margin-left:auto;flex:none;font-size:10px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:#0b0a0c;background:var(--sui);border-radius:999px;padding:3px 7px;line-height:1.2}
+.quote-dd-item.soon .q-check{display:none}
 
 .back{font-size:13px;font-weight:600;color:var(--muted);cursor:pointer;margin-bottom:12px}
 .back:hover{color:var(--ink)}
@@ -782,10 +786,10 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     USDY: { label:"USDY", type:window.ARENA_USDY_TYPE, metadata:window.ARENA_USDY_METADATA, decimals:6, name:"Ondo US Dollar Yield", what:"Ondo tokenized US Treasury bills", create:true, chips:["1","5","10","25","Max"], virtualHuman:"≈ $3.5k", pit:window.ARENA_PIT_USDY, color:"#3ECF8E", logo:"/brand/quotes/usdy.png" },
     XAGM: { label:"XAGM", type:window.ARENA_XAGM_TYPE, metadata:window.ARENA_XAGM_METADATA, decimals:9, name:"Matrixdock Silver", what:"Matrixdock silver, 1 oz", create:true, chips:["0.01","0.05","0.1","0.25","Max"], virtualHuman:"≈ $3.5k", pit:window.ARENA_PIT_XAGM, color:"#C0C7D1", logo:"/brand/quotes/xagm.png" },
     XAUM: { label:"XAUM", type:window.ARENA_XAUM_TYPE, metadata:window.ARENA_XAUM_METADATA, decimals:9, name:"Matrixdock Gold", what:"Matrixdock gold, 1 oz", create:true, chips:["0.01","0.05","0.1","0.25","Max"], virtualHuman:"≈ $3.5k", pit:window.ARENA_PIT_XAUM, color:"#C9A97E", logo:"/brand/quotes/xaum.png" },
-    NVDA: { label:"NVDA", type:window.ARENA_STOCK_NVDA_TYPE, metadata:window.ARENA_STOCK_NVDA_METADATA, decimals:18, name:"NVIDIA wrap", what:"RH→Sui stock wrap (NVDA)", create:true, stock:true, chips:["0.01","0.1","1","5","Max"], virtualHuman:"≈ $3.5k", pit:"", color:"#76B900", logo:"/brand/quotes/nvda.png" },
-    AMC:  { label:"AMC",  type:window.ARENA_STOCK_AMC_TYPE,  metadata:window.ARENA_STOCK_AMC_METADATA,  decimals:18, name:"AMC wrap", what:"RH→Sui stock wrap (AMC)", create:true, stock:true, chips:["0.01","0.1","1","5","Max"], virtualHuman:"≈ $3.5k", pit:"", color:"#E11D2E", logo:"/brand/quotes/amc.png" },
-    GME:  { label:"GME",  type:window.ARENA_STOCK_GME_TYPE,  metadata:window.ARENA_STOCK_GME_METADATA,  decimals:18, name:"GME wrap", what:"RH→Sui stock wrap (GME)", create:true, stock:true, chips:["0.01","0.1","1","5","Max"], virtualHuman:"≈ $3.5k", pit:"", color:"#EF4444", logo:"/brand/quotes/gme.png" },
-    TSLA: { label:"TSLA", type:window.ARENA_STOCK_TSLA_TYPE, metadata:window.ARENA_STOCK_TSLA_METADATA, decimals:18, name:"Tesla wrap", what:"RH→Sui stock wrap (TSLA)", create:true, stock:true, chips:["0.01","0.1","1","5","Max"], virtualHuman:"≈ $3.5k", pit:"", color:"#CC0000", logo:"/brand/quotes/tsla.png" }
+    NVDA: { label:"NVDA", type:window.ARENA_STOCK_NVDA_TYPE, metadata:window.ARENA_STOCK_NVDA_METADATA, decimals:18, name:"NVIDIA wrap", what:"RH→Sui stock wrap (NVDA)", create:false, soon:true, stock:true, chips:["0.01","0.1","1","5","Max"], virtualHuman:"≈ $3.5k", pit:"", color:"#76B900", logo:"/brand/quotes/nvda.png" },
+    AMC:  { label:"AMC",  type:window.ARENA_STOCK_AMC_TYPE,  metadata:window.ARENA_STOCK_AMC_METADATA,  decimals:18, name:"AMC wrap", what:"RH→Sui stock wrap (AMC)", create:false, soon:true, stock:true, chips:["0.01","0.1","1","5","Max"], virtualHuman:"≈ $3.5k", pit:"", color:"#E11D2E", logo:"/brand/quotes/amc.png" },
+    GME:  { label:"GME",  type:window.ARENA_STOCK_GME_TYPE,  metadata:window.ARENA_STOCK_GME_METADATA,  decimals:18, name:"GME wrap", what:"RH→Sui stock wrap (GME)", create:false, soon:true, stock:true, chips:["0.01","0.1","1","5","Max"], virtualHuman:"≈ $3.5k", pit:"", color:"#EF4444", logo:"/brand/quotes/gme.png" },
+    TSLA: { label:"TSLA", type:window.ARENA_STOCK_TSLA_TYPE, metadata:window.ARENA_STOCK_TSLA_METADATA, decimals:18, name:"Tesla wrap", what:"RH→Sui stock wrap (TSLA)", create:false, soon:true, stock:true, chips:["0.01","0.1","1","5","Max"], virtualHuman:"≈ $3.5k", pit:"", color:"#CC0000", logo:"/brand/quotes/tsla.png" }
   };
   var CREATE_QUOTES = ["SUI","USDY","XAGM","XAUM","NVDA","AMC","GME","TSLA"];
 
@@ -835,16 +839,22 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     if (url) return '<img class="'+(cls||"q-logo")+'" src="'+escAttr(url)+'" alt="" width="22" height="22" loading="lazy">';
     return '<span class="'+(cls||"q-logo")+'" style="display:inline-grid;place-items:center;background:'+escAttr(rec.color||"#4DA2FF")+';color:#fff;font-size:9px;font-weight:800">'+(rec.label||"?").slice(0,1)+'</span>';
   }
+  function quoteSoon(q){
+    var r = quoteRec(q);
+    return !!(r && (r.soon || r.create === false) && r.stock);
+  }
   function quoteDropdownHTML(){
+    if (quoteSoon(state.lQuote)) state.lQuote = "SUI";
     var cur = quoteRec(state.lQuote);
     var open = !!state.quoteOpen;
     var items = CREATE_QUOTES.map(function(q){
       var r = quoteRec(q);
       var on = state.lQuote === q;
-      return '<button type="button" class="quote-dd-item'+(on?" on":"")+'" data-set="lQuote" data-val="'+q+'">'+
+      var soon = quoteSoon(q);
+      return '<button type="button" class="quote-dd-item'+(on?" on":"")+(soon?" soon":"")+'"'+(soon?' disabled aria-disabled="true"':' data-set="lQuote" data-val="'+q+'"')+'>'+
         quoteLogoHtml(q)+
         '<span class="q-meta">'+escHtml(r.label)+'<small>'+escHtml(r.name||r.what||"")+'</small></span>'+
-        '<span class="q-check">✓</span></button>';
+        (soon?'<span class="q-soon">Soon</span>':'<span class="q-check">✓</span>')+'</button>';
     }).join("");
     return '<div class="quote-dd'+(open?" open":"")+'" id="quote-dd">'+
       '<button type="button" class="quote-dd-btn" data-quote-dd-toggle aria-expanded="'+(open?"true":"false")+'">'+
@@ -7231,6 +7241,7 @@ async function doBridgeDeposit(){
     if (set){
       const key = set.getAttribute("data-set");
       const val = set.getAttribute("data-val");
+      if (key === "lQuote" && quoteSoon(val)) return;
       state[key] = val;
       if (key === "lQuote") state.quoteOpen = false;
       if (key === "lPath"){
