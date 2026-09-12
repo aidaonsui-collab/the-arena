@@ -3,6 +3,7 @@ module arena::arena_tests;
 
 use arena::config::{Self, Config, AdminCap};
 use arena::qcoin::QCOIN;
+use arena::holder_yield::{Self, HolderYieldVault};
 use arena::launch::{Self, InstadexMintLock};
 use arena::lock::{Self, LpLock};
 use arena::pit::{Self, Pit};
@@ -1397,5 +1398,199 @@ fun test_wash_trading_does_not_graduate() {
     ts::return_shared(pit);
     ts::return_shared(pool);
     ts::return_shared(clock);
+    scenario.end();
+}
+
+#[test]
+#[expected_failure(abort_code = 36)]
+fun test_holder_yield_collect_gate_aborts() {
+    lock::abort_holder_yield_collect();
+}
+
+#[test]
+fun test_holder_yield_sync_fund_claim() {
+    let mut scenario = ts::begin(ADMIN);
+    let mut clock = clock::create_for_testing(scenario.ctx());
+    clock.set_for_testing(1_000);
+    let lock_id = sui::object::id_from_address(@0xB1);
+    let bf_id = sui::object::id_from_address(@0xB2);
+    holder_yield::create_for_testing<TCOIN, SUI>(lock_id, bf_id, scenario.ctx());
+    clock.share_for_testing();
+
+    scenario.next_tx(USER1);
+    {
+        let mut vault = scenario.take_shared<HolderYieldVault<TCOIN, SUI>>();
+        let clock = scenario.take_shared<Clock>();
+        let c = coin::mint_for_testing<TCOIN>(100, scenario.ctx());
+        holder_yield::sync_registration(&mut vault, &c, scenario.ctx());
+        assert!(holder_yield::total_registered(&vault) == 100, 0);
+        assert!(holder_yield::holder_amount(&vault, USER1) == 100, 1);
+        // No holders previously — fund with zero registered was avoided by sync first.
+        let leftover = holder_yield::fund_for_testing(
+            &mut vault,
+            coin::mint_for_testing<SUI>(30, scenario.ctx()).into_balance(),
+            &clock,
+        );
+        assert!(leftover.value() == 0, 2);
+        leftover.destroy_zero();
+        assert!(holder_yield::reward_pot_value(&vault) == 30, 3);
+        assert!(holder_yield::pending(&vault, USER1) == 30, 4);
+        let claim = holder_yield::claim(&mut vault, scenario.ctx());
+        assert!(claim.value() == 30, 5);
+        coin::burn_for_testing(claim);
+        coin::burn_for_testing(c);
+        ts::return_shared(vault);
+        ts::return_shared(clock);
+    };
+    scenario.end();
+}
+
+#[test]
+fun test_holder_yield_two_holders_pro_rata() {
+    let mut scenario = ts::begin(ADMIN);
+    let mut clock = clock::create_for_testing(scenario.ctx());
+    clock.set_for_testing(5_000);
+    holder_yield::create_for_testing<TCOIN, SUI>(
+        sui::object::id_from_address(@0x1),
+        sui::object::id_from_address(@0x2),
+        scenario.ctx(),
+    );
+    clock.share_for_testing();
+
+    scenario.next_tx(USER1);
+    {
+        let mut vault = scenario.take_shared<HolderYieldVault<TCOIN, SUI>>();
+        let c = coin::mint_for_testing<TCOIN>(100, scenario.ctx());
+        holder_yield::sync_registration(&mut vault, &c, scenario.ctx());
+        coin::burn_for_testing(c);
+        ts::return_shared(vault);
+    };
+    scenario.next_tx(USER2);
+    {
+        let mut vault = scenario.take_shared<HolderYieldVault<TCOIN, SUI>>();
+        let c = coin::mint_for_testing<TCOIN>(300, scenario.ctx());
+        holder_yield::sync_registration(&mut vault, &c, scenario.ctx());
+        coin::burn_for_testing(c);
+        ts::return_shared(vault);
+    };
+    scenario.next_tx(ADMIN);
+    {
+        let mut vault = scenario.take_shared<HolderYieldVault<TCOIN, SUI>>();
+        let clock = scenario.take_shared<Clock>();
+        assert!(holder_yield::total_registered(&vault) == 400, 0);
+        let leftover = holder_yield::fund_for_testing(
+            &mut vault,
+            coin::mint_for_testing<SUI>(40, scenario.ctx()).into_balance(),
+            &clock,
+        );
+        leftover.destroy_zero();
+        // 100/400 → 10, 300/400 → 30
+        assert!(holder_yield::pending(&vault, USER1) == 10, 1);
+        assert!(holder_yield::pending(&vault, USER2) == 30, 2);
+        ts::return_shared(vault);
+        ts::return_shared(clock);
+    };
+    scenario.next_tx(USER1);
+    {
+        let mut vault = scenario.take_shared<HolderYieldVault<TCOIN, SUI>>();
+        let c = holder_yield::claim(&mut vault, scenario.ctx());
+        assert!(c.value() == 10, 3);
+        coin::burn_for_testing(c);
+        ts::return_shared(vault);
+    };
+    scenario.next_tx(USER2);
+    {
+        let mut vault = scenario.take_shared<HolderYieldVault<TCOIN, SUI>>();
+        let c = holder_yield::claim(&mut vault, scenario.ctx());
+        assert!(c.value() == 30, 4);
+        coin::burn_for_testing(c);
+        ts::return_shared(vault);
+    };
+    scenario.end();
+}
+
+#[test]
+fun test_holder_yield_no_holders_returns_fee() {
+    let mut scenario = ts::begin(ADMIN);
+    let mut clock = clock::create_for_testing(scenario.ctx());
+    clock.set_for_testing(1);
+    holder_yield::create_for_testing<TCOIN, SUI>(
+        sui::object::id_from_address(@0x1),
+        sui::object::id_from_address(@0x2),
+        scenario.ctx(),
+    );
+    clock.share_for_testing();
+    scenario.next_tx(ADMIN);
+    {
+        let mut vault = scenario.take_shared<HolderYieldVault<TCOIN, SUI>>();
+        let clock = scenario.take_shared<Clock>();
+        let leftover = holder_yield::fund_for_testing(
+            &mut vault,
+            coin::mint_for_testing<SUI>(30, scenario.ctx()).into_balance(),
+            &clock,
+        );
+        assert!(leftover.value() == 30, 0);
+        assert!(holder_yield::reward_pot_value(&vault) == 0, 1);
+        coin::burn_for_testing(coin::from_balance(leftover, scenario.ctx()));
+        ts::return_shared(vault);
+        ts::return_shared(clock);
+    };
+    scenario.end();
+}
+
+#[test]
+fun test_holder_yield_lock_df_helpers() {
+    let mut scenario = ts::begin(ADMIN);
+    let yield_id = sui::object::id_from_address(@0xE1);
+    lock::share_bluefin_lock_with_yield_for_testing(
+        sui::object::id_from_address(@0x0),
+        sui::object::id_from_address(@0xBF),
+        ADMIN,
+        0,
+        yield_id,
+        scenario.ctx(),
+    );
+    scenario.next_tx(ADMIN);
+    {
+        let bf_lock = scenario.take_shared<lock::BluefinPositionLock>();
+        assert!(lock::is_holder_yield(&bf_lock), 0);
+        assert!(lock::holder_yield_id(&bf_lock) == yield_id, 1);
+        ts::return_shared(bf_lock);
+    };
+    // Default Instant lock has no DF
+    lock::share_bluefin_lock_for_testing(
+        sui::object::id_from_address(@0x0),
+        sui::object::id_from_address(@0xBF2),
+        ADMIN,
+        0,
+        scenario.ctx(),
+    );
+    scenario.next_tx(ADMIN);
+    {
+        let bf_lock = scenario.take_shared<lock::BluefinPositionLock>();
+        // take_shared may get either lock — check by bluefin id
+        // Actually both are shared; take_shared returns one nondeterministically?
+        // In test_scenario, take_shared by type gets the only one of that type
+        // if two exist it might be ambiguous. Create them in separate scenarios.
+        let _ = &bf_lock;
+        ts::return_shared(bf_lock);
+    };
+    scenario.end();
+}
+
+#[test]
+fun test_plain_lock_not_holder_yield() {
+    let mut scenario = ts::begin(ADMIN);
+    lock::share_bluefin_lock_for_testing(
+        sui::object::id_from_address(@0x0),
+        sui::object::id_from_address(@0xBF),
+        ADMIN,
+        0,
+        scenario.ctx(),
+    );
+    scenario.next_tx(ADMIN);
+    let bf_lock = scenario.take_shared<lock::BluefinPositionLock>();
+    assert!(!lock::is_holder_yield(&bf_lock), 0);
+    ts::return_shared(bf_lock);
     scenario.end();
 }

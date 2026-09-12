@@ -143,6 +143,36 @@ public struct InstadexPitSettleEvent has copy, drop {
 }
 
 /// Instant creator rewards wallet changed (CTO / handoff).
+
+/// Instant RWA holder-yield: pit-bps quote slice credited to claimable vault.
+/// Pad Rewards tab indexes by `quote` (XAUM / XAGM / USDY) + `timestamp_ms`.
+public struct HolderYieldFundedEvent has copy, drop {
+    lock_id: ID,
+    yield_id: ID,
+    bluefin_pool_id: ID,
+    quote: TypeName,
+    amount: u64,
+    timestamp_ms: u64,
+}
+
+/// Holder pulled claimable quote from a holder-yield vault.
+public struct HolderYieldClaimEvent has copy, drop {
+    lock_id: ID,
+    yield_id: ID,
+    who: address,
+    amount: u64,
+    quote: TypeName,
+}
+
+/// Parallel to InstadexMintLockEvent: Instant launch opted into holder-yield.
+public struct HolderYieldLaunchEvent has copy, drop {
+    lock_id: ID,
+    yield_id: ID,
+    bluefin_pool_id: ID,
+    token: TypeName,
+    quote: TypeName,
+}
+
 public struct BeneficiarySetEvent has copy, drop {
     lock_id: ID,
     old_beneficiary: address,
@@ -344,5 +374,55 @@ public fun emit_beneficiary_set(lock_id: ID, old_beneficiary: address, new_benef
         lock_id,
         old_beneficiary,
         new_beneficiary,
+    })
+}
+
+public fun emit_holder_yield_funded(
+    lock_id: ID,
+    yield_id: ID,
+    bluefin_pool_id: ID,
+    quote: TypeName,
+    amount: u64,
+    timestamp_ms: u64,
+) {
+    sui::event::emit(HolderYieldFundedEvent {
+        lock_id,
+        yield_id,
+        bluefin_pool_id,
+        quote,
+        amount,
+        timestamp_ms,
+    })
+}
+
+public fun emit_holder_yield_claim(
+    lock_id: ID,
+    yield_id: ID,
+    who: address,
+    amount: u64,
+    quote: TypeName,
+) {
+    sui::event::emit(HolderYieldClaimEvent {
+        lock_id,
+        yield_id,
+        who,
+        amount,
+        quote,
+    })
+}
+
+public fun emit_holder_yield_launch(
+    lock_id: ID,
+    yield_id: ID,
+    bluefin_pool_id: ID,
+    token: TypeName,
+    quote: TypeName,
+) {
+    sui::event::emit(HolderYieldLaunchEvent {
+        lock_id,
+        yield_id,
+        bluefin_pool_id,
+        token,
+        quote,
     })
 }

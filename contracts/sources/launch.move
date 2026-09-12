@@ -12,6 +12,7 @@ module arena::launch;
 use arena::config::Config;
 use arena::errors;
 use arena::events;
+use arena::holder_yield::HolderYieldVault;
 use arena::lock::{Self, BluefinPositionLock};
 use arena::math;
 use arena::pit::Pit;
@@ -209,6 +210,97 @@ public fun launch_instant<T, Q>(
     lock_id
 }
 
+
+/// Instant RWA holder-yield launch. Same as `launch_instant`, plus a shared
+/// `HolderYieldVault<T, Q>` and a launch-locked DF on the lock. The pit-bps
+/// quote slice from collect becomes claimable holder rewards (not pit pot).
+/// Returns the lock id (same as Instant); also emits `HolderYieldLaunchEvent`.
+public fun launch_instant_holder_yield<T, Q>(
+    config: &mut Config,
+    clock: &Clock,
+    bf_config: &mut GlobalConfig,
+    treasury_cap: TreasuryCap<T>,
+    meta_t: &CoinMetadata<T>,
+    meta_q: &CoinMetadata<Q>,
+    token: Coin<T>,
+    fee_sui: Coin<SUI>,
+    creation_fee: Coin<SUI>,
+    ctx: &mut TxContext,
+): ID {
+    config.take_launch_fee(fee_sui);
+    let token_amount = token.value();
+    assert!(token_amount > 0, errors::zero_amount());
+    let virtual_quote = config.instant_virtual_quote<Q>();
+    let fee = lock::take_creation_fee(bf_config, creation_fee, ctx.sender(), ctx);
+    let (lock_id, bf_pool_id, position_id, _, yield_id) = lock::seed_and_lock_instant_holder_yield(
+        ctx.sender(),
+        clock,
+        bf_config,
+        meta_t,
+        meta_q,
+        fee,
+        token.into_balance(),
+        virtual_quote,
+        ctx,
+    );
+
+    let mint = InstadexMintLock<T> {
+        id: object::new(ctx),
+        cap: treasury_cap,
+    };
+    let mint_id = object::id(&mint);
+    transfer::share_object(mint);
+
+    events::emit_instadex_launch(
+        lock_id,
+        bf_pool_id,
+        position_id,
+        type_name::with_defining_ids<T>(),
+        type_name::with_defining_ids<Q>(),
+        ctx.sender(),
+        token_amount,
+        0,
+        0,
+        meta_t.get_name(),
+        meta_t.get_symbol(),
+    );
+    events::emit_instadex_mint_lock(lock_id, mint_id);
+    events::emit_holder_yield_launch(
+        lock_id,
+        yield_id,
+        bf_pool_id,
+        type_name::with_defining_ids<T>(),
+        type_name::with_defining_ids<Q>(),
+    );
+    lock_id
+}
+
+public entry fun launch_instant_holder_yield_entry<T, Q>(
+    config: &mut Config,
+    clock: &Clock,
+    bf_config: &mut GlobalConfig,
+    treasury_cap: TreasuryCap<T>,
+    meta_t: &CoinMetadata<T>,
+    meta_q: &CoinMetadata<Q>,
+    token: Coin<T>,
+    fee_sui: Coin<SUI>,
+    creation_fee: Coin<SUI>,
+    ctx: &mut TxContext,
+) {
+    launch_instant_holder_yield<T, Q>(
+        config,
+        clock,
+        bf_config,
+        treasury_cap,
+        meta_t,
+        meta_q,
+        token,
+        fee_sui,
+        creation_fee,
+        ctx,
+    );
+}
+
 public entry fun launch_instant_entry<T, Q>(
     config: &mut Config,
     clock: &Clock,
@@ -286,6 +378,38 @@ public fun collect_instadex_fees<A, B>(
     };
     events::emit_instadex_burn(object::id(lock), amount);
 }
+
+/// Permissionless collect for holder-yield Instant locks. Quote pit-bps →
+/// `HolderYieldVault` (claimable); token A still burned via mint lock.
+/// Aborts if the lock is not in holder-yield mode — use `collect_instadex_fees`.
+public fun collect_instadex_fees_holder_yield<A, B>(
+    lock: &mut BluefinPositionLock,
+    mint: &mut InstadexMintLock<A>,
+    vault: &mut HolderYieldVault<A, B>,
+    clock: &Clock,
+    bf_config: &GlobalConfig,
+    bf_pool: &mut bluefin_spot::pool::Pool<A, B>,
+    config: &mut Config,
+    ctx: &mut TxContext,
+) {
+    let bal_a = lock::collect_lp_fees_return_token_to_holders(
+        lock,
+        vault,
+        clock,
+        bf_config,
+        bf_pool,
+        config,
+        ctx,
+    );
+    let amount = bal_a.value();
+    if (amount == 0) {
+        bal_a.destroy_zero();
+    } else {
+        coin::burn(&mut mint.cap, coin::from_balance(bal_a, ctx));
+    };
+    events::emit_instadex_burn(object::id(lock), amount);
+}
+
 
 public(package) fun assert_instadex_amounts(token_amount: u64, quote_amount: u64) {
     assert!(token_amount > 0 && quote_amount > 0, errors::zero_amount());

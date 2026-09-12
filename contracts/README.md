@@ -70,6 +70,14 @@ Graduation for XAUM defaults to **1 XAUM** (not 2,000 units). 2,000 SUI is only 
 
 ## Instadex (no curve)
 
+### RWA holder-yield (v1)
+
+Instant launches may opt into **holder-yield** via `launch_instant_holder_yield`:
+the `std_pit_bps` quote slice becomes claimable vault rewards for registered
+holders (XAUM / XAGM / USDY), not the pit pot. See `HOLDER_YIELD.md` for event
+shapes, DF flag, and Compatible notes. Default `launch_instant` is unchanged.
+
+
 Create is Robinpad Instant: the creator publishes `Coin<T>` and pays the 1 SUI launch fee. **No quote coin.** `launch_instant` seeds a Bluefin Spot pool with 100% of `Coin<T>` and 0 quote, initializes at `tickLower` so the mint is single-sided, and vaults the Position NFT in `BluefinPositionLock` forever (`unlock_ms = 0`; `claim_bluefin_position` aborts). Starting price is `Config.instant_virtual_quote<Q>` (default 1 SUI / 0.01 XAUM; AdminCap `set_instant_virtual_quote`). Token is Bluefin coin A, quote is coin B, so collect still burns A and splits B. `launch_instadex` remains as the two-sided seed (creator brings `Coin<T>` + `Coin<Q>`). Anyone can poke `launch::collect_instadex_fees`. The pit argument must be the official `Pit<Q>` registered on Config (`config::register_pit` with AdminCap; SUI + XAUM after this upgrade). The Bluefin pool argument must match `BluefinPositionLock.bluefin_pool_id`. Bluefin keeps 20% of the 1% swap fee; the remaining LP share of the quote (coin B) splits Config.std_* bps (default 60/10/30 creator/platform/pit). Token (coin A) fees are burned through the vaulted `InstadexMintLock<T>` TreasuryCap (zero A is `destroy_zero`, not burn). `TreasuryCap<T>` stays locked (no extract, no mint).
 
 **PTB** — `launch::launch_instant<T, Q>` / `launch_instant_entry` (returns `lock_id`):
