@@ -97,16 +97,23 @@
     return isFinite(n) ? n : 0;
   }
 
-  /** Bonding-curve price in quote/token (same 9-dec units cancel). */
+  /**
+   * Quote per token for candles.
+   * Prefer fill size (quote_amount/token_amount): Bluefin Instant rows carry
+   * quote_real/token_reserve that is NOT marginal spot (~½ fill for SGOLD),
+   * which understated chart MC vs tape/stats/sqrt.
+   * Fall back to reserve ratio for curve-only rows without fill size.
+   * Same 9-dec mist units cancel for XAUM/SUI; USDY needs decimal-aware path elsewhere.
+   */
   function tradePrice(t) {
     if (!t) return 0;
     if (t.price != null && isFinite(t.price) && t.price > 0) return Number(t.price);
-    var qr = num(t.quote_real);
-    var tr = num(t.token_reserve);
-    if (qr > 0 && tr > 0) return qr / tr;
     var q = num(t.quote_amount);
     var tok = num(t.token_amount);
     if (q > 0 && tok > 0) return q / tok;
+    var qr = num(t.quote_real);
+    var tr = num(t.token_reserve);
+    if (qr > 0 && tr > 0) return qr / tr;
     return 0;
   }
 
