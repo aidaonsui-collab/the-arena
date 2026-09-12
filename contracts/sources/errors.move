@@ -61,6 +61,10 @@ const E_WRONG_BASKET: u64 = 40;
 const E_UNKNOWN_RWA: u64 = 41;
 /// Basket payout_mode is not ALL_AT_ONCE or ROTATING.
 const E_BASKET_MODE: u64 = 42;
+/// Use `launch::collect_instadex_fees_basket_yield` for this lock.
+const E_USE_BASKET_YIELD_COLLECT: u64 = 43;
+/// Lock already has the other yield mode DF (holder vs basket mutual exclusion).
+const E_YIELD_MODE_CONFLICT: u64 = 44;
 
 public fun paused(): u64 { E_PAUSED }
 public fun invalid_fee(): u64 { E_INVALID_FEE }
@@ -104,4 +108,6 @@ public fun not_basket_yield(): u64 { E_NOT_BASKET_YIELD }
 public fun wrong_basket(): u64 { E_WRONG_BASKET }
 public fun unknown_rwa(): u64 { E_UNKNOWN_RWA }
 public fun basket_mode(): u64 { E_BASKET_MODE }
+public fun use_basket_yield_collect(): u64 { E_USE_BASKET_YIELD_COLLECT }
+public fun yield_mode_conflict(): u64 { E_YIELD_MODE_CONFLICT }
 
