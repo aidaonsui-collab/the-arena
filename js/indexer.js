@@ -655,6 +655,64 @@
     return "0x" + a;
   }
 
+
+  function rewardsCatFromQuote(quote) {
+    var lab = quoteLabel(typeNameOf(quote) || quote);
+    if (lab === "XAUM") return "gold";
+    if (lab === "XAGM") return "silver";
+    if (lab === "USDY") return "tbills";
+    return "";
+  }
+
+  function parseHolderYieldLaunch(ev) {
+    var p = ev.parsedJson || {};
+    var quoteRaw = p.quote;
+    var tokenRaw = p.token;
+    return {
+      lock_id: padId(p.lock_id || ""),
+      yield_id: padId(p.yield_id || ""),
+      bluefin_pool_id: padId(p.bluefin_pool_id || ""),
+      token: typeNameOf(tokenRaw),
+      quote: typeNameOf(quoteRaw) || quoteRaw,
+      quoteLabel: quoteLabel(typeNameOf(quoteRaw) || quoteRaw),
+      cat: rewardsCatFromQuote(quoteRaw),
+      ts: num(ev.timestampMs) || Date.now(),
+      digest: String((ev.id && (ev.id.txDigest || ev.id.tx_digest)) || ev.digest || "")
+    };
+  }
+
+  function parseHolderYieldFunded(ev) {
+    var p = ev.parsedJson || {};
+    var quoteRaw = p.quote;
+    return {
+      lock_id: padId(p.lock_id || ""),
+      yield_id: padId(p.yield_id || ""),
+      bluefin_pool_id: padId(p.bluefin_pool_id || ""),
+      quote: typeNameOf(quoteRaw) || quoteRaw,
+      quoteLabel: quoteLabel(typeNameOf(quoteRaw) || quoteRaw),
+      cat: rewardsCatFromQuote(quoteRaw),
+      amount: mistStr(p.amount),
+      ts: num(p.timestamp_ms) || num(ev.timestampMs) || Date.now(),
+      digest: String((ev.id && (ev.id.txDigest || ev.id.tx_digest)) || ev.digest || "")
+    };
+  }
+
+  function parseHolderYieldClaim(ev) {
+    var p = ev.parsedJson || {};
+    var quoteRaw = p.quote;
+    return {
+      lock_id: padId(p.lock_id || ""),
+      yield_id: padId(p.yield_id || ""),
+      who: padId(p.who || ""),
+      amount: mistStr(p.amount),
+      quote: typeNameOf(quoteRaw) || quoteRaw,
+      quoteLabel: quoteLabel(typeNameOf(quoteRaw) || quoteRaw),
+      cat: rewardsCatFromQuote(quoteRaw),
+      ts: num(ev.timestampMs) || Date.now(),
+      digest: String((ev.id && (ev.id.txDigest || ev.id.tx_digest)) || ev.digest || "")
+    };
+  }
+
   function parseBeneficiarySet(ev) {
     var p = ev.parsedJson || {};
     return {
@@ -867,13 +925,35 @@
       }
       var benPkgs = (opts.beneficiaryPackages || burnPkgs).slice();
       benPkgs.forEach(pullBeneficiary);
+      function emitHyLaunch(r) { if (opts.onHolderYieldLaunch) opts.onHolderYieldLaunch(r); }
+      function emitHyFunded(r) { if (opts.onHolderYieldFunded) opts.onHolderYieldFunded(r); }
+      function emitHyClaim(r) { if (opts.onHolderYieldClaim) opts.onHolderYieldClaim(r); }
+      function pullHolderYield(pkg) {
+        if (!pkg || pkg === "0x0") return;
+        collect(rpc, pkg + "::events::HolderYieldLaunchEvent", parseHolderYieldLaunch, 4, 50).then(function (rows) {
+          rows.forEach(emitHyLaunch);
+        }).catch(function () {});
+        collect(rpc, pkg + "::events::HolderYieldFundedEvent", parseHolderYieldFunded, 8, 50).then(function (rows) {
+          rows.forEach(emitHyFunded);
+        }).catch(function () {});
+        collect(rpc, pkg + "::events::HolderYieldClaimEvent", parseHolderYieldClaim, 8, 50).then(function (rows) {
+          rows.forEach(emitHyClaim);
+        }).catch(function () {});
+      }
+      var hyPkgs = (opts.holderYieldPackages || []).slice();
+      if (!hyPkgs.length) {
+        var hy = opts.callPackage || (typeof window !== "undefined" ? (window.ARENA_CALL_PACKAGE || window.ARENA_COLLECT_PACKAGE) : "");
+        if (hy) hyPkgs.push(hy);
+      }
+      hyPkgs.forEach(pullHolderYield);
       if (opts.live) {
         instaTimer = setInterval(refreshInstadex, opts.instadexMs || 60000);
         setInterval(function () {
           burnPkgs.forEach(pullBurn);
           mintPkgs.forEach(pullMintLock);
           benPkgs.forEach(pullBeneficiary);
-        }, opts.instadexMs || 60000);
+          hyPkgs.forEach(pullHolderYield);
+        }, opts.instadexMs || 45000);
         bluefinTimer = setInterval(function () { refreshBluefin(); }, opts.bluefinMs || 12000);
       }
     }
@@ -961,6 +1041,10 @@
     parseInstadexLaunch: parseInstadexLaunch,
     parseInstadexBurn: parseInstadexBurn,
     parseInstadexMintLock: parseInstadexMintLock,
+    parseHolderYieldLaunch: parseHolderYieldLaunch,
+    parseHolderYieldFunded: parseHolderYieldFunded,
+    parseHolderYieldClaim: parseHolderYieldClaim,
+    rewardsCatFromQuote: rewardsCatFromQuote,
     parseBeneficiarySet: parseBeneficiarySet,
     parseAssetSwap: parseAssetSwap,
     BLUEFIN_ASSET_SWAP: BLUEFIN_ASSET_SWAP,

@@ -824,7 +824,10 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     { id:"tbills", label:"T-bills", quote:"USDY", unit:"USDY", blurb:"Ondo USDY · Instant quote-fee share", color:"#3ECF8E", logo:"/brand/quotes/usdy.png" }
   ];
   // Populated once Arena Move emits claim / distribution events. Scaffold only for now.
-  var rewardsLedger = { updatedMs: 0, byCat: { gold:{ total:"0", claimable:"0", distributed:"0" }, silver:{ total:"0", claimable:"0", distributed:"0" }, tbills:{ total:"0", claimable:"0", distributed:"0" } }, distributions: [] };
+  var rewardsLedger = { updatedMs: 0, byCat: { gold:{ total:"0", claimable:"0", distributed:"0" }, silver:{ total:"0", claimable:"0", distributed:"0" }, tbills:{ total:"0", claimable:"0", distributed:"0" } }, distributions: [], claims: [] };
+  var rewardsVaults = {}; // yield_id -> launch meta
+  var rewardsBusy = false;
+  var rewardsNote = "";
 
 
   // Secondary wrap only: RH stock → vault lock → 1:1 Sui mint. Not RH primary mint.
@@ -4202,12 +4205,171 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       distributed: row.distributed || "0"
     };
   }
+  function rewardsCatId(quote){
+    if (Index && Index.rewardsCatFromQuote) return Index.rewardsCatFromQuote(quote) || "";
+    var lab = (Index && Index.quoteLabel) ? Index.quoteLabel(quote) : String(quote || "");
+    if (lab === "XAUM") return "gold";
+    if (lab === "XAGM") return "silver";
+    if (lab === "USDY") return "tbills";
+    return "";
+  }
+  function rewardsDec(unit){
+    if (unit === "USDY") return 6;
+    return 9;
+  }
   function fmtRewardAmt(raw, unit){
-    var n = Number(raw);
-    if (!(n > 0)) return "0 " + unit;
+    var mist = Number(raw);
+    if (!(mist > 0)) return "0 " + unit;
+    var n = mist / Math.pow(10, rewardsDec(unit));
     if (n >= 1000) return n.toLocaleString(undefined, { maximumFractionDigits: 2 }) + " " + unit;
     if (n >= 1) return n.toLocaleString(undefined, { maximumFractionDigits: 4 }) + " " + unit;
     return n.toLocaleString(undefined, { maximumFractionDigits: 6 }) + " " + unit;
+  }
+  function rebuildRewardsLedger(){
+    var by = {
+      gold:{ total:"0", claimable:"0", distributed:"0" },
+      silver:{ total:"0", claimable:"0", distributed:"0" },
+      tbills:{ total:"0", claimable:"0", distributed:"0" }
+    };
+    var funded = {};
+    (rewardsLedger.distributions || []).forEach(function(d){
+      if (!d || !d.cat || !by[d.cat]) return;
+      funded[d.cat] = (funded[d.cat] || 0) + (Number(d.amount) || 0);
+    });
+    var claimed = { gold:0, silver:0, tbills:0 };
+    var me = String(suiSession.address || "").toLowerCase();
+    (rewardsLedger.claims || []).forEach(function(c){
+      if (!c || !c.cat || claimed[c.cat] == null) return;
+      claimed[c.cat] += Number(c.amount) || 0;
+    });
+    Object.keys(by).forEach(function(cat){
+      var dist = funded[cat] || 0;
+      by[cat].distributed = String(dist);
+      by[cat].total = String(dist);
+      // Wallet claimable needs on-chain pending(); until then show 0 and rely on claim PTB.
+      by[cat].claimable = "0";
+    });
+    rewardsLedger.byCat = by;
+    rewardsLedger.updatedMs = Date.now();
+  }
+  function applyHolderYieldLaunch(ev){
+    if (!ev || !ev.yield_id) return;
+    if (!ev.cat) ev.cat = rewardsCatId(ev.quote);
+    if (!ev.cat) return;
+    rewardsVaults[ev.yield_id] = {
+      lock_id: ev.lock_id,
+      yield_id: ev.yield_id,
+      bluefin_pool_id: ev.bluefin_pool_id,
+      token: ev.token,
+      quote: ev.quote,
+      quoteLabel: ev.quoteLabel,
+      cat: ev.cat
+    };
+  }
+  function applyHolderYieldFunded(ev){
+    if (!ev || !ev.yield_id) return;
+    if (!ev.cat) ev.cat = rewardsCatId(ev.quote);
+    if (!ev.cat) return;
+    if (!rewardsVaults[ev.yield_id]){
+      rewardsVaults[ev.yield_id] = {
+        lock_id: ev.lock_id,
+        yield_id: ev.yield_id,
+        bluefin_pool_id: ev.bluefin_pool_id,
+        quote: ev.quote,
+        quoteLabel: ev.quoteLabel,
+        cat: ev.cat
+      };
+    }
+    var key = String(ev.digest || "") + ":" + String(ev.yield_id) + ":" + String(ev.amount);
+    if (!rewardsLedger.distributions) rewardsLedger.distributions = [];
+    for (var i = 0; i < rewardsLedger.distributions.length; i++){
+      if (rewardsLedger.distributions[i]._key === key) return;
+    }
+    var tk = null;
+    if (ev.bluefin_pool_id){
+      tk = T.find(function(x){ return padAddr(x.bluefinPool) === padAddr(ev.bluefin_pool_id); });
+    }
+    rewardsLedger.distributions.unshift({
+      _key: key,
+      cat: ev.cat,
+      amount: ev.amount,
+      token: tk ? ("$"+tk.t) : (ev.bluefin_pool_id ? shortAddr(ev.bluefin_pool_id) : "—"),
+      ts: ev.ts,
+      digest: ev.digest,
+      yield_id: ev.yield_id
+    });
+    rewardsLedger.distributions.sort(function(a,b){ return (b.ts||0)-(a.ts||0); });
+    rebuildRewardsLedger();
+    if (state.route === "pit") scheduleScreen();
+  }
+  function applyHolderYieldClaim(ev){
+    if (!ev || !ev.cat && !(ev.cat = rewardsCatId(ev.quote))) return;
+    var key = String(ev.digest || "") + ":" + String(ev.who) + ":" + String(ev.amount);
+    if (!rewardsLedger.claims) rewardsLedger.claims = [];
+    for (var i = 0; i < rewardsLedger.claims.length; i++){
+      if (rewardsLedger.claims[i]._key === key) return;
+    }
+    rewardsLedger.claims.unshift({
+      _key: key,
+      cat: ev.cat,
+      amount: ev.amount,
+      who: ev.who,
+      ts: ev.ts,
+      digest: ev.digest,
+      yield_id: ev.yield_id
+    });
+    rebuildRewardsLedger();
+    if (state.route === "pit") scheduleScreen();
+  }
+  async function doRewardsClaim(){
+    if (rewardsBusy) return;
+    var CALL = window.ARENA_CALL_PACKAGE || window.ARENA_COLLECT_PACKAGE;
+    if (!CALL) throw new Error("ARENA_CALL_PACKAGE missing");
+    if (!suiSession.address) throw new Error("Connect a Sui wallet to claim");
+    var vaults = Object.keys(rewardsVaults).map(function(k){ return rewardsVaults[k]; })
+      .filter(function(v){ return v && v.token && v.quote && v.yield_id; });
+    if (!vaults.length) throw new Error("No holder-yield vaults indexed yet — waiting on Compatible upgrade + launches");
+    rewardsBusy = true;
+    rewardsNote = "Building claim…";
+    if (state.route === "pit") scheduleScreen();
+    try {
+      var Transaction = await loadTransaction();
+      var tx = new Transaction();
+      tx.setSender(suiSession.address);
+      var calls = 0;
+      for (var i = 0; i < vaults.length && calls < 8; i++){
+        var v = vaults[i];
+        var coins = [];
+        try { coins = await coinsOfExact(suiSession.address, v.token); } catch (e) { coins = []; }
+        if (!coins.length) continue;
+        // Prefer largest coin for registration weight (merge first for full weight later).
+        var coinArg = tx.object(coins[0].id);
+        if (coins.length > 1){
+          tx.mergeCoins(coinArg, coins.slice(1, 8).map(function(c){ return tx.object(c.id); }));
+        }
+        tx.moveCall({
+          target: CALL + "::holder_yield::sync_registration",
+          typeArguments: [v.token, typeof v.quote === "string" ? v.quote : String(v.quote)],
+          arguments: [tx.object(v.yield_id), coinArg]
+        });
+        var got = tx.moveCall({
+          target: CALL + "::holder_yield::claim",
+          typeArguments: [v.token, typeof v.quote === "string" ? v.quote : String(v.quote)],
+          arguments: [tx.object(v.yield_id)]
+        });
+        // claim returns Coin<Q>
+        if (tx.transferObjects) tx.transferObjects([got], tx.pure.address(suiSession.address));
+        calls++;
+      }
+      if (!calls) throw new Error("Hold launch tokens to sync registration, then claim");
+      var res = await walletExec(tx);
+      var digest = (res && (res.digest || (res.effects && res.effects.transactionDigest))) || "";
+      rewardsNote = digest ? ("Claim sent · " + digest.slice(0, 10) + "…") : "Claim sent";
+      if (bus.sub && typeof bus.sub.refreshInstadex === "function") setTimeout(function(){ bus.sub.refreshInstadex(); }, 1200);
+    } finally {
+      rewardsBusy = false;
+      if (state.route === "pit") scheduleScreen();
+    }
   }
   function rewardsDistRows(){
     var tab = state.rewardsTab || "all";
@@ -4248,21 +4410,21 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       var on = (state.rewardsTab || "all") === x[0];
       return '<button type="button" class="pill'+(on?" on":"")+'" data-set="rewardsTab" data-val="'+escAttr(x[0])+'">'+escHtml(x[1])+'</button>';
     }).join("");
-    var claimableSum = REWARDS_CATS.reduce(function(a,c){ return a + (Number(rewardsTotals(c).claimable) || 0); }, 0);
-    var canClaim = claimableSum > 0 && !!suiSession.address;
-    var claimNote = !suiSession.address
-      ? "Connect a Sui wallet to claim when holder-yield is live."
-      : (canClaim
-        ? "Claim wraps your share of Instant quote fees into XAUM / XAGM / USDY."
-        : "Nothing claimable yet — waiting on v1 holder-yield (old pit 30% → claimable wrapped RWA).");
+    var vaultN = Object.keys(rewardsVaults).length;
+    var claimNote = rewardsNote || (!suiSession.address
+      ? "Connect a Sui wallet. Sync registration with your launch tokens, then claim XAUM / XAGM / USDY."
+      : (vaultN
+        ? "sync_registration → claim on indexed holder-yield vaults (events live after Compatible upgrade)."
+        : "No HolderYieldLaunchEvent yet — package still v10 until Compatible upgrade. Totals will fill from Funded events."));
+    var claimLabel = rewardsBusy ? "Claiming…" : (suiSession.address ? "Claim rewards" : "Connect to claim");
     return '<div data-screen-label="Rewards">'+
       '<div class="shell rewards-hero">'+
         '<div class="pit-kicker">RWA rewards</div>'+
         '<h1>Rewards from Instant quote fees</h1>'+
-        '<p>Gold, silver, and T-bills only for now (XAUM · XAGM · USDY). Registered holders on Instadex Instant launches will claim wrapped RWA — claim model, not a push airdrop. Basket / BidX comes later.</p>'+
+        '<p>Gold, silver, and T-bills only for now (XAUM · XAGM · USDY). Registered holders on Instadex Instant launches claim wrapped RWA — claim model, not a push airdrop. Basket / BidX comes later.</p>'+
         '<div class="rewards-grid">'+cards+'</div>'+
         '<div class="rewards-claim">'+
-          '<button type="button" class="btn" data-rewards-claim'+(canClaim?"":" disabled")+'>'+(canClaim?"Claim rewards":"Claim soon")+'</button>'+
+          '<button type="button" class="btn" data-rewards-claim'+(rewardsBusy || !suiSession.address ? " disabled" : "")+'>'+escHtml(claimLabel)+'</button>'+
           '<div class="note">'+escHtml(claimNote)+'</div>'+
         '</div>'+
         '<div class="card" style="padding:18px 20px;margin-top:22px">'+
@@ -4274,7 +4436,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
           '<tbody>'+rewardsDistRows()+'</tbody></table>'+
         '</div>'+
         '<div class="card" style="padding:16px 18px;margin-top:14px;color:var(--muted);font-size:13px">'+
-          '<strong style="color:var(--ink)">Scaffold.</strong> Totals and the claim path light up when Arena Move ships claim events. Fight Night buy-and-burn is no longer this tab.</div>'+
+          '<strong style="color:var(--ink)">Wired for holder-yield.</strong> Indexes <code>HolderYieldLaunch/Funded/Claim</code> on CALL pkg (still v10 until Compatible upgrade). Claim PTB: <code>sync_registration</code> then <code>claim</code>.</div>'+
       footerHTML()+'</div></div>';
   }
   function metricsRollup(){
@@ -7317,11 +7479,11 @@ async function doBridgeDeposit(){
     }
     const claimBtn = e.target.closest("[data-rewards-claim]");
     if (claimBtn){
-      // Wired after Move claim events land.
-      var note = document.querySelector(".rewards-claim .note");
-      if (note) note.textContent = claimBtn.disabled
-        ? "Nothing claimable yet — waiting on v1 holder-yield events."
-        : "Claim path scaffolds here — waiting on holder-yield events from Arena Move.";
+      if (claimBtn.disabled || rewardsBusy) return;
+      doRewardsClaim().catch(function(err){
+        rewardsNote = (err && err.message) || String(err);
+        if (state.route === "pit") scheduleScreen();
+      });
       return;
     }
     const rwCard = e.target.closest("[data-rewards-tab]");
@@ -7663,6 +7825,10 @@ async function doBridgeDeposit(){
       onBluefinLock: function(g){ applyBluefinLock(g); },
       onInstadexBurn: function(b){ applyInstadexBurn(b); },
       onBeneficiarySet: function(b){ applyBeneficiarySet(b); },
+      onHolderYieldLaunch: function(e){ applyHolderYieldLaunch(e); },
+      onHolderYieldFunded: function(e){ applyHolderYieldFunded(e); },
+      onHolderYieldClaim: function(e){ applyHolderYieldClaim(e); },
+      holderYieldPackages: [window.ARENA_CALL_PACKAGE, window.ARENA_COLLECT_PACKAGE].filter(Boolean),
       burnPackages: [window.ARENA_COLLECT_PACKAGE, "0xd8531cc8c4e1ee914f0e4e48aea9a796faa0603459cc4665838f688e51bf23d9", "0x47ea732e44f21470aa3dd449a7b26731ed2c377e2c02e650f3ede6ea581bf000"].filter(Boolean),
       beneficiaryPackages: [window.ARENA_CALL_PACKAGE, window.ARENA_COLLECT_PACKAGE].filter(Boolean),
       callPackage: window.ARENA_INSTADEX_PACKAGE,
