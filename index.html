@@ -2813,8 +2813,11 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
         wickVisible: true,
         wickUpColor: "#298DFF",
         wickDownColor: "#FF6640",
-        priceLineVisible: false,
-        lastValueVisible: false
+        priceLineVisible: true,
+        priceLineColor: "#298DFF",
+        priceLineWidth: 1,
+        priceLineStyle: 2,
+        lastValueVisible: true
       });
       lw.candle.priceScale().applyOptions({ scaleMargins: { top: 0.08, bottom: 0.28 } });
       lw.vol = lw.chart.addHistogramSeries({ priceFormat: { type: "volume" }, priceScaleId: "vol", lastValueVisible: false, priceLineVisible: false });
