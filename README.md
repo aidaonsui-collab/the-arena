@@ -15,7 +15,7 @@ Vanilla HTML/CSS/JS SPA (`index.html`). Hash routes: `#/` Explore, `#/pit` Rewar
 Sui Move package: [`contracts/`](contracts/). Instant Create quotes: TOKEN/SUI, TOKEN/USDY, TOKEN/XAGM, TOKEN/XAUM.
 
 - Type origin: `0x5cfddf8ba23be6835644a8ea22482ff6ebb0081e42cc1bc052b5f770ca8bbdea`
-- Latest published-at (**v12**): `0x1710adbe0293015cac7492b6db0cf871a7af81c5a51cd9d5d99d3aadf9fea161` (basket-yield Instant; holder-yield from v11)
+- Latest published-at (**v13**): `0x4b698b39b8ecaf7f43dfb4126980baff1475da7af3e54f598d0d690f72ecc772` (migrate Instant pot→holder/basket; basket-yield from v12; holder-yield from v11)
 - Config: `0xcd527cb2389d806e5285ae708ee28df30a841ec5df7508ebfebaa0c9660b5d2c`
 - Pit SUI: `0x8ec38e9bcac0838bf474680e71d0c3f302f4ea2f757d759b7b399701f904389c`
 - Pit XAUM: `0xa8a391bf380914c04be5deb478474b42754a5aa8c29c0955f267d73190a98783`
@@ -29,7 +29,7 @@ At graduation the production path (`lock::seed_and_lock_bluefin` / `_with_fee`) 
 
 ## Keepers
 
-Cron jobs (pit bell / settle, Instadex collect, reflection index) live in [`keepers/`](keepers/). Collect defaults to CALL package **v12**.
+Cron jobs (pit bell / settle, Instadex collect, reflection index) live in [`keepers/`](keepers/). Collect defaults to CALL package **v13**.
 
 ## Token art (Vercel Blob)
 

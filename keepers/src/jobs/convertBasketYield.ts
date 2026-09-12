@@ -8,7 +8,7 @@
  *   SUI → USDC (Cetus USDC/SUI) → XAUM|XAGM (Bluefin) | USDY (Cetus)
  *
  * Env:
- *   ARENA_CALL_PACKAGE          — default v12 published-at
+ *   ARENA_CALL_PACKAGE          — default v13 published-at
  *   ARENA_CONVERT_DRY_RUN=1     — build + dryRunTransactionBlock only
  *   ARENA_CONVERT_MIN_STAGING   — skip vaults below this (mist); default 1_000_000
  *   ARENA_CONVERT_VAULT         — optional single vault id filter

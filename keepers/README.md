@@ -2,7 +2,7 @@
 
 Cron jobs for The Arena launchpad.
 
-**CALL package (mainnet v12):** `0x1710adbe0293015cac7492b6db0cf871a7af81c5a51cd9d5d99d3aadf9fea161` — includes `holder_yield` / `basket_yield` / `collect_instadex_fees_holder_yield` / `collect_instadex_fees_basket_yield`. Default Instant collect still uses `collect_instadex_fees` + pit. See `contracts/HOLDER_YIELD.md`. Reflection payouts **accrue on every fill** in Move (`pool::buy` / `pool::sell`). Keepers do not push SUI/XAUM to wallets (the holder table is not iterable). They index, and they ring/settle the pit.
+**CALL package (mainnet v13):** `0x4b698b39b8ecaf7f43dfb4126980baff1475da7af3e54f598d0d690f72ecc772` — includes `holder_yield` / `basket_yield` / migrate Instant pot→holder/basket (`migrate_instant_to_*`) / `collect_instadex_fees_holder_yield` / `collect_instadex_fees_basket_yield`. Default Instant collect still uses `collect_instadex_fees` + pit. See `contracts/HOLDER_YIELD.md`. Reflection payouts **accrue on every fill** in Move (`pool::buy` / `pool::sell`). Keepers do not push SUI/XAUM to wallets (the holder table is not iterable). They index, and they ring/settle the pit.
 
 ## Jobs
 
@@ -68,7 +68,7 @@ npx tsx src/cli.ts convert-basket
 npm run convert-basket
 ```
 
-**Discovery:** GraphQL `BasketYieldLaunchEvent` (+ `BasketYieldFundedEvent` fallback) on `ARENA_CALL_PACKAGE` (default v12 `0x1710…`). Loads each vault object; skips if `quote_staging < ARENA_CONVERT_MIN_STAGING` (default `1000000` mist) or `total_registered == 0`.
+**Discovery:** GraphQL `BasketYieldLaunchEvent` (+ `BasketYieldFundedEvent` fallback) on `ARENA_CALL_PACKAGE` (default v13 `0x4b69…`). Loads each vault object; skips if `quote_staging < ARENA_CONVERT_MIN_STAGING` (default `1000000` mist) or `total_registered == 0`.
 
 **On-chain PTB (per vault):**
 1. `basket_yield::take_quote_for_convert<T,Q>(vault, amount)`
@@ -80,7 +80,7 @@ npm run convert-basket
 
 | Var | Default | Meaning |
 | --- | --- | --- |
-| `ARENA_CALL_PACKAGE` | v12 `0x1710adbe…fea161` | Move call package |
+| `ARENA_CALL_PACKAGE` | v13 `0x4b698b39…ecc772` | Move call package |
 | `ARENA_CONVERT_DRY_RUN` | off | `1` = build PTB + `dryRunTransactionBlock` only (no sign) |
 | `ARENA_CONVERT_MIN_STAGING` | `1000000` | Skip smaller staging balances |
 | `ARENA_CONVERT_VAULT` | — | Optional single vault id |
@@ -119,7 +119,7 @@ Snapshot file (default `./data/reflections.json`) is the shape the token page ca
 - `ARENA_ADMIN_CAP`=`0x79e041a4444971bfbf8000925ac3386d8351a3e997eb7d838d84eb6c3e507acf`
 - `ARENA_APP_URL` (default `https://the-arena-vert.vercel.app`) so settle can read/write `/api/pit-state`
 - `CRON_SECRET` required on Vercel so `/api/{ring,settle,collect,reflections}` are not public. Same secret POSTs the buy/burn digest onto the pit bell (`ARENA_SETTLE_SECRET` also accepted).
-- `ARENA_CALL_PACKAGE` (latest published-at, default v12 `0x1710…`)
+- `ARENA_CALL_PACKAGE` (latest published-at, default v13 `0x4b69…`)
 - `ARENA_INSTADEX_PACKAGE` (InstadexLaunchEvent type origin v4 `0xcf78…`)
 - `SUI_GRAPHQL` (default `https://graphql.mainnet.sui.io/graphql`)
 - Platform launch + swap-fee withdraws: Odyssey admin `0x92a32ac7fd525f8bd37ed359423b8d7d858cad26224854dfbff1914b75ee658b` holds `AdminCap`
