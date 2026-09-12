@@ -3924,7 +3924,12 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       var ta = launchTs(a) || Number(a.born) || 0;
       return tb - ta;
     });
-    else if (s === "Volume") out.sort(function(a,b){ return vol(b)-vol(a); });
+    else if (s === "Volume") out.sort(function(a,b){
+      var vb = volUsd24h(b) || 0;
+      var va = volUsd24h(a) || 0;
+      if (vb !== va) return vb - va;
+      return vol(b) - vol(a);
+    });
     else if (s === "Recent") out.sort(function(a,b){
       const la = tapeItems(1, a.t)[0]; const lb = tapeItems(1, b.t)[0];
       const ta = (la && la.ts) || launchTs(a) || 0;
