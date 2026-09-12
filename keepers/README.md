@@ -1,6 +1,8 @@
 # Arena keepers
 
-Cron jobs for The Arena launchpad. Reflection payouts **accrue on every fill** in Move (`pool::buy` / `pool::sell`). Keepers do not push SUI/XAUM to wallets (the holder table is not iterable). They index, and they ring/settle the pit.
+Cron jobs for The Arena launchpad.
+
+**CALL package (mainnet v11):** `0xe2dee7a21e382d47d8f13e39801c86987a88e9ebd5fb8801efd1b974e4e4d9a2` — includes `holder_yield` / `collect_instadex_fees_holder_yield`. Default Instant collect still uses `collect_instadex_fees` + pit. See `contracts/HOLDER_YIELD.md`. Reflection payouts **accrue on every fill** in Move (`pool::buy` / `pool::sell`). Keepers do not push SUI/XAUM to wallets (the holder table is not iterable). They index, and they ring/settle the pit.
 
 ## Jobs
 
@@ -9,7 +11,7 @@ Cron jobs for The Arena launchpad. Reflection payouts **accrue on every fill** i
 | `* * * * *` | `/api/reflections` | Ingest `TradeEvent` + `ClaimEvent` (kind=0). Snapshot unpaid/claimed per holder. |
 | `*/5 * * * *` | `/api/ring` | Sign `config::ring_pit` when Clock >= `round_end_ms` and the previous winner is settled. |
 | `*/5 * * * *` | `/api/settle` | Only if `/api/pit-state` has an unsettled 24h MC winner. AdminCap drains `Pit<SUI>`, hops to quote, Bluefin-buys, burns. Then leftover curve `pool::settle_pit` if an on-chain winner is pending. |
-| `0 * * * *` | `/api/collect` | Poke `launch::collect_instadex_fees` on every Instadex lock with accrued LP fees. Burns coin A, splits quote 60/10/30. Then `withdraw` (`config::withdraw_treasury` + `withdraw_platform`) into the platform wallet. Home Mac LaunchAgent runs this hourly (`ARENA_COLLECT_EVERY_S=3600`). |
+| `0 * * * *` | `/api/collect` | Poke `launch::collect_instadex_fees` (or `collect_instadex_fees_holder_yield` when the lock is yield-mode) on Instadex locks with accrued LP fees. Burns coin A; quote split 60/10/30 to creator/platform/pit **or** holder-yield vault. Then `withdraw` (`config::withdraw_treasury` + `withdraw_platform`) into the platform wallet. Home Mac LaunchAgent runs this hourly (`ARENA_COLLECT_EVERY_S=3600`). |
 | every 5 min (Air) | `tsx src/cli.ts trades` | Index Bluefin AssetSwap per Instant pool into SQLite (`keepers/data/trades.sqlite`) and publish `/api/trades` for the token-page tape. Same job sums `InstadexBurnEvent` and pool reserves to `/api/token-stats` so About MC and Burned stay in sync. |
 
 HTTP cron routes require `Authorization: Bearer $CRON_SECRET` (Vercel Cron sends this). The CLI (`npx tsx src/cli.ts …`) does not.
