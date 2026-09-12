@@ -23,3 +23,17 @@ Rewards tab: index `BasketYieldLaunch/Funded/Converted/Claim/Rotate` alongside
 `HolderYield*`. Status: **mainnet-live on v12** published-at
 `0x1710adbe0293015cac7492b6db0cf871a7af81c5a51cd9d5d99d3aadf9fea161`
 (upgrade `D8Ck8tVA5BRjUTPQJpHAc1pWAiHm6LaP7R8cEo3sUSGf`).
+
+### Migrate CTA (existing plain Instant)
+
+On the **token page**, when the connected wallet is `lock.beneficiary` and the
+lock has **no** `HolderYieldKey` / `BasketYieldKey`:
+
+| Quote | Control |
+| --- | --- |
+| XAUM / XAGM / USDY | **Migrate · holder yield** → `migrate_instant_to_holder_yield_entry` |
+| SUI | Reuse Create **basket picker** (1–3 · equal/custom % · all-at-once/rotating) → `migrate_instant_to_basket_yield_{,_2,_3}_entry` |
+
+After migrate, Rewards indexes the reused `*YieldLaunchEvent`, and Collect /
+keepers route via vault (DF or event) — no Pit collect.
+

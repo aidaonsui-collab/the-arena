@@ -1,5 +1,8 @@
 /**
- * Permissionless collect_instadex_fees for every Instadex lock with accrued LP fees.
+ * Permissionless Instadex collect for every lock with accrued LP fees.
+ * Routes: HolderYieldKey → collect_instadex_fees_holder_yield; BasketYieldKey →
+ * collect_instadex_fees_basket_yield; else pit collect_instadex_fees.
+ * Yield mode from *YieldLaunchEvent (launch + migrate) with lock DF fallback.
  * Burns coin A, splits quote 60/10/30. Signs with ARENA_KEEPER_PHRASE if set, else the local Sui keystore (gas only).
  */
 import { loadSigner } from "../loadSigner.ts";
@@ -227,6 +230,7 @@ type YieldVault = { lockId: string; vaultId: string; kind: "basket" | "holder" }
 
 async function listYieldVaults(): Promise<Map<string, YieldVault>> {
   const map = new Map<string, YieldVault>();
+  // Launch + migrate both emit HolderYieldLaunchEvent / BasketYieldLaunchEvent.
   const specs: { type: string; kind: "basket" | "holder"; idField: string }[] = [
     { type: `${CALL_PKG}::events::BasketYieldLaunchEvent`, kind: "basket", idField: "basket_id" },
     { type: `${CALL_PKG}::events::HolderYieldLaunchEvent`, kind: "holder", idField: "yield_id" },
@@ -259,6 +263,54 @@ async function listYieldVaults(): Promise<Map<string, YieldVault>> {
   return map;
 }
 
+/** Authoritative path: read HolderYieldKey / BasketYieldKey DFs on the lock. */
+async function yieldFromLockDf(lockId: string): Promise<YieldVault | null> {
+  try {
+    let cursor: string | null | undefined = null;
+    for (let page = 0; page < 5; page++) {
+      const res = await client().getDynamicFields({ parentId: lockId, cursor, limit: 50 });
+      for (const df of res.data || []) {
+        const nameType = String((df.name as { type?: string } | undefined)?.type || "");
+        let kind: "basket" | "holder" | null = null;
+        if (/::lock::HolderYieldKey$/.test(nameType)) kind = "holder";
+        else if (/::lock::BasketYieldKey$/.test(nameType)) kind = "basket";
+        if (!kind) continue;
+        const field = await client().getDynamicFieldObject({
+          parentId: lockId,
+          name: df.name as { type: string; value: unknown },
+        });
+        const content = field.data?.content;
+        if (!content || content.dataType !== "moveObject") continue;
+        const fields = (content.fields || {}) as { value?: unknown };
+        let val: unknown = fields.value;
+        if (val && typeof val === "object" && "id" in (val as object)) {
+          val = (val as { id: unknown }).id;
+        }
+        const vaultId = asId(val);
+        if (vaultId) return { lockId, vaultId, kind };
+      }
+      if (!res.hasNextPage) break;
+      cursor = res.nextCursor;
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
+
+async function resolveYieldVault(
+  lockId: string,
+  fromEvents: Map<string, YieldVault>,
+): Promise<YieldVault | null> {
+  const hit = fromEvents.get(lockId);
+  if (hit) return hit;
+  // Migrated locks must flip without a manual allowlist — DF is source of truth
+  // if GraphQL event index has not caught up yet.
+  const fromDf = await yieldFromLockDf(lockId);
+  if (fromDf) fromEvents.set(lockId, fromDf);
+  return fromDf;
+}
+
 export async function runCollectInstadex() {
   const kp = loadSigner();
   const launches = await listLaunches();
@@ -280,7 +332,7 @@ export async function runCollectInstadex() {
       results.push({ lockId: L.lockId, skipped: true, reason: "no accrued fees", fees });
       continue;
     }
-    const yv = yieldByLock.get(L.lockId);
+    const yv = await resolveYieldVault(L.lockId, yieldByLock);
     const cfgId = process.env.ARENA_CONFIG || CONFIG;
     const tx = new Transaction();
     if (yv?.kind === "basket") {
