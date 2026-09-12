@@ -1029,8 +1029,15 @@
       }
       var hyPkgs = (opts.holderYieldPackages || []).slice();
       if (!hyPkgs.length) {
-        var hy = opts.callPackage || (typeof window !== "undefined" ? (window.ARENA_CALL_PACKAGE || window.ARENA_COLLECT_PACKAGE) : "");
-        if (hy) hyPkgs.push(hy);
+        if (typeof window !== "undefined") {
+          [window.ARENA_HOLDER_YIELD_EVENT_PACKAGE, window.ARENA_CALL_PACKAGE, window.ARENA_COLLECT_PACKAGE].forEach(function (pkg) {
+            if (pkg && hyPkgs.indexOf(pkg) < 0) hyPkgs.push(pkg);
+          });
+        }
+        if (!hyPkgs.length) {
+          var hy = opts.callPackage || "";
+          if (hy) hyPkgs.push(hy);
+        }
       }
       hyPkgs.forEach(pullHolderYield);
       function emitByLaunch(r) { if (opts.onBasketYieldLaunch) opts.onBasketYieldLaunch(r); }
@@ -1056,10 +1063,20 @@
           rows.forEach(emitByRotate);
         }).catch(function () {});
       }
-      var byPkgs = (opts.basketYieldPackages || opts.holderYieldPackages || []).slice();
+      var byPkgs = (opts.basketYieldPackages || []).slice();
+      if (!byPkgs.length && opts.holderYieldPackages && opts.holderYieldPackages.length) {
+        byPkgs = opts.holderYieldPackages.slice();
+      }
       if (!byPkgs.length) {
-        var by = opts.callPackage || (typeof window !== "undefined" ? (window.ARENA_CALL_PACKAGE || window.ARENA_COLLECT_PACKAGE) : "");
-        if (by) byPkgs.push(by);
+        if (typeof window !== "undefined") {
+          [window.ARENA_BASKET_YIELD_EVENT_PACKAGE, window.ARENA_CALL_PACKAGE, window.ARENA_COLLECT_PACKAGE].forEach(function (pkg) {
+            if (pkg && byPkgs.indexOf(pkg) < 0) byPkgs.push(pkg);
+          });
+        }
+        if (!byPkgs.length) {
+          var by = opts.callPackage || "";
+          if (by) byPkgs.push(by);
+        }
       }
       byPkgs.forEach(pullBasketYield);
       if (opts.live) {

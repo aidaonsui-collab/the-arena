@@ -638,6 +638,9 @@ window.ARENA_PACKAGE_ID = "0x5cfddf8ba23be6835644a8ea22482ff6ebb0081e42cc1bc052b
 window.ARENA_INSTADEX_PACKAGE = "0xcf7835ae4e3f8a3d4eb4bd9d14cb4a3dbdd80e70908feb6c433688a31e119de3";
 window.ARENA_COLLECT_PACKAGE = "0x4b698b39b8ecaf7f43dfb4126980baff1475da7af3e54f598d0d690f72ecc772";
 window.ARENA_CALL_PACKAGE = window.ARENA_COLLECT_PACKAGE;
+// Compatible-upgrade event types keep the package id that first defined them.
+window.ARENA_HOLDER_YIELD_EVENT_PACKAGE = "0xe2dee7a21e382d47d8f13e39801c86987a88e9ebd5fb8801efd1b974e4e4d9a2"; // v11
+window.ARENA_BASKET_YIELD_EVENT_PACKAGE = "0x1710adbe0293015cac7492b6db0cf871a7af81c5a51cd9d5d99d3aadf9fea161"; // v12
 window.ARENA_LOCK_PACKAGE = "0x067136624c5bec5221247e9b0a0a1afbd77a79aadbabdac18a95a10bc186cc74";
 window.ARENA_BLUEFIN_EVENT_PACKAGE = "0x8e28ff4116a8c9025b5d615b0b0a7bc45f4f543120f30a9d226e5b94c7277b79";
 window.ARENA_ADMIN_CAP = "0x79e041a4444971bfbf8000925ac3386d8351a3e997eb7d838d84eb6c3e507acf";
@@ -8561,8 +8564,8 @@ async function doBridgeDeposit(){
       onBasketYieldConverted: function(e){ applyBasketYieldConverted(e); },
       onBasketYieldClaim: function(e){ applyBasketYieldClaim(e); },
       onBasketYieldRotate: function(e){ applyBasketYieldRotate(e); },
-      holderYieldPackages: [window.ARENA_CALL_PACKAGE, window.ARENA_COLLECT_PACKAGE].filter(Boolean),
-      basketYieldPackages: [window.ARENA_CALL_PACKAGE, window.ARENA_COLLECT_PACKAGE].filter(Boolean),
+      holderYieldPackages: [window.ARENA_HOLDER_YIELD_EVENT_PACKAGE, window.ARENA_CALL_PACKAGE, window.ARENA_COLLECT_PACKAGE].filter(Boolean),
+      basketYieldPackages: [window.ARENA_BASKET_YIELD_EVENT_PACKAGE, window.ARENA_CALL_PACKAGE, window.ARENA_COLLECT_PACKAGE].filter(Boolean),
       burnPackages: [window.ARENA_COLLECT_PACKAGE, "0xd8531cc8c4e1ee914f0e4e48aea9a796faa0603459cc4665838f688e51bf23d9", "0x47ea732e44f21470aa3dd449a7b26731ed2c377e2c02e650f3ede6ea581bf000"].filter(Boolean),
       beneficiaryPackages: [window.ARENA_CALL_PACKAGE, window.ARENA_COLLECT_PACKAGE].filter(Boolean),
       callPackage: window.ARENA_INSTADEX_PACKAGE,
