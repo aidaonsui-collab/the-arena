@@ -4210,6 +4210,18 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       distributed: row.distributed || "0"
     };
   }
+  function rewardsDistributedUsd(){
+    var sum = 0;
+    (rewardsLedger.distributions || []).forEach(function(d){
+      if (!d || !d.cat) return;
+      var cat = rewardsCat(d.cat);
+      if (!cat) return;
+      var n = (Number(d.amount) || 0) / Math.pow(10, rewardsDec(cat.unit));
+      var px = quoteUsd(cat.quote);
+      if (px > 0 && isFinite(n)) sum += n * px;
+    });
+    return sum;
+  }
   function rewardsCatId(quote){
     if (Index && Index.rewardsCatFromQuote) return Index.rewardsCatFromQuote(quote) || "";
     var lab = (Index && Index.quoteLabel) ? Index.quoteLabel(quote) : String(quote || "");
@@ -4892,7 +4904,11 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     return '<div data-screen-label="Rewards">'+
       '<div class="shell rewards-hero">'+
         '<h1>RWA Rewards</h1>'+
-        '<p>Gold, silver, and T-bills (XAUM · XAGM · USDY). v1 holder-yield (RWA quote) and v2 basket yield (SUI quote + basket) are live on Instant — claim model, not a push airdrop.</p>'+
+        (function(){
+          var usd = rewardsDistributedUsd();
+          var label = usd > 0 ? (fmtUsd(usd) + " distributed") : "$0 distributed";
+          return '<div class="pills" style="margin:10px 0 0"><span class="pill on">'+escHtml(label)+'</span></div>';
+        })()+
         '<div class="rewards-grid">'+cards+'</div>'+
         '<div class="rewards-claim">'+
           '<button type="button" class="btn" data-rewards-claim'+(rewardsBusy || !suiSession.address ? " disabled" : "")+'>'+escHtml(claimLabel)+'</button>'+
@@ -4985,16 +5001,16 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       ? "Indexed from Bluefin AssetSwap (Instant) and leftover curve TradeEvent, ClaimEvent, BellEvent, GraduationEvent."
       : "Demo tape until ARENA_PACKAGE_ID is published. Same TradeEvent fields the keepers emit.";
     return '<div data-screen-label="Metrics">'+
-      '<div class="explore-head"><div><h1 class="books-title">Metrics</h1><p>Volume, fees, the pot, and graduates — rolled up from the tape, not a dashboard guess.</p></div>'+
+      '<div class="explore-head"><div><h1 class="books-title">Metrics</h1><p>Volume, fees, RWA rewards, and graduates — rolled up from the tape, not a dashboard guess.</p></div>'+
         '<div class="pills">'+pill("24h","metricsWindow","24h")+pill("All","metricsWindow","All")+'</div></div>'+
       '<div class="metrics-grid">'+
         '<div class="mstat"><div class="k">Volume · SUI</div><div class="v">'+fmt(m.suiVol)+'</div><div class="s">'+m.fills+' fills · '+win+'</div></div>'+
         '<div class="mstat"><div class="k">Volume · RWA</div><div class="v">'+(m.rwaVolUsd>0?fmtUsd(m.rwaVolUsd):(m.rwaVol>0?"—":"$0"))+'</div><div class="s">USDY · XAGM · XAUM</div></div>'+
         '<div class="mstat"><div class="k">Fees collected</div><div class="v">'+fmt(m.suiFee)+'</div><div class="s">1% pair · 60/10/30 of our 80%</div></div>'+
-        '<div class="mstat"><div class="k">The pot</div><div class="v" data-pot>'+money(pot)+'</div><div class="s">round <span data-round>'+roundNo+'</span> · live</div></div>'+
+        '<div class="mstat"><div class="k">RWA rewards</div><div class="v">'+(rewardsDistributedUsd()>0?fmtUsd(rewardsDistributedUsd()):'$0')+'</div><div class="s">XAUM · XAGM · USDY distributed</div></div>'+
         '<div class="mstat"><div class="k">Tokens launched</div><div class="v">'+m.launches+'</div><div class="s">'+m.grads+' graduated</div></div>'+
         '<div class="mstat"><div class="k">Winners paid</div><div class="v">'+m.bells+'</div><div class="s">'+fmt(m.bellPaid)+' SUI paid</div></div>'+
-        '<div class="mstat"><div class="k">Pot from fills</div><div class="v">'+fmt(m.pit)+'</div><div class="s">30% of our LP share</div></div>'+
+        '<div class="mstat"><div class="k">RWA from fills</div><div class="v">'+fmt(m.pit)+'</div><div class="s">30% of our LP share</div></div>'+
       '</div>'+
       '<div class="card" style="padding:20px 22px;margin-bottom:14px"><div class="sec-label" style="margin-top:0">Volume <span>last '+Math.max(m.hours.length,1)+' hours with fills</span></div>'+
         '<div class="vol-bars">'+bars+'</div></div>'+
@@ -5003,7 +5019,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
           '<div class="fee-rows">'+
             feeBar("Creator", m.creator, "#C9BBA3")+
             feeBar("Platform", m.plat, "#9CA3AF")+
-            feeBar("Pot", m.pit, "#298DFF")+
+            feeBar("RWA rewards", m.pit, "#298DFF")+
           '</div></div>'+
         '<div class="card" style="padding:20px 22px"><div class="sec-label" style="margin-top:0">Top by volume <span>'+win+'</span></div>'+
           (rows ? '<table class="m-table"><thead><tr><th>#</th><th>Token</th><th>Fills</th><th style="text-align:right">Volume</th></tr></thead><tbody>'+rows+'</tbody></table>' : '<div class="empty">No fills yet.</div>')+
