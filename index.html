@@ -388,6 +388,31 @@ a.btn-trade{display:block;text-align:center;text-decoration:none;box-sizing:bord
 .bell-card .bell-stat{font-size:14px;color:var(--ink);margin-top:10px;font-weight:650;font-family:"IBM Plex Mono",ui-monospace,monospace}
 .bell-card .bell-stat.sub{font-size:12px;color:var(--muted);font-weight:500;margin-top:4px}
 .bell-card .chip{margin-left:0}
+.rewards-hero{padding:28px 0 8px}
+.rewards-hero h1{font-size:clamp(28px,4vw,40px);letter-spacing:-.04em;margin:8px 0 10px}
+.rewards-hero p{color:var(--muted);max-width:62ch;margin:0;font-size:15px;line-height:1.45}
+.rewards-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-top:18px}
+.rewards-card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px 18px 16px;box-shadow:var(--shadow)}
+.rewards-card .rw-top{display:flex;align-items:center;gap:10px}
+.rewards-card .rw-logo{width:28px;height:28px;border-radius:8px;object-fit:contain;background:#1c101c;padding:3px;box-sizing:border-box}
+.rewards-card .rw-lab{font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.rewards-card .rw-name{font-weight:700;font-size:16px;letter-spacing:-.02em}
+.rewards-card .rw-amt{font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:clamp(22px,3vw,30px);font-weight:500;letter-spacing:-.04em;margin-top:14px}
+.rewards-card .rw-sub{color:var(--muted);font-size:12px;margin-top:6px}
+.rewards-claim{margin-top:18px;display:flex;flex-wrap:wrap;gap:12px;align-items:center}
+.rewards-claim .btn{border:0;background:var(--sui);color:#0b0a0c;border-radius:12px;padding:12px 18px;font-weight:750;font-size:13px;cursor:pointer}
+.rewards-claim .btn:disabled{opacity:.45;cursor:not-allowed}
+.rewards-claim .note{color:var(--muted);font-size:13px;max-width:52ch}
+.rewards-table{width:100%;border-collapse:collapse;margin-top:8px}
+.rewards-table th,.rewards-table td{padding:12px 8px;border-top:1px solid var(--line);text-align:left;font-size:13px}
+.rewards-table th{color:var(--muted);font-weight:650;border-top:0;padding-top:4px}
+.rewards-table .mono{font-family:"IBM Plex Mono",ui-monospace,monospace;font-variant-numeric:tabular-nums}
+.rewards-pill{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:4px 9px;background:var(--lift);font-size:11px;font-weight:700}
+.rewards-pill img{width:14px;height:14px;border-radius:4px}
+@media (max-width:820px){
+  .rewards-grid{grid-template-columns:1fr}
+}
+
 html[data-route="explore"] .search-row,html[data-route="pit"] .search-row,html[data-route="launch"] .search-row,html[data-route="token"] .search-row,html[data-route="metrics"] .search-row{display:none}
 html[data-route="explore"] main,html[data-route="pit"] main{padding:0 0 72px}
 html[data-route="launch"] main,html[data-route="token"] main,html[data-route="metrics"] main{width:min(1180px,calc(100% - 32px));margin:0 auto;padding:18px 0 72px}
@@ -746,7 +771,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   var pitStatePollAt = 0;
   let balance = 48.60;
   let xaumBal = 2.40;
-  const state = {route:"explore", sym:"VOLT", filter:"All", sort:"Market cap", time:"All", side:"Buy", amt:"1", connected:false, search:"", lName:"", lTick:"", lQuote:"SUI", lPath:"instadex", lMode:"Holders", lTokenAmt:"", lQuoteAmt:"", lFirstBuy:"1", lCap:"", lTokenCoin:"", lQuoteCoin:"", lCoinMode:"create", lDecimals:"9", lSupply:"1000000000", lDesc:"", lX:"", lTg:"", lWeb:"", lPublishedType:"", metricsWindow:"All", tapeTab:"trades", tapeOpen:"", tapePage:0, tapeAge:"age", tapeWallet:"", tapeFilterOpen:false, lFile:null, lArtUrl:"", lArtPreview:"", payWith:"SUI", lNote:"", lNoteErr:false, chartTf:900, chartInd:{vol:true,ma7:true,ma25:true,ma99:false,ema:false}, bridgeTick:"NVDA", bridgeAmt:"", bridgeDir:"in", bridgeRhDest:"", bridgeNote:"", bridgeBusy:false, quoteOpen:false};
+  const state = {route:"explore", sym:"VOLT", filter:"All", sort:"Market cap", time:"All", side:"Buy", amt:"1", connected:false, search:"", lName:"", lTick:"", lQuote:"SUI", lPath:"instadex", lMode:"Holders", lTokenAmt:"", lQuoteAmt:"", lFirstBuy:"1", lCap:"", lTokenCoin:"", lQuoteCoin:"", lCoinMode:"create", lDecimals:"9", lSupply:"1000000000", lDesc:"", lX:"", lTg:"", lWeb:"", lPublishedType:"", metricsWindow:"All", tapeTab:"trades", tapeOpen:"", tapePage:0, tapeAge:"age", tapeWallet:"", tapeFilterOpen:false, lFile:null, lArtUrl:"", lArtPreview:"", payWith:"SUI", lNote:"", lNoteErr:false, chartTf:900, chartInd:{vol:true,ma7:true,ma25:true,ma99:false,ema:false}, bridgeTick:"NVDA", bridgeAmt:"", bridgeDir:"in", bridgeRhDest:"", bridgeNote:"", bridgeBusy:false, quoteOpen:false, rewardsTab:"all"};
   var metaEdit = { open: false, saving: false, file: null, preview: "", artUrl: "", note: "", err: false, name: "", desc: "", x: "", tg: "", web: "", creator: "", openedCreator: "" };
   let hashLock = false;
   const hop = { suiPerXaum: null, suiPerUsdy: null, suiPerXagm: null, usd: null, suiUsd: null, usdyUsd: null, xagmUsd: null, xaumUsd: null, source: "" };
@@ -792,6 +817,15 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     TSLA: { label:"TSLA", type:window.ARENA_STOCK_TSLA_TYPE, metadata:window.ARENA_STOCK_TSLA_METADATA, decimals:18, name:"Tesla wrap", what:"RH→Sui stock wrap (TSLA)", create:false, soon:true, stock:true, chips:["0.01","0.1","1","5","Max"], virtualHuman:"≈ $3.5k", pit:"", color:"#CC0000", logo:"/brand/quotes/tsla.png" }
   };
   var CREATE_QUOTES = ["SUI","USDY","XAGM","XAUM","NVDA","AMC","GME","TSLA"];
+  // Pit → RWA rewards dashboard (v1 holder-yield). Stocks wraps intentionally omitted.
+  var REWARDS_CATS = [
+    { id:"gold", label:"Gold", quote:"XAUM", unit:"XAUM", blurb:"Matrixdock gold · Instant quote-fee share", color:"#C9A97E", logo:"/brand/quotes/xaum.png" },
+    { id:"silver", label:"Silver", quote:"XAGM", unit:"XAGM", blurb:"Matrixdock silver · Instant quote-fee share", color:"#C0C7D1", logo:"/brand/quotes/xagm.png" },
+    { id:"tbills", label:"T-bills", quote:"USDY", unit:"USDY", blurb:"Ondo USDY · Instant quote-fee share", color:"#3ECF8E", logo:"/brand/quotes/usdy.png" }
+  ];
+  // Populated once Arena Move emits claim / distribution events. Scaffold only for now.
+  var rewardsLedger = { updatedMs: 0, byCat: { gold:{ total:"0", claimable:"0", distributed:"0" }, silver:{ total:"0", claimable:"0", distributed:"0" }, tbills:{ total:"0", claimable:"0", distributed:"0" } }, distributions: [] };
+
 
   // Secondary wrap only: RH stock → vault lock → 1:1 Sui mint. Not RH primary mint.
   // Live package 0x9a4ba3338384d36033065f9cf0c58078033a718a92f091f12a551f6984c290c5 (see contracts-stocks/PUBLISHED.md).
@@ -3979,7 +4013,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     return '<footer class="footer">'+
       '<div><div class="brand-name" style="margin-bottom:8px">vice.</div>'+
         '<p style="margin:0;max-width:42ch">Fair launches on Sui. Instant seeds Bluefin in block one. T-bills hop Cetus. Quote is SUI, USDY, XAGM, or XAUM. LP locked forever.</p></div>'+
-      '<div><h4>Product</h4><div data-go="explore">The Strip</div><div data-go="pit">Fight Night</div><div data-go="metrics">Books</div><div data-go="bridge">Bridge</div><div data-go="launch">Create</div><a href="https://x.com/ViceFun" target="_blank" rel="noopener">X</a></div>'+
+      '<div><h4>Product</h4><div data-go="explore">The Strip</div><div data-go="pit">Rewards</div><div data-go="metrics">Books</div><div data-go="bridge">Bridge</div><div data-go="launch">Create</div><a href="https://x.com/ViceFun" target="_blank" rel="noopener">X</a></div>'+
       '<div><h4>Fees</h4>Bluefin 1% on the pair (keeps 20%).<br>Our 80% quote split 60/10/30 creator/platform/pot.<br>Token-side LP fees burn.</div></footer>';
   }
   function exploreHTML(){
@@ -4004,10 +4038,10 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       '<div class="shell strip-body">'+
         leaderTileHTML(leader)+
         '<div class="pit-strip" data-go="pit">'+
-          '<div><div class="pit-kicker">Fight night · round <span data-round>'+pitRound()+'</span></div>'+
-            '<div class="pit-pot" data-pot>'+money(pot)+'</div></div>'+
-          '<div class="pit-right"><div class="mono" style="font-size:clamp(28px,4vw,40px)" data-clock>'+clockStr()+'</div>'+
-            '<div style="color:var(--muted);margin-top:4px">'+(leader ? escHtml(leader.n)+' on the card · The bell' : 'The bell')+'</div></div></div>'+
+          '<div><div class="pit-kicker">RWA rewards</div>'+
+            '<div class="pit-pot" style="font-size:clamp(20px,2.8vw,28px)">Gold · Silver · T-bills</div></div>'+
+          '<div class="pit-right"><div style="color:var(--ink);font-weight:650">Claimable wraps</div>'+
+            '<div style="color:var(--muted);margin-top:4px">XAUM · XAGM · USDY · holder yield</div></div></div>'+
         '<div class="strip-head" id="on-strip">'+
           '<div class="explore-head" style="margin:0 0 8px"><div><h1 class="strip-head">On the strip <span class="count-pill">'+count+'</span></h1>'+
             '<p>Every door is a pair. Walk in, buy, or list your own tonight.</p></div></div>'+
@@ -4156,74 +4190,91 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     pitVoteBusy = "";
     paintPitVotes();
   }
+  function rewardsCat(id){
+    for (var i = 0; i < REWARDS_CATS.length; i++) if (REWARDS_CATS[i].id === id) return REWARDS_CATS[i];
+    return REWARDS_CATS[0];
+  }
+  function rewardsTotals(cat){
+    var row = (rewardsLedger.byCat && rewardsLedger.byCat[cat.id]) || {};
+    return {
+      total: row.total || "0",
+      claimable: row.claimable || "0",
+      distributed: row.distributed || "0"
+    };
+  }
+  function fmtRewardAmt(raw, unit){
+    var n = Number(raw);
+    if (!(n > 0)) return "0 " + unit;
+    if (n >= 1000) return n.toLocaleString(undefined, { maximumFractionDigits: 2 }) + " " + unit;
+    if (n >= 1) return n.toLocaleString(undefined, { maximumFractionDigits: 4 }) + " " + unit;
+    return n.toLocaleString(undefined, { maximumFractionDigits: 6 }) + " " + unit;
+  }
+  function rewardsDistRows(){
+    var tab = state.rewardsTab || "all";
+    var rows = (rewardsLedger.distributions || []).filter(function(d){
+      return tab === "all" || d.cat === tab;
+    });
+    if (!rows.length){
+      return '<tr><td colspan="5" style="color:var(--muted);padding:22px 8px">No distributions yet. v1 holder-yield will list claimable wrapped RWA here once Instant quote-fee events land.</td></tr>';
+    }
+    return rows.slice(0, 40).map(function(d){
+      var cat = rewardsCat(d.cat);
+      var when = d.ts ? agoOf(d.ts) : "—";
+      return '<tr>'+
+        '<td><span class="rewards-pill"><img src="'+escAttr(cat.logo)+'" alt="">'+escHtml(cat.label)+'</span></td>'+
+        '<td class="mono">'+escHtml(fmtRewardAmt(d.amount, cat.unit))+'</td>'+
+        '<td>'+escHtml(d.token || "—")+'</td>'+
+        '<td class="mono" style="color:var(--muted)">'+escHtml(when)+'</td>'+
+        '<td>'+(d.digest
+          ? '<a href="https://suiscan.xyz/mainnet/tx/'+escAttr(d.digest)+'" target="_blank" rel="noopener">tx</a>'
+          : '<span style="color:var(--muted)">pending</span>')+'</td></tr>';
+    }).join("");
+  }
   function pitHTML(){
-    const win = pitWinnerTok();
-    const rows = pitContenders().map(function(k,i){
-      const mine = pitVotes.mine === k.t;
-      const banned = pitBannedTicker(k.t);
-      const lead = !!(win && win.t === k.t && !banned);
-      return '<div class="pit-row'+(lead?" lead":"")+(banned?" sitout":"")+'" data-go="token:'+escAttr(k.t)+'">'+
-        '<span class="rank">'+rank(i)+'</span>'+avatar(k,40)+
-        '<div style="min-width:0"><div class="feat-name">'+escHtml(k.n)+'</div><div class="feat-tick">$'+escHtml(k.t)+(banned?' <span class="pit-sit">sits out 48h</span>':'')+'</div></div>'+
-        '<div class="pit-vote-col"><div class="pit-tally pit-tally-btn" data-tally="'+escAttr(k.t)+'" title="'+escAttr(pitTallyText(k.t))+'">'+pitTallyText(k.t)+'</div><button type="button" class="pit-vote'+(mine?" mine":"")+'" data-pit-vote="'+escAttr(k.t)+'">'+pitVoteLabel(k.t)+'</button></div>'+
-        '<div class="pit-tally pit-tally-col" data-tally="'+escAttr(k.t)+'">'+pitTallyText(k.t)+'</div>'+
-        '<div data-usd-cap="'+escAttr(k.t)+'" class="cap">'+usdCapText(k)+'</div></div>';
+    var cards = REWARDS_CATS.map(function(cat){
+      var tot = rewardsTotals(cat);
+      return '<div class="rewards-card" data-rewards-tab="'+escAttr(cat.id)+'">'+
+        '<div class="rw-top">'+
+          '<img class="rw-logo" src="'+escAttr(cat.logo)+'" alt="">'+
+          '<div><div class="rw-lab">'+escHtml(cat.label)+'</div><div class="rw-name">'+escHtml(cat.quote)+'</div></div>'+
+        '</div>'+
+        '<div class="rw-amt">'+escHtml(fmtRewardAmt(tot.total, cat.unit))+'</div>'+
+        '<div class="rw-sub">Distributed '+escHtml(fmtRewardAmt(tot.distributed, cat.unit))+' · Claimable '+escHtml(fmtRewardAmt(tot.claimable, cat.unit))+'</div>'+
+        '<div class="rw-sub">'+escHtml(cat.blurb)+'</div>'+
+      '</div>';
     }).join("");
-    const bellSrc = (pitState.bells && pitState.bells.length) ? pitState.bells.slice(0, 3) : [];
-    const bells = bellSrc.map(function(b){
-      const when = b.ts ? agoOf(b.ts) : (b.ago || "");
-      const mc = Number(b.mcUsd) > 0 ? fmtUsd(b.mcUsd) + " peak MC" : "";
-      const kicker = when === "now" ? "just now" : (when ? when+" ago" : "past bell");
-      const buy = bellBuyText(b);
-      const hopAmt = bellHopText(b);
-      const worth = bellWorthText(b);
-      const burn = bellBurnText(b);
-      return '<div class="bell-card">'+
-        '<div class="pit-kicker">'+kicker+'</div>'+
-        '<div class="feat-name">'+escHtml(b.n || b.t)+'</div>'+
-        '<div class="feat-tick" style="margin-top:8px">$'+escHtml(b.t)+'</div>'+
-        (mc ? '<div class="feat-tick" style="margin-top:8px">'+mc+'</div>' : '')+
-        (buy ? '<div class="bell-stat">'+escHtml(buy)+'</div>' : '')+
-        (hopAmt ? '<div class="bell-stat sub">'+escHtml(hopAmt)+'</div>' : '')+
-        (worth ? '<div class="bell-stat sub">'+escHtml(worth)+'</div>' : '')+
-        (burn ? '<div class="bell-stat">'+escHtml(burn)+'</div>' : '')+
-        (b.digest
-          ? '<div class="feat-tick" style="margin-top:8px"><a href="https://suiscan.xyz/mainnet/tx/'+escAttr(b.digest)+'" target="_blank" rel="noopener">buy & burn tx</a></div>'
-          : (b.skipped ? '<div class="feat-tick" style="margin-top:8px">'+escHtml(b.skipped)+'</div>' : ''))+
-        '<span class="chip" style="margin-top:12px;display:inline-block">Buy & burn</span></div>';
+    var tabs = [['all','All']].concat(REWARDS_CATS.map(function(c){ return [c.id, c.label]; }));
+    var pills = tabs.map(function(x){
+      var on = (state.rewardsTab || "all") === x[0];
+      return '<button type="button" class="pill'+(on?" on":"")+'" data-set="rewardsTab" data-val="'+escAttr(x[0])+'">'+escHtml(x[1])+'</button>';
     }).join("");
-    const voteNote = pitVoteErr || (suiSession.address
-      ? (pitVotes.mine
-        ? ("You picked $"+pitVotes.mine+". Votes are anonymous and do not pick the winner. Pay another 0.1 SUI to switch.")
-        : "Votes are anonymous and do not pick the winner. 0.1 SUI still goes in the pot.")
-      : "Connect a Sui wallet. 0.1 SUI goes into the pot. Votes are anonymous and do not pick the winner.");
-    return '<div data-screen-label="Fight Night">'+
-      '<div class="night-hero">'+
-        '<img src="/brand/night-hero.jpg" alt="">'+
-        '<div class="shade"></div>'+
-        '<div class="night-hero-copy">'+
-          '<div class="night-lede">'+
-            '<strong>Fight Night</strong>'+
-            '<span>All launches go into the ring.</span>'+
-            '<span>Highest marketcap over the last 24 hours takes the pot.</span>'+
-            '<span>Winner gets the pot to buy the token on Bluefin and burns it.</span>'+
+    var claimableSum = REWARDS_CATS.reduce(function(a,c){ return a + (Number(rewardsTotals(c).claimable) || 0); }, 0);
+    var canClaim = claimableSum > 0 && !!suiSession.address;
+    var claimNote = !suiSession.address
+      ? "Connect a Sui wallet to claim when holder-yield is live."
+      : (canClaim
+        ? "Claim wraps your share of Instant quote fees into XAUM / XAGM / USDY."
+        : "Nothing claimable yet — waiting on v1 holder-yield (old pit 30% → claimable wrapped RWA).");
+    return '<div data-screen-label="Rewards">'+
+      '<div class="shell rewards-hero">'+
+        '<div class="pit-kicker">RWA rewards</div>'+
+        '<h1>Rewards from Instant quote fees</h1>'+
+        '<p>Gold, silver, and T-bills only for now (XAUM · XAGM · USDY). Registered holders on Instadex Instant launches will claim wrapped RWA — claim model, not a push airdrop. Basket / BidX comes later.</p>'+
+        '<div class="rewards-grid">'+cards+'</div>'+
+        '<div class="rewards-claim">'+
+          '<button type="button" class="btn" data-rewards-claim'+(canClaim?"":" disabled")+'>'+(canClaim?"Claim rewards":"Claim soon")+'</button>'+
+          '<div class="note">'+escHtml(claimNote)+'</div>'+
+        '</div>'+
+        '<div class="card" style="padding:18px 20px;margin-top:22px">'+
+          '<div class="sec-label" style="margin-top:0;display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between">'+
+            '<span>Recent distributions <span>by RWA</span></span>'+
+            '<div class="pills">'+pills+'</div>'+
           '</div>'+
-          '<div class="pit-kicker"><span class="live-dot"></span>Fight night · round <span data-round>'+pitRound()+'</span></div>'+
-          '<div class="pit-pot" data-pot>'+money(pot)+'</div>'+
-          '<div class="mono" style="font-size:18px;margin-bottom:10px"><span data-clock>'+clockStr()+'</span> until the bell</div>'+
-        '</div></div>'+
-      '<div class="shell">'+
-      '<div class="card" style="padding:20px 22px;margin-top:14px">'+
-        '<div class="sec-label" style="margin-top:0">Contenders <span>top 5 · MC</span></div>'+
-        (rows
-          ? '<div class="pit-head"><span></span><span></span><span></span><div class="pit-community">Who\'s got the strongest community?</div><span class="pit-tally">Votes</span><span class="cap">CAP</span></div>'
-          : "")+
-        '<div id="contenders">'+(rows || '<div class="empty">No Instant bouts this round.</div>')+'</div>'+
-        '<div id="pit-vote-note" style="color:var(--muted);font-size:13px;margin:14px 0 0">'+voteNote+'</div></div>'+
-      '<div class="sec-label" style="margin-top:22px">Past winners <span>buy & burn</span></div>'+
-      '<div class="bells-grid">'+(bells || '<div class="empty card" style="grid-column:1/-1;padding:28px 8px">No winners yet. First 24h round is live.</div>')+'</div>'+
-      '<div class="card" style="padding:18px 22px;margin-top:14px;color:var(--muted);font-size:14px">'+
-        '<strong style="color:var(--ink)">Buy & burn only.</strong> When the bell rings, the pot buys the winner on Bluefin and those tokens are burned. No airdrop, no holder split.</div>'+
+          '<table class="rewards-table"><thead><tr><th>Category</th><th>Amount</th><th>Launch</th><th>When</th><th></th></tr></thead>'+
+          '<tbody>'+rewardsDistRows()+'</tbody></table>'+
+        '</div>'+
+        '<div class="card" style="padding:16px 18px;margin-top:14px;color:var(--muted);font-size:13px">'+
+          '<strong style="color:var(--ink)">Scaffold.</strong> Totals and the claim path light up when Arena Move ships claim events. Fight Night buy-and-burn is no longer this tab.</div>'+
       footerHTML()+'</div></div>';
   }
   function metricsRollup(){
@@ -5071,7 +5122,7 @@ async function doBridgeDeposit(){
     if (can) can.setAttribute("href", url);
   }
   function paintNav(){
-    const nav = [["The Strip","explore"],["Fight Night","pit"],["Books","metrics"],["Bridge","bridge"]];
+    const nav = [["The Strip","explore"],["Rewards","pit"],["Books","metrics"],["Bridge","bridge"]];
     $("#nav-pill").innerHTML = nav.map(function(n){
       const on = state.route === n[1] || (n[1]==="explore" && state.route==="token");
       return '<div class="nav-item'+(on?" on":"")+'" data-go="'+n[1]+'">'+n[0]+'</div>';
@@ -7264,6 +7315,20 @@ async function doBridgeDeposit(){
       paintTape();
       return;
     }
+    const claimBtn = e.target.closest("[data-rewards-claim]");
+    if (claimBtn){
+      if (claimBtn.disabled) return;
+      // Wired after Move claim events land.
+      state.lNote = "";
+      alert("Claim path scaffolds here — waiting on holder-yield events from Arena Move.");
+      return;
+    }
+    const rwCard = e.target.closest("[data-rewards-tab]");
+    if (rwCard && state.route === "pit"){
+      state.rewardsTab = rwCard.getAttribute("data-rewards-tab") || "all";
+      renderScreen();
+      return;
+    }
     const set = e.target.closest("[data-set]");
     if (set){
       const key = set.getAttribute("data-set");
@@ -7271,6 +7336,11 @@ async function doBridgeDeposit(){
       if (key === "lQuote" && quoteSoon(val)) return;
       state[key] = val;
       if (key === "lQuote") state.quoteOpen = false;
+      if (key === "rewardsTab"){
+        state.rewardsTab = val || "all";
+        if (state.route === "pit") renderScreen();
+        return;
+      }
       if (key === "lPath"){
         state.lPath = "instadex";
       }
