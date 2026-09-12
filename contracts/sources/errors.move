@@ -49,6 +49,19 @@ const E_NOT_HOLDER_YIELD: u64 = 35;
 /// Use `launch::collect_instadex_fees_holder_yield` for this lock.
 const E_USE_HOLDER_YIELD_COLLECT: u64 = 36;
 
+/// Basket config has no assets.
+const E_BASKET_EMPTY: u64 = 37;
+/// Basket weights invalid (sum != 10_000, zero weight, dup, or too many).
+const E_BASKET_BAD_WEIGHTS: u64 = 38;
+/// Lock is not in basket-yield mode (no BasketYieldKey DF — when wired).
+const E_NOT_BASKET_YIELD: u64 = 39;
+/// Basket vault is not bound to this BluefinPositionLock.
+const E_WRONG_BASKET: u64 = 40;
+/// Asset TypeName is not on the RWA allowlist (XAUM / XAGM / USDY).
+const E_UNKNOWN_RWA: u64 = 41;
+/// Basket payout_mode is not ALL_AT_ONCE or ROTATING.
+const E_BASKET_MODE: u64 = 42;
+
 public fun paused(): u64 { E_PAUSED }
 public fun invalid_fee(): u64 { E_INVALID_FEE }
 public fun zero_amount(): u64 { E_ZERO_AMOUNT }
@@ -85,3 +98,10 @@ public fun bad_param(): u64 { E_BAD_PARAM }
 public fun wrong_yield(): u64 { E_WRONG_YIELD }
 public fun not_holder_yield(): u64 { E_NOT_HOLDER_YIELD }
 public fun use_holder_yield_collect(): u64 { E_USE_HOLDER_YIELD_COLLECT }
+public fun basket_empty(): u64 { E_BASKET_EMPTY }
+public fun basket_bad_weights(): u64 { E_BASKET_BAD_WEIGHTS }
+public fun not_basket_yield(): u64 { E_NOT_BASKET_YIELD }
+public fun wrong_basket(): u64 { E_WRONG_BASKET }
+public fun unknown_rwa(): u64 { E_UNKNOWN_RWA }
+public fun basket_mode(): u64 { E_BASKET_MODE }
+
