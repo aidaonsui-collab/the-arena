@@ -107,10 +107,10 @@ async function discoverLaunches(): Promise<number> {
   const q2 =
     "query($t:String!,$first:Int!,$after:String!){ events(first:$first, after:$after, filter:{ type:$t }){ pageInfo { hasNextPage endCursor } nodes { contents { json } } } }";
   for (let page = 0; page < 16; page++) {
-    const data = after
+    const data: unknown = after
       ? await gql(q2, { t: LAUNCH_TYPE, first: 50, after })
       : await gql(q1, { t: LAUNCH_TYPE, first: 50 });
-    const conn = (data && (data.events as { nodes?: { contents?: { json?: Record<string, unknown> } }[]; pageInfo?: { hasNextPage?: boolean; endCursor?: string } })) || {};
+    const conn = ((data as { events?: { nodes?: { contents?: { json?: Record<string, unknown> } }[]; pageInfo?: { hasNextPage?: boolean; endCursor?: string } } } | null)?.events) || {};
     const nodes = conn.nodes || [];
     for (const node of nodes) {
       const p = (node.contents && node.contents.json) || {};

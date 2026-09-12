@@ -12,6 +12,7 @@ Cron jobs for The Arena launchpad.
 | `*/5 * * * *` | `/api/ring` | Sign `config::ring_pit` when Clock >= `round_end_ms` and the previous winner is settled. |
 | `*/5 * * * *` | `/api/settle` | Only if `/api/pit-state` has an unsettled 24h MC winner. AdminCap drains `Pit<SUI>`, hops to quote, Bluefin-buys, burns. Then leftover curve `pool::settle_pit` if an on-chain winner is pending. |
 | `0 * * * *` | `/api/collect` | Poke `launch::collect_instadex_fees` (or `collect_instadex_fees_holder_yield` when the lock is yield-mode) on Instadex locks with accrued LP fees. Burns coin A; quote split 60/10/30 to creator/platform/pit **or** holder-yield vault. Then `withdraw` (`config::withdraw_treasury` + `withdraw_platform`) into the platform wallet. Home Mac LaunchAgent runs this hourly (`ARENA_COLLECT_EVERY_S=3600`). |
+| `*/15 * * * *` | `/api/convert-basket` | Discover `BasketYieldVault`s with `quote_staging` via `BasketYieldLaunch`/`Funded` GraphQL events. `take_quote_for_convert` → SUI→USDC→RWA hop (same Cetus/Bluefin pools as `settleInstadex`) → `deposit_converted_asset` per weight leg. |
 | every 5 min (Air) | `tsx src/cli.ts trades` | Index Bluefin AssetSwap per Instant pool into SQLite (`keepers/data/trades.sqlite`) and publish `/api/trades` for the token-page tape. Same job sums `InstadexBurnEvent` and pool reserves to `/api/token-stats` so About MC and Burned stay in sync. |
 
 HTTP cron routes require `Authorization: Bearer $CRON_SECRET` (Vercel Cron sends this). The CLI (`npx tsx src/cli.ts …`) does not.
@@ -56,6 +57,40 @@ npx tsx src/cli.ts withdraw
 npx tsx src/cli.ts trades
 ```
 
+
+## Basket yield convert
+
+Permissionless convert of Instant **basket** vault `quote_staging` (usually SUI) into allowlisted RWAs (XAUM / XAGM / USDY) so holders can claim pots.
+
+```
+npx tsx src/cli.ts convert-basket
+# or
+npm run convert-basket
+```
+
+**Discovery:** GraphQL `BasketYieldLaunchEvent` (+ `BasketYieldFundedEvent` fallback) on `ARENA_CALL_PACKAGE` (default v12 `0x1710…`). Loads each vault object; skips if `quote_staging < ARENA_CONVERT_MIN_STAGING` (default `1000000` mist) or `total_registered == 0`.
+
+**On-chain PTB (per vault):**
+1. `basket_yield::take_quote_for_convert<T,Q>(vault, amount)`
+2. Split Q by `quote_share_for_index` weights (`equal_weight` or explicit bps; floor dust → last leg)
+3. Hop each share: **SUI → USDC** (Cetus `USDC_SUI_POOL`) → **XAUM/XAGM** (Bluefin) or **USDY** (Cetus) — same helpers as `settleInstadex`
+4. `basket_yield::deposit_converted_asset<T,Q,A>(vault, coin_a, quote_spent, clock)` per leg
+
+**Env**
+
+| Var | Default | Meaning |
+| --- | --- | --- |
+| `ARENA_CALL_PACKAGE` | v12 `0x1710adbe…fea161` | Move call package |
+| `ARENA_CONVERT_DRY_RUN` | off | `1` = build PTB + `dryRunTransactionBlock` only (no sign) |
+| `ARENA_CONVERT_MIN_STAGING` | `1000000` | Skip smaller staging balances |
+| `ARENA_CONVERT_VAULT` | — | Optional single vault id |
+| `ARENA_CONVERT_WALLET_RWAS` | off | Skip DEX hop; transfer taken Q to keeper and deposit RWA coins already in the wallet |
+| `ARENA_KEEPER_PHRASE` | — | Signer (same as other keepers) |
+
+Home Mac `run-local.sh` runs `convert-basket` in the hourly collect window (after `collect`, before `withdraw`). Optional Vercel cron every 15m on `/api/convert-basket` (Bearer `CRON_SECRET`).
+
+**Operator notes:** Prefer dry-run first (`ARENA_CONVERT_DRY_RUN=1`). Non-SUI quote vaults are skipped unless `ARENA_CONVERT_WALLET_RWAS=1`. Bluefin `minOut` is `1` (parity with settle). Collect must run first so staging is funded.
+
 ## Events for the UI indexer
 
 Package `P`. Subscribe:
@@ -84,7 +119,7 @@ Snapshot file (default `./data/reflections.json`) is the shape the token page ca
 - `ARENA_ADMIN_CAP`=`0x79e041a4444971bfbf8000925ac3386d8351a3e997eb7d838d84eb6c3e507acf`
 - `ARENA_APP_URL` (default `https://the-arena-vert.vercel.app`) so settle can read/write `/api/pit-state`
 - `CRON_SECRET` required on Vercel so `/api/{ring,settle,collect,reflections}` are not public. Same secret POSTs the buy/burn digest onto the pit bell (`ARENA_SETTLE_SECRET` also accepted).
-- `ARENA_CALL_PACKAGE` (latest published-at, default v8 `0xd853…`)
+- `ARENA_CALL_PACKAGE` (latest published-at, default v12 `0x1710…`)
 - `ARENA_INSTADEX_PACKAGE` (InstadexLaunchEvent type origin v4 `0xcf78…`)
 - `SUI_GRAPHQL` (default `https://graphql.mainnet.sui.io/graphql`)
 - Platform launch + swap-fee withdraws: Odyssey admin `0x92a32ac7fd525f8bd37ed359423b8d7d858cad26224854dfbff1914b75ee658b` holds `AdminCap`

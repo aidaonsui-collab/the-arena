@@ -1,30 +1,25 @@
-import { runIndexReflections } from "./jobs/indexReflections.ts";
-import { runIndexTrades } from "./jobs/indexTrades.ts";
-import { runRefreshPitState } from "./jobs/refreshPitState.ts";
-import { runRingPit } from "./jobs/ringPit.ts";
-import { runSettleInstadex } from "./jobs/settleInstadex.ts";
-import { runSettlePit } from "./jobs/settlePit.ts";
-import { runCollectInstadex } from "./jobs/collectInstadex.ts";
-import { runWithdrawPlatform } from "./jobs/withdrawPlatform.ts";
-
 const job = process.argv[2];
 
 const jobs: Record<string, () => Promise<unknown>> = {
-  reflections: runIndexReflections,
-  trades: runIndexTrades,
-  pit: runRefreshPitState,
-  ring: runRingPit,
+  reflections: async () => (await import("./jobs/indexReflections.ts")).runIndexReflections(),
+  trades: async () => (await import("./jobs/indexTrades.ts")).runIndexTrades(),
+  pit: async () => (await import("./jobs/refreshPitState.ts")).runRefreshPitState(),
+  ring: async () => (await import("./jobs/ringPit.ts")).runRingPit(),
   settle: async () => ({
-    instadex: await runSettleInstadex(),
-    curve: await runSettlePit(),
+    instadex: await (await import("./jobs/settleInstadex.ts")).runSettleInstadex(),
+    curve: await (await import("./jobs/settlePit.ts")).runSettlePit(),
   }),
-  instadex: runSettleInstadex,
-  collect: runCollectInstadex,
-  withdraw: runWithdrawPlatform,
+  instadex: async () => (await import("./jobs/settleInstadex.ts")).runSettleInstadex(),
+  collect: async () => (await import("./jobs/collectInstadex.ts")).runCollectInstadex(),
+  withdraw: async () => (await import("./jobs/withdrawPlatform.ts")).runWithdrawPlatform(),
+  "convert-basket": async () => (await import("./jobs/convertBasketYield.ts")).runConvertBasketYield(),
+  convertBasket: async () => (await import("./jobs/convertBasketYield.ts")).runConvertBasketYield(),
 };
 
 if (!job || !jobs[job]) {
-  console.error("usage: tsx src/cli.ts <reflections|trades|pit|ring|settle|instadex|collect|withdraw>");
+  console.error(
+    "usage: tsx src/cli.ts <reflections|trades|pit|ring|settle|instadex|collect|withdraw|convert-basket>",
+  );
   process.exit(1);
 }
 
