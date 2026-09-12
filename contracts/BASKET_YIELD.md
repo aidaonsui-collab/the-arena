@@ -1,11 +1,11 @@
-# Arena v2 RWA basket yield (scaffold)
+# Arena v2 RWA basket yield
 
 BidX-style **multi-asset holder rewards** for Instadex Instant launches.
 Complements v1 single-quote holder-yield (`HOLDER_YIELD.md` / `holder_yield`).
 
-**Status:** design + Move module skeleton + events/errors + pad notes.
-Not wired into `launch` / `lock` collect yet. Do **not** treat as mainnet-live;
-`published-at` stays on v11 until a later Compatible upgrade ships the wiring.
+**Status:** wired (launch / collect / convert MVP / claim), **awaiting Compatible
+upgrade**. Do **not** invent `published-at`; type origin stays `0x5cfd…` until
+the upgrade ships. Mutually exclusive with `HolderYieldKey`.
 
 ## Product
 
@@ -13,184 +13,104 @@ Not wired into `launch` / `lock` collect yet. Do **not** treat as mainnet-live;
 | --- | --- | --- |
 | Quote pair | Instant quoted **in** one RWA (`Q` = XAUM / XAGM / USDY) | Instant quoted in **SUI** (or another non-basket `Q`) |
 | What holders claim | That same `Coin<Q>` | Selected RWAs from a **basket** (gold / silver / T-bills) |
-| Fee slice | `std_pit_bps` → vault pot | See [Funding](#funding-from-fee-routes) |
-| Payout | Single magnified stream | All-at-once **or** rotating (stubs) |
+| Fee slice | `std_pit_bps` → vault pot | `std_pit_bps` → vault **quote staging**, then convert |
+| Payout | Single magnified stream | All-at-once **or** rotating |
 
 Initial allowlist (Create / Rewards copy): **XAUM** (gold), **XAGM** (silver),
-**USDY** (T-bills). Stocks wraps / `rh-vault` are out of scope.
+**USDY** (T-bills). Stocks wraps / `rh-vault` are out of scope. On-chain checks
+validate deposit TypeNames against the vault’s launch-locked `BasketConfig`
+(pad should only pass allowlisted types).
 
-Later: rotating vs all-at-once modes (stubs exist; production accounting TBD).
+## Launch-locked flag
 
-## Why a new module
+Compatible: no layout edit on `BluefinPositionLock`. Mode is a dynamic field:
 
-Compatible upgrade constraints (same as v1):
-
-- Prefer **new module** + new public functions + new events.
-- No `BluefinPositionLock` / `Config` layout edits — mode via **dynamic field**.
-- Do not change `launch_instant` / `collect_instadex_fees` /
-  `launch_instant_holder_yield` / `collect_instadex_fees_holder_yield`.
-- Mutually exclusive with v1: a lock has either `HolderYieldKey`,
-  `BasketYieldKey`, or neither (plain pit). Never both.
-
-Proposed DF (when wired):
-
-- Key: `lock::BasketYieldKey` (not added in this scaffold — documented only)
+- Key: `lock::BasketYieldKey`
 - Value: `ID` of shared `basket_yield::BasketYieldVault<T, Q>`
 
-## BasketConfig
-
-Launch-locked config owned by the vault (copyable snapshot for events/UI):
-
-```
-BasketAsset { asset: TypeName, weight_bps: u64 }
-BasketConfig {
-  assets: vector<BasketAsset>,  // 1..=3 from allowlist
-  equal_weight: bool,           // if true, ignore per-asset bps; split 1/N
-  payout_mode: u8,              // 0 = ALL_AT_ONCE, 1 = ROTATING
-}
-```
-
-Rules (enforced in skeleton `new_config` / `validate_config`):
-
-- `assets` non-empty, length ≤ `MAX_ASSETS` (3).
-- Each `asset` must be on the documented RWA allowlist (TypeName check at
-  launch when wiring lands; scaffold validates non-zero / no duplicate TypeNames).
-- If `equal_weight`: weights may be 0; runtime split uses `BPS / N`.
-- Else: each `weight_bps > 0` and sum == `10_000`.
-- `payout_mode` ∈ {0, 1}.
+Set only inside `lock::seed_and_lock_instant_basket_yield` /
+`launch::launch_instant_basket_yield`. Never both `HolderYieldKey` and
+`BasketYieldKey` (`errors::yield_mode_conflict` = 44).
 
 ## Funding from fee routes
 
-**Proposal (recommended):** reuse the Instant **pit slice** (`Config.std_pit_bps`,
-default 30% of collected LP quote B) for basket mode — same diversion pattern as
-v1 holder-yield — so creator (60%) / platform (10%) stay untouched and we do not
-need a Config layout field.
+Reuse Instant **pit slice** (`Config.std_pit_bps`, default 30% of collected LP
+quote B) — same diversion pattern as v1 holder-yield:
 
-Flow when wired:
+1. `collect_instadex_fees_basket_yield` splits quote B → creator / platform /
+   **basket vault quote staging** (`Balance<Q>`), not `Pit<Q>`.
+2. Convert MVP (permissionless, no in-Move DEX) in one PTB:
+   - `take_quote_for_convert(vault, amount)` → `Coin<Q>` to caller (rebate/payment).
+   - Off-module / same-PTB swap `Q` → RWAs (keeper/UI).
+   - `deposit_converted_asset<A>(vault, coin_a, quote_spent, clock)` per leg —
+     asset must be in `BasketConfig`; credits per-asset magnified dividends;
+     emits `BasketYieldConvertedEvent`.
+   - Weight-proportional quote attribution: `quote_share_for_index(cfg, i, amount)`.
+3. If `total_registered == 0`, return the pit-bps balance to creator residual.
 
-1. `collect_instadex_fees_basket_yield` (name TBD) splits quote B → creator /
-   platform / **basket vault quote staging** (`Balance<Q>`), not `Pit<Q>`.
-2. A convert step (keeper or permissionless DEX hop) spends staging `Q` into
-   allowlisted RWA balances, proportional to `BasketConfig` weights, and parks
-   them as per-asset pots (DFs on the vault `UID`).
-3. Magnified-dividend (or rotating cursor) accounting credits registered holders.
-4. If `total_registered == 0`, return the pit-bps balance to creator residual
-   (same rescue as v1 / reflection).
+Wrong collect aborts: basket lock on pit collect → `use_basket_yield_collect`
+(43); plain/holder lock on basket collect → `not_basket_yield` (39).
 
-**Alternative:** dedicated `basket_bps` as a **Config DF** (Compatible-safe) if
-product later wants pit + basket both live on the same launch (not required for
-v2 Instant basket — pit and basket remain mutually exclusive modes).
+## Custody
 
-This scaffold implements **quote staging join** (`try_fund_quote`) as a real
-minimal body; **convert / claim / rotate** abort `errors::retired()` until the
-next impl slice.
-
-## Custody of multi-asset Balance
-
-- `BasketYieldVault<T, Q>.quote_staging: Balance<Q>` — fee slice before convert.
-- Per-RWA pots: **dynamic fields** on `vault.id`, keyed by asset `TypeName`
-  (wrapper `AssetPot<A> { bal: Balance<A> }`), so we never put heterogeneous
-  `Balance<_>` in one struct field and stay Compatible if new assets are added.
-- Registration weight is still `Coin<T>` via `sync_registration` (same caveat as
-  v1: no transfer hooks; merge coins first).
+- `quote_staging: Balance<Q>` — fee slice before convert (pro-rata view via
+  `pending_quote_normalized`; **not** pull-claimable as Q).
+- Per-RWA pots: DF `AssetPotKey { asset }` → `AssetPot<A> { bal }` on vault UID.
+- Per-asset mps: `asset_mps` table; per-holder debt: `asset_acc` table.
+- Registration: `sync_registration` with `Coin<T>` (merge first).
 
 ## Claim / payout modes
 
-| Mode | Constant | Intended behavior | Scaffold |
-| --- | --- | --- | --- |
-| All-at-once | `PAYOUT_ALL_AT_ONCE = 0` | One claim pulls pro-rata unpaid across **every** selected RWA | `claim_all` → `retired()` |
-| Rotating | `PAYOUT_ROTATING = 1` | Cursor picks one asset per epoch / fund round; claim that stream | `claim_rotating` → `retired()` |
-
-`advance_rotation` / convert helpers are stubs. Magnified-dividend math can
-mirror `holder_yield` once pots are live (per-asset `mps` table or single
-quote-normalized index — decide in the convert slice).
+| Mode | Constant | Behavior |
+| --- | --- | --- |
+| All-at-once | `PAYOUT_ALL_AT_ONCE = 0` | `claim_all<A>` / `claim_asset<A>` per leg (pad PTB) |
+| Rotating | `PAYOUT_ROTATING = 1` | `claim_rotating<A>` pays cursor asset then `advance_rotation` |
 
 ## Compatible upgrade constraints
 
-- Ship `basket_yield` + event/error helpers first (this PR).
-- Next Compatible upgrade: `BasketYieldKey` DF helpers on `lock`, launch entry,
-  collect path, convert. No published-at invention here; type origin stays
-  `0x5cfd…`.
-- Do not break v11 Instant holder-yield (`0xe2dee7…` published-at).
+- New module + new public functions + new events/DFs only.
+- Do not change `launch_instant` / `collect_instadex_fees` /
+  `launch_instant_holder_yield` / `collect_instadex_fees_holder_yield`.
+- Do not invent published-at; upgrade when ready (Compatible). Type origin
+  `0x5cfd…`. Current published-at remains v11 until then.
 - No stocks / `contracts-stocks` / `rh-vault` changes.
 
 ## Events (Rewards dashboard)
 
-Shapes live in `events.move` (emit helpers ready; call sites later):
-
 ```
-BasketYieldLaunchEvent {
-  lock_id, basket_id, bluefin_pool_id,
-  token, quote,              // TypeName — pair is TOKEN/Q (often SUI)
-  payout_mode,               // u8
-  asset_count                // u64 — selected RWA count
-}
-
-BasketYieldFundedEvent {
-  lock_id, basket_id, bluefin_pool_id,
-  quote, amount,             // staging Q credited
-  timestamp_ms
-}
-
-BasketYieldConvertedEvent {
-  lock_id, basket_id,
-  from_quote, from_amount,   // Q spent
-  to_asset, to_amount,       // RWA credited into pot
-  timestamp_ms
-}
-
-BasketYieldClaimEvent {
-  lock_id, basket_id, who,
-  asset, amount,             // TypeName of RWA claimed
-  payout_mode
-}
-
-BasketYieldRotateEvent {
-  lock_id, basket_id,
-  from_index, to_index,
-  asset,                     // newly active TypeName
-  timestamp_ms
-}
+BasketYieldLaunchEvent { lock_id, basket_id, bluefin_pool_id, token, quote, payout_mode, asset_count }
+BasketYieldFundedEvent { lock_id, basket_id, bluefin_pool_id, quote, amount, timestamp_ms }
+BasketYieldConvertedEvent { lock_id, basket_id, from_quote, from_amount, to_asset, to_amount, timestamp_ms }
+BasketYieldClaimEvent { lock_id, basket_id, who, asset, amount, payout_mode }
+BasketYieldRotateEvent { lock_id, basket_id, from_index, to_index, asset, timestamp_ms }
 ```
 
-Pad indexes `quote` / `asset` TypeNames to categorize SUI staging vs
-XAUM / XAGM / USDY claims. v1 `HolderYield*` events stay unchanged.
+## Pad Create / entrypoints
 
-## Pad Create UI note
+When Create is **not** on v1 holder-yield, offer basket picker (XAUM · XAGM ·
+USDY), equal or custom bps, payout mode. Pair quote stays **SUI**.
 
-When Create is **not** using single-quote v1 holder-yield, offer:
-
-> **Basket rewards:** pick which RWAs holders earn (XAUM · XAGM · USDY), equal
-> weight or custom bps, and payout mode (all-at-once / rotating — rotating
-> shipping later). Pair quote can stay **SUI** (or another non-basket quote).
-> Fee pit slice funds the basket instead of the Fight Night pit.
-
-Do not show basket picker on the v1 “quote is the RWA” path; modes are exclusive.
-
-## PTB sketch (future)
-
-**Launch:** `launch_instant_basket_yield_entry<T, Q>` — Instant objects +
-encoded `BasketConfig` (or parallel type-arg / arg list for selected assets).
-
-**Sync:** `basket_yield::sync_registration` (skeleton: same weight model as v1).
-
-**Collect:** basket collect — Instant collect objects **minus pit**, **plus**
-`BasketYieldVault` (no `Pit` arg).
-
-**Convert:** keeper PTB: staging `Q` → RWA pots via Bluefin (out of scope here).
-
-**Claim:** `claim_all` / `claim_rotating` once un-retired.
+| Entrypoint | Role |
+| --- | --- |
+| `launch_instant_basket_yield` | Non-entry; takes `BasketConfig` |
+| `launch_instant_basket_yield_entry<T,Q,A0>` | 1-asset |
+| `launch_instant_basket_yield_2_entry<T,Q,A0,A1>` | 2-asset |
+| `launch_instant_basket_yield_3_entry<T,Q,A0,A1,A2>` | 3-asset |
+| `collect_instadex_fees_basket_yield` | Collect → staging (no Pit) |
+| `basket_yield::sync_registration` | Registry weight |
+| `basket_yield::take_quote_for_convert` | Staging Q → keeper |
+| `basket_yield::deposit_converted_asset` | RWA → pot + mps |
+| `basket_yield::claim_all` / `claim_asset` | All-at-once / building block |
+| `basket_yield::claim_rotating` / `advance_rotation` | Rotating |
 
 ## Module map
 
 | File | Role |
 | --- | --- |
-| `sources/basket_yield.move` | Types, validate, staging fund, sync, stubs |
+| `sources/basket_yield.move` | Config, vault, fund, convert MVP, claim, rotate |
+| `sources/lock.move` | `BasketYieldKey`, seed, collect-to-basket |
+| `sources/launch.move` | Launch + collect entrypoints |
 | `sources/events.move` | Basket event structs + emit helpers |
-| `sources/errors.move` | Basket abort codes 37–42 |
+| `sources/errors.move` | Basket abort codes 37–44 |
 | `BASKET_YIELD.md` | This design |
-| `HOLDER_YIELD.md` | v1 reference (unchanged path) |
-
-## Docs / README
-
-Root / `contracts/README` / keepers / pad footer pointer updates for v11 holder-yield + Rewards are owned by a **separate docs PR**. This scaffold intentionally does not rewrite those files — link `BASKET_YIELD.md` from docs when that PR lands or in a follow-up one-liner.
+| `PAD_NOTE_BASKET.md` | Create / Rewards UI note |
