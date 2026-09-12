@@ -771,7 +771,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   var pitStatePollAt = 0;
   let balance = 48.60;
   let xaumBal = 2.40;
-  const state = {route:"explore", sym:"VOLT", filter:"All", sort:"Market cap", time:"All", side:"Buy", amt:"1", connected:false, search:"", lName:"", lTick:"", lQuote:"SUI", lPath:"instadex", lMode:"Holders", lTokenAmt:"", lQuoteAmt:"", lFirstBuy:"1", lCap:"", lTokenCoin:"", lQuoteCoin:"", lCoinMode:"create", lDecimals:"9", lSupply:"1000000000", lDesc:"", lX:"", lTg:"", lWeb:"", lPublishedType:"", metricsWindow:"All", tapeTab:"trades", tapeOpen:"", tapePage:0, tapeAge:"age", tapeWallet:"", tapeFilterOpen:false, lFile:null, lArtUrl:"", lArtPreview:"", payWith:"SUI", lNote:"", lNoteErr:false, chartTf:900, chartInd:{vol:true,ma7:true,ma25:true,ma99:false,ema:false}, bridgeTick:"NVDA", bridgeAmt:"", bridgeDir:"in", bridgeRhDest:"", bridgeNote:"", bridgeBusy:false, quoteOpen:false, rewardsTab:"all", lBasket:false, lBasketEqual:true, lBasketMode:0, lBasketOn:{XAUM:true,XAGM:true,USDY:true}, lBasketBps:{XAUM:3334,XAGM:3333,USDY:3333}};
+  const state = {route:"explore", sym:"VOLT", filter:"All", sort:"Market cap", time:"All", side:"Buy", amt:"1", connected:false, search:"", lName:"", lTick:"", lQuote:"SUI", lPath:"instadex", lMode:"Holders", lTokenAmt:"", lQuoteAmt:"", lFirstBuy:"1", lCap:"", lTokenCoin:"", lQuoteCoin:"", lCoinMode:"create", lDecimals:"9", lSupply:"1000000000", lDesc:"", lX:"", lTg:"", lWeb:"", lPublishedType:"", metricsWindow:"All", tapeTab:"trades", tapeOpen:"", tapePage:0, tapeAge:"age", tapeWallet:"", tapeFilterOpen:false, lFile:null, lArtUrl:"", lArtPreview:"", payWith:"SUI", lNote:"", lNoteErr:false, chartTf:900, chartInd:{vol:true,ma7:false,ma25:false,ma99:false,ema:false}, bridgeTick:"NVDA", bridgeAmt:"", bridgeDir:"in", bridgeRhDest:"", bridgeNote:"", bridgeBusy:false, quoteOpen:false, rewardsTab:"all", lBasket:false, lBasketEqual:true, lBasketMode:0, lBasketOn:{XAUM:true,XAGM:true,USDY:true}, lBasketBps:{XAUM:3334,XAGM:3333,USDY:3333}};
   var metaEdit = { open: false, saving: false, file: null, preview: "", artUrl: "", note: "", err: false, name: "", desc: "", x: "", tg: "", web: "", creator: "", openedCreator: "" };
   let hashLock = false;
   const hop = { suiPerXaum: null, suiPerUsdy: null, suiPerXagm: null, usd: null, suiUsd: null, usdyUsd: null, xagmUsd: null, xaumUsd: null, source: "" };
@@ -2565,7 +2565,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     return !!(tk && (isInstadex(tk) || tk.bluefinPool));
   }
   function chartInd(){
-    return state.chartInd || (state.chartInd = {vol:true,ma7:true,ma25:true,ma99:false,ema:false});
+    return state.chartInd || (state.chartInd = {vol:true,ma7:false,ma25:false,ma99:false,ema:false});
   }
   function chartToolbarHTML(){
     var tfs = [[60,"1m"],[300,"5m"],[900,"15m"],[3600,"1h"],[14400,"4h"],[86400,"1D"]];
@@ -2805,9 +2805,16 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
         handleScale: true
       });
       lw.candle = lw.chart.addCandlestickSeries({
-        upColor: "#298DFF", downColor: "#FF6640",
-        borderUpColor: "#298DFF", borderDownColor: "#FF6640",
-        wickUpColor: "#298DFF", wickDownColor: "#FF6640"
+        upColor: "#298DFF",
+        downColor: "#FF6640",
+        borderVisible: true,
+        borderUpColor: "#298DFF",
+        borderDownColor: "#FF6640",
+        wickVisible: true,
+        wickUpColor: "#298DFF",
+        wickDownColor: "#FF6640",
+        priceLineVisible: false,
+        lastValueVisible: false
       });
       lw.candle.priceScale().applyOptions({ scaleMargins: { top: 0.08, bottom: 0.28 } });
       lw.vol = lw.chart.addHistogramSeries({ priceFormat: { type: "volume" }, priceScaleId: "vol", lastValueVisible: false, priceLineVisible: false });
@@ -2949,7 +2956,12 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   function chartMcMul(tk){
     var q = poolQuote(tk);
     var u = quoteUsd(q);
-    return VIRTUAL_SUPPLY * (u > 0 ? u : 1);
+    // Before hop/oracle loads, do not invent USD=1 (that flashes ~$2 Instant MC).
+    if (!(u > 0) && q === "XAUM" && hop.suiPerXaum > 0 && hop.suiUsd > 0) u = hop.suiPerXaum * hop.suiUsd;
+    if (!(u > 0) && q === "XAGM" && hop.suiPerXagm > 0 && hop.suiUsd > 0) u = hop.suiPerXagm * hop.suiUsd;
+    if (!(u > 0) && q === "USDY" && hop.suiPerUsdy > 0 && hop.suiUsd > 0) u = hop.suiPerUsdy * hop.suiUsd;
+    if (!(u > 0)) return 0;
+    return VIRTUAL_SUPPLY * u;
   }
   function fmtChartMc(n){
     n = Number(n) || 0;
@@ -8593,6 +8605,7 @@ async function doBridgeDeposit(){
       paintTicket();
       paintCaps();
       paintFirstBuyPreview();
+      if (lw.chart && state.route === "token") applyLwData(findT(state.sym));
       if (state.route === "metrics" || state.route === "pit") renderScreen();
       else if (state.route === "explore") paintExploreList();
     }
