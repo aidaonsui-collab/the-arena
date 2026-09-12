@@ -9,12 +9,15 @@
     "collect": "npx tsx src/cli.ts collect",
     "reflections": "npx tsx src/cli.ts reflections",
     "trades": "npx tsx src/cli.ts trades",
-    "pit": "npx tsx src/cli.ts pit"
+    "pit": "npx tsx src/cli.ts pit",
+    "convert-basket": "npx tsx src/cli.ts convert-basket",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@mysten/sui": "^1.37.0"
   },
   "devDependencies": {
+    "@types/node": "^22.20.2",
     "tsx": "^4.20.0",
     "typescript": "^5.9.0"
   }

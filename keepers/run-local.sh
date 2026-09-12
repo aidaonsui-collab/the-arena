@@ -77,6 +77,8 @@ last=0
 [ -f "$STAMP" ] && last="$(cat "$STAMP" 2>/dev/null || echo 0)"
 if [ $((now - last)) -ge "$EVERY" ]; then
   run_job collect
+  # Convert staged basket-yield quote (SUI) → RWAs after collect funds staging.
+  run_job convert-basket || true
   if run_job withdraw; then
     echo "$now" > "$STAMP"
   fi

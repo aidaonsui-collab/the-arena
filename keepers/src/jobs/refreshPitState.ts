@@ -280,7 +280,7 @@ async function refresh(prev: PitState | null): Promise<PitState> {
             quote: w.quote,
             quoteType: w.quoteType,
           },
-        ].concat(state.bells || []).slice(0, 12);
+        ].concat((state.bells || []) as { t: string; n: string; mcUsd: number; ts: number; mode: string; pool: string; lock: string; token: string; quote: string; quoteType: string; }[]).slice(0, 12);
         const already = (state.banned || []).some((b) => String(b.t).toUpperCase() === w.t && Number(b.untilMs) > now);
         if (!already && !sitoutExempt(w.t)) {
           state.banned = (state.banned || []).concat([{ t: w.t, n: w.n, pool: w.pool, untilMs: now + COOLDOWN_MS }]);
