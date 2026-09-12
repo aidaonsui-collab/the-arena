@@ -7317,10 +7317,11 @@ async function doBridgeDeposit(){
     }
     const claimBtn = e.target.closest("[data-rewards-claim]");
     if (claimBtn){
-      if (claimBtn.disabled) return;
       // Wired after Move claim events land.
-      state.lNote = "";
-      alert("Claim path scaffolds here — waiting on holder-yield events from Arena Move.");
+      var note = document.querySelector(".rewards-claim .note");
+      if (note) note.textContent = claimBtn.disabled
+        ? "Nothing claimable yet — waiting on v1 holder-yield events."
+        : "Claim path scaffolds here — waiting on holder-yield events from Arena Move.";
       return;
     }
     const rwCard = e.target.closest("[data-rewards-tab]");
