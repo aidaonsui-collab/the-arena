@@ -173,6 +173,59 @@ public struct HolderYieldLaunchEvent has copy, drop {
     quote: TypeName,
 }
 
+
+/// Instant basket-yield launch (v2 scaffold). Pad Create / Rewards index.
+public struct BasketYieldLaunchEvent has copy, drop {
+    lock_id: ID,
+    basket_id: ID,
+    bluefin_pool_id: ID,
+    token: TypeName,
+    quote: TypeName,
+    payout_mode: u8,
+    asset_count: u64,
+}
+
+/// Pit-bps quote slice staged into basket vault (before RWA convert).
+public struct BasketYieldFundedEvent has copy, drop {
+    lock_id: ID,
+    basket_id: ID,
+    bluefin_pool_id: ID,
+    quote: TypeName,
+    amount: u64,
+    timestamp_ms: u64,
+}
+
+/// Staging quote converted into one RWA pot leg.
+public struct BasketYieldConvertedEvent has copy, drop {
+    lock_id: ID,
+    basket_id: ID,
+    from_quote: TypeName,
+    from_amount: u64,
+    to_asset: TypeName,
+    to_amount: u64,
+    timestamp_ms: u64,
+}
+
+/// Holder claimed one RWA asset from a basket vault.
+public struct BasketYieldClaimEvent has copy, drop {
+    lock_id: ID,
+    basket_id: ID,
+    who: address,
+    asset: TypeName,
+    amount: u64,
+    payout_mode: u8,
+}
+
+/// Rotating payout cursor advanced.
+public struct BasketYieldRotateEvent has copy, drop {
+    lock_id: ID,
+    basket_id: ID,
+    from_index: u64,
+    to_index: u64,
+    asset: TypeName,
+    timestamp_ms: u64,
+}
+
 public struct BeneficiarySetEvent has copy, drop {
     lock_id: ID,
     old_beneficiary: address,
@@ -426,3 +479,98 @@ public fun emit_holder_yield_launch(
         quote,
     })
 }
+
+public fun emit_basket_yield_launch(
+    lock_id: ID,
+    basket_id: ID,
+    bluefin_pool_id: ID,
+    token: TypeName,
+    quote: TypeName,
+    payout_mode: u8,
+    asset_count: u64,
+) {
+    sui::event::emit(BasketYieldLaunchEvent {
+        lock_id,
+        basket_id,
+        bluefin_pool_id,
+        token,
+        quote,
+        payout_mode,
+        asset_count,
+    })
+}
+
+public fun emit_basket_yield_funded(
+    lock_id: ID,
+    basket_id: ID,
+    bluefin_pool_id: ID,
+    quote: TypeName,
+    amount: u64,
+    timestamp_ms: u64,
+) {
+    sui::event::emit(BasketYieldFundedEvent {
+        lock_id,
+        basket_id,
+        bluefin_pool_id,
+        quote,
+        amount,
+        timestamp_ms,
+    })
+}
+
+public fun emit_basket_yield_converted(
+    lock_id: ID,
+    basket_id: ID,
+    from_quote: TypeName,
+    from_amount: u64,
+    to_asset: TypeName,
+    to_amount: u64,
+    timestamp_ms: u64,
+) {
+    sui::event::emit(BasketYieldConvertedEvent {
+        lock_id,
+        basket_id,
+        from_quote,
+        from_amount,
+        to_asset,
+        to_amount,
+        timestamp_ms,
+    })
+}
+
+public fun emit_basket_yield_claim(
+    lock_id: ID,
+    basket_id: ID,
+    who: address,
+    asset: TypeName,
+    amount: u64,
+    payout_mode: u8,
+) {
+    sui::event::emit(BasketYieldClaimEvent {
+        lock_id,
+        basket_id,
+        who,
+        asset,
+        amount,
+        payout_mode,
+    })
+}
+
+public fun emit_basket_yield_rotate(
+    lock_id: ID,
+    basket_id: ID,
+    from_index: u64,
+    to_index: u64,
+    asset: TypeName,
+    timestamp_ms: u64,
+) {
+    sui::event::emit(BasketYieldRotateEvent {
+        lock_id,
+        basket_id,
+        from_index,
+        to_index,
+        asset,
+        timestamp_ms,
+    })
+}
+
