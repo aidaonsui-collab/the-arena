@@ -4254,11 +4254,10 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   }
   function fmtRewardAmt(raw, unit){
     var mist = Number(raw);
-    if (!(mist > 0)) return "0 " + unit;
-    var n = mist / Math.pow(10, rewardsDec(unit));
-    if (n >= 1000) return n.toLocaleString(undefined, { maximumFractionDigits: 2 }) + " " + unit;
-    if (n >= 1) return n.toLocaleString(undefined, { maximumFractionDigits: 4 }) + " " + unit;
-    return n.toLocaleString(undefined, { maximumFractionDigits: 6 }) + " " + unit;
+    var n = (mist > 0) ? mist / Math.pow(10, rewardsDec(unit)) : 0;
+    if (!(n > 0) || !isFinite(n)) n = 0;
+    // Always 4 fraction digits on Rewards cards (0.0000 XAUM).
+    return n.toLocaleString(undefined, { minimumFractionDigits: 4, maximumFractionDigits: 4 }) + " " + unit;
   }
   function rebuildRewardsLedger(){
     var by = {
