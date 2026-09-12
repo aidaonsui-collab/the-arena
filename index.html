@@ -2989,24 +2989,50 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     if (!viewingToken(tk)) return;
     if (tk.tapeLoaded && tk.tapeAt && Date.now() - tk.tapeAt < 25000 && !state.tapeWallet) return;
     tk.tapeBusy = true;
-    var url = "/api/trades?t="+encodeURIComponent(tk.t)+"&limit=200";
+    var url = "/api/trades?t="+encodeURIComponent(tk.t)+"&limit=500";
     if (tk.bluefinPool) url += "&pool="+encodeURIComponent(tk.bluefinPool);
     if (state.tapeWallet) url += "&wallet="+encodeURIComponent(state.tapeWallet);
-    fetch(url).then(function(r){ return r.json(); }).then(function(j){
-      tk.tapeBusy = false;
-      tk.tapeAt = Date.now();
+    function applyTape(j, append){
       if (!j || !Array.isArray(j.trades)) return;
-      if (!j.trades.length && !(Number(j.count) > 0)) return;
+      if (!j.trades.length && !(Number(j.count) > 0) && !append) return;
       tk.tapeLoaded = true;
-      tk.tapeRows = j.trades;
-      tk.tapeTotal = Number(j.count || j.trades.length) || j.trades.length;
+      if (append && tk.tapeRows && tk.tapeRows.length){
+        var seen = {};
+        tk.tapeRows.forEach(function(tr){ seen[tapeKey(tr)] = 1; });
+        j.trades.forEach(function(tr){
+          var k = tapeKey(tr);
+          if (seen[k]) return;
+          seen[k] = 1;
+          tk.tapeRows.push(tr);
+        });
+      } else {
+        tk.tapeRows = j.trades.slice();
+      }
+      tk.tapeTotal = Number(j.count || tk.tapeRows.length) || tk.tapeRows.length;
       tk.tapeNext = Number(j.nextBefore || 0) || 0;
       if (state.route === "token" && String(state.sym).toUpperCase() === tk.t){
         var count = document.querySelector(".tape-count");
         if (count && state.tapeTab !== "holders") count.textContent = tk.tapeTotal;
         paintTape();
+        var host = document.querySelector(".tv-host[data-chart-pool], .tv-host[data-local]");
+        if (host) paintLocalChart(host, tk);
       }
-    }).catch(function(){ tk.tapeBusy = false; });
+    }
+    function pageMore(pagesLeft){
+      if (!(pagesLeft > 0) || !(tk.tapeNext > 0) || state.tapeWallet) return Promise.resolve();
+      var more = "/api/trades?t="+encodeURIComponent(tk.t)+"&limit=500&before="+tk.tapeNext;
+      if (tk.bluefinPool) more += "&pool="+encodeURIComponent(tk.bluefinPool);
+      return fetch(more, { cache: "no-store" }).then(function(r){ return r.json(); }).then(function(j){
+        applyTape(j, true);
+        return pageMore(pagesLeft - 1);
+      }).catch(function(){});
+    }
+    fetch(url).then(function(r){ return r.json(); }).then(function(j){
+      tk.tapeAt = Date.now();
+      applyTape(j, false);
+      // Pull a few older pages so charts get real history, not only the latest window.
+      return pageMore(4);
+    }).then(function(){ tk.tapeBusy = false; }).catch(function(){ tk.tapeBusy = false; });
   }
   function loadMoreTape(tk){
     if (!tk || !tk.tapeNext || tk.tapeBusy) return;
@@ -5387,12 +5413,31 @@ async function doBridgeDeposit(){
       document.head.appendChild(el);
     })();
   }
+  function chartTrades(tk){
+    tk = tk && tk.t ? tk : findT(tk || state.sym);
+    var seen = {};
+    var rows = [];
+    function add(tr){
+      if (!tr) return;
+      var k = tapeKey(tr);
+      if (seen[k]) return;
+      seen[k] = 1;
+      rows.push(tr);
+    }
+    // Indexed Instant history lives on tapeRows (/api/trades). Live Bluefin
+    // polls only keep ~50 fills in bus.trades — charts must prefer the tape.
+    (tk.tapeRows || []).forEach(add);
+    (bus.trades || []).forEach(function(tr){
+      if (matchesPool(tr, tk)) add(tr);
+    });
+    return rows;
+  }
   function tvBars(sym, intervalMs){
-    const id = String(sym || state.sym || '').toUpperCase();
+    const tk = findT(sym || state.sym);
     if (!Index || !Index.toCandles) return [];
-    let trades = (bus.trades || []).filter(function(t){ return matchesPool(t, id); });
+    let trades = chartTrades(tk);
     if (!trades.length && !LIVE && Index.generateDemoHistory){
-      const hist = Index.generateDemoHistory([findT(id)]);
+      const hist = Index.generateDemoHistory([tk]);
       trades = hist.trades || [];
     }
     return Index.toCandles(trades, intervalMs || 60000).map(function(c){
