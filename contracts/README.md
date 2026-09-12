@@ -62,6 +62,7 @@ Graduation for XAUM defaults to **1 XAUM** (not 2,000 units). 2,000 SUI is only 
 - Instant / Instadex Bluefin LP: protocol keeps ~20% of the 1% pair fee; remaining **quote** LP share splits Config `std_*` bps (default **60/10/30** creator/platform/pit). Token-side LP fees burn.
   - **Default Instant** (`launch_instant`): pit 30% → official `Pit<Q>` (Fight Night / burn path).
   - **Holder-yield Instant** (`launch_instant_holder_yield`, v11+): pit 30% → claimable `HolderYieldVault` in quote **Q** (XAUM / XAGM / USDY). Holders `sync_registration` then `claim`. See [`HOLDER_YIELD.md`](HOLDER_YIELD.md). Pad **Rewards** tab indexes `HolderYield*` events.
+  - **Basket-yield Instant** (`launch_instant_basket_yield`, v12+): pit 30% → `BasketYieldVault` quote staging, then convert/claim multi-asset. See [`BASKET_YIELD.md`](BASKET_YIELD.md).
   - Wrong collect aborts (`use_holder_yield_collect` / `not_holder_yield`).
 - Instant Fight Night (non–holder-yield): highest Instant USD market cap over 24 hours wins. Previous winner sits out 48 hours. Votes are display-only (0.1 SUI still goes in the pot).
   - Buy and burn only. `config::take_pit_pot_for_burn` (AdminCap) drains the official pit; the keeper hops SUI to the winner's quote, Bluefin-buys the token, and `launch::burn_pit_buy` burns it through `InstadexMintLock`.
@@ -123,7 +124,7 @@ Anyone can poke `launch::collect_instadex_fees<A, B>` — Bluefin LP fees accrue
 | `config` | Arena `Config` `0xcd527cb2389d806e5285ae708ee28df30a841ec5df7508ebfebaa0c9660b5d2c` |
 | `pit` | `Pit<Q>` (SUI: `0x8ec38e9bcac0838bf474680e71d0c3f302f4ea2f757d759b7b399701f904389c`) |
 
-Do not pass `Pit<T>` — pit and platform bags are quote-typed. Do not call `config.fee_split` on collected amounts (that takes another `swap_fee_bps`). Call latest published-at (`0xe2dee7a21e382d47d8f13e39801c86987a88e9ebd5fb8801efd1b974e4e4d9a2` v11), not the type-origin package.
+Do not pass `Pit<T>` — pit and platform bags are quote-typed. Do not call `config.fee_split` on collected amounts (that takes another `swap_fee_bps`). Call latest published-at (`0x1710adbe0293015cac7492b6db0cf871a7af81c5a51cd9d5d99d3aadf9fea161` v12), not the type-origin package.
 
 ## Graduation
 

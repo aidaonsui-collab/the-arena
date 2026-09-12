@@ -3,7 +3,8 @@
 Published from `0x92a32ac7fd525f8bd37ed359423b8d7d858cad26224854dfbff1914b75ee658b`.
 
 - Type origin / original package: `0x5cfddf8ba23be6835644a8ea22482ff6ebb0081e42cc1bc052b5f770ca8bbdea`
-- Latest published-at (v11): `0xe2dee7a21e382d47d8f13e39801c86987a88e9ebd5fb8801efd1b974e4e4d9a2`
+- Latest published-at (v12): `0x1710adbe0293015cac7492b6db0cf871a7af81c5a51cd9d5d99d3aadf9fea161`
+- v11 published-at: `0xe2dee7a21e382d47d8f13e39801c86987a88e9ebd5fb8801efd1b974e4e4d9a2`
 - v10 published-at: `0xcc4c7e8faa3411a6f2b227a968a718b2e3f60c81ce5da300f9c4663bc4f3b926`
 - v9 published-at: `0x488ef44083be97cdcb518ab8fd9c9e60e189b7fd3e5d82f749b43c0af5dc078a`
 - v8 published-at: `0xd8531cc8c4e1ee914f0e4e48aea9a796faa0603459cc4665838f688e51bf23d9`
@@ -17,7 +18,7 @@ Published from `0x92a32ac7fd525f8bd37ed359423b8d7d858cad26224854dfbff1914b75ee65
 - Pit SUI: `0x8ec38e9bcac0838bf474680e71d0c3f302f4ea2f757d759b7b399701f904389c`
 - Pit XAUM: `0xa8a391bf380914c04be5deb478474b42754a5aa8c29c0955f267d73190a98783`
 - AdminCap: `0x79e041a4444971bfbf8000925ac3386d8351a3e997eb7d838d84eb6c3e507acf` (held by the platform wallet)
-- UpgradeCap: `0x8db3965ac77247107c811cb79bccd9bf1daf5647136a0b2f8891351a56d73608` (held by the platform wallet, version 11, policy Compatible)
+- UpgradeCap: `0x8db3965ac77247107c811cb79bccd9bf1daf5647136a0b2f8891351a56d73608` (held by the platform wallet, version 12, policy Compatible)
 - Publish tx: `4zVLuMuPGG62WrkNCeodwpYs1athobrYymqi3fPULQWt`
 - Upgrade v2 tx: `9XJ5cvahK2Un4BBDGBTk3FPREiDodwxVhUACb75YwYX1` (2026-08-29 15:42 CT)
 - Upgrade v3 tx: `AtVquqVh1G1FCvQTZyYQ3ZizNYfceDJA36d66gWsWjPW` (fee_rate 100000 → 10000)
@@ -29,8 +30,9 @@ Published from `0x92a32ac7fd525f8bd37ed359423b8d7d858cad26224854dfbff1914b75ee65
 - Upgrade v9 tx: `Hs5QF279AXbDTCnnGKRQTRP1fmFygb3McTFLDGRLMxvM` (2026-09-01; `set_beneficiary` / `admin_set_beneficiary` CTO creator rewards wallet)
 - Upgrade v10 tx: `DapLkmhKKRjYCuR4Jb6GuRVgGfctemRgQApckoNUSgc2` (2026-09-08 15:24 CT; pit-auth audit — `register_pit` / `ring_pit` / official pit checks, Compatible)
 - Upgrade v11 tx: `2rQBvkrRuxfcxaq3cEdw5QbfRz5MzrNt8vT2vbDYeWdB` (2026-09-12 07:40 CT; Instadex Instant RWA holder-yield — `holder_yield` / `launch_instant_holder_yield` / `collect_instadex_fees_holder_yield`, Compatible)
+- Upgrade v12 tx: `D8Ck8tVA5BRjUTPQJpHAc1pWAiHm6LaP7R8cEo3sUSGf` (2026-09-12 08:24 CT; Instant RWA basket-yield — `basket_yield` / `launch_instant_basket_yield` / `collect_instadex_fees_basket_yield`, Compatible)
 
-Call new functions on the latest published-at (`0xe2de…`). Object types stay `0x5cfd…::pool::Pool` etc. `BluefinLockEvent` and `BluefinPositionLock` originated in v2 (`0x8e28…`). `InstadexLaunchEvent` and `InstadexMintLock` originated in v4 (`0xcf78…`). `CollectLpFeesEvent` originated in v5 (`0x68e1…`). `InstadexBurnEvent` originated in v6 (`0x47ea…`). `launch_instant` / `launch_instant_entry` originated in v7 (`0x5175…`). `take_pit_pot_for_burn` / `burn_pit_buy` / `InstadexPitSettleEvent` originated in v8 (`0xd853…`). `set_beneficiary` / `admin_set_beneficiary` / `BeneficiarySetEvent` originated in v9 (`0x488e…`). `register_pit` / `ring_pit` / `OfficialPitKey` enforcement on curve+Instadex sinks / retired `pit::ring`+`pit::create_pit` originated in v10 (`0xcc4c…`); `OfficialPitKey` type origin remains v7 (`0x5175…`) where the DF was first written. `holder_yield` / `launch_instant_holder_yield` / `collect_instadex_fees_holder_yield` / `HolderYieldVault` / `HolderYieldKey` / `HolderYieldLaunchEvent` / `HolderYieldFundedEvent` / `HolderYieldClaimEvent` originated in v11 (`0xe2de…`).
+Call new functions on the latest published-at (`0x1710…`). Object types stay `0x5cfd…::pool::Pool` etc. `BluefinLockEvent` and `BluefinPositionLock` originated in v2 (`0x8e28…`). `InstadexLaunchEvent` and `InstadexMintLock` originated in v4 (`0xcf78…`). `CollectLpFeesEvent` originated in v5 (`0x68e1…`). `InstadexBurnEvent` originated in v6 (`0x47ea…`). `launch_instant` / `launch_instant_entry` originated in v7 (`0x5175…`). `take_pit_pot_for_burn` / `burn_pit_buy` / `InstadexPitSettleEvent` originated in v8 (`0xd853…`). `set_beneficiary` / `admin_set_beneficiary` / `BeneficiarySetEvent` originated in v9 (`0x488e…`). `register_pit` / `ring_pit` / `OfficialPitKey` enforcement on curve+Instadex sinks / retired `pit::ring`+`pit::create_pit` originated in v10 (`0xcc4c…`); `OfficialPitKey` type origin remains v7 (`0x5175…`) where the DF was first written. `holder_yield` / `launch_instant_holder_yield` / `collect_instadex_fees_holder_yield` / `HolderYieldVault` / `HolderYieldKey` / `HolderYieldLaunchEvent` / `HolderYieldFundedEvent` / `HolderYieldClaimEvent` originated in v11 (`0xe2de…`). `basket_yield` / `launch_instant_basket_yield` / `collect_instadex_fees_basket_yield` / `BasketYieldVault` / `BasketYieldKey` / `BasketYieldLaunchEvent` / `BasketYieldFundedEvent` / `BasketYieldConvertedEvent` / `BasketYieldClaimEvent` / `BasketYieldRotateEvent` originated in v12 (`0x1710…`).
 
 ## Bluefin Spot (graduation seed)
 

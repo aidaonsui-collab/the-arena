@@ -2,7 +2,7 @@
 
 Cron jobs for The Arena launchpad.
 
-**CALL package (mainnet v11):** `0xe2dee7a21e382d47d8f13e39801c86987a88e9ebd5fb8801efd1b974e4e4d9a2` — includes `holder_yield` / `collect_instadex_fees_holder_yield`. Default Instant collect still uses `collect_instadex_fees` + pit. See `contracts/HOLDER_YIELD.md`. Reflection payouts **accrue on every fill** in Move (`pool::buy` / `pool::sell`). Keepers do not push SUI/XAUM to wallets (the holder table is not iterable). They index, and they ring/settle the pit.
+**CALL package (mainnet v12):** `0x1710adbe0293015cac7492b6db0cf871a7af81c5a51cd9d5d99d3aadf9fea161` — includes `holder_yield` / `basket_yield` / `collect_instadex_fees_holder_yield` / `collect_instadex_fees_basket_yield`. Default Instant collect still uses `collect_instadex_fees` + pit. See `contracts/HOLDER_YIELD.md`. Reflection payouts **accrue on every fill** in Move (`pool::buy` / `pool::sell`). Keepers do not push SUI/XAUM to wallets (the holder table is not iterable). They index, and they ring/settle the pit.
 
 ## Jobs
 

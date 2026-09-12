@@ -20,5 +20,6 @@ are mutually exclusive with `holder_yield` (`BasketYieldKey` vs `HolderYieldKey`
 - Sync: `basket_yield::sync_registration`
 
 Rewards tab: index `BasketYieldLaunch/Funded/Converted/Claim/Rotate` alongside
-`HolderYield*`. Status: **wired in repo, awaiting Compatible upgrade** (do not
-treat as mainnet-live until published-at moves).
+`HolderYield*`. Status: **mainnet-live on v12** published-at
+`0x1710adbe0293015cac7492b6db0cf871a7af81c5a51cd9d5d99d3aadf9fea161`
+(upgrade `D8Ck8tVA5BRjUTPQJpHAc1pWAiHm6LaP7R8cEo3sUSGf`).
