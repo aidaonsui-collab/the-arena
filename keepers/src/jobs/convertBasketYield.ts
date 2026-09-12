@@ -1,5 +1,6 @@
 /**
  * Basket yield convert keeper: for each BasketYieldVault with quote_staging > 0,
+ * including vaults created by Instant migrate (same BasketYieldLaunchEvent discovery).
  * take staged Q (usually SUI), hop to basket RWAs proportional to config weights,
  * and deposit_converted_asset per leg.
  *

@@ -4361,6 +4361,143 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     }
     return null;
   }
+  function lockYieldKind(tk){
+    if (!tk) return "";
+    if (tk.yieldKind === "holder" || tk.yieldKind === "basket") return tk.yieldKind;
+    var yv = rewardsVaultByLock(tk.lockId);
+    if (yv && yv.kind) return yv.kind;
+    return "";
+  }
+  function isPlainInstant(tk){
+    return !!(tk && isInstadex(tk) && tk.lockId && tk.bluefinPool && !lockYieldKind(tk));
+  }
+  function canMigrateInstant(tk){
+    if (!isPlainInstant(tk)) return false;
+    var me = suiSession.address;
+    if (!me) return false;
+    var ben = tk.lockBeneficiary || tk.creator;
+    return !!(ben && sameAddr(me, ben));
+  }
+  function registerYieldFromLock(tk, kind, vaultId){
+    if (!tk || !kind || !vaultId) return;
+    vaultId = padAddr(vaultId) || vaultId;
+    tk.yieldKind = kind;
+    tk.yieldId = vaultId;
+    tk.yieldHydrated = true;
+    var q = poolQuote(tk);
+    var Qtype = quoteRec(q).type;
+    var Ttype = normType(typeNameStr(tk.token) || demoTypeId(tk));
+    if (kind === "holder"){
+      applyHolderYieldLaunch({
+        lock_id: tk.lockId,
+        yield_id: vaultId,
+        bluefin_pool_id: tk.bluefinPool,
+        token: Ttype,
+        quote: Qtype,
+        quoteLabel: q,
+        cat: rewardsCatId(q) || rewardsCatId(Qtype)
+      });
+    } else if (kind === "basket"){
+      applyBasketYieldLaunch({
+        lock_id: tk.lockId,
+        basket_id: vaultId,
+        bluefin_pool_id: tk.bluefinPool,
+        token: Ttype,
+        quote: Qtype,
+        quoteLabel: q,
+        payout_mode: Number(state.lBasketMode) || 0,
+        asset_count: basketSelectedLegs().length || 0,
+        assets: basketSelectedLegs().map(function(leg){ return leg.type; }),
+        cat: ""
+      });
+    }
+  }
+  async function hydrateLockYieldMode(tk){
+    if (!tk || !tk.lockId || tk.yieldBusy) return;
+    var yv = rewardsVaultByLock(tk.lockId);
+    if (yv && yv.kind){
+      tk.yieldKind = yv.kind;
+      tk.yieldId = yv.basket_id || yv.yield_id || "";
+      tk.yieldHydrated = true;
+      return;
+    }
+    if (tk.yieldHydrated) return;
+    tk.yieldBusy = true;
+    try {
+      var page = await rpcJson("suix_getDynamicFields", [with0x(tk.lockId), null, 32]);
+      var data = (page && page.data) || [];
+      for (var i = 0; i < data.length; i++){
+        var df = data[i] || {};
+        var nameType = String((df.name && df.name.type) || "");
+        var kind = "";
+        if (/::lock::HolderYieldKey$/.test(nameType)) kind = "holder";
+        else if (/::lock::BasketYieldKey$/.test(nameType)) kind = "basket";
+        if (!kind) continue;
+        var vaultId = "";
+        try {
+          var field = await rpcJson("suix_getDynamicFieldObject", [with0x(tk.lockId), df.name]);
+          var content = field && field.data && field.data.content;
+          var fields = content && content.fields;
+          var val = fields && (fields.value != null ? fields.value : null);
+          if (val && typeof val === "object") val = val.id || val.bytes || val;
+          vaultId = padAddr(val) || (typeof val === "string" ? val : "");
+        } catch (e) { vaultId = ""; }
+        if (vaultId){
+          registerYieldFromLock(tk, kind, vaultId);
+          break;
+        }
+      }
+      tk.yieldHydrated = true;
+    } catch (e) {
+      // leave unhydrated so a later paint can retry
+    } finally {
+      tk.yieldBusy = false;
+      if (state.route === "token" && String(state.sym).toUpperCase() === tk.t) scheduleScreen();
+    }
+  }
+  function migratePanelHTML(tk){
+    if (!tk || !isInstadex(tk) || !tk.lockId) return "";
+    var kind = lockYieldKind(tk);
+    if (kind){
+      return '<div class="card" style="padding:14px 16px;margin-top:10px">'+
+        '<div style="font-size:12px;font-weight:600;color:var(--ink)">Yield mode · '+(kind==="basket"?"basket":"holder")+'</div>'+
+        '<div style="font-size:12px;color:var(--muted);margin-top:4px">Collect routes LP pit-bps to holders. Rewards tab indexes the vault.</div>'+
+      '</div>';
+    }
+    if (!canMigrateInstant(tk)){
+      if (!suiSession.address) return "";
+      var ben = tk.lockBeneficiary || tk.creator;
+      if (ben && !sameAddr(suiSession.address, ben)) return "";
+      // beneficiary unknown — still hint after hydrate
+      if (!ben){
+        return '<div style="margin-top:10px;font-size:11px;color:var(--muted);text-align:center">Checking lock beneficiary for migrate…</div>';
+      }
+      return "";
+    }
+    var q = poolQuote(tk);
+    if (isRwaQuote(q)){
+      return '<div class="card" style="padding:14px 16px;margin-top:10px">'+
+        '<div style="font-size:12px;font-weight:600;color:var(--ink)">Migrate to holder yield</div>'+
+        '<div style="font-size:12px;color:var(--muted);margin-top:4px">Forward-only. Quote stays '+escHtml(q)+'. Pit slice becomes claimable '+escHtml(q)+' for holders. Beneficiary only.</div>'+
+        '<button type="button" class="btn-trade btn-ghost" id="migrate-go" style="margin-top:10px">Migrate · holder yield</button>'+
+        '<div id="migrate-note" style="font-size:11px;color:var(--muted);margin-top:6px;text-align:center"></div>'+
+      '</div>';
+    }
+    if (String(q).toUpperCase() !== "SUI"){
+      return '<div class="card" style="padding:14px 16px;margin-top:10px">'+
+        '<div style="font-size:12px;color:var(--muted)">Migrate to yield is available for RWA quotes (holder) or SUI (basket).</div>'+
+      '</div>';
+    }
+    // Force basket picker on for migrate path
+    if (!state.lBasket) state.lBasket = true;
+    return '<div class="card" style="padding:14px 16px;margin-top:10px">'+
+      '<div style="font-size:12px;font-weight:600;color:var(--ink)">Migrate to basket yield</div>'+
+      '<div style="font-size:12px;color:var(--muted);margin-top:4px">Forward-only. SUI quote stays; pick RWA basket for holders. Same picker as Create. Beneficiary only.</div>'+
+      basketPanelHTML()+
+      '<button type="button" class="btn-trade btn-ghost" id="migrate-go" style="margin-top:10px">Migrate · basket yield</button>'+
+      '<div id="migrate-note" style="font-size:11px;color:var(--muted);margin-top:6px;text-align:center"></div>'+
+    '</div>';
+  }
   function ensureVaultAsset(vault, assetType){
     if (!vault || !assetType) return;
     if (!vault.assets) vault.assets = [];
@@ -4974,6 +5111,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       '<button type="button" class="btn-trade" id="trade-btn" data-trade>Connect wallet</button>'+
       '<div id="swap-err" class="swap-err"></div>'+
       (canCollect ? '<button type="button" class="btn-trade btn-ghost" id="collect-go" style="margin-top:10px">Collect LP fees</button>' : '')+
+      migratePanelHTML(tk)+
       '<div style="margin-top:10px;text-align:center;font-size:11px;color:var(--muted)">'+
         'Best route across Bluefin, Cetus, and other Sui pools. LP locked forever. Anyone can collect. Token-side fees burn.'+
         (tk.bluefinPool ? ' · <a href="https://trade.bluefin.io/swap?pool='+tk.bluefinPool+'" target="_blank" rel="noopener">Bluefin</a>' : '')+
@@ -5003,6 +5141,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
         footerHTML()+'</div>';
     }
     hydrateTokenMeta(tk);
+    hydrateLockYieldMode(tk);
     const q = poolQuote(tk);
     const insta = isInstadex(tk);
     const dexBout = isDexBout(tk);
@@ -7597,6 +7736,130 @@ async function doBridgeDeposit(){
       if (err) err.textContent = msg;
     }
   }
+  async function doMigrateInstant(){
+    var btn = $("#migrate-go");
+    var note = $("#migrate-note");
+    var tk = findT(state.sym);
+    function setNote(msg, err){
+      if (note){ note.textContent = msg || ""; note.style.color = err ? "#FF6640" : ""; }
+    }
+    if (!tk || !canMigrateInstant(tk)){
+      setNote("Connect as lock beneficiary to migrate.", true);
+      return;
+    }
+    try {
+      if (!hasSuiWallet() && !suiSession.address){
+        setNote("No Sui wallet found", true);
+        return;
+      }
+      if (!suiSession.address) await connectWallet();
+      if (!canMigrateInstant(tk)){
+        setNote("Only the lock beneficiary can migrate.", true);
+        return;
+      }
+      if (btn){ btn.disabled = true; btn.textContent = "Migrating…"; }
+      setNote("Building migrate PTB…", false);
+      var Transaction = await loadTransaction();
+      var CALL = window.ARENA_CALL_PACKAGE || window.ARENA_COLLECT_PACKAGE;
+      if (!CALL) throw new Error("ARENA_CALL_PACKAGE missing");
+      var Ttype = normType(typeNameStr(tk.token) || demoTypeId(tk));
+      if (!Ttype || Ttype.indexOf("::") < 0){
+        if (tk.bluefinPool) Ttype = normType((await poolSnap(tk.bluefinPool)).a);
+      }
+      var q = poolQuote(tk);
+      var Qtype = quoteRec(q).type;
+      var tx = new Transaction();
+      tx.setSender(suiSession.address);
+      if (typeof tx.setGasBudget === "function") tx.setGasBudget(100000000);
+      if (isRwaQuote(q)){
+        tx.moveCall({
+          target: CALL + "::launch::migrate_instant_to_holder_yield_entry",
+          typeArguments: [Ttype, Qtype],
+          arguments: [tx.object(tk.lockId)]
+        });
+      } else if (String(q).toUpperCase() === "SUI"){
+        state.lBasket = true;
+        var legs = normalizeBasketBps(basketSelectedLegs());
+        if (!legs.length) throw new Error("Pick 1–3 basket assets (XAUM · XAGM · USDY)");
+        if (legs.length > 3) throw new Error("Basket supports at most 3 assets");
+        var equal = state.lBasketEqual !== false;
+        var mode = Number(state.lBasketMode) || 0;
+        var weightArgs = legs.map(function(leg){ return txPure(tx, "u64", txAmt(leg.bps)); });
+        weightArgs.push(txPure(tx, "bool", equal));
+        weightArgs.push(txPure(tx, "u8", mode));
+        var typeArgs = [Ttype, Qtype].concat(legs.map(function(leg){ return leg.type; }));
+        var target =
+          legs.length === 1 ? (CALL + "::launch::migrate_instant_to_basket_yield_entry") :
+          legs.length === 2 ? (CALL + "::launch::migrate_instant_to_basket_yield_2_entry") :
+          (CALL + "::launch::migrate_instant_to_basket_yield_3_entry");
+        tx.moveCall({
+          target: target,
+          typeArguments: typeArgs,
+          arguments: [tx.object(tk.lockId)].concat(weightArgs)
+        });
+      } else {
+        throw new Error("Migrate supports RWA quotes (holder) or SUI (basket)");
+      }
+      if (btn) btn.textContent = "Sign in wallet…";
+      var result = await walletExec(tx);
+      var digest = txDigest(result);
+      // Index yield vault from events / object changes so collect flips immediately.
+      try {
+        var events = (result && result.events) || [];
+        for (var ei = 0; ei < events.length; ei++){
+          var ev = events[ei] || {};
+          var et = String(ev.type || "");
+          var pj = ev.parsedJson || ev.parsed_json || {};
+          if (et.indexOf("::events::HolderYieldLaunchEvent") >= 0 && pj.yield_id){
+            if (!pj.cat) pj.cat = rewardsCatId(pj.quote) || rewardsCatId(q);
+            applyHolderYieldLaunch({
+              lock_id: pj.lock_id || tk.lockId,
+              yield_id: pj.yield_id,
+              bluefin_pool_id: pj.bluefin_pool_id || tk.bluefinPool,
+              token: typeNameStr(pj.token) || Ttype,
+              quote: typeNameStr(pj.quote) || Qtype,
+              quoteLabel: q,
+              cat: pj.cat
+            });
+            tk.yieldKind = "holder";
+            tk.yieldId = padAddr(pj.yield_id) || pj.yield_id;
+            tk.yieldHydrated = true;
+          }
+          if (et.indexOf("::events::BasketYieldLaunchEvent") >= 0 && pj.basket_id){
+            applyBasketYieldLaunch({
+              lock_id: pj.lock_id || tk.lockId,
+              basket_id: pj.basket_id,
+              bluefin_pool_id: pj.bluefin_pool_id || tk.bluefinPool,
+              token: typeNameStr(pj.token) || Ttype,
+              quote: typeNameStr(pj.quote) || Qtype,
+              quoteLabel: q,
+              payout_mode: Number(pj.payout_mode) || 0,
+              asset_count: Number(pj.asset_count) || 0,
+              assets: basketSelectedLegs().map(function(leg){ return leg.type; }),
+              cat: ""
+            });
+            tk.yieldKind = "basket";
+            tk.yieldId = padAddr(pj.basket_id) || pj.basket_id;
+            tk.yieldHydrated = true;
+          }
+        }
+      } catch (eIdx) {}
+      if (!tk.yieldKind){
+        tk.yieldHydrated = false;
+        hydrateLockYieldMode(tk);
+      }
+      if (btn){ btn.disabled = false; btn.textContent = digest ? ("Migrated · " + String(digest).slice(0, 8)) : "Migrated"; }
+      setNote(digest ? ("Migrated. Collect and Rewards now use yield mode. " + String(digest).slice(0, 10) + "…") : "Migrated.", false);
+      if (bus.sub && typeof bus.sub.refreshInstadex === "function"){
+        setTimeout(function(){ bus.sub.refreshInstadex(); }, 1200);
+      }
+      scheduleScreen();
+    } catch (err){
+      var msg = (err && err.message) ? err.message : String(err || "Migrate failed");
+      if (btn){ btn.disabled = false; btn.textContent = msg.length > 28 ? "Migrate failed" : msg; }
+      setNote(msg, true);
+    }
+  }
   async function doCollect(){
     var btn = $("#collect-go");
     var tk = findT(state.sym);
@@ -7623,6 +7886,9 @@ async function doBridgeDeposit(){
       if (Ttype) tk.token = Ttype;
       var tx = new Transaction();
       tx.setSender(suiSession.address);
+      if (!rewardsVaultByLock(tk.lockId) && !tk.yieldHydrated){
+        await hydrateLockYieldMode(tk);
+      }
       var yv = rewardsVaultByLock(tk.lockId);
       if (yv && yv.kind === "basket" && (yv.basket_id || yv.yield_id)){
         // Basket yield: vault staging, no Pit.
@@ -7683,6 +7949,8 @@ async function doBridgeDeposit(){
     if (launch){ doLaunch(); return; }
     const collect = e.target.closest("#collect-go");
     if (collect){ doCollect(); return; }
+    const migrate = e.target.closest("#migrate-go");
+    if (migrate){ doMigrateInstant(); return; }
     if (e.target.closest("#meta-edit")){ openMetaEditor(); return; }
     if (e.target.closest("#meta-save")){ doSaveMeta(); return; }
     if (e.target.closest("#meta-cancel")){ closeMetaEditor(); return; }
@@ -7893,7 +8161,7 @@ async function doBridgeDeposit(){
     const basketToggle = e.target.closest("[data-basket-toggle]");
     if (basketToggle){
       state.lBasket = !state.lBasket;
-      if (state.route === "launch") renderScreen();
+      if (state.route === "launch" || state.route === "token") renderScreen();
       return;
     }
     const basketAsset = e.target.closest("[data-basket-asset]");
@@ -7904,19 +8172,19 @@ async function doBridgeDeposit(){
       var countOn = BASKET_RWA.filter(function(x){ return x === labA ? nextOn : state.lBasketOn[x]; }).length;
       if (!nextOn && countOn < 1) return;
       state.lBasketOn[labA] = nextOn;
-      if (state.route === "launch") renderScreen();
+      if (state.route === "launch" || state.route === "token") renderScreen();
       return;
     }
     const basketEqual = e.target.closest("[data-basket-equal]");
     if (basketEqual){
       state.lBasketEqual = basketEqual.getAttribute("data-basket-equal") !== "0";
-      if (state.route === "launch") renderScreen();
+      if (state.route === "launch" || state.route === "token") renderScreen();
       return;
     }
     const basketMode = e.target.closest("[data-basket-mode]");
     if (basketMode){
       state.lBasketMode = Number(basketMode.getAttribute("data-basket-mode")) || 0;
-      if (state.route === "launch") renderScreen();
+      if (state.route === "launch" || state.route === "token") renderScreen();
       return;
     }
     const set = e.target.closest("[data-set]");

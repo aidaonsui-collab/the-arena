@@ -221,6 +221,17 @@ public(package) fun create_and_share<T, Q>(
     id
 }
 
+/// Alias for migrate / launch: vault bound to an existing Instant lock
+/// (no Bluefin reseed). Same as `create_and_share`.
+public(package) fun create_vault_for_lock<T, Q>(
+    lock_id: ID,
+    bluefin_pool_id: ID,
+    config: BasketConfig,
+    ctx: &mut TxContext,
+): ID {
+    create_and_share<T, Q>(lock_id, bluefin_pool_id, config, ctx)
+}
+
 /// Stage the pit-bps quote slice. On no holders / zero, returns `fee` for
 /// creator residual rescue (same pattern as `holder_yield::try_fund`).
 /// Does **not** credit claimable Q — convert pays staging to the keeper; holders

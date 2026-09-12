@@ -13,7 +13,7 @@ use arena::config::Config;
 use arena::errors;
 use arena::events;
 use arena::basket_yield::{Self, BasketConfig, BasketYieldVault};
-use arena::holder_yield::HolderYieldVault;
+use arena::holder_yield::{Self, HolderYieldVault};
 use arena::lock::{Self, BluefinPositionLock};
 use arena::math;
 use arena::pit::Pit;
@@ -448,6 +448,130 @@ public entry fun launch_instant_basket_yield_3_entry<T, Q, A0, A1, A2>(
     launch_instant_basket_yield<T, Q>(
         config, clock, bf_config, treasury_cap, meta_t, meta_q, token, fee_sui, creation_fee, basket, ctx,
     );
+}
+
+
+/// Forward-only migrate: plain Instant `BluefinPositionLock` (no yield DF) →
+/// holder-yield. Auth: `lock.beneficiary` only. Creates a vault bound to the
+/// existing `lock_id` + `bluefin_pool_id` (no Bluefin reseed / no new lock),
+/// attaches `HolderYieldKey`, emits `HolderYieldLaunchEvent`. Does not touch Pit.
+/// Intended when Instant is already quoted in RWA (XAUM / XAGM / USDY).
+public fun migrate_instant_to_holder_yield<T, Q>(
+    lock: &mut BluefinPositionLock,
+    ctx: &mut TxContext,
+): ID {
+    assert!(
+        ctx.sender() == lock::bluefin_lock_beneficiary(lock),
+        errors::not_beneficiary(),
+    );
+    // Fail before creating an orphan vault if already yield-mode.
+    assert!(!lock::is_holder_yield(lock), errors::already_locked());
+    assert!(!lock::is_basket_yield(lock), errors::yield_mode_conflict());
+    let lock_id = object::id(lock);
+    let bf_pool_id = lock::bluefin_lock_spot_id(lock);
+    let yield_id = holder_yield::create_vault_for_lock<T, Q>(lock_id, bf_pool_id, ctx);
+    lock::attach_holder_yield(lock, yield_id);
+    events::emit_holder_yield_launch(
+        lock_id,
+        yield_id,
+        bf_pool_id,
+        type_name::with_defining_ids<T>(),
+        type_name::with_defining_ids<Q>(),
+    );
+    yield_id
+}
+
+public entry fun migrate_instant_to_holder_yield_entry<T, Q>(
+    lock: &mut BluefinPositionLock,
+    ctx: &mut TxContext,
+) {
+    migrate_instant_to_holder_yield<T, Q>(lock, ctx);
+}
+
+/// Forward-only migrate: plain Instant → basket-yield. Auth: beneficiary.
+/// Caller supplies `BasketConfig` (1–3 assets, bps sum 10000, payout mode).
+/// No Bluefin reseed; Pit untouched. Prefer when Instant is quoted in SUI
+/// (or non-basket Q).
+public fun migrate_instant_to_basket_yield<T, Q>(
+    lock: &mut BluefinPositionLock,
+    basket: BasketConfig,
+    ctx: &mut TxContext,
+): ID {
+    assert!(
+        ctx.sender() == lock::bluefin_lock_beneficiary(lock),
+        errors::not_beneficiary(),
+    );
+    assert!(!lock::is_basket_yield(lock), errors::already_locked());
+    assert!(!lock::is_holder_yield(lock), errors::yield_mode_conflict());
+    let payout_mode = basket_yield::config_payout_mode(&basket);
+    let asset_count = basket_yield::config_asset_count(&basket);
+    let lock_id = object::id(lock);
+    let bf_pool_id = lock::bluefin_lock_spot_id(lock);
+    let basket_id = basket_yield::create_vault_for_lock<T, Q>(
+        lock_id,
+        bf_pool_id,
+        basket,
+        ctx,
+    );
+    lock::attach_basket_yield(lock, basket_id);
+    events::emit_basket_yield_launch(
+        lock_id,
+        basket_id,
+        bf_pool_id,
+        type_name::with_defining_ids<T>(),
+        type_name::with_defining_ids<Q>(),
+        payout_mode,
+        asset_count,
+    );
+    basket_id
+}
+
+/// Entry: 1-asset basket migrate (mirrors `launch_instant_basket_yield_entry`).
+public entry fun migrate_instant_to_basket_yield_entry<T, Q, A0>(
+    lock: &mut BluefinPositionLock,
+    weight0: u64,
+    equal_weight: bool,
+    payout_mode: u8,
+    ctx: &mut TxContext,
+) {
+    let mut assets = vector[];
+    assets.push_back(basket_yield::new_asset(type_name::with_defining_ids<A0>(), weight0));
+    let basket = basket_yield::new_config(assets, equal_weight, payout_mode);
+    migrate_instant_to_basket_yield<T, Q>(lock, basket, ctx);
+}
+
+/// Entry: 2-asset basket migrate.
+public entry fun migrate_instant_to_basket_yield_2_entry<T, Q, A0, A1>(
+    lock: &mut BluefinPositionLock,
+    weight0: u64,
+    weight1: u64,
+    equal_weight: bool,
+    payout_mode: u8,
+    ctx: &mut TxContext,
+) {
+    let mut assets = vector[];
+    assets.push_back(basket_yield::new_asset(type_name::with_defining_ids<A0>(), weight0));
+    assets.push_back(basket_yield::new_asset(type_name::with_defining_ids<A1>(), weight1));
+    let basket = basket_yield::new_config(assets, equal_weight, payout_mode);
+    migrate_instant_to_basket_yield<T, Q>(lock, basket, ctx);
+}
+
+/// Entry: 3-asset basket migrate (XAUM / XAGM / USDY).
+public entry fun migrate_instant_to_basket_yield_3_entry<T, Q, A0, A1, A2>(
+    lock: &mut BluefinPositionLock,
+    weight0: u64,
+    weight1: u64,
+    weight2: u64,
+    equal_weight: bool,
+    payout_mode: u8,
+    ctx: &mut TxContext,
+) {
+    let mut assets = vector[];
+    assets.push_back(basket_yield::new_asset(type_name::with_defining_ids<A0>(), weight0));
+    assets.push_back(basket_yield::new_asset(type_name::with_defining_ids<A1>(), weight1));
+    assets.push_back(basket_yield::new_asset(type_name::with_defining_ids<A2>(), weight2));
+    let basket = basket_yield::new_config(assets, equal_weight, payout_mode);
+    migrate_instant_to_basket_yield<T, Q>(lock, basket, ctx);
 }
 
 public entry fun launch_instant_entry<T, Q>(
