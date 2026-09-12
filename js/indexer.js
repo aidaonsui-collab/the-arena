@@ -874,7 +874,7 @@
           mintPkgs.forEach(pullMintLock);
           benPkgs.forEach(pullBeneficiary);
         }, opts.instadexMs || 60000);
-        bluefinTimer = setInterval(function () { refreshBluefin(); }, opts.bluefinMs || 30000);
+        bluefinTimer = setInterval(function () { refreshBluefin(); }, opts.bluefinMs || 12000);
       }
     }
 

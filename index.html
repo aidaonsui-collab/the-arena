@@ -3005,7 +3005,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   function hydrateTape(tk){
     if (!tk || tk.missing || !tk.t || tk.tapeBusy) return;
     if (!viewingToken(tk)) return;
-    if (tk.tapeLoaded && tk.tapeAt && Date.now() - tk.tapeAt < 90000 && !state.tapeWallet) return;
+    if (tk.tapeLoaded && tk.tapeAt && Date.now() - tk.tapeAt < 25000 && !state.tapeWallet) return;
     tk.tapeBusy = true;
     var url = "/api/trades?t="+encodeURIComponent(tk.t)+"&limit=200";
     if (tk.bluefinPool) url += "&pool="+encodeURIComponent(tk.bluefinPool);
@@ -3345,7 +3345,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   function hydrateTokenStats(tk){
     if (!tk || tk.missing || !tk.t || tk.statsBusy) return;
     if (!viewingToken(tk)) return;
-    if (tk.statsHydrated && tk.statsAt && Date.now() - tk.statsAt < 90000) return;
+    if (tk.statsHydrated && tk.statsAt && Date.now() - tk.statsAt < 25000) return;
     tk.statsBusy = true;
     fetch("/api/token-stats?t="+encodeURIComponent(tk.t)).then(function(r){ return r.json(); }).then(function(j){
       tk.statsBusy = false;
@@ -7514,9 +7514,13 @@ async function doBridgeDeposit(){
         pitStatePollAt = Date.now();
         loadPitState();
       }
-    } else if ((state.route === "explore" || state.route === "metrics") && bshift % 8 === 0){
+    } else if ((state.route === "explore" || state.route === "metrics") && bshift % 3 === 0){
       refreshPitObject();
-      if (state.route === "explore") paintExploreList();
+      if (state.route === "explore"){
+        if (bus.sub && bus.sub.refreshBluefin && bshift % 6 === 0) bus.sub.refreshBluefin();
+        T.slice(0, 24).forEach(function(tk){ if (tk && !tk.missing) hydrateTokenStats(tk); });
+        paintExploreList();
+      }
     }
     paintLive();
   }, 1000);
@@ -7529,6 +7533,8 @@ async function doBridgeDeposit(){
       tokens: T,
       live: !SHOT,
       demoMs: 1000,
+      bluefinMs: 12000,
+      instadexMs: 45000,
       onTrade: function(ev){
         if (hydrating) return;
         if (Date.now() - (ev.ts||0) < 8000) applyLiveTrade(ev);

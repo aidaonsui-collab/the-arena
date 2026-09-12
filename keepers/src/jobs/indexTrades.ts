@@ -62,11 +62,7 @@ function mistStr(v: unknown): string {
   return /^\d+$/.test(s) ? s : String(Math.max(0, Math.round(Number(s) || 0)));
 }
 
-async function gql(
-  query: string,
-  variables: Record<string, unknown>,
-  tries = 6,
-): Promise<Record<string, unknown> | null> {
+async function gql(query: string, variables: Record<string, unknown>, tries = 5): Promise<Record<string, unknown> | null> {
   let last = "";
   for (let i = 0; i < tries; i++) {
     const r = await fetch(GQL, {
@@ -88,7 +84,16 @@ async function gql(
       await sleep(700 * (i + 1));
       continue;
     }
-    if (j.errors?.length) throw new Error(j.errors[0].message || "graphql");
+    if (j.errors?.length) {
+      const msg = j.errors[0].message || "graphql";
+      // Transient Sui GraphQL flakes — retry instead of killing the whole trades tick.
+      if (/failed to fetch|timeout|429|rate limit|temporarily|try again|ECONNRESET|ETIMEDOUT/i.test(msg)) {
+        last = msg;
+        await sleep(700 * (i + 1));
+        continue;
+      }
+      throw new Error(msg);
+    }
     return j.data || null;
   }
   throw new Error(last || "graphql retry");
@@ -451,28 +456,52 @@ async function publishStats() {
 }
 
 export async function runIndexTrades() {
-  const discovered = await discoverLaunches();
-  const burnedNew = await indexBurns();
-  const snapped = await snapshotPools();
+  let discovered = 0;
+  let burnedNew = 0;
+  let snapped = 0;
+  const stageErrors: string[] = [];
+  try {
+    discovered = await discoverLaunches();
+  } catch (e) {
+    stageErrors.push("discover: " + (e instanceof Error ? e.message : String(e)));
+  }
+  try {
+    burnedNew = await indexBurns();
+  } catch (e) {
+    stageErrors.push("burns: " + (e instanceof Error ? e.message : String(e)));
+  }
+  try {
+    snapped = await snapshotPools();
+  } catch (e) {
+    stageErrors.push("snapshot: " + (e instanceof Error ? e.message : String(e)));
+  }
   const pools = listPools();
   const budget = { left: PAGE_BUDGET };
   const dirty = new Set<string>();
   let inserted = 0;
 
   const unfinished = listPools().filter((p) => !p.backfill_done);
+  const poolErrors: { ticker: string; error: string }[] = [];
+  async function safeIndex(pool: (typeof pools)[number], liveOnly: boolean) {
+    try {
+      const n = await indexPool(pool, budget, liveOnly);
+      inserted += n;
+      if (n > 0 || !liveOnly) dirty.add(pool.ticker);
+      return n;
+    } catch (e) {
+      poolErrors.push({ ticker: pool.ticker, error: e instanceof Error ? e.message : String(e) });
+      return 0;
+    }
+  }
   if (unfinished.length) {
     for (const pool of unfinished) {
       if (budget.left <= 0) break;
-      const n = await indexPool(pool, budget, false);
-      inserted += n;
-      dirty.add(pool.ticker);
+      await safeIndex(pool, false);
     }
   } else {
     for (const pool of pools) {
       if (budget.left <= 0) break;
-      const n = await indexPool(pool, budget, true);
-      if (n > 0) dirty.add(pool.ticker);
-      inserted += n;
+      await safeIndex(pool, true);
     }
   }
 
@@ -503,5 +532,7 @@ export async function runIndexTrades() {
     backfillLeft: listPools().filter((p) => !p.backfill_done).length,
     published,
     stats,
+    poolErrors,
+    stageErrors,
   };
 }
