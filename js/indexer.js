@@ -713,6 +713,86 @@
     };
   }
 
+  function parseBasketYieldLaunch(ev) {
+    var p = ev.parsedJson || {};
+    var quoteRaw = p.quote;
+    var tokenRaw = p.token;
+    return {
+      lock_id: padId(p.lock_id || ""),
+      basket_id: padId(p.basket_id || ""),
+      bluefin_pool_id: padId(p.bluefin_pool_id || ""),
+      token: typeNameOf(tokenRaw),
+      quote: typeNameOf(quoteRaw) || quoteRaw,
+      quoteLabel: quoteLabel(typeNameOf(quoteRaw) || quoteRaw),
+      payout_mode: num(p.payout_mode),
+      asset_count: num(p.asset_count),
+      ts: num(ev.timestampMs) || Date.now(),
+      digest: String((ev.id && (ev.id.txDigest || ev.id.tx_digest)) || ev.digest || "")
+    };
+  }
+
+  function parseBasketYieldFunded(ev) {
+    var p = ev.parsedJson || {};
+    var quoteRaw = p.quote;
+    return {
+      lock_id: padId(p.lock_id || ""),
+      basket_id: padId(p.basket_id || ""),
+      bluefin_pool_id: padId(p.bluefin_pool_id || ""),
+      quote: typeNameOf(quoteRaw) || quoteRaw,
+      quoteLabel: quoteLabel(typeNameOf(quoteRaw) || quoteRaw),
+      amount: mistStr(p.amount),
+      ts: num(p.timestamp_ms) || num(ev.timestampMs) || Date.now(),
+      digest: String((ev.id && (ev.id.txDigest || ev.id.tx_digest)) || ev.digest || "")
+    };
+  }
+
+  function parseBasketYieldConverted(ev) {
+    var p = ev.parsedJson || {};
+    var toAsset = p.to_asset;
+    var fromQuote = p.from_quote;
+    return {
+      lock_id: padId(p.lock_id || ""),
+      basket_id: padId(p.basket_id || ""),
+      from_quote: typeNameOf(fromQuote) || fromQuote,
+      from_amount: mistStr(p.from_amount),
+      to_asset: typeNameOf(toAsset) || toAsset,
+      to_amount: mistStr(p.to_amount),
+      cat: rewardsCatFromQuote(toAsset),
+      ts: num(p.timestamp_ms) || num(ev.timestampMs) || Date.now(),
+      digest: String((ev.id && (ev.id.txDigest || ev.id.tx_digest)) || ev.digest || "")
+    };
+  }
+
+  function parseBasketYieldClaim(ev) {
+    var p = ev.parsedJson || {};
+    var assetRaw = p.asset;
+    return {
+      lock_id: padId(p.lock_id || ""),
+      basket_id: padId(p.basket_id || ""),
+      who: padId(p.who || ""),
+      asset: typeNameOf(assetRaw) || assetRaw,
+      amount: mistStr(p.amount),
+      payout_mode: num(p.payout_mode),
+      cat: rewardsCatFromQuote(assetRaw),
+      ts: num(ev.timestampMs) || Date.now(),
+      digest: String((ev.id && (ev.id.txDigest || ev.id.tx_digest)) || ev.digest || "")
+    };
+  }
+
+  function parseBasketYieldRotate(ev) {
+    var p = ev.parsedJson || {};
+    var assetRaw = p.asset;
+    return {
+      lock_id: padId(p.lock_id || ""),
+      basket_id: padId(p.basket_id || ""),
+      from_index: num(p.from_index),
+      to_index: num(p.to_index),
+      asset: typeNameOf(assetRaw) || assetRaw,
+      ts: num(p.timestamp_ms) || num(ev.timestampMs) || Date.now(),
+      digest: String((ev.id && (ev.id.txDigest || ev.id.tx_digest)) || ev.digest || "")
+    };
+  }
+
   function parseBeneficiarySet(ev) {
     var p = ev.parsedJson || {};
     return {
@@ -946,6 +1026,35 @@
         if (hy) hyPkgs.push(hy);
       }
       hyPkgs.forEach(pullHolderYield);
+      function emitByLaunch(r) { if (opts.onBasketYieldLaunch) opts.onBasketYieldLaunch(r); }
+      function emitByFunded(r) { if (opts.onBasketYieldFunded) opts.onBasketYieldFunded(r); }
+      function emitByConverted(r) { if (opts.onBasketYieldConverted) opts.onBasketYieldConverted(r); }
+      function emitByClaim(r) { if (opts.onBasketYieldClaim) opts.onBasketYieldClaim(r); }
+      function emitByRotate(r) { if (opts.onBasketYieldRotate) opts.onBasketYieldRotate(r); }
+      function pullBasketYield(pkg) {
+        if (!pkg || pkg === "0x0") return;
+        collect(rpc, pkg + "::events::BasketYieldLaunchEvent", parseBasketYieldLaunch, 4, 50).then(function (rows) {
+          rows.forEach(emitByLaunch);
+        }).catch(function () {});
+        collect(rpc, pkg + "::events::BasketYieldFundedEvent", parseBasketYieldFunded, 8, 50).then(function (rows) {
+          rows.forEach(emitByFunded);
+        }).catch(function () {});
+        collect(rpc, pkg + "::events::BasketYieldConvertedEvent", parseBasketYieldConverted, 8, 50).then(function (rows) {
+          rows.forEach(emitByConverted);
+        }).catch(function () {});
+        collect(rpc, pkg + "::events::BasketYieldClaimEvent", parseBasketYieldClaim, 8, 50).then(function (rows) {
+          rows.forEach(emitByClaim);
+        }).catch(function () {});
+        collect(rpc, pkg + "::events::BasketYieldRotateEvent", parseBasketYieldRotate, 4, 50).then(function (rows) {
+          rows.forEach(emitByRotate);
+        }).catch(function () {});
+      }
+      var byPkgs = (opts.basketYieldPackages || opts.holderYieldPackages || []).slice();
+      if (!byPkgs.length) {
+        var by = opts.callPackage || (typeof window !== "undefined" ? (window.ARENA_CALL_PACKAGE || window.ARENA_COLLECT_PACKAGE) : "");
+        if (by) byPkgs.push(by);
+      }
+      byPkgs.forEach(pullBasketYield);
       if (opts.live) {
         instaTimer = setInterval(refreshInstadex, opts.instadexMs || 60000);
         setInterval(function () {
@@ -953,6 +1062,7 @@
           mintPkgs.forEach(pullMintLock);
           benPkgs.forEach(pullBeneficiary);
           hyPkgs.forEach(pullHolderYield);
+          byPkgs.forEach(pullBasketYield);
         }, opts.instadexMs || 45000);
         bluefinTimer = setInterval(function () { refreshBluefin(); }, opts.bluefinMs || 12000);
       }
@@ -1044,7 +1154,13 @@
     parseHolderYieldLaunch: parseHolderYieldLaunch,
     parseHolderYieldFunded: parseHolderYieldFunded,
     parseHolderYieldClaim: parseHolderYieldClaim,
+    parseBasketYieldLaunch: parseBasketYieldLaunch,
+    parseBasketYieldFunded: parseBasketYieldFunded,
+    parseBasketYieldConverted: parseBasketYieldConverted,
+    parseBasketYieldClaim: parseBasketYieldClaim,
+    parseBasketYieldRotate: parseBasketYieldRotate,
     rewardsCatFromQuote: rewardsCatFromQuote,
+    typeNameOf: typeNameOf,
     parseBeneficiarySet: parseBeneficiarySet,
     parseAssetSwap: parseAssetSwap,
     BLUEFIN_ASSET_SWAP: BLUEFIN_ASSET_SWAP,

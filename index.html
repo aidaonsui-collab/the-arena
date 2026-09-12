@@ -771,7 +771,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   var pitStatePollAt = 0;
   let balance = 48.60;
   let xaumBal = 2.40;
-  const state = {route:"explore", sym:"VOLT", filter:"All", sort:"Market cap", time:"All", side:"Buy", amt:"1", connected:false, search:"", lName:"", lTick:"", lQuote:"SUI", lPath:"instadex", lMode:"Holders", lTokenAmt:"", lQuoteAmt:"", lFirstBuy:"1", lCap:"", lTokenCoin:"", lQuoteCoin:"", lCoinMode:"create", lDecimals:"9", lSupply:"1000000000", lDesc:"", lX:"", lTg:"", lWeb:"", lPublishedType:"", metricsWindow:"All", tapeTab:"trades", tapeOpen:"", tapePage:0, tapeAge:"age", tapeWallet:"", tapeFilterOpen:false, lFile:null, lArtUrl:"", lArtPreview:"", payWith:"SUI", lNote:"", lNoteErr:false, chartTf:900, chartInd:{vol:true,ma7:true,ma25:true,ma99:false,ema:false}, bridgeTick:"NVDA", bridgeAmt:"", bridgeDir:"in", bridgeRhDest:"", bridgeNote:"", bridgeBusy:false, quoteOpen:false, rewardsTab:"all"};
+  const state = {route:"explore", sym:"VOLT", filter:"All", sort:"Market cap", time:"All", side:"Buy", amt:"1", connected:false, search:"", lName:"", lTick:"", lQuote:"SUI", lPath:"instadex", lMode:"Holders", lTokenAmt:"", lQuoteAmt:"", lFirstBuy:"1", lCap:"", lTokenCoin:"", lQuoteCoin:"", lCoinMode:"create", lDecimals:"9", lSupply:"1000000000", lDesc:"", lX:"", lTg:"", lWeb:"", lPublishedType:"", metricsWindow:"All", tapeTab:"trades", tapeOpen:"", tapePage:0, tapeAge:"age", tapeWallet:"", tapeFilterOpen:false, lFile:null, lArtUrl:"", lArtPreview:"", payWith:"SUI", lNote:"", lNoteErr:false, chartTf:900, chartInd:{vol:true,ma7:true,ma25:true,ma99:false,ema:false}, bridgeTick:"NVDA", bridgeAmt:"", bridgeDir:"in", bridgeRhDest:"", bridgeNote:"", bridgeBusy:false, quoteOpen:false, rewardsTab:"all", lBasket:false, lBasketEqual:true, lBasketMode:0, lBasketOn:{XAUM:true,XAGM:true,USDY:true}, lBasketBps:{XAUM:3334,XAGM:3333,USDY:3333}};
   var metaEdit = { open: false, saving: false, file: null, preview: "", artUrl: "", note: "", err: false, name: "", desc: "", x: "", tg: "", web: "", creator: "", openedCreator: "" };
   let hashLock = false;
   const hop = { suiPerXaum: null, suiPerUsdy: null, suiPerXagm: null, usd: null, suiUsd: null, usdyUsd: null, xagmUsd: null, xaumUsd: null, source: "" };
@@ -4044,7 +4044,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
           '<div><div class="pit-kicker">RWA rewards</div>'+
             '<div class="pit-pot" style="font-size:clamp(20px,2.8vw,28px)">Gold · Silver · T-bills</div></div>'+
           '<div class="pit-right"><div style="color:var(--ink);font-weight:650">Claimable wraps</div>'+
-            '<div style="color:var(--muted);margin-top:4px">XAUM · XAGM · USDY · holder yield</div></div></div>'+
+            '<div style="color:var(--muted);margin-top:4px">XAUM · XAGM · USDY · holder + basket yield</div></div></div>'+
         '<div class="strip-head" id="on-strip">'+
           '<div class="explore-head" style="margin:0 0 8px"><div><h1 class="strip-head">On the strip <span class="count-pill">'+count+'</span></h1>'+
             '<p>Every door is a pair. Walk in, buy, or list your own tonight.</p></div></div>'+
@@ -4252,11 +4252,137 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     rewardsLedger.byCat = by;
     rewardsLedger.updatedMs = Date.now();
   }
+
+  var BASKET_RWA = ["XAUM","XAGM","USDY"];
+  function isRwaQuote(lab){
+    lab = String(lab || "").toUpperCase();
+    return lab === "XAUM" || lab === "XAGM" || lab === "USDY";
+  }
+  function basketAssetType(lab){
+    lab = String(lab || "").toUpperCase();
+    if (lab === "XAUM") return window.ARENA_XAUM_TYPE;
+    if (lab === "XAGM") return window.ARENA_XAGM_TYPE;
+    if (lab === "USDY") return window.ARENA_USDY_TYPE;
+    return "";
+  }
+  function basketSelectedLegs(){
+    var legs = [];
+    BASKET_RWA.forEach(function(lab){
+      if (!state.lBasketOn || !state.lBasketOn[lab]) return;
+      var t = basketAssetType(lab);
+      if (!t) return;
+      var bps = Number((state.lBasketBps && state.lBasketBps[lab]) || 0) || 0;
+      legs.push({ label: lab, type: t, bps: bps });
+    });
+    return legs;
+  }
+  function normalizeBasketBps(legs){
+    if (!legs || !legs.length) return legs;
+    if (state.lBasketEqual){
+      var n = legs.length;
+      var base = Math.floor(10000 / n);
+      legs.forEach(function(leg, i){
+        leg.bps = (i + 1 === n) ? (10000 - base * (n - 1)) : base;
+      });
+      return legs;
+    }
+    var sum = 0;
+    legs.forEach(function(leg){ sum += Number(leg.bps) || 0; });
+    if (sum !== 10000) throw new Error("Basket weights must sum to 10000 bps (got "+sum+")");
+    legs.forEach(function(leg){
+      if (!(leg.bps > 0)) throw new Error("Each basket asset needs weight > 0");
+    });
+    return legs;
+  }
+  function basketPanelHTML(){
+    if (isRwaQuote(state.lQuote)){
+      return '<div style="font-size:12px;color:var(--muted);margin-top:8px">v1 holder-yield · quote is the reward asset. Basket picker is off on this path.</div>';
+    }
+    var on = !!state.lBasket;
+    var equal = state.lBasketEqual !== false;
+    var mode = Number(state.lBasketMode) || 0;
+    var chips = BASKET_RWA.map(function(lab){
+      var sel = !!(state.lBasketOn && state.lBasketOn[lab]);
+      var klass = lab === "XAUM" ? " quote-xaum" : (lab === "XAGM" ? " quote-xagm" : "");
+      return '<button type="button" class="pill'+klass+(sel?" on":"")+'" data-basket-asset="'+lab+'">'+lab+'</button>';
+    }).join("");
+    var bpsInputs = "";
+    if (on && !equal){
+      bpsInputs = '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px">'+BASKET_RWA.map(function(lab){
+        if (!(state.lBasketOn && state.lBasketOn[lab])) return "";
+        var v = (state.lBasketBps && state.lBasketBps[lab] != null) ? state.lBasketBps[lab] : 0;
+        return '<label style="font-size:11px;color:var(--muted)">'+lab+' bps<input id="l-basket-bps-'+lab+'" data-basket-bps="'+lab+'" inputmode="numeric" value="'+escAttr(String(v))+'" style="display:block;margin-top:4px;width:88px"></label>';
+      }).join("")+'</div>'+
+        '<div style="font-size:11px;color:var(--muted);margin-top:4px">Custom weights must sum to 10000 bps.</div>';
+    }
+    return '<div style="margin-top:10px">'+
+      '<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between">'+
+        '<label style="margin:0">Basket rewards</label>'+
+        '<button type="button" class="pill'+(on?" on":"")+'" data-basket-toggle="1">'+(on?"On":"Off")+'</button>'+
+      '</div>'+
+      (on
+        ? ('<div style="font-size:12px;color:var(--muted);margin-top:6px">Holders earn selected RWAs from Instant pit-bps (SUI quote stays). Pick 1–3 · equal or custom · all-at-once or rotating.</div>'+
+           '<div class="pills" style="margin-top:8px">'+chips+'</div>'+
+           '<div class="pills" style="margin-top:8px">'+
+             '<button type="button" class="pill'+(equal?" on":"")+'" data-basket-equal="1">Equal</button>'+
+             '<button type="button" class="pill'+(!equal?" on":"")+'" data-basket-equal="0">Custom bps</button>'+
+           '</div>'+
+           '<div class="pills" style="margin-top:8px">'+
+             '<button type="button" class="pill'+(mode===0?" on":"")+'" data-basket-mode="0">All-at-once</button>'+
+             '<button type="button" class="pill'+(mode===1?" on":"")+'" data-basket-mode="1">Rotating</button>'+
+           '</div>'+bpsInputs)
+        : '<div style="font-size:12px;color:var(--muted);margin-top:6px">Off · standard Instant (pit collect). Toggle on for v2 basket yield.</div>')+
+    '</div>';
+  }
+  function rewardsVaultByLock(lockId){
+    var want = padAddr(lockId);
+    if (!want) return null;
+    var keys = Object.keys(rewardsVaults);
+    for (var i = 0; i < keys.length; i++){
+      var v = rewardsVaults[keys[i]];
+      if (v && padAddr(v.lock_id) === want) return v;
+    }
+    return null;
+  }
+  function ensureVaultAsset(vault, assetType){
+    if (!vault || !assetType) return;
+    if (!vault.assets) vault.assets = [];
+    var t = normType(assetType);
+    for (var i = 0; i < vault.assets.length; i++){
+      if (normType(vault.assets[i]) === t) return;
+    }
+    vault.assets.push(t);
+  }
+  async function resolveBasketAssets(vault){
+    if (vault && vault.assets && vault.assets.length) return vault.assets.slice();
+    var id = vault && (vault.basket_id || vault.yield_id);
+    if (!id) return [];
+    try {
+      var obj = await moveObject(id);
+      var cfg = obj && obj.json && (obj.json.config || (obj.json.fields && obj.json.fields.config));
+      var assets = cfg && (cfg.assets || (cfg.fields && cfg.fields.assets));
+      if (Array.isArray(assets)){
+        var out = [];
+        assets.forEach(function(a){
+          var raw = a && (a.asset || (a.fields && a.fields.asset) || a);
+          var tn = typeNameStr(raw) || (Index && Index.typeNameOf ? Index.typeNameOf(raw) : "");
+          if (tn) out.push(normType(tn));
+        });
+        if (out.length){
+          vault.assets = out;
+          return out;
+        }
+      }
+    } catch (e) {}
+    return [];
+  }
+
   function applyHolderYieldLaunch(ev){
     if (!ev || !ev.yield_id) return;
     if (!ev.cat) ev.cat = rewardsCatId(ev.quote);
     if (!ev.cat) return;
     rewardsVaults[ev.yield_id] = {
+      kind: "holder",
       lock_id: ev.lock_id,
       yield_id: ev.yield_id,
       bluefin_pool_id: ev.bluefin_pool_id,
@@ -4272,6 +4398,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     if (!ev.cat) return;
     if (!rewardsVaults[ev.yield_id]){
       rewardsVaults[ev.yield_id] = {
+        kind: "holder",
         lock_id: ev.lock_id,
         yield_id: ev.yield_id,
         bluefin_pool_id: ev.bluefin_pool_id,
@@ -4321,14 +4448,161 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     rebuildRewardsLedger();
     if (state.route === "pit") scheduleScreen();
   }
+
+  function applyBasketYieldLaunch(ev){
+    if (!ev || !ev.basket_id) return;
+    rewardsVaults[ev.basket_id] = {
+      kind: "basket",
+      lock_id: ev.lock_id,
+      basket_id: ev.basket_id,
+      yield_id: ev.basket_id,
+      bluefin_pool_id: ev.bluefin_pool_id,
+      token: ev.token,
+      quote: ev.quote,
+      quoteLabel: ev.quoteLabel || "SUI",
+      payout_mode: Number(ev.payout_mode) || 0,
+      asset_count: Number(ev.asset_count) || 0,
+      assets: (ev.assets && ev.assets.slice()) || (rewardsVaults[ev.basket_id] && rewardsVaults[ev.basket_id].assets) || [],
+      rotate_index: (rewardsVaults[ev.basket_id] && rewardsVaults[ev.basket_id].rotate_index) || 0,
+      cat: ev.cat || ""
+    };
+  }
+  function applyBasketYieldFunded(ev){
+    if (!ev || !ev.basket_id) return;
+    if (!rewardsVaults[ev.basket_id]){
+      rewardsVaults[ev.basket_id] = {
+        kind: "basket",
+        lock_id: ev.lock_id,
+        basket_id: ev.basket_id,
+        yield_id: ev.basket_id,
+        bluefin_pool_id: ev.bluefin_pool_id,
+        quote: ev.quote,
+        quoteLabel: ev.quoteLabel || "SUI",
+        payout_mode: 0,
+        assets: [],
+        rotate_index: 0,
+        cat: ""
+      };
+    }
+    var key = String(ev.digest || "") + ":byf:" + String(ev.basket_id) + ":" + String(ev.amount);
+    if (!rewardsLedger.distributions) rewardsLedger.distributions = [];
+    for (var i = 0; i < rewardsLedger.distributions.length; i++){
+      if (rewardsLedger.distributions[i]._key === key) return;
+    }
+    var tk = null;
+    if (ev.bluefin_pool_id){
+      tk = T.find(function(x){ return padAddr(x.bluefinPool) === padAddr(ev.bluefin_pool_id); });
+    }
+    rewardsLedger.distributions.unshift({
+      _key: key,
+      cat: "",
+      staging: true,
+      amount: ev.amount,
+      token: tk ? ("$"+tk.t+" · staging") : (ev.bluefin_pool_id ? shortAddr(ev.bluefin_pool_id)+" · staging" : "staging"),
+      ts: ev.ts,
+      digest: ev.digest,
+      yield_id: ev.basket_id,
+      basket_id: ev.basket_id
+    });
+    rewardsLedger.distributions.sort(function(a,b){ return (b.ts||0)-(a.ts||0); });
+    rebuildRewardsLedger();
+    if (state.route === "pit") scheduleScreen();
+  }
+  function applyBasketYieldConverted(ev){
+    if (!ev || !ev.basket_id) return;
+    if (!ev.cat) ev.cat = rewardsCatId(ev.to_asset || ev.asset);
+    if (!rewardsVaults[ev.basket_id]){
+      rewardsVaults[ev.basket_id] = {
+        kind: "basket",
+        lock_id: ev.lock_id,
+        basket_id: ev.basket_id,
+        yield_id: ev.basket_id,
+        bluefin_pool_id: ev.bluefin_pool_id,
+        quote: ev.from_quote,
+        payout_mode: 0,
+        assets: [],
+        rotate_index: 0,
+        cat: ev.cat || ""
+      };
+    }
+    ensureVaultAsset(rewardsVaults[ev.basket_id], ev.to_asset);
+    if (!ev.cat) return;
+    var key = String(ev.digest || "") + ":byc:" + String(ev.basket_id) + ":" + String(ev.to_amount) + ":" + String(ev.to_asset || "");
+    if (!rewardsLedger.distributions) rewardsLedger.distributions = [];
+    for (var i = 0; i < rewardsLedger.distributions.length; i++){
+      if (rewardsLedger.distributions[i]._key === key) return;
+    }
+    var tk = null;
+    if (ev.bluefin_pool_id){
+      tk = T.find(function(x){ return padAddr(x.bluefinPool) === padAddr(ev.bluefin_pool_id); });
+    }
+    if (!tk && rewardsVaults[ev.basket_id].bluefin_pool_id){
+      var pid = rewardsVaults[ev.basket_id].bluefin_pool_id;
+      tk = T.find(function(x){ return padAddr(x.bluefinPool) === padAddr(pid); });
+    }
+    rewardsLedger.distributions.unshift({
+      _key: key,
+      cat: ev.cat,
+      amount: ev.to_amount,
+      token: tk ? ("$"+tk.t) : (ev.bluefin_pool_id ? shortAddr(ev.bluefin_pool_id) : "—"),
+      ts: ev.ts,
+      digest: ev.digest,
+      yield_id: ev.basket_id,
+      basket_id: ev.basket_id
+    });
+    rewardsLedger.distributions.sort(function(a,b){ return (b.ts||0)-(a.ts||0); });
+    rebuildRewardsLedger();
+    if (state.route === "pit") scheduleScreen();
+  }
+  function applyBasketYieldClaim(ev){
+    if (!ev) return;
+    if (!ev.cat) ev.cat = rewardsCatId(ev.asset);
+    if (!ev.cat) return;
+    var key = String(ev.digest || "") + ":byclaim:" + String(ev.who) + ":" + String(ev.amount) + ":" + String(ev.asset || "");
+    if (!rewardsLedger.claims) rewardsLedger.claims = [];
+    for (var i = 0; i < rewardsLedger.claims.length; i++){
+      if (rewardsLedger.claims[i]._key === key) return;
+    }
+    rewardsLedger.claims.unshift({
+      _key: key,
+      cat: ev.cat,
+      amount: ev.amount,
+      who: ev.who,
+      ts: ev.ts,
+      digest: ev.digest,
+      yield_id: ev.basket_id,
+      basket_id: ev.basket_id
+    });
+    rebuildRewardsLedger();
+    if (state.route === "pit") scheduleScreen();
+  }
+  function applyBasketYieldRotate(ev){
+    if (!ev || !ev.basket_id) return;
+    if (!rewardsVaults[ev.basket_id]){
+      rewardsVaults[ev.basket_id] = {
+        kind: "basket",
+        lock_id: ev.lock_id,
+        basket_id: ev.basket_id,
+        yield_id: ev.basket_id,
+        assets: [],
+        payout_mode: 1,
+        rotate_index: Number(ev.to_index) || 0
+      };
+    } else {
+      rewardsVaults[ev.basket_id].rotate_index = Number(ev.to_index) || 0;
+      rewardsVaults[ev.basket_id].payout_mode = 1;
+    }
+    ensureVaultAsset(rewardsVaults[ev.basket_id], ev.asset);
+  }
+
   async function doRewardsClaim(){
     if (rewardsBusy) return;
     var CALL = window.ARENA_CALL_PACKAGE || window.ARENA_COLLECT_PACKAGE;
     if (!CALL) throw new Error("ARENA_CALL_PACKAGE missing");
     if (!suiSession.address) throw new Error("Connect a Sui wallet to claim");
     var vaults = Object.keys(rewardsVaults).map(function(k){ return rewardsVaults[k]; })
-      .filter(function(v){ return v && v.token && v.quote && v.yield_id; });
-    if (!vaults.length) throw new Error("No holder-yield vaults indexed yet — waiting on Compatible upgrade + launches");
+      .filter(function(v){ return v && v.token && v.quote && (v.yield_id || v.basket_id); });
+    if (!vaults.length) throw new Error("No holder-yield or basket vaults indexed yet");
     rewardsBusy = true;
     rewardsNote = "Building claim…";
     if (state.route === "pit") scheduleScreen();
@@ -4339,27 +4613,66 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       var calls = 0;
       for (var i = 0; i < vaults.length && calls < 8; i++){
         var v = vaults[i];
+        var vaultId = v.basket_id || v.yield_id;
         var coins = [];
         try { coins = await coinsOfExact(suiSession.address, v.token); } catch (e) { coins = []; }
         if (!coins.length) continue;
-        // Prefer largest coin for registration weight (merge first for full weight later).
         var coinArg = tx.object(coins[0].id);
         if (coins.length > 1){
           tx.mergeCoins(coinArg, coins.slice(1, 8).map(function(c){ return tx.object(c.id); }));
         }
-        tx.moveCall({
-          target: CALL + "::holder_yield::sync_registration",
-          typeArguments: [v.token, typeof v.quote === "string" ? v.quote : String(v.quote)],
-          arguments: [tx.object(v.yield_id), coinArg]
-        });
-        var got = tx.moveCall({
-          target: CALL + "::holder_yield::claim",
-          typeArguments: [v.token, typeof v.quote === "string" ? v.quote : String(v.quote)],
-          arguments: [tx.object(v.yield_id)]
-        });
-        // claim returns Coin<Q>
-        if (tx.transferObjects) tx.transferObjects([got], tx.pure.address(suiSession.address));
-        calls++;
+        var Q = typeof v.quote === "string" ? v.quote : String(v.quote);
+        if (v.kind === "basket"){
+          // Convert MVP (not in claim PTB): take_quote_for_convert → off-module DEX hop → deposit_converted_asset.
+          tx.moveCall({
+            target: CALL + "::basket_yield::sync_registration",
+            typeArguments: [v.token, Q],
+            arguments: [tx.object(vaultId), coinArg]
+          });
+          var assets = await resolveBasketAssets(v);
+          if (!assets.length){
+            // Need Converted events or on-chain vault config before claiming legs.
+            continue;
+          }
+          var mode = Number(v.payout_mode) || 0;
+          if (mode === 1){
+            var idx = Number(v.rotate_index) || 0;
+            var Arot = assets[idx] || assets[0];
+            if (!Arot) continue;
+            var gotR = tx.moveCall({
+              target: CALL + "::basket_yield::claim_rotating",
+              typeArguments: [v.token, Q, Arot],
+              arguments: [tx.object(vaultId), tx.object(window.ARENA_CLOCK || "0x6")]
+            });
+            if (tx.transferObjects) tx.transferObjects([gotR], tx.pure.address(suiSession.address));
+            calls++;
+          } else {
+            for (var ai = 0; ai < assets.length && calls < 8; ai++){
+              var A = assets[ai];
+              var gotA = tx.moveCall({
+                target: CALL + "::basket_yield::claim_all",
+                typeArguments: [v.token, Q, A],
+                arguments: [tx.object(vaultId)]
+              });
+              if (tx.transferObjects) tx.transferObjects([gotA], tx.pure.address(suiSession.address));
+              calls++;
+            }
+          }
+        } else {
+          // holder_yield path (kind holder / missing)
+          tx.moveCall({
+            target: CALL + "::holder_yield::sync_registration",
+            typeArguments: [v.token, Q],
+            arguments: [tx.object(vaultId), coinArg]
+          });
+          var got = tx.moveCall({
+            target: CALL + "::holder_yield::claim",
+            typeArguments: [v.token, Q],
+            arguments: [tx.object(vaultId)]
+          });
+          if (tx.transferObjects) tx.transferObjects([got], tx.pure.address(suiSession.address));
+          calls++;
+        }
       }
       if (!calls) throw new Error("Hold launch tokens to sync registration, then claim");
       var res = await walletExec(tx);
@@ -4374,17 +4687,22 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   function rewardsDistRows(){
     var tab = state.rewardsTab || "all";
     var rows = (rewardsLedger.distributions || []).filter(function(d){
-      return tab === "all" || d.cat === tab;
+      if (tab === "all") return true;
+      return d.cat === tab;
     });
     if (!rows.length){
-      return '<tr><td colspan="5" style="color:var(--muted);padding:22px 8px">No distributions yet. v1 holder-yield will list claimable wrapped RWA here once Instant quote-fee events land.</td></tr>';
+      return '<tr><td colspan="5" style="color:var(--muted);padding:22px 8px">No distributions yet. Holder-yield Funded and basket Converted events fill this list.</td></tr>';
     }
     return rows.slice(0, 40).map(function(d){
-      var cat = rewardsCat(d.cat);
+      var cat = d.cat ? rewardsCat(d.cat) : null;
       var when = d.ts ? agoOf(d.ts) : "—";
+      var pill = cat
+        ? '<span class="rewards-pill"><img src="'+escAttr(cat.logo)+'" alt="">'+escHtml(cat.label)+'</span>'
+        : '<span class="rewards-pill">Staging</span>';
+      var unit = cat ? cat.unit : "SUI";
       return '<tr>'+
-        '<td><span class="rewards-pill"><img src="'+escAttr(cat.logo)+'" alt="">'+escHtml(cat.label)+'</span></td>'+
-        '<td class="mono">'+escHtml(fmtRewardAmt(d.amount, cat.unit))+'</td>'+
+        '<td>'+pill+'</td>'+
+        '<td class="mono">'+escHtml(fmtRewardAmt(d.amount, unit))+'</td>'+
         '<td>'+escHtml(d.token || "—")+'</td>'+
         '<td class="mono" style="color:var(--muted)">'+escHtml(when)+'</td>'+
         '<td>'+(d.digest
@@ -4414,14 +4732,14 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     var claimNote = rewardsNote || (!suiSession.address
       ? "Connect a Sui wallet. Sync registration with your launch tokens, then claim XAUM / XAGM / USDY."
       : (vaultN
-        ? "sync_registration → claim on indexed holder-yield vaults (events live after Compatible upgrade)."
-        : "No HolderYieldLaunchEvent yet — launch an Instant RWA holder-yield to start. Totals will fill from Funded events."));
+        ? "sync_registration → claim (holder) or claim_all / claim_rotating (basket) on indexed vaults."
+        : "No yield launches yet — Instant RWA holder-yield or SUI basket-yield starts the ledger."));
     var claimLabel = rewardsBusy ? "Claiming…" : (suiSession.address ? "Claim rewards" : "Connect to claim");
     return '<div data-screen-label="Rewards">'+
       '<div class="shell rewards-hero">'+
         '<div class="pit-kicker">RWA rewards</div>'+
         '<h1>Rewards from Instant quote fees</h1>'+
-        '<p>Gold, silver, and T-bills only for now (XAUM · XAGM · USDY). Registered holders on Instadex Instant launches claim wrapped RWA — claim model, not a push airdrop. Basket / BidX comes later.</p>'+
+        '<p>Gold, silver, and T-bills (XAUM · XAGM · USDY). v1 holder-yield (RWA quote) and v2 basket yield (SUI quote + basket) are live on Instant — claim model, not a push airdrop.</p>'+
         '<div class="rewards-grid">'+cards+'</div>'+
         '<div class="rewards-claim">'+
           '<button type="button" class="btn" data-rewards-claim'+(rewardsBusy || !suiSession.address ? " disabled" : "")+'>'+escHtml(claimLabel)+'</button>'+
@@ -4436,7 +4754,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
           '<tbody>'+rewardsDistRows()+'</tbody></table>'+
         '</div>'+
         '<div class="card" style="padding:16px 18px;margin-top:14px;color:var(--muted);font-size:13px">'+
-          '<strong style="color:var(--ink)">Wired for holder-yield.</strong> Indexes <code>HolderYieldLaunch/Funded/Claim</code> on CALL pkg (v12). Claim PTB: <code>sync_registration</code> then <code>claim</code>.</div>'+
+          '<strong style="color:var(--ink)">Wired for holder-yield + basket yield.</strong> Indexes <code>HolderYield*</code> and <code>BasketYieldLaunch/Funded/Converted/Claim/Rotate</code> on CALL pkg (v12). Claim: <code>sync_registration</code> then <code>claim</code> / <code>claim_all</code> / <code>claim_rotating</code>.</div>'+
       footerHTML()+'</div></div>';
   }
   function metricsRollup(){
@@ -4563,7 +4881,9 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
           '</div>'+
           '<div style="font-size:12px;color:var(--muted);margin-top:6px">Baked into CoinMetadata at publish. Creator or platform can update the Vice token page later.</div></div>'+
           '<div><label>Quote</label>'+quoteDropdownHTML()+
-            '<div style="font-size:12px;color:var(--muted);margin-top:6px">'+quoteRec(state.lQuote).what+'. TOKEN/'+state.lQuote+'. Starting market cap ≈ $3,500, same for every quote. No '+state.lQuote+' required for LP.</div></div>'+
+            '<div style="font-size:12px;color:var(--muted);margin-top:6px">'+quoteRec(state.lQuote).what+'. TOKEN/'+state.lQuote+'. Starting market cap ≈ $3,500, same for every quote. No '+state.lQuote+' required for LP.</div>'+
+            basketPanelHTML()+
+          '</div>'+
           '<div><label>First buy · SUI</label><input id="l-first-buy" inputmode="decimal" placeholder="1" value="'+escAttr(state.lFirstBuy)+'"></div>'+
             '<div id="l-first-buy-preview" style="font-size:13px;color:var(--text);margin-top:6px">'+escHtml(firstBuyPreview())+'</div>'+
             '<div style="font-size:12px;color:var(--muted);margin-top:4px">'+(state.lQuote==="SUI"
@@ -6566,22 +6886,51 @@ async function doBridgeDeposit(){
         typeArguments: [SUI_TYPE],
         arguments: []
       });
-      // Instant: 100% token, 0 quote. Never curve launch. Never launch_instadex_entry (two-sided).
-      tx.moveCall({
-        target: CALL + "::launch::launch_instant_entry",
-        typeArguments: [Ttype, Qtype],
-        arguments: [
-          tx.object(window.ARENA_CONFIG),
-          tx.object(window.ARENA_CLOCK || "0x6"),
-          tx.object(window.ARENA_BLUEFIN_CONFIG),
-          tx.object(capId),
-          tx.object(metaT.id),
-          tx.object(metaQ.id),
-          tokenArg,
-          feeArg,
-          creationArg
-        ]
-      });
+      // Instant: 100% token, 0 quote. Paths:
+      // RWA quote → holder_yield; SUI+basket → basket_yield_N; else plain instant.
+      var baseArgs = [
+        tx.object(window.ARENA_CONFIG),
+        tx.object(window.ARENA_CLOCK || "0x6"),
+        tx.object(window.ARENA_BLUEFIN_CONFIG),
+        tx.object(capId),
+        tx.object(metaT.id),
+        tx.object(metaQ.id),
+        tokenArg,
+        feeArg,
+        creationArg
+      ];
+      if (isRwaQuote(launchQuote)){
+        tx.moveCall({
+          target: CALL + "::launch::launch_instant_holder_yield_entry",
+          typeArguments: [Ttype, Qtype],
+          arguments: baseArgs
+        });
+      } else if (state.lBasket && String(launchQuote).toUpperCase() === "SUI"){
+        var legs = normalizeBasketBps(basketSelectedLegs());
+        if (!legs.length) throw new Error("Pick 1–3 basket assets (XAUM · XAGM · USDY)");
+        if (legs.length > 3) throw new Error("Basket supports at most 3 assets");
+        var equal = state.lBasketEqual !== false;
+        var mode = Number(state.lBasketMode) || 0;
+        var weightArgs = legs.map(function(leg){ return txPure(tx, "u64", txAmt(leg.bps)); });
+        weightArgs.push(txPure(tx, "bool", equal));
+        weightArgs.push(txPure(tx, "u8", mode));
+        var typeArgs = [Ttype, Qtype].concat(legs.map(function(leg){ return leg.type; }));
+        var target =
+          legs.length === 1 ? (CALL + "::launch::launch_instant_basket_yield_entry") :
+          legs.length === 2 ? (CALL + "::launch::launch_instant_basket_yield_2_entry") :
+          (CALL + "::launch::launch_instant_basket_yield_3_entry");
+        tx.moveCall({
+          target: target,
+          typeArguments: typeArgs,
+          arguments: baseArgs.concat(weightArgs)
+        });
+      } else {
+        tx.moveCall({
+          target: CALL + "::launch::launch_instant_entry",
+          typeArguments: [Ttype, Qtype],
+          arguments: baseArgs
+        });
+      }
       if (btn) btn.textContent = "Sign in wallet…";
       var result = await walletExec(tx);
       var digest = txDigest(result);
@@ -7252,26 +7601,58 @@ async function doBridgeDeposit(){
       var q = poolQuote(tk);
       var rec = quoteRec(q);
       var Qtype = rec.type;
-      var pit = rec.pit;
-      if (!pit) throw new Error("The pot for "+q+" is not registered yet. Collect needs an official pot.");
       var mint = await resolveMintLock(tk, Ttype);
       tk.mintLock = mint;
       if (Ttype) tk.token = Ttype;
       var tx = new Transaction();
       tx.setSender(suiSession.address);
-      tx.moveCall({
-        target: CALL + "::launch::collect_instadex_fees",
-        typeArguments: [Ttype, Qtype],
-        arguments: [
-          tx.object(tk.lockId),
-          tx.object(mint),
-          tx.object(window.ARENA_CLOCK || "0x6"),
-          tx.object(window.ARENA_BLUEFIN_CONFIG),
-          tx.object(tk.bluefinPool),
-          tx.object(window.ARENA_CONFIG),
-          tx.object(pit)
-        ]
-      });
+      var yv = rewardsVaultByLock(tk.lockId);
+      if (yv && yv.kind === "basket" && (yv.basket_id || yv.yield_id)){
+        // Basket yield: vault staging, no Pit.
+        tx.moveCall({
+          target: CALL + "::launch::collect_instadex_fees_basket_yield",
+          typeArguments: [Ttype, Qtype],
+          arguments: [
+            tx.object(tk.lockId),
+            tx.object(mint),
+            tx.object(yv.basket_id || yv.yield_id),
+            tx.object(window.ARENA_CLOCK || "0x6"),
+            tx.object(window.ARENA_BLUEFIN_CONFIG),
+            tx.object(tk.bluefinPool),
+            tx.object(window.ARENA_CONFIG)
+          ]
+        });
+      } else if (yv && yv.kind === "holder" && yv.yield_id){
+        tx.moveCall({
+          target: CALL + "::launch::collect_instadex_fees_holder_yield",
+          typeArguments: [Ttype, Qtype],
+          arguments: [
+            tx.object(tk.lockId),
+            tx.object(mint),
+            tx.object(yv.yield_id),
+            tx.object(window.ARENA_CLOCK || "0x6"),
+            tx.object(window.ARENA_BLUEFIN_CONFIG),
+            tx.object(tk.bluefinPool),
+            tx.object(window.ARENA_CONFIG)
+          ]
+        });
+      } else {
+        var pit = rec.pit;
+        if (!pit) throw new Error("The pot for "+q+" is not registered yet. Collect needs an official pot.");
+        tx.moveCall({
+          target: CALL + "::launch::collect_instadex_fees",
+          typeArguments: [Ttype, Qtype],
+          arguments: [
+            tx.object(tk.lockId),
+            tx.object(mint),
+            tx.object(window.ARENA_CLOCK || "0x6"),
+            tx.object(window.ARENA_BLUEFIN_CONFIG),
+            tx.object(tk.bluefinPool),
+            tx.object(window.ARENA_CONFIG),
+            tx.object(pit)
+          ]
+        });
+      }
       var result = await walletExec(tx);
       var digest = result && (result.digest || (result.effects && result.effects.transactionDigest) || result.transactionDigest);
       if (btn){ btn.disabled = false; btn.textContent = digest ? ("Collected · " + String(digest).slice(0, 8)) : "Collected"; }
@@ -7492,6 +7873,35 @@ async function doBridgeDeposit(){
       renderScreen();
       return;
     }
+    const basketToggle = e.target.closest("[data-basket-toggle]");
+    if (basketToggle){
+      state.lBasket = !state.lBasket;
+      if (state.route === "launch") renderScreen();
+      return;
+    }
+    const basketAsset = e.target.closest("[data-basket-asset]");
+    if (basketAsset){
+      var labA = basketAsset.getAttribute("data-basket-asset");
+      if (!state.lBasketOn) state.lBasketOn = {XAUM:true,XAGM:true,USDY:true};
+      var nextOn = !state.lBasketOn[labA];
+      var countOn = BASKET_RWA.filter(function(x){ return x === labA ? nextOn : state.lBasketOn[x]; }).length;
+      if (!nextOn && countOn < 1) return;
+      state.lBasketOn[labA] = nextOn;
+      if (state.route === "launch") renderScreen();
+      return;
+    }
+    const basketEqual = e.target.closest("[data-basket-equal]");
+    if (basketEqual){
+      state.lBasketEqual = basketEqual.getAttribute("data-basket-equal") !== "0";
+      if (state.route === "launch") renderScreen();
+      return;
+    }
+    const basketMode = e.target.closest("[data-basket-mode]");
+    if (basketMode){
+      state.lBasketMode = Number(basketMode.getAttribute("data-basket-mode")) || 0;
+      if (state.route === "launch") renderScreen();
+      return;
+    }
     const set = e.target.closest("[data-set]");
     if (set){
       const key = set.getAttribute("data-set");
@@ -7666,6 +8076,12 @@ async function doBridgeDeposit(){
       paintFirstBuyPreview();
     }
     if (e.target && e.target.id === "l-quote-coin") state.lQuoteCoin = e.target.value.trim();
+    var bpsEl = e.target && e.target.getAttribute && e.target.getAttribute("data-basket-bps");
+    if (bpsEl){
+      if (!state.lBasketBps) state.lBasketBps = {XAUM:3334,XAGM:3333,USDY:3333};
+      var n = parseInt(e.target.value.replace(/[^0-9]/g, ""), 10);
+      state.lBasketBps[bpsEl] = isNaN(n) ? 0 : n;
+    }
     if (e.target && e.target.id === "l-desc") state.lDesc = e.target.value;
     if (e.target && e.target.id === "l-x") state.lX = e.target.value.trim();
     if (e.target && e.target.id === "l-tg") state.lTg = e.target.value.trim();
@@ -7828,7 +8244,13 @@ async function doBridgeDeposit(){
       onHolderYieldLaunch: function(e){ applyHolderYieldLaunch(e); },
       onHolderYieldFunded: function(e){ applyHolderYieldFunded(e); },
       onHolderYieldClaim: function(e){ applyHolderYieldClaim(e); },
+      onBasketYieldLaunch: function(e){ applyBasketYieldLaunch(e); },
+      onBasketYieldFunded: function(e){ applyBasketYieldFunded(e); },
+      onBasketYieldConverted: function(e){ applyBasketYieldConverted(e); },
+      onBasketYieldClaim: function(e){ applyBasketYieldClaim(e); },
+      onBasketYieldRotate: function(e){ applyBasketYieldRotate(e); },
       holderYieldPackages: [window.ARENA_CALL_PACKAGE, window.ARENA_COLLECT_PACKAGE].filter(Boolean),
+      basketYieldPackages: [window.ARENA_CALL_PACKAGE, window.ARENA_COLLECT_PACKAGE].filter(Boolean),
       burnPackages: [window.ARENA_COLLECT_PACKAGE, "0xd8531cc8c4e1ee914f0e4e48aea9a796faa0603459cc4665838f688e51bf23d9", "0x47ea732e44f21470aa3dd449a7b26731ed2c377e2c02e650f3ede6ea581bf000"].filter(Boolean),
       beneficiaryPackages: [window.ARENA_CALL_PACKAGE, window.ARENA_COLLECT_PACKAGE].filter(Boolean),
       callPackage: window.ARENA_INSTADEX_PACKAGE,

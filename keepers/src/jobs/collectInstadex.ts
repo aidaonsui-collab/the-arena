@@ -222,10 +222,48 @@ async function accrued(
   return { ...pending, poolId };
 }
 
+
+type YieldVault = { lockId: string; vaultId: string; kind: "basket" | "holder" };
+
+async function listYieldVaults(): Promise<Map<string, YieldVault>> {
+  const map = new Map<string, YieldVault>();
+  const specs: { type: string; kind: "basket" | "holder"; idField: string }[] = [
+    { type: `${CALL_PKG}::events::BasketYieldLaunchEvent`, kind: "basket", idField: "basket_id" },
+    { type: `${CALL_PKG}::events::HolderYieldLaunchEvent`, kind: "holder", idField: "yield_id" },
+  ];
+  const q = `query($t:String!,$first:Int!,$after:String){ events(first:$first, after:$after, filter:{ type:$t }){ pageInfo { hasNextPage endCursor } nodes { contents { json } } } }`;
+  for (const spec of specs) {
+    let after: string | null = null;
+    for (let i = 0; i < 20; i++) {
+      let data: {
+        events?: {
+          pageInfo?: { hasNextPage?: boolean; endCursor?: string };
+          nodes?: { contents?: { json?: Record<string, unknown> } }[];
+        };
+      };
+      try {
+        data = (await gql(q, { t: spec.type, first: 50, after })) as typeof data;
+      } catch {
+        break;
+      }
+      for (const n of data.events?.nodes ?? []) {
+        const p = n.contents?.json ?? {};
+        const lockId = asId(p.lock_id);
+        const vaultId = asId(p[spec.idField]);
+        if (lockId && vaultId) map.set(lockId, { lockId, vaultId, kind: spec.kind });
+      }
+      if (!data.events?.pageInfo?.hasNextPage || !data.events.pageInfo.endCursor) break;
+      after = data.events.pageInfo.endCursor;
+    }
+  }
+  return map;
+}
+
 export async function runCollectInstadex() {
   const kp = loadSigner();
   const launches = await listLaunches();
   const mintByLock = await listMintLocks();
+  const yieldByLock = await listYieldVaults();
   const results: unknown[] = [];
   for (const L of launches) {
     if (!L.lockId || !L.poolId || !L.token || !L.digest) continue;
@@ -242,25 +280,57 @@ export async function runCollectInstadex() {
       results.push({ lockId: L.lockId, skipped: true, reason: "no accrued fees", fees });
       continue;
     }
-    const pit = pitFor(L.quote);
-    if (!pit) {
-      results.push({ lockId: L.lockId, skipped: true, reason: "no Pit<" + (L.quote || "Q") + "> registered" });
-      continue;
-    }
+    const yv = yieldByLock.get(L.lockId);
+    const cfgId = process.env.ARENA_CONFIG || CONFIG;
     const tx = new Transaction();
-    tx.moveCall({
-      target: `${CALL_PKG}::launch::collect_instadex_fees`,
-      typeArguments: [L.token, L.quote || "0x2::sui::SUI"],
-      arguments: [
-        tx.object(L.lockId),
-        tx.object(mintId),
-        tx.object(CLOCK),
-        tx.object(BF_CONFIG),
-        tx.object(L.poolId),
-        tx.object(process.env.ARENA_CONFIG || CONFIG),
-        tx.object(pit),
-      ],
-    });
+    if (yv?.kind === "basket") {
+      tx.moveCall({
+        target: `${CALL_PKG}::launch::collect_instadex_fees_basket_yield`,
+        typeArguments: [L.token, L.quote || "0x2::sui::SUI"],
+        arguments: [
+          tx.object(L.lockId),
+          tx.object(mintId),
+          tx.object(yv.vaultId),
+          tx.object(CLOCK),
+          tx.object(BF_CONFIG),
+          tx.object(L.poolId),
+          tx.object(cfgId),
+        ],
+      });
+    } else if (yv?.kind === "holder") {
+      tx.moveCall({
+        target: `${CALL_PKG}::launch::collect_instadex_fees_holder_yield`,
+        typeArguments: [L.token, L.quote || "0x2::sui::SUI"],
+        arguments: [
+          tx.object(L.lockId),
+          tx.object(mintId),
+          tx.object(yv.vaultId),
+          tx.object(CLOCK),
+          tx.object(BF_CONFIG),
+          tx.object(L.poolId),
+          tx.object(cfgId),
+        ],
+      });
+    } else {
+      const pit = pitFor(L.quote);
+      if (!pit) {
+        results.push({ lockId: L.lockId, skipped: true, reason: "no Pit<" + (L.quote || "Q") + "> registered" });
+        continue;
+      }
+      tx.moveCall({
+        target: `${CALL_PKG}::launch::collect_instadex_fees`,
+        typeArguments: [L.token, L.quote || "0x2::sui::SUI"],
+        arguments: [
+          tx.object(L.lockId),
+          tx.object(mintId),
+          tx.object(CLOCK),
+          tx.object(BF_CONFIG),
+          tx.object(L.poolId),
+          tx.object(cfgId),
+          tx.object(pit),
+        ],
+      });
+    }
     try {
       const sent = await client().signAndExecuteTransaction({
         signer: kp,
