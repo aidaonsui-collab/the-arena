@@ -42,6 +42,12 @@ const E_NO_HOLDERS: u64 = 31;
 const E_RESERVES_LOCKED: u64 = 32;
 /// A config value outside the range the protocol can operate on.
 const E_BAD_PARAM: u64 = 33;
+/// Holder-yield vault is not bound to this BluefinPositionLock.
+const E_WRONG_YIELD: u64 = 34;
+/// Lock is not in holder-yield mode (no HolderYieldKey DF).
+const E_NOT_HOLDER_YIELD: u64 = 35;
+/// Use `launch::collect_instadex_fees_holder_yield` for this lock.
+const E_USE_HOLDER_YIELD_COLLECT: u64 = 36;
 
 public fun paused(): u64 { E_PAUSED }
 public fun invalid_fee(): u64 { E_INVALID_FEE }
@@ -76,3 +82,6 @@ public fun unregistered_seller(): u64 { E_UNREGISTERED_SELLER }
 public fun no_holders(): u64 { E_NO_HOLDERS }
 public fun reserves_locked(): u64 { E_RESERVES_LOCKED }
 public fun bad_param(): u64 { E_BAD_PARAM }
+public fun wrong_yield(): u64 { E_WRONG_YIELD }
+public fun not_holder_yield(): u64 { E_NOT_HOLDER_YIELD }
+public fun use_holder_yield_collect(): u64 { E_USE_HOLDER_YIELD_COLLECT }

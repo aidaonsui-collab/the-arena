@@ -26,6 +26,7 @@ use arena::bluefin;
 use arena::config::{Self, AdminCap, Config};
 use arena::errors;
 use arena::events;
+use arena::holder_yield::{Self, HolderYieldVault};
 use arena::math;
 use arena::pit::{Self, Pit};
 use arena::pool::{Self, Pool};
@@ -33,6 +34,7 @@ use bluefin_spot::config::GlobalConfig;
 use bluefin_spot::position::Position;
 use std::option::{Self, Option};
 use sui::balance::Balance;
+use sui::dynamic_field as df;
 use sui::clock::Clock;
 use sui::coin::{Self, Coin, CoinMetadata};
 use sui::object::{Self, ID, UID};
@@ -61,6 +63,10 @@ public struct BluefinPositionLock has key {
     beneficiary: address,
     unlock_ms: u64,
 }
+
+/// Dynamic-field key on BluefinPositionLock: launch-locked holder-yield mode.
+/// Value is the shared `HolderYieldVault` object id. Compatible: DF, no layout change.
+public struct HolderYieldKey has copy, drop, store {}
 
 /// Retired. `take_reserves_for_lock` can only ever run once, so this raced
 /// `seed_and_lock_bluefin` for the same one-shot flag — even when creator-gated,
@@ -338,6 +344,71 @@ public(package) fun seed_and_lock_instant<T, Q>(
     )
 }
 
+/// Instant + holder-yield: same Bluefin seed as `seed_and_lock_instant`, then
+/// create `HolderYieldVault` and attach its id as a launch-locked DF on the lock.
+public(package) fun seed_and_lock_instant_holder_yield<T, Q>(
+    beneficiary: address,
+    clock: &Clock,
+    bf_config: &mut GlobalConfig,
+    meta_t: &CoinMetadata<T>,
+    meta_q: &CoinMetadata<Q>,
+    creation_fee: Balance<SUI>,
+    token: Balance<T>,
+    virtual_quote: u64,
+    ctx: &mut TxContext,
+): (ID, ID, ID, u64, ID) {
+    let token_amount = token.value();
+    assert!(token_amount > 0 && virtual_quote > 0, errors::insufficient_liquidity());
+    let ideal_sqrt = math::sqrt_price_x64(token_amount, virtual_quote);
+    let (lower_bits, upper_bits, init_sqrt) = bluefin::instant_range(bf_config, ideal_sqrt);
+
+    let mut name = *meta_t.get_symbol().as_bytes();
+    name.append(b"-");
+    name.append(*meta_q.get_symbol().as_bytes());
+
+    let (bf_pool_id, position, _paid_a, paid_b, rem_a, rem_b) =
+        bluefin::create_and_seed<T, Q, SUI>(
+            clock,
+            bf_config,
+            name,
+            metadata_url(meta_t),
+            *meta_t.get_symbol().as_bytes(),
+            meta_t.get_decimals(),
+            metadata_url(meta_t),
+            *meta_q.get_symbol().as_bytes(),
+            meta_q.get_decimals(),
+            metadata_url(meta_q),
+            init_sqrt,
+            creation_fee,
+            lower_bits,
+            upper_bits,
+            token,
+            sui::balance::zero<Q>(),
+            token_amount,
+            true,
+            ctx,
+        );
+    assert!(paid_b == 0, errors::invalid_fee());
+    send_residual(rem_a, beneficiary, ctx);
+    send_residual(rem_b, beneficiary, ctx);
+
+    let position_id = object::id(&position);
+    let mut lock = BluefinPositionLock {
+        id: object::new(ctx),
+        pool_id: object::id_from_address(@0x0),
+        bluefin_pool_id: bf_pool_id,
+        position: option::some(position),
+        beneficiary,
+        unlock_ms: 0,
+    };
+    let lock_id = object::id(&lock);
+    let yield_id = holder_yield::create_and_share<T, Q>(lock_id, bf_pool_id, ctx);
+    attach_holder_yield(&mut lock, yield_id);
+    transfer::share_object(lock);
+    (lock_id, bf_pool_id, position_id, 0, yield_id)
+}
+
+
 fun vault_position(
     pool_id: ID,
     bf_pool_id: ID,
@@ -420,6 +491,7 @@ public(package) fun collect_lp_fees_return_token<A, B>(
 ): Balance<A> {
     assert!(lock.position.is_some(), errors::nothing_to_claim());
     assert!(object::id(bf_pool) == lock.bluefin_pool_id, errors::wrong_pool());
+    assert!(!is_holder_yield(lock), errors::use_holder_yield_collect());
     config::assert_official_pit(config, pit);
     let beneficiary = lock.beneficiary;
     let position = option::borrow_mut(&mut lock.position);
@@ -461,6 +533,11 @@ public fun collect_lp_fees<A, B>(
 /// hit abort 24 without constructing Bluefin `GlobalConfig` / `Pool`.
 public(package) fun abort_instadex_collect() {
     abort errors::use_instadex_collect()
+}
+
+/// Body extracted so unit tests can hit abort 36 without Bluefin objects.
+public(package) fun abort_holder_yield_collect() {
+    abort errors::use_holder_yield_collect()
 }
 
 /// Disabled. Same signature as v4 for Compatible upgrades. Use `launch::collect_instadex_fees`.
@@ -549,6 +626,67 @@ public(package) fun assert_spot_pool(lock: &BluefinPositionLock, pool_id: ID) {
     assert!(lock.bluefin_pool_id == pool_id, errors::wrong_pool());
 }
 
+
+public fun is_holder_yield(lock: &BluefinPositionLock): bool {
+    df::exists(&lock.id, HolderYieldKey {})
+}
+
+public fun holder_yield_id(lock: &BluefinPositionLock): ID {
+    assert!(is_holder_yield(lock), errors::not_holder_yield());
+    *df::borrow(&lock.id, HolderYieldKey {})
+}
+
+public(package) fun attach_holder_yield(lock: &mut BluefinPositionLock, yield_id: ID) {
+    assert!(!is_holder_yield(lock), errors::already_locked());
+    df::add(&mut lock.id, HolderYieldKey {}, yield_id);
+}
+
+/// Collect LP fees and route the pit-bps quote slice into `HolderYieldVault`
+/// instead of the pit pot. Creator/platform unchanged; token A returned for burn.
+public(package) fun collect_lp_fees_return_token_to_holders<A, B>(
+    lock: &mut BluefinPositionLock,
+    vault: &mut HolderYieldVault<A, B>,
+    clock: &Clock,
+    bf_config: &GlobalConfig,
+    bf_pool: &mut bluefin_spot::pool::Pool<A, B>,
+    config: &mut Config,
+    ctx: &mut TxContext,
+): Balance<A> {
+    assert!(lock.position.is_some(), errors::nothing_to_claim());
+    assert!(object::id(bf_pool) == lock.bluefin_pool_id, errors::wrong_pool());
+    assert!(is_holder_yield(lock), errors::not_holder_yield());
+    holder_yield::assert_bound_to_lock(vault, object::id(lock));
+    assert!(object::id(vault) == holder_yield_id(lock), errors::wrong_yield());
+    let beneficiary = lock.beneficiary;
+    let position = option::borrow_mut(&mut lock.position);
+    let (_amt_a, _amt_b, bal_a, mut bal_b) = bluefin::collect_fee(clock, bf_config, bf_pool, position);
+    let (creator_amt, platform_amt, pit_amt) = split_std_lp_quote(
+        bal_b.value(),
+        config.std_creator_bps(),
+        config.std_platform_bps(),
+        config.std_pit_bps(),
+    );
+    config::take_platform(config, bal_b.split(platform_amt));
+    let pit_bal = bal_b.split(pit_amt);
+    let leftover = holder_yield::try_fund(vault, pit_bal, clock);
+    // No registered holders → creator residual (reachable), not an unclaimable pot.
+    if (leftover.value() > 0) {
+        bal_b.join(leftover);
+    } else {
+        leftover.destroy_zero();
+    };
+    events::emit_collect_lp_fees(
+        object::id(lock),
+        beneficiary,
+        bal_a.value(),
+        creator_amt,
+        platform_amt,
+        pit_amt,
+    );
+    send_residual(bal_b, beneficiary, ctx);
+    bal_a
+}
+
 #[test_only]
 public fun share_bluefin_lock_for_testing(
     pool_id: ID,
@@ -565,4 +703,25 @@ public fun share_bluefin_lock_for_testing(
         beneficiary,
         unlock_ms,
     });
+}
+
+#[test_only]
+public fun share_bluefin_lock_with_yield_for_testing(
+    pool_id: ID,
+    bluefin_pool_id: ID,
+    beneficiary: address,
+    unlock_ms: u64,
+    yield_id: ID,
+    ctx: &mut TxContext,
+) {
+    let mut lock = BluefinPositionLock {
+        id: object::new(ctx),
+        pool_id,
+        bluefin_pool_id,
+        position: option::none(),
+        beneficiary,
+        unlock_ms,
+    };
+    attach_holder_yield(&mut lock, yield_id);
+    transfer::share_object(lock);
 }
