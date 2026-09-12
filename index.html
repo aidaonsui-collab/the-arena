@@ -2157,6 +2157,12 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
         byTick[t] = el;
       } else {
         el.classList.toggle("hot", !!hot);
+        var meta = el.querySelector(".lcard-body .ago");
+        if (meta){
+          var wrap = document.createElement("div");
+          wrap.innerHTML = stripMetaHTML(k);
+          meta.replaceWith(wrap.firstElementChild);
+        }
       }
       list.appendChild(el);
     });
@@ -4023,6 +4029,13 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
         '<div class="lead-stat"><div class="k">Vol</div><div class="v" data-usd-vol="'+escAttr(k.t)+'">'+(volN > 0 ? fmtUsd(volN) : "—")+'</div></div>'+
       '</div></div>';
   }
+  function stripMetaHTML(k){
+    if (state.sort === "Volume"){
+      var n = volUsd24h(k);
+      return '<span class="ago" data-usd-vol="'+escAttr(k.t)+'">'+(n > 0 ? fmtUsd(n) : "$0")+'</span>';
+    }
+    return '<span class="ago">'+lastAgo(k)+'</span>';
+  }
   function launchCard(k, i){
     hydrateTokenOverlay(k);
     const leader = pitWinnerTok() || sortedT()[0];
@@ -4032,7 +4045,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       artBlock(k, hot)+
       '<div class="lcard-body">'+
         '<div class="lcard-row"><div class="feat-name">'+escHtml(k.n)+'</div><div data-usd-cap="'+escAttr(k.t)+'" class="feat-mcap">'+usdCapText(k)+'</div></div>'+
-        '<div class="lcard-row"><div class="feat-tick">$'+escHtml(k.t)+'</div><span class="ago">'+lastAgo(k)+'</span></div>'+
+        '<div class="lcard-row"><div class="feat-tick">$'+escHtml(k.t)+'</div>'+stripMetaHTML(k)+'</div>'+
       '</div></div>';
   }
   function footerHTML(){
