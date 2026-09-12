@@ -4263,6 +4263,18 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     lab = String(lab || "").toUpperCase();
     return lab === "XAUM" || lab === "XAGM" || lab === "USDY";
   }
+
+  function bpsToPct(bps){
+    var n = Number(bps) || 0;
+    var pct = n / 100;
+    if (Math.abs(pct - Math.round(pct)) < 1e-9) return String(Math.round(pct));
+    return String(Math.round(pct * 100) / 100);
+  }
+  function pctToBps(pct){
+    var n = Number(String(pct).replace(/[^0-9.]/g, ""));
+    if (!isFinite(n) || n < 0) return 0;
+    return Math.round(n * 100);
+  }
   function basketAssetType(lab){
     lab = String(lab || "").toUpperCase();
     if (lab === "XAUM") return window.ARENA_XAUM_TYPE;
@@ -4293,7 +4305,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     }
     var sum = 0;
     legs.forEach(function(leg){ sum += Number(leg.bps) || 0; });
-    if (sum !== 10000) throw new Error("Basket weights must sum to 10000 bps (got "+sum+")");
+    if (sum !== 10000) throw new Error("Basket weights must sum to 100% (got "+(sum/100)+"%)");
     legs.forEach(function(leg){
       if (!(leg.bps > 0)) throw new Error("Each basket asset needs weight > 0");
     });
@@ -4316,9 +4328,9 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       bpsInputs = '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px">'+BASKET_RWA.map(function(lab){
         if (!(state.lBasketOn && state.lBasketOn[lab])) return "";
         var v = (state.lBasketBps && state.lBasketBps[lab] != null) ? state.lBasketBps[lab] : 0;
-        return '<label style="font-size:11px;color:var(--muted)">'+lab+' bps<input id="l-basket-bps-'+lab+'" data-basket-bps="'+lab+'" inputmode="numeric" value="'+escAttr(String(v))+'" style="display:block;margin-top:4px;width:88px"></label>';
+        return '<label style="font-size:11px;color:var(--muted)">'+lab+' %<input id="l-basket-bps-'+lab+'" data-basket-bps="'+lab+'" inputmode="decimal" value="'+escAttr(bpsToPct(v))+'" style="display:block;margin-top:4px;width:88px"></label>';
       }).join("")+'</div>'+
-        '<div style="font-size:11px;color:var(--muted);margin-top:4px">Custom weights must sum to 10000 bps.</div>';
+        '<div style="font-size:11px;color:var(--muted);margin-top:4px">Custom weights must sum to 100%.</div>';
     }
     return '<div style="margin-top:10px">'+
       '<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between">'+
@@ -8084,8 +8096,7 @@ async function doBridgeDeposit(){
     var bpsEl = e.target && e.target.getAttribute && e.target.getAttribute("data-basket-bps");
     if (bpsEl){
       if (!state.lBasketBps) state.lBasketBps = {XAUM:3334,XAGM:3333,USDY:3333};
-      var n = parseInt(e.target.value.replace(/[^0-9]/g, ""), 10);
-      state.lBasketBps[bpsEl] = isNaN(n) ? 0 : n;
+      state.lBasketBps[bpsEl] = pctToBps(e.target.value);
     }
     if (e.target && e.target.id === "l-desc") state.lDesc = e.target.value;
     if (e.target && e.target.id === "l-x") state.lX = e.target.value.trim();
