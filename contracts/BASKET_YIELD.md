@@ -28,9 +28,11 @@ Compatible: no layout edit on `BluefinPositionLock`. Mode is a dynamic field:
 - Key: `lock::BasketYieldKey`
 - Value: `ID` of shared `basket_yield::BasketYieldVault<T, Q>`
 
-Set only inside `lock::seed_and_lock_instant_basket_yield` /
-`launch::launch_instant_basket_yield`. Never both `HolderYieldKey` and
-`BasketYieldKey` (`errors::yield_mode_conflict` = 44).
+Set inside `lock::seed_and_lock_instant_basket_yield` /
+`launch::launch_instant_basket_yield`, or via
+`launch::migrate_instant_to_basket_yield` on an existing plain Instant lock.
+Never both `HolderYieldKey` and `BasketYieldKey`
+(`errors::yield_mode_conflict` = 44).
 
 ## Funding from fee routes
 
@@ -66,6 +68,30 @@ Wrong collect aborts: basket lock on pit collect → `use_basket_yield_collect`
 | All-at-once | `PAYOUT_ALL_AT_ONCE = 0` | `claim_all<A>` / `claim_asset<A>` per leg (pad PTB) |
 | Rotating | `PAYOUT_ROTATING = 1` | `claim_rotating<A>` pays cursor asset then `advance_rotation` |
 
+
+## Migrating existing Instant
+
+Forward-only path for a **plain** Instant `BluefinPositionLock` (no yield DF),
+typically quoted in **SUI** (or another non-basket `Q`):
+
+1. Auth: only `lock.beneficiary`.
+2. Create `BasketYieldVault` bound to existing `lock_id` + `bluefin_pool_id`
+   (no Bluefin reseed / no new lock).
+3. `lock::attach_basket_yield`.
+4. Emits `BasketYieldLaunchEvent` (reuse so pad Rewards picks up).
+5. Pit balances untouched; afterwards use
+   `collect_instadex_fees_basket_yield`.
+
+Caller supplies `BasketConfig` (1–3 assets, bps sum 10000 unless equal-weight,
+payout mode) — same rules as launch.
+
+| Entrypoint | Role |
+| --- | --- |
+| `migrate_instant_to_basket_yield` | Non-entry; takes `BasketConfig` |
+| `migrate_instant_to_basket_yield_entry<T,Q,A0>` | 1-asset |
+| `migrate_instant_to_basket_yield_2_entry<T,Q,A0,A1>` | 2-asset |
+| `migrate_instant_to_basket_yield_3_entry<T,Q,A0,A1,A2>` | 3-asset |
+
 ## Compatible upgrade constraints
 
 - New module + new public functions + new events/DFs only.
@@ -96,6 +122,7 @@ USDY), equal or custom bps, payout mode. Pair quote stays **SUI**.
 | `launch_instant_basket_yield_entry<T,Q,A0>` | 1-asset |
 | `launch_instant_basket_yield_2_entry<T,Q,A0,A1>` | 2-asset |
 | `launch_instant_basket_yield_3_entry<T,Q,A0,A1,A2>` | 3-asset |
+| `migrate_instant_to_basket_yield` / `_entry` / `_2_entry` / `_3_entry` | Migrate plain Instant → basket |
 | `collect_instadex_fees_basket_yield` | Collect → staging (no Pit) |
 | `basket_yield::sync_registration` | Registry weight |
 | `basket_yield::take_quote_for_convert` | Staging Q → keeper |

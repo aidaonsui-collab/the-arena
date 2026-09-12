@@ -22,9 +22,10 @@ dynamic field:
 - Key: `lock::HolderYieldKey`
 - Value: `ID` of the shared `holder_yield::HolderYieldVault<T, Q>`
 
-Set only inside `lock::seed_and_lock_instant_holder_yield` /
-`launch::launch_instant_holder_yield`. Existing Instant locks have no DF →
-pit path forever.
+Set inside `lock::seed_and_lock_instant_holder_yield` /
+`launch::launch_instant_holder_yield`, or via
+`launch::migrate_instant_to_holder_yield` on an existing plain Instant lock.
+Locks without a yield DF stay on the pit path until migrated.
 
 ## Fee path
 
@@ -58,6 +59,26 @@ HolderYieldClaimEvent  { lock_id, yield_id, who, amount, quote }
 `quote` is `TypeName` — categorize XAUM / XAGM / USDY on the dashboard.
 `CollectLpFeesEvent.pit_amount` still reports the slice size for both paths.
 
+
+## Migrating existing Instant
+
+Forward-only path for a **plain** Instant `BluefinPositionLock` (no
+`HolderYieldKey` / `BasketYieldKey`) already quoted in RWA:
+
+1. Auth: only `lock.beneficiary` (`errors::not_beneficiary` = 22).
+2. Create `HolderYieldVault` bound to the existing `lock_id` +
+   `bluefin_pool_id` — **no** Bluefin reseed, **no** new lock.
+3. `lock::attach_holder_yield` (aborts if already yield:
+   `already_locked` = 21 or `yield_mode_conflict` = 44).
+4. Emits `HolderYieldLaunchEvent` (same as launch so pad Rewards indexes it).
+5. Does **not** touch Pit balances. After migrate, use
+   `collect_instadex_fees_holder_yield` (not the pit collect).
+
+| Entrypoint | Role |
+| --- | --- |
+| `launch::migrate_instant_to_holder_yield<T, Q>` | Non-entry; returns vault id |
+| `launch::migrate_instant_to_holder_yield_entry<T, Q>` | Entry wrapper |
+
 ## Compatible caveats
 
 - New module + new public functions + new events only; no public visibility
@@ -70,6 +91,8 @@ HolderYieldClaimEvent  { lock_id, yield_id, who, amount, quote }
 ## PTB sketch
 
 **Launch:** `launch_instant_holder_yield_entry<T, Q>` — same objects as Instant.
+
+**Migrate (existing Instant):** `migrate_instant_to_holder_yield_entry<T, Q>` — mut lock only (beneficiary).
 
 **Sync:** `holder_yield::sync_registration` with vault + owned `Coin<T>`.
 
