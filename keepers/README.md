@@ -2,7 +2,7 @@
 
 Cron jobs for The Arena launchpad.
 
-**CALL package (mainnet v13):** `0x4b698b39b8ecaf7f43dfb4126980baff1475da7af3e54f598d0d690f72ecc772` — includes `holder_yield` / `basket_yield` / migrate Instant pot→holder/basket (`migrate_instant_to_*`) / `collect_instadex_fees_holder_yield` / `collect_instadex_fees_basket_yield`. Default Instant collect still uses `collect_instadex_fees` + pit. See `contracts/HOLDER_YIELD.md`. Reflection payouts **accrue on every fill** in Move (`pool::buy` / `pool::sell`). Keepers do not push SUI/XAUM to wallets (the holder table is not iterable). They index, and they ring/settle the pit.
+**CALL package (mainnet v14):** `0xde8bab588b6deb2fa51357159264fdb70d873925c98998748fa9db0b0f331769` — Instant LP `set_instant_lp_split` 60/5/25/10 creator/platform/rewards/VICE buyback; plus v13 migrate / v12 basket / v11 holder-yield. Default Instant collect still uses `collect_instadex_fees` + pit (rewards slice now 25%). See `contracts/HOLDER_YIELD.md`. Reflection payouts **accrue on every fill** in Move (`pool::buy` / `pool::sell`). Keepers do not push SUI/XAUM to wallets (the holder table is not iterable). They index, and they ring/settle the pit.
 
 ## Jobs
 

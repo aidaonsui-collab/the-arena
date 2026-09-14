@@ -98,7 +98,7 @@ payout mode) — same rules as launch.
 - Do not change `launch_instant` / `collect_instadex_fees` /
   `launch_instant_holder_yield` / `collect_instadex_fees_holder_yield`.
 - Do not invent published-at; upgrade when ready (Compatible). Type origin
-  `0x5cfd…`. Latest published-at is **v13** `0x4b698b39b8ecaf7f43dfb4126980baff1475da7af3e54f598d0d690f72ecc772` (Compatible upgrade `4RnTz1QgCAwjG8iqmvTXRcad78KxewM5h5Wb15pi6w4X`; basket-yield APIs originated in v12).
+  `0x5cfd…`. Latest published-at is **v14** `0xde8bab588b6deb2fa51357159264fdb70d873925c98998748fa9db0b0f331769` (Compatible upgrade `3A7bD6mDWoz5MTwNBgcTrqR3BBqyr9RaAuFNs5xSmYNW`; basket-yield APIs originated in v12).
 - No stocks / `contracts-stocks` / `rh-vault` changes.
 
 ## Events (Rewards dashboard)
