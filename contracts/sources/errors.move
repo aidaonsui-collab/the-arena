@@ -65,6 +65,8 @@ const E_BASKET_MODE: u64 = 42;
 const E_USE_BASKET_YIELD_COLLECT: u64 = 43;
 /// Lock already has the other yield mode DF (holder vs basket mutual exclusion).
 const E_YIELD_MODE_CONFLICT: u64 = 44;
+/// admin_detach_yield called on a lock with no HolderYieldKey / BasketYieldKey DF.
+const E_NO_YIELD_TO_DETACH: u64 = 45;
 
 public fun paused(): u64 { E_PAUSED }
 public fun invalid_fee(): u64 { E_INVALID_FEE }
@@ -110,4 +112,5 @@ public fun unknown_rwa(): u64 { E_UNKNOWN_RWA }
 public fun basket_mode(): u64 { E_BASKET_MODE }
 public fun use_basket_yield_collect(): u64 { E_USE_BASKET_YIELD_COLLECT }
 public fun yield_mode_conflict(): u64 { E_YIELD_MODE_CONFLICT }
+public fun no_yield_to_detach(): u64 { E_NO_YIELD_TO_DETACH }
 

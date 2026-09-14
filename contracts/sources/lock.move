@@ -721,6 +721,27 @@ public(package) fun attach_basket_yield(lock: &mut BluefinPositionLock, basket_i
     df::add(&mut lock.id, BasketYieldKey {}, basket_id);
 }
 
+/// AdminCap escape hatch: detach whatever yield DF is attached (holder or
+/// basket), reverting the lock to plain-collect eligible. Recovery-only —
+/// intended for a lock that ended up bound to a `HolderYieldVault<T, Q>` /
+/// `BasketYieldVault<T, Q>` whose `<T, Q>` do not actually match the lock's
+/// real coin types (the class of mistake `launch::migrate_instant_to_*`'s
+/// live-pool check now prevents going forward, but cannot undo retroactively).
+/// Does not touch or drain the orphaned vault — it is simply abandoned in
+/// place; nothing points at it after this call, and its funds (if any) are
+/// stranded there permanently, same as any other shared object nothing
+/// references. The beneficiary can then re-migrate with correct types via
+/// the normal permissionless path, or the lock reverts to plain collect.
+public fun admin_detach_yield(lock: &mut BluefinPositionLock, _: &AdminCap) {
+    if (is_holder_yield(lock)) {
+        let _: ID = df::remove(&mut lock.id, HolderYieldKey {});
+    } else if (is_basket_yield(lock)) {
+        let _: ID = df::remove(&mut lock.id, BasketYieldKey {});
+    } else {
+        abort errors::no_yield_to_detach()
+    }
+}
+
 /// Instant + basket-yield: same Bluefin seed as `seed_and_lock_instant`, then
 /// create `BasketYieldVault` and attach its id as a launch-locked DF on the lock.
 public(package) fun seed_and_lock_instant_basket_yield<T, Q>(

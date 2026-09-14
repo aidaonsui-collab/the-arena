@@ -451,12 +451,10 @@ public entry fun launch_instant_basket_yield_3_entry<T, Q, A0, A1, A2>(
 }
 
 
-/// Forward-only migrate: plain Instant `BluefinPositionLock` (no yield DF) →
-/// holder-yield. Auth: `lock.beneficiary` only. Creates a vault bound to the
-/// existing `lock_id` + `bluefin_pool_id` (no Bluefin reseed / no new lock),
-/// attaches `HolderYieldKey`, emits `HolderYieldLaunchEvent`. Does not touch Pit.
-/// Intended when Instant is already quoted in RWA (XAUM / XAGM / USDY).
-public fun migrate_instant_to_holder_yield<T, Q>(
+/// Shared body for `migrate_instant_to_holder_yield` and its test-only twin.
+/// Everything the live-pool check does NOT cover: auth, mode-conflict guards
+/// (fail before creating an orphan vault), vault creation, DF attach, event.
+fun migrate_instant_to_holder_yield_inner<T, Q>(
     lock: &mut BluefinPositionLock,
     ctx: &mut TxContext,
 ): ID {
@@ -464,7 +462,6 @@ public fun migrate_instant_to_holder_yield<T, Q>(
         ctx.sender() == lock::bluefin_lock_beneficiary(lock),
         errors::not_beneficiary(),
     );
-    // Fail before creating an orphan vault if already yield-mode.
     assert!(!lock::is_holder_yield(lock), errors::already_locked());
     assert!(!lock::is_basket_yield(lock), errors::yield_mode_conflict());
     let lock_id = object::id(lock);
@@ -481,18 +478,59 @@ public fun migrate_instant_to_holder_yield<T, Q>(
     yield_id
 }
 
-public entry fun migrate_instant_to_holder_yield_entry<T, Q>(
+/// Forward-only migrate: plain Instant `BluefinPositionLock` (no yield DF) →
+/// holder-yield. Auth: `lock.beneficiary` only. Creates a vault bound to the
+/// existing `lock_id` + `bluefin_pool_id` (no Bluefin reseed / no new lock),
+/// attaches `HolderYieldKey`, emits `HolderYieldLaunchEvent`. Does not touch Pit.
+/// Intended when Instant is already quoted in RWA (XAUM / XAGM / USDY).
+///
+/// `bf_pool` must be the lock's real, live Bluefin pool. `BluefinPositionLock`
+/// stores no coin-type information at all, so nothing else here can prove
+/// `<T, Q>` actually match the position's real coin types — not a bare ID,
+/// not a caller-supplied guess. The VM's own generic-instantiation check on a
+/// live `&Pool<T, Q>` reference is what actually proves it: you cannot obtain
+/// a reference to a real shared object typed with the wrong generics. Without
+/// this, a wrong `<T, Q>` call attaches a `HolderYieldVault<WrongT, WrongQ>`
+/// that neither the plain-collect path (now blocked, `is_holder_yield` is
+/// true) nor the holder-yield collect path (vault/lock type mismatch is
+/// unsatisfiable) can ever reach again — permanently, since Instant locks are
+/// `unlock_ms = 0` (claim never unlocks) and there is no detach without
+/// `lock::admin_detach_yield`.
+public fun migrate_instant_to_holder_yield<T, Q>(
     lock: &mut BluefinPositionLock,
+    bf_pool: &bluefin_spot::pool::Pool<T, Q>,
     ctx: &mut TxContext,
-) {
-    migrate_instant_to_holder_yield<T, Q>(lock, ctx);
+): ID {
+    assert!(object::id(bf_pool) == lock::bluefin_lock_spot_id(lock), errors::wrong_pool());
+    migrate_instant_to_holder_yield_inner<T, Q>(lock, ctx)
 }
 
-/// Forward-only migrate: plain Instant → basket-yield. Auth: beneficiary.
-/// Caller supplies `BasketConfig` (1–3 assets, bps sum 10000, payout mode).
-/// No Bluefin reseed; Pit untouched. Prefer when Instant is quoted in SUI
-/// (or non-basket Q).
-public fun migrate_instant_to_basket_yield<T, Q>(
+public entry fun migrate_instant_to_holder_yield_entry<T, Q>(
+    lock: &mut BluefinPositionLock,
+    bf_pool: &bluefin_spot::pool::Pool<T, Q>,
+    ctx: &mut TxContext,
+) {
+    migrate_instant_to_holder_yield<T, Q>(lock, bf_pool, ctx);
+}
+
+#[test_only]
+/// Test-only twin of `migrate_instant_to_holder_yield` that skips the
+/// live-pool check. bluefin-spot's vendored interface package is stub-only —
+/// every function, including `create_pool`, is `abort 0` — so a real
+/// `Pool<T, Q>` cannot be constructed inside `sui move test` at all; this is
+/// the same limitation the existing Bluefin collect path already has (no
+/// test in this repo calls it with a live pool either). Exercises everything
+/// the pool check does not cover; the pool-id-matches guarantee itself is
+/// integration-only, same as it already is for collect.
+public fun migrate_instant_to_holder_yield_for_testing<T, Q>(
+    lock: &mut BluefinPositionLock,
+    ctx: &mut TxContext,
+): ID {
+    migrate_instant_to_holder_yield_inner<T, Q>(lock, ctx)
+}
+
+/// Shared body for `migrate_instant_to_basket_yield` and its test-only twin.
+fun migrate_instant_to_basket_yield_inner<T, Q>(
     lock: &mut BluefinPositionLock,
     basket: BasketConfig,
     ctx: &mut TxContext,
@@ -526,9 +564,36 @@ public fun migrate_instant_to_basket_yield<T, Q>(
     basket_id
 }
 
+/// Forward-only migrate: plain Instant → basket-yield. Auth: beneficiary.
+/// Caller supplies `BasketConfig` (1–3 assets, bps sum 10000, payout mode).
+/// No Bluefin reseed; Pit untouched. Prefer when Instant is quoted in SUI
+/// (or non-basket Q). See `migrate_instant_to_holder_yield` for why `bf_pool`
+/// must be the lock's real, live Bluefin pool.
+public fun migrate_instant_to_basket_yield<T, Q>(
+    lock: &mut BluefinPositionLock,
+    bf_pool: &bluefin_spot::pool::Pool<T, Q>,
+    basket: BasketConfig,
+    ctx: &mut TxContext,
+): ID {
+    assert!(object::id(bf_pool) == lock::bluefin_lock_spot_id(lock), errors::wrong_pool());
+    migrate_instant_to_basket_yield_inner<T, Q>(lock, basket, ctx)
+}
+
+#[test_only]
+/// Test-only twin of `migrate_instant_to_basket_yield` — see
+/// `migrate_instant_to_holder_yield_for_testing` for why this exists.
+public fun migrate_instant_to_basket_yield_for_testing<T, Q>(
+    lock: &mut BluefinPositionLock,
+    basket: BasketConfig,
+    ctx: &mut TxContext,
+): ID {
+    migrate_instant_to_basket_yield_inner<T, Q>(lock, basket, ctx)
+}
+
 /// Entry: 1-asset basket migrate (mirrors `launch_instant_basket_yield_entry`).
 public entry fun migrate_instant_to_basket_yield_entry<T, Q, A0>(
     lock: &mut BluefinPositionLock,
+    bf_pool: &bluefin_spot::pool::Pool<T, Q>,
     weight0: u64,
     equal_weight: bool,
     payout_mode: u8,
@@ -537,12 +602,13 @@ public entry fun migrate_instant_to_basket_yield_entry<T, Q, A0>(
     let mut assets = vector[];
     assets.push_back(basket_yield::new_asset(type_name::with_defining_ids<A0>(), weight0));
     let basket = basket_yield::new_config(assets, equal_weight, payout_mode);
-    migrate_instant_to_basket_yield<T, Q>(lock, basket, ctx);
+    migrate_instant_to_basket_yield<T, Q>(lock, bf_pool, basket, ctx);
 }
 
 /// Entry: 2-asset basket migrate.
 public entry fun migrate_instant_to_basket_yield_2_entry<T, Q, A0, A1>(
     lock: &mut BluefinPositionLock,
+    bf_pool: &bluefin_spot::pool::Pool<T, Q>,
     weight0: u64,
     weight1: u64,
     equal_weight: bool,
@@ -553,12 +619,13 @@ public entry fun migrate_instant_to_basket_yield_2_entry<T, Q, A0, A1>(
     assets.push_back(basket_yield::new_asset(type_name::with_defining_ids<A0>(), weight0));
     assets.push_back(basket_yield::new_asset(type_name::with_defining_ids<A1>(), weight1));
     let basket = basket_yield::new_config(assets, equal_weight, payout_mode);
-    migrate_instant_to_basket_yield<T, Q>(lock, basket, ctx);
+    migrate_instant_to_basket_yield<T, Q>(lock, bf_pool, basket, ctx);
 }
 
 /// Entry: 3-asset basket migrate (XAUM / XAGM / USDY).
 public entry fun migrate_instant_to_basket_yield_3_entry<T, Q, A0, A1, A2>(
     lock: &mut BluefinPositionLock,
+    bf_pool: &bluefin_spot::pool::Pool<T, Q>,
     weight0: u64,
     weight1: u64,
     weight2: u64,
@@ -571,7 +638,7 @@ public entry fun migrate_instant_to_basket_yield_3_entry<T, Q, A0, A1, A2>(
     assets.push_back(basket_yield::new_asset(type_name::with_defining_ids<A1>(), weight1));
     assets.push_back(basket_yield::new_asset(type_name::with_defining_ids<A2>(), weight2));
     let basket = basket_yield::new_config(assets, equal_weight, payout_mode);
-    migrate_instant_to_basket_yield<T, Q>(lock, basket, ctx);
+    migrate_instant_to_basket_yield<T, Q>(lock, bf_pool, basket, ctx);
 }
 
 public entry fun launch_instant_entry<T, Q>(
