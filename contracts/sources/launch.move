@@ -630,8 +630,8 @@ public entry fun launch_instadex_entry<T, Q>(
 }
 
 /// Permissionless. Collect vaulted Instadex LP fees: burn token A via the
-/// locked TreasuryCap, split quote B 60/10/30 creator/platform/pit.
-/// NFT stays in the vault.
+/// locked TreasuryCap, split quote B by Instant LP split (default after
+/// AdminCap: 60/5/25/10 creator/platform/rewards/VICE buyback).
 public fun collect_instadex_fees<A, B>(
     lock: &mut BluefinPositionLock,
     mint: &mut InstadexMintLock<A>,

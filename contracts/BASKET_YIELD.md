@@ -36,8 +36,8 @@ Never both `HolderYieldKey` and `BasketYieldKey`
 
 ## Funding from fee routes
 
-Reuse Instant **pit slice** (`Config.std_pit_bps`, default 30% of collected LP
-quote B) — same diversion pattern as v1 holder-yield:
+Reuse Instant **rewards slice** (`instant_lp_split` pit-bps: 25% after AdminCap,
+30% until then) of collected LP quote B — same diversion as v1 holder-yield:
 
 1. `collect_instadex_fees_basket_yield` splits quote B → creator / platform /
    **basket vault quote staging** (`Balance<Q>`), not `Pit<Q>`.

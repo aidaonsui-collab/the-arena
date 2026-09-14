@@ -3,7 +3,9 @@
  * Routes: HolderYieldKey → collect_instadex_fees_holder_yield; BasketYieldKey →
  * collect_instadex_fees_basket_yield; else pit collect_instadex_fees.
  * Yield mode from *YieldLaunchEvent (launch + migrate) with lock DF fallback.
- * Burns coin A, splits quote 60/10/30. Signs with ARENA_KEEPER_PHRASE if set, else the local Sui keystore (gas only).
+ * Burns coin A, splits Instant quote 60/5/25/10 creator/platform/rewards/VICE
+ * (after AdminCap set_instant_lp_split; else 60/10/30). Signs with
+ * ARENA_KEEPER_PHRASE if set, else the local Sui keystore (gas only).
  */
 import { loadSigner } from "../loadSigner.ts";
 import { Transaction } from "@mysten/sui/transactions";

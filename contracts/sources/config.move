@@ -24,6 +24,10 @@ const DEFAULT_SWAP_FEE_BPS: u64 = 100;
 const DEFAULT_STD_CREATOR_BPS: u64 = 6_000;
 const DEFAULT_STD_PLATFORM_BPS: u64 = 1_000;
 const DEFAULT_STD_PIT_BPS: u64 = 3_000;
+const DEFAULT_INSTANT_CREATOR_BPS: u64 = 6_000;
+const DEFAULT_INSTANT_PLATFORM_BPS: u64 = 500;
+const DEFAULT_INSTANT_PIT_BPS: u64 = 2_500;
+const DEFAULT_INSTANT_BUYBACK_BPS: u64 = 1_000;
 const DEFAULT_REFL_REFLECTION_BPS: u64 = 5_000;
 const DEFAULT_REFL_CREATOR_BPS: u64 = 2_000;
 const DEFAULT_REFL_PIT_BPS: u64 = 2_000;
@@ -58,6 +62,20 @@ public struct StoredQuote<phantom Q> has store {
 /// Dynamic-field key on Config for the official `Pit<Q>` object id.
 /// Compatible upgrade: no new Config field; AdminCap registers after publish.
 public struct OfficialPitKey<phantom Q> has copy, drop, store {}
+
+/// Instant LP quote split (creator / platform / rewards / VICE buyback).
+/// Compatible: not a Config field. Missing DF → use std_* (60/10/30, no buyback).
+public struct InstantLpSplitKey has copy, drop, store {}
+
+public struct InstantLpSplit has copy, drop, store {
+    creator_bps: u64,
+    platform_bps: u64,
+    pit_bps: u64,
+    buyback_bps: u64,
+}
+
+/// Bag of `StoredQuote<Q>` accrued for VICE buyback (same shape as `platform`).
+public struct BuybackBagKey has copy, drop, store {}
 
 /// Dynamic-field key for Instant virtual quote (price only; 0 real quote is deposited).
 public struct InstantVirtualQuoteKey<phantom Q> has copy, drop, store {}
@@ -122,6 +140,17 @@ fun init(ctx: &mut TxContext) {
     // after the Compatible upgrade. Pit<XAUM> via `create_pit` (AdminCap).
     let pit_sui = pit::create_and_share<SUI>(ctx);
     set_official_pit<SUI>(&mut config, pit_sui);
+    df::add(
+        &mut config.id,
+        InstantLpSplitKey {},
+        InstantLpSplit {
+            creator_bps: DEFAULT_INSTANT_CREATOR_BPS,
+            platform_bps: DEFAULT_INSTANT_PLATFORM_BPS,
+            pit_bps: DEFAULT_INSTANT_PIT_BPS,
+            buyback_bps: DEFAULT_INSTANT_BUYBACK_BPS,
+        },
+    );
+    df::add(&mut config.id, BuybackBagKey {}, bag::new(ctx));
 
     transfer::share_object(config);
 }
@@ -133,7 +162,9 @@ public fun take_launch_fee(config: &mut Config, fee: Coin<SUI>) {
 }
 
 /// `(creator, platform, pit, refl)` split of `swap_fee_bps` on `quote_amount`.
-/// Standard: 60/10/30 creator/platform/pit. Reflection: 50/20/20/10 refl/creator/pit/platform.
+/// Curve standard: 60/10/30 creator/platform/pit. Instant LP uses
+/// `instant_lp_split` (60/5/25/10 creator/platform/rewards/VICE) when set.
+/// Reflection: 50/20/20/10 refl/creator/pit/platform.
 public fun fee_split(config: &Config, reflection: bool, quote_amount: u64): (u64, u64, u64, u64) {
     let fee = math::mul_div(quote_amount, config.swap_fee_bps, BPS);
     if (reflection) {
@@ -258,6 +289,55 @@ public fun platform_value<Q>(config: &Config): u64 {
     }
 }
 
+fun buyback_bag(config: &mut Config, ctx: &mut TxContext): &mut Bag {
+    if (!df::exists(&config.id, BuybackBagKey {})) {
+        df::add(&mut config.id, BuybackBagKey {}, bag::new(ctx));
+    };
+    df::borrow_mut(&mut config.id, BuybackBagKey {})
+}
+
+public(package) fun take_buyback<Q>(config: &mut Config, fee: Balance<Q>, ctx: &mut TxContext) {
+    if (fee.value() == 0) {
+        fee.destroy_zero();
+        return
+    };
+    let key = type_name::with_defining_ids<Q>();
+    let bag = buyback_bag(config, ctx);
+    if (bag.contains(key)) {
+        let stored: &mut StoredQuote<Q> = bag.borrow_mut(key);
+        stored.inner.join(fee);
+    } else {
+        bag.add(key, StoredQuote { inner: fee });
+    }
+}
+
+public fun withdraw_buyback<Q>(
+    config: &mut Config,
+    _: &AdminCap,
+    amount: u64,
+    ctx: &mut TxContext,
+): Coin<Q> {
+    assert!(df::exists(&config.id, BuybackBagKey {}), errors::invalid_fee());
+    let bag: &mut Bag = df::borrow_mut(&mut config.id, BuybackBagKey {});
+    let key = type_name::with_defining_ids<Q>();
+    let stored: &mut StoredQuote<Q> = bag.borrow_mut(key);
+    coin::from_balance(stored.inner.split(amount), ctx)
+}
+
+public fun buyback_value<Q>(config: &Config): u64 {
+    if (!df::exists(&config.id, BuybackBagKey {})) {
+        return 0
+    };
+    let bag: &Bag = df::borrow(&config.id, BuybackBagKey {});
+    let key = type_name::with_defining_ids<Q>();
+    if (!bag.contains(key)) {
+        0
+    } else {
+        let stored: &StoredQuote<Q> = bag.borrow(key);
+        stored.inner.value()
+    }
+}
+
 /// `(virtual_quote, graduation_threshold)` for quote type `Q`.
 /// SUI uses the SUI pair params; every other quote (XAUM on Bluefin, ticker XAUM not GOLD) uses the xaum params.
 public fun quote_params<Q>(config: &Config): (u64, u64) {
@@ -279,6 +359,16 @@ public fun swap_fee_bps(config: &Config): u64 { config.swap_fee_bps }
 public fun std_creator_bps(config: &Config): u64 { config.std_creator_bps }
 public fun std_platform_bps(config: &Config): u64 { config.std_platform_bps }
 public fun std_pit_bps(config: &Config): u64 { config.std_pit_bps }
+
+/// Instant LP split. Live Config without the DF keeps 60/10/30 and 0 buyback.
+public fun instant_lp_split(config: &Config): (u64, u64, u64, u64) {
+    if (df::exists(&config.id, InstantLpSplitKey {})) {
+        let s: &InstantLpSplit = df::borrow(&config.id, InstantLpSplitKey {});
+        (s.creator_bps, s.platform_bps, s.pit_bps, s.buyback_bps)
+    } else {
+        (config.std_creator_bps, config.std_platform_bps, config.std_pit_bps, 0)
+    }
+}
 public fun refl_reflection_bps(config: &Config): u64 { config.refl_reflection_bps }
 public fun refl_creator_bps(config: &Config): u64 { config.refl_creator_bps }
 public fun refl_pit_bps(config: &Config): u64 { config.refl_pit_bps }
@@ -319,6 +409,30 @@ public fun set_std_split(
     config.std_creator_bps = creator_bps;
     config.std_platform_bps = platform_bps;
     config.std_pit_bps = pit_bps;
+}
+
+/// Instant LP quote only (curve `std_*` unchanged): 60/5/25/10
+/// creator / platform / rewards / VICE buyback.
+public fun set_instant_lp_split(
+    config: &mut Config,
+    _: &AdminCap,
+    creator_bps: u64,
+    platform_bps: u64,
+    pit_bps: u64,
+    buyback_bps: u64,
+) {
+    assert!(creator_bps + platform_bps + pit_bps + buyback_bps == BPS, errors::invalid_fee());
+    let split = InstantLpSplit {
+        creator_bps,
+        platform_bps,
+        pit_bps,
+        buyback_bps,
+    };
+    if (df::exists(&config.id, InstantLpSplitKey {})) {
+        *df::borrow_mut(&mut config.id, InstantLpSplitKey {}) = split;
+    } else {
+        df::add(&mut config.id, InstantLpSplitKey {}, split);
+    };
 }
 
 public fun set_refl_split(

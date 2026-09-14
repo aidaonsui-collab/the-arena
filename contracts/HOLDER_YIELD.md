@@ -2,8 +2,9 @@
 
 Launch-locked mode for **Instadex Instant** launches quoted in wrapped RWA
 (XAUM gold, XAGM silver, USDY T-bills). The standard pit fee slice
-(`Config.std_pit_bps`, default **30%** of collected LP quote) becomes
-**claimable `Coin<Q>`** for registered holders instead of funding the pit pot.
+(`Config` Instant LP pit-bps, **25%** after `set_instant_lp_split` / **30%**
+until then) becomes **claimable `Coin<Q>`** for registered holders instead of
+funding the pit pot.
 
 Curve / Fight Night pit launches are unchanged. Default Instant
 (`launch_instant`) still routes that slice to `Pit<Q>`.
@@ -31,8 +32,8 @@ Locks without a yield DF stay on the pit path until migrated.
 
 | Path | Quote B split | Token A |
 | --- | --- | --- |
-| `collect_instadex_fees` (default Instant) | 60/10/30 creator / platform / **pit** | burn via mint lock |
-| `collect_instadex_fees_holder_yield` | 60/10/30 creator / platform / **vault** | burn via mint lock |
+| `collect_instadex_fees` (default Instant) | 60/5/25/10 creator / platform / **pit** / VICE | burn via mint lock |
+| `collect_instadex_fees_holder_yield` | 60/5/25/10 creator / platform / **vault** / VICE | burn via mint lock |
 
 If the vault has `total_registered == 0`, the pit-bps balance is returned to
 the creator residual (same rescue as undistributable reflection), not parked

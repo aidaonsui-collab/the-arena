@@ -466,25 +466,27 @@ public fun claim_bluefin_position(
     position
 }
 
-/// Split already-collected LP quote by Config.std_* bps.
+/// Split already-collected LP quote by Config.std_* bps plus buyback bps.
 /// Does **not** apply `swap_fee_bps` — the collected balances are already fees.
-/// Remainder dust from integer division goes to creator so the three amounts sum.
+/// Remainder dust from integer division goes to creator so the four amounts sum.
 public(package) fun split_std_lp_quote(
     amount: u64,
     creator_bps: u64,
     platform_bps: u64,
     pit_bps: u64,
-): (u64, u64, u64) {
+    buyback_bps: u64,
+): (u64, u64, u64, u64) {
     let mut creator = math::mul_div(amount, creator_bps, BPS);
     let platform = math::mul_div(amount, platform_bps, BPS);
     let pit = math::mul_div(amount, pit_bps, BPS);
-    creator = creator + (amount - creator - platform - pit);
-    (creator, platform, pit)
+    let buyback = math::mul_div(amount, buyback_bps, BPS);
+    creator = creator + (amount - creator - platform - pit - buyback);
+    (creator, platform, pit, buyback)
 }
 
-/// Collect Bluefin LP fees, split quote B 60/10/30 (creator/platform/pit),
-/// send quote remainder to the beneficiary, and return token A for the caller
-/// to burn (Instadex) instead of paying it to the creator. NFT stays vaulted.
+/// Collect Bluefin LP fees, split quote B 60/5/25/10
+/// (creator/platform/rewards/VICE buyback) once AdminCap sets buyback bps;
+/// until then buyback is 0 and std_* still 60/10/30. Token A returned to burn.
 public(package) fun collect_lp_fees_return_token<A, B>(
     lock: &mut BluefinPositionLock,
     clock: &Clock,
@@ -502,13 +504,16 @@ public(package) fun collect_lp_fees_return_token<A, B>(
     let beneficiary = lock.beneficiary;
     let position = option::borrow_mut(&mut lock.position);
     let (_amt_a, _amt_b, bal_a, mut bal_b) = bluefin::collect_fee(clock, bf_config, bf_pool, position);
-    let (creator_amt, platform_amt, pit_amt) = split_std_lp_quote(
+    let (cr_bps, plat_bps, pit_bps, bb_bps) = config::instant_lp_split(config);
+    let (creator_amt, platform_amt, pit_amt, buyback_amt) = split_std_lp_quote(
         bal_b.value(),
-        config.std_creator_bps(),
-        config.std_platform_bps(),
-        config.std_pit_bps(),
+        cr_bps,
+        plat_bps,
+        pit_bps,
+        bb_bps,
     );
     config::take_platform(config, bal_b.split(platform_amt));
+    config::take_buyback(config, bal_b.split(buyback_amt), ctx);
     pit::take_fee_internal(pit, bal_b.split(pit_amt));
     events::emit_collect_lp_fees(
         object::id(lock),
@@ -518,6 +523,7 @@ public(package) fun collect_lp_fees_return_token<A, B>(
         platform_amt,
         pit_amt,
     );
+    events::emit_vice_buyback_accrued(object::id(lock), buyback_amt);
     send_residual(bal_b, beneficiary, ctx);
     bal_a
 }
@@ -668,13 +674,16 @@ public(package) fun collect_lp_fees_return_token_to_holders<A, B>(
     let beneficiary = lock.beneficiary;
     let position = option::borrow_mut(&mut lock.position);
     let (_amt_a, _amt_b, bal_a, mut bal_b) = bluefin::collect_fee(clock, bf_config, bf_pool, position);
-    let (creator_amt, platform_amt, pit_amt) = split_std_lp_quote(
+    let (cr_bps, plat_bps, pit_bps, bb_bps) = config::instant_lp_split(config);
+    let (creator_amt, platform_amt, pit_amt, buyback_amt) = split_std_lp_quote(
         bal_b.value(),
-        config.std_creator_bps(),
-        config.std_platform_bps(),
-        config.std_pit_bps(),
+        cr_bps,
+        plat_bps,
+        pit_bps,
+        bb_bps,
     );
     config::take_platform(config, bal_b.split(platform_amt));
+    config::take_buyback(config, bal_b.split(buyback_amt), ctx);
     let pit_bal = bal_b.split(pit_amt);
     let leftover = holder_yield::try_fund(vault, pit_bal, clock);
     // No registered holders → creator residual (reachable), not an unclaimable pot.
@@ -691,6 +700,7 @@ public(package) fun collect_lp_fees_return_token_to_holders<A, B>(
         platform_amt,
         pit_amt,
     );
+    events::emit_vice_buyback_accrued(object::id(lock), buyback_amt);
     send_residual(bal_b, beneficiary, ctx);
     bal_a
 }
@@ -796,13 +806,16 @@ public(package) fun collect_lp_fees_return_token_to_basket<A, B>(
     let beneficiary = lock.beneficiary;
     let position = option::borrow_mut(&mut lock.position);
     let (_amt_a, _amt_b, bal_a, mut bal_b) = bluefin::collect_fee(clock, bf_config, bf_pool, position);
-    let (creator_amt, platform_amt, pit_amt) = split_std_lp_quote(
+    let (cr_bps, plat_bps, pit_bps, bb_bps) = config::instant_lp_split(config);
+    let (creator_amt, platform_amt, pit_amt, buyback_amt) = split_std_lp_quote(
         bal_b.value(),
-        config.std_creator_bps(),
-        config.std_platform_bps(),
-        config.std_pit_bps(),
+        cr_bps,
+        plat_bps,
+        pit_bps,
+        bb_bps,
     );
     config::take_platform(config, bal_b.split(platform_amt));
+    config::take_buyback(config, bal_b.split(buyback_amt), ctx);
     let pit_bal = bal_b.split(pit_amt);
     let leftover = basket_yield::try_fund_quote(vault, pit_bal, clock);
     if (leftover.value() > 0) {
@@ -818,6 +831,7 @@ public(package) fun collect_lp_fees_return_token_to_basket<A, B>(
         platform_amt,
         pit_amt,
     );
+    events::emit_vice_buyback_accrued(object::id(lock), buyback_amt);
     send_residual(bal_b, beneficiary, ctx);
     bal_a
 }

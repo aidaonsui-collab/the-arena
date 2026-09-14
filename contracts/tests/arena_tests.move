@@ -708,31 +708,49 @@ fun test_permanent_bluefin_lock_unclaimable() {
 
 #[test]
 fun test_split_std_lp_quote() {
-    let (c, p, pit) = lock::split_std_lp_quote(10_000, 6_000, 1_000, 3_000);
+    let (c, p, pit, bb) = lock::split_std_lp_quote(10_000, 6_000, 1_000, 3_000, 0);
     assert!(c == 6_000, 0);
     assert!(p == 1_000, 1);
     assert!(pit == 3_000, 2);
-    assert!(c + p + pit == 10_000, 3);
+    assert!(bb == 0, 3);
+    assert!(c + p + pit + bb == 10_000, 4);
 
-    let (c, p, pit) = lock::split_std_lp_quote(1, 6_000, 1_000, 3_000);
-    assert!(c == 1, 4);
-    assert!(p == 0, 5);
-    assert!(pit == 0, 6);
+    let (c, p, pit, bb) = lock::split_std_lp_quote(1, 6_000, 1_000, 3_000, 0);
+    assert!(c == 1, 5);
+    assert!(p == 0, 6);
+    assert!(pit == 0, 7);
+    assert!(bb == 0, 8);
 
-    let (c, p, pit) = lock::split_std_lp_quote(7, 6_000, 1_000, 3_000);
-    assert!(c + p + pit == 7, 7);
-    assert!(p == 0, 8);
-    assert!(pit == 2, 9);
-    assert!(c == 5, 10);
+    let (c, p, pit, bb) = lock::split_std_lp_quote(7, 6_000, 1_000, 3_000, 0);
+    assert!(c + p + pit + bb == 7, 9);
+    assert!(p == 0, 10);
+    assert!(pit == 2, 11);
+    assert!(c == 5, 12);
+    assert!(bb == 0, 13);
 
-    let (c, p, pit) = lock::split_std_lp_quote(0, 6_000, 1_000, 3_000);
-    assert!(c == 0 && p == 0 && pit == 0, 11);
+    let (c, p, pit, bb) = lock::split_std_lp_quote(0, 6_000, 1_000, 3_000, 0);
+    assert!(c == 0 && p == 0 && pit == 0 && bb == 0, 14);
 
     // 80 LP quote from a 0.01 SUI swap's 1% * 80% share
-    let (c, p, pit) = lock::split_std_lp_quote(80_000, 6_000, 1_000, 3_000);
-    assert!(c == 48_000, 12);
-    assert!(p == 8_000, 13);
-    assert!(pit == 24_000, 14);
+    let (c, p, pit, bb) = lock::split_std_lp_quote(80_000, 6_000, 1_000, 3_000, 0);
+    assert!(c == 48_000, 15);
+    assert!(p == 8_000, 16);
+    assert!(pit == 24_000, 17);
+    assert!(bb == 0, 18);
+
+    // 60/5/25/10 creator / platform / rewards / VICE buyback
+    let (c, p, pit, bb) = lock::split_std_lp_quote(10_000, 6_000, 500, 2_500, 1_000);
+    assert!(c == 6_000, 19);
+    assert!(p == 500, 20);
+    assert!(pit == 2_500, 21);
+    assert!(bb == 1_000, 22);
+    assert!(c + p + pit + bb == 10_000, 23);
+
+    let (c, p, pit, bb) = lock::split_std_lp_quote(80_000, 6_000, 500, 2_500, 1_000);
+    assert!(c == 48_000, 24);
+    assert!(p == 4_000, 25);
+    assert!(pit == 20_000, 26);
+    assert!(bb == 8_000, 27);
 }
 
 #[test]

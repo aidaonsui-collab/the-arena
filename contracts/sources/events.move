@@ -112,7 +112,8 @@ public struct LpClaimEvent has copy, drop {
 }
 
 /// Accrued Bluefin LP fees collected from a vaulted Position NFT.
-/// Quote (coin B) is already the LP share; split 60/10/30 creator/platform/pit.
+/// Quote (coin B) is already the LP share; std_* split (pit_amount is rewards
+/// or pot). VICE buyback is `ViceBuybackAccruedEvent` (Compatible: no new field).
 public struct CollectLpFeesEvent has copy, drop {
     lock_id: ID,
     beneficiary: address,
@@ -120,6 +121,12 @@ public struct CollectLpFeesEvent has copy, drop {
     creator_amount: u64,
     platform_amount: u64,
     pit_amount: u64,
+}
+
+/// Instant LP quote slice parked for $VICE buyback/burn (not in CollectLpFeesEvent).
+public struct ViceBuybackAccruedEvent has copy, drop {
+    lock_id: ID,
+    amount: u64,
 }
 
 /// Token-side (coin A) LP fees burned via InstadexMintLock TreasuryCap.
@@ -408,6 +415,11 @@ public fun emit_collect_lp_fees(
         platform_amount,
         pit_amount,
     })
+}
+
+public fun emit_vice_buyback_accrued(lock_id: ID, amount: u64) {
+    if (amount == 0) return;
+    sui::event::emit(ViceBuybackAccruedEvent { lock_id, amount })
 }
 
 public fun emit_instadex_burn(lock_id: ID, amount: u64) {
