@@ -3323,8 +3323,13 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   }
   function escUrl(u){
     u = String(u || "");
-    if (u.indexOf("https://") !== 0 && u.indexOf("blob:") !== 0) return "";
-    return u.replace(/"/g, "").replace(/</g, "");
+    if (u.indexOf("https://") === 0 || u.indexOf("blob:") === 0) {
+      return u.replace(/"/g, "").replace(/</g, "");
+    }
+    if (u.charAt(0) === "/" && u.indexOf("//") !== 0 && u.indexOf("\\") < 0 && u.indexOf(":") < 0) {
+      return u.replace(/"/g, "").replace(/</g, "");
+    }
+    return "";
   }
   function httpsUrl(s){
     try {
