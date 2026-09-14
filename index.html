@@ -160,6 +160,16 @@ main{padding:18px 0 72px}
 .quote-badge.gold{background:rgba(201,169,126,.94);color:#1A1218}
 .quote-badge.silver{background:rgba(192,199,209,.94);color:#1A1218}
 .quote-badge.tbill{background:rgba(62,207,142,.94);color:#102016}
+.rwa-stack{position:absolute;left:6px;bottom:6px;display:flex;align-items:center;z-index:1}
+.rwa-stack img{width:18px;height:18px;border-radius:50%;border:1.5px solid rgba(18,8,20,.9);object-fit:cover;background:#1c101c;display:block}
+.rwa-stack img + img{margin-left:-7px}
+.avatar-wrap .rwa-stack{left:50%;bottom:-7px;transform:translateX(-50%)}
+.about-yield{margin:0 0 18px;padding-top:4px;display:grid;gap:12px}
+.about-rwa{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:6px}
+.about-rwa img{width:20px;height:20px;border-radius:50%;object-fit:cover;border:1px solid rgba(244,238,242,.12)}
+.about-rwa span{font-size:14px;font-weight:600}
+.about-split{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.about-split i{font-style:normal;font-size:12px;font-weight:650;border-radius:999px;padding:4px 8px;background:rgba(244,238,242,.06)}
 .avatar-wrap{position:relative;display:inline-block;flex:none;line-height:0}
 .avatar-wrap .quote-badge{left:50%;bottom:-5px;transform:translateX(-50%);font-size:8px;padding:2px 5px}
 .lcard-body{padding:6px 2px 2px;border-top:0}
@@ -834,7 +844,8 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
         return {
           t: k.t, n: k.n, q: k.q, b: k.b || "", token: k.token, bluefinPool: k.bluefinPool, lockId: k.lockId,
           img: k.img || "", ts: k.ts || 0, born: k.born || 0, twitter: k.twitter || "", telegram: k.telegram || "", website: k.website || "",
-          creator: k.creator || "", burnFloor: Number(k.burnFloor) || (k.burnHydrated ? Number(k.instadexBurn) || 0 : 0)
+          creator: k.creator || "", burnFloor: Number(k.burnFloor) || (k.burnHydrated ? Number(k.instadexBurn) || 0 : 0),
+          yieldKind: k.yieldKind || "", yieldId: k.yieldId || "", rewardAssets: k.rewardAssets || [], lpSplit: k.lpSplit || null
         };
       });
       localStorage.setItem(LAUNCH_CACHE_KEY, JSON.stringify(rows));
@@ -868,6 +879,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
           lpLocked: true, bluefin: true, bluefinPool: l.bluefinPool || "", lockId: l.lockId || "", token: l.token,
           img: l.img || "", twitter: l.twitter || "", telegram: l.telegram || "", website: l.website || "",
           creator: l.creator || "", instadexBurn: 0, burnFloor: Number(l.burnFloor) || 0,
+          yieldKind: l.yieldKind || "", yieldId: l.yieldId || "", rewardAssets: Array.isArray(l.rewardAssets) ? l.rewardAssets : [], lpSplit: l.lpSplit || null,
           buckets: Array(12).fill(1), fbuckets: Array(12).fill(1)
         });
       });
@@ -3805,7 +3817,40 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     if (q === "USDY") return { label: "T-Bills", klass: "tbill" };
     return null;
   }
+  function rwaLabsOf(assets){
+    var labs = [];
+    (assets || []).forEach(function(a){
+      var lab = "";
+      var s = String(a || "");
+      if (s === "XAUM" || s === "XAGM" || s === "USDY") lab = s;
+      else lab = (Index && Index.quoteLabel) ? Index.quoteLabel(s) : s.split("::").pop();
+      if (lab === "XAUM" || lab === "XAGM" || lab === "USDY") labs.push(lab);
+    });
+    return ["XAUM","XAGM","USDY"].filter(function(x){ return labs.indexOf(x) >= 0; });
+  }
+  function rewardAssetsOf(tk){
+    if (!tk) return [];
+    if (tk.rewardAssets && tk.rewardAssets.length) return tk.rewardAssets;
+    var yv = rewardsVaultByLock(tk.lockId);
+    if (yv && yv.assets && yv.assets.length) return yv.assets;
+    if (yv && yv.kind === "holder" && (yv.quoteLabel || yv.quote)) return [yv.quoteLabel || yv.quote];
+    var kind = lockYieldKind(tk);
+    var q = poolQuote(tk);
+    if (kind === "holder" && isRwaQuote(q)) return [q];
+    return [];
+  }
+  function rwaStackHTML(assets){
+    var labs = rwaLabsOf(assets);
+    if (labs.length < 2) return "";
+    return '<span class="rwa-stack" title="'+escAttr(labs.map(function(l){ return quoteRec(l).name || l; }).join(" · "))+'">'+
+      labs.map(function(lab){
+        return '<img src="'+escUrl(quoteRec(lab).logo)+'" alt="'+escAttr(lab)+'">';
+      }).join("")+
+    '</span>';
+  }
   function quoteBadgeHTML(k){
+    var stack = rwaStackHTML(rewardAssetsOf(k));
+    if (stack) return stack;
     var b = quoteBadgeMeta(k);
     if (!b) return "";
     return '<span class="quote-badge '+b.klass+'">'+b.label+'</span>';
@@ -4483,6 +4528,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   }
   function launchCard(k, i){
     hydrateTokenOverlay(k);
+    if (k && k.lockId) hydrateLockYieldMode(k);
     const leader = pitWinnerTok() || sortedT()[0];
     const hot = !k.graduated && leader && leader.t === k.t;
     const go = "token:"+k.t;
@@ -5192,6 +5238,28 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       row("buyback","VICE buyback")+
     '</div>';
   }
+  function aboutYieldHTML(tk){
+    if (!tk || (!isInstadex(tk) && !tk.bluefinPool)) return "";
+    var labs = rwaLabsOf(rewardAssetsOf(tk));
+    var split = tk.lpSplit;
+    var splitFallback = !split;
+    if (!split) split = { creator: 6000, platform: 500, rewards: 2500, buyback: 1000 };
+    var rwa = labs.length
+      ? '<div><div class="about-k">Rewards</div><div class="about-rwa">'+
+          labs.map(function(lab){
+            var rec = quoteRec(lab);
+            var name = lab === "XAUM" ? "Gold" : (lab === "XAGM" ? "Silver" : "T-bills");
+            return '<img src="'+escUrl(rec.logo)+'" alt="'+escAttr(lab)+'"><span>'+escHtml(name)+'</span>';
+          }).join("")+
+        '</div></div>'
+      : "";
+    var fee = '<div><div class="about-k">Fee split'+(splitFallback ? " · Vice default" : "")+'</div><div class="about-split">'+
+      '<i>Creator '+Math.round(split.creator/100)+'%</i>'+
+      '<i>Platform '+Math.round(split.platform/100)+'%</i>'+
+      '<i>Rewards '+Math.round(split.rewards/100)+'%</i>'+
+      '<i>Buyback '+Math.round(split.buyback/100)+'%</i></div></div>';
+    return '<div class="about-yield">'+rwa+fee+'</div>';
+  }
   function rewardsVaultByLock(lockId){
     var want = padAddr(lockId);
     if (!want) return null;
@@ -5253,16 +5321,23 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       });
     }
   }
+  function parseLockLpSplitFields(val){
+    if (!val) return null;
+    var f = val.fields || val;
+    var c = Number(f.creator_bps), p = Number(f.platform_bps), pit = Number(f.pit_bps), bb = Number(f.buyback_bps);
+    if (!(c + p + pit + bb === 10000)) return null;
+    return { creator: c, platform: p, rewards: pit, buyback: bb };
+  }
   async function hydrateLockYieldMode(tk){
     if (!tk || !tk.lockId || tk.yieldBusy) return;
     var yv = rewardsVaultByLock(tk.lockId);
     if (yv && yv.kind){
       tk.yieldKind = yv.kind;
       tk.yieldId = yv.basket_id || yv.yield_id || "";
-      tk.yieldHydrated = true;
-      return;
+      if (yv.assets && yv.assets.length) tk.rewardAssets = yv.assets;
     }
-    if (tk.yieldHydrated) return;
+    var needDf = !tk.yieldHydrated || !tk.lpSplitHydrated || (tk.yieldKind === "basket" && !(tk.rewardAssets && tk.rewardAssets.length));
+    if (!needDf && tk.yieldHydrated) return;
     tk.yieldBusy = true;
     try {
       var page = await rpcJson("suix_getDynamicFields", [with0x(tk.lockId), null, 32]);
@@ -5270,10 +5345,19 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       for (var i = 0; i < data.length; i++){
         var df = data[i] || {};
         var nameType = String((df.name && df.name.type) || "");
+        if (/::lock::LockLpSplitKey$/.test(nameType)){
+          try {
+            var splitObj = await rpcJson("suix_getDynamicFieldObject", [with0x(tk.lockId), df.name]);
+            var splitFields = splitObj && splitObj.data && splitObj.data.content && splitObj.data.content.fields;
+            var parsed = parseLockLpSplitFields(splitFields && (splitFields.value || splitFields));
+            if (parsed){ tk.lpSplit = parsed; tk.lpSplitHydrated = true; }
+          } catch (e) {}
+          continue;
+        }
         var kind = "";
         if (/::lock::HolderYieldKey$/.test(nameType)) kind = "holder";
         else if (/::lock::BasketYieldKey$/.test(nameType)) kind = "basket";
-        if (!kind) continue;
+        if (!kind || tk.yieldKind) continue;
         var vaultId = "";
         try {
           var field = await rpcJson("suix_getDynamicFieldObject", [with0x(tk.lockId), df.name]);
@@ -5283,17 +5367,22 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
           if (val && typeof val === "object") val = val.id || val.bytes || val;
           vaultId = padAddr(val) || (typeof val === "string" ? val : "");
         } catch (e) { vaultId = ""; }
-        if (vaultId){
-          registerYieldFromLock(tk, kind, vaultId);
-          break;
-        }
+        if (vaultId) registerYieldFromLock(tk, kind, vaultId);
       }
       tk.yieldHydrated = true;
+      if (!tk.lpSplitHydrated) tk.lpSplitHydrated = true;
+      yv = rewardsVaultByLock(tk.lockId);
+      if (yv && yv.kind === "basket" && !(tk.rewardAssets && tk.rewardAssets.length)){
+        var assets = await resolveBasketAssets(yv);
+        if (assets && assets.length) tk.rewardAssets = assets;
+      }
+      persistLaunches();
     } catch (e) {
       // leave unhydrated so a later paint can retry
     } finally {
       tk.yieldBusy = false;
       if (state.route === "token" && String(state.sym).toUpperCase() === tk.t) scheduleScreen();
+      else if (state.route === "explore") scheduleExploreList();
     }
   }
   function migratePanelHTML(tk){
@@ -5526,6 +5615,20 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       rotate_index: (rewardsVaults[ev.basket_id] && rewardsVaults[ev.basket_id].rotate_index) || 0,
       cat: ev.cat || ""
     };
+    var tk = T.find(function(x){
+      return padAddr(x.lockId) === padAddr(ev.lock_id) || padAddr(x.bluefinPool) === padAddr(ev.bluefin_pool_id);
+    });
+    if (tk){
+      tk.yieldKind = "basket";
+      tk.yieldId = ev.basket_id;
+      tk.yieldHydrated = true;
+      resolveBasketAssets(rewardsVaults[ev.basket_id]).then(function(assets){
+        if (assets && assets.length) tk.rewardAssets = assets;
+        persistLaunches();
+        if (state.route === "explore") scheduleExploreList();
+        if (viewingToken(tk)) scheduleScreen();
+      });
+    }
   }
   function applyBasketYieldFunded(ev){
     if (!ev || !ev.basket_id) return;
@@ -6258,6 +6361,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
             (canEditTokenMeta(tk) ? '<button type="button" class="about-link" id="meta-edit">Edit</button>' : '')+
           '</div>'+
           '<div class="about-desc">'+(tk.b ? escHtml(tk.b) : "No description yet.")+'</div>'+
+          aboutYieldHTML(tk)+
           '<div class="about-metrics">'+
             '<div><div class="about-k">Market cap</div>'+
               '<div class="about-v"><span data-usd-cap="'+escAttr(tk.t)+'">'+usdCapText(tk)+'</span><span class="tick">mc</span></div>'+
