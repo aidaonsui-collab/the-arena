@@ -398,6 +398,7 @@ a.btn-trade{display:block;text-align:center;text-decoration:none;box-sizing:bord
 .rewards-card .rw-lab{font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
 .rewards-card .rw-name{font-weight:700;font-size:16px;letter-spacing:-.02em}
 .rewards-card .rw-amt{font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:clamp(22px,3vw,30px);font-weight:500;letter-spacing:-.04em;margin-top:14px}
+.rewards-card .rw-usd{font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:14px;font-weight:650;color:var(--pink);margin-top:4px;font-variant-numeric:tabular-nums}
 .rewards-card .rw-sub{color:var(--muted);font-size:12px;margin-top:6px}
 .rewards-claim{margin-top:18px;display:flex;flex-wrap:wrap;gap:12px;align-items:center}
 .rewards-claim .btn{border:0;background:var(--sui);color:#0b0a0c;border-radius:12px;padding:12px 18px;font-weight:750;font-size:13px;cursor:pointer}
@@ -4272,6 +4273,25 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     // Always 4 fraction digits on Rewards cards (0.0000 XAUM).
     return n.toLocaleString(undefined, { minimumFractionDigits: 4, maximumFractionDigits: 4 }) + " " + unit;
   }
+  function rewardAmtHuman(raw, unit){
+    var mist = Number(raw);
+    var n = (mist > 0) ? mist / Math.pow(10, rewardsDec(unit)) : 0;
+    return (n > 0 && isFinite(n)) ? n : 0;
+  }
+  function rewardUsd(raw, cat){
+    if (!cat) return 0;
+    var n = rewardAmtHuman(raw, cat.unit);
+    var px = quoteUsd(cat.quote);
+    if (!(n > 0) || !(px > 0)) return 0;
+    return n * px;
+  }
+  function fmtRewardUsd(raw, cat){
+    var u = rewardUsd(raw, cat);
+    if (!(u > 0)) return "$0.00";
+    if (u < 0.01) return "<$0.01";
+    if (u < 10) return "$" + u.toFixed(2);
+    return fmtUsd(u);
+  }
   function rebuildRewardsLedger(){
     var by = {
       gold:{ total:"0", claimable:"0", distributed:"0" },
@@ -4898,7 +4918,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       var unit = cat ? cat.unit : "SUI";
       return '<tr>'+
         '<td>'+pill+'</td>'+
-        '<td class="mono">'+escHtml(fmtRewardAmt(d.amount, unit))+'</td>'+
+        '<td class="mono">'+escHtml(fmtRewardAmt(d.amount, unit))+(cat ? '<div style="color:var(--muted);font-size:11px;margin-top:2px">'+escHtml(fmtRewardUsd(d.amount, cat))+'</div>' : '')+'</td>'+
         '<td>'+escHtml(d.token || "—")+'</td>'+
         '<td class="mono" style="color:var(--muted)">'+escHtml(when)+'</td>'+
         '<td>'+(d.digest
@@ -4915,7 +4935,8 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
           '<div><div class="rw-lab">'+escHtml(cat.label)+'</div><div class="rw-name">'+escHtml(cat.quote)+'</div></div>'+
         '</div>'+
         '<div class="rw-amt">'+escHtml(fmtRewardAmt(tot.total, cat.unit))+'</div>'+
-        '<div class="rw-sub">Distributed '+escHtml(fmtRewardAmt(tot.distributed, cat.unit))+' · Claimable '+escHtml(fmtRewardAmt(tot.claimable, cat.unit))+'</div>'+
+        '<div class="rw-usd">'+escHtml(fmtRewardUsd(tot.total, cat))+'</div>'+
+        '<div class="rw-sub">Distributed '+escHtml(fmtRewardAmt(tot.distributed, cat.unit))+' ('+escHtml(fmtRewardUsd(tot.distributed, cat))+') · Claimable '+escHtml(fmtRewardAmt(tot.claimable, cat.unit))+'</div>'+
         '<div class="rw-sub">'+escHtml(cat.blurb)+'</div>'+
       '</div>';
     }).join("");
