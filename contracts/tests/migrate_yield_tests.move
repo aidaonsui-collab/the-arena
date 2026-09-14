@@ -22,7 +22,7 @@ const STRANGER: address = @0xBAD;
 /// `test_admin_detach_*` below recovers from), and bluefin-spot's vendored
 /// interface package is stub-only (`abort 0` on every function, including
 /// `create_pool`), so no `Pool<T, Q>` can be constructed inside `sui move
-/// test` at all. See `migrate_instant_to_holder_yield_for_testing`'s doc
+/// test` at all. See `migrate_instant_to_holder_yield_v2_for_testing`'s doc
 /// comment in launch.move.
 
 fun share_plain_lock(beneficiary: address, ctx: &mut TxContext) {
@@ -51,7 +51,7 @@ fun test_migrate_instant_to_holder_yield_success() {
         let mut lock = scenario.take_shared<BluefinPositionLock>();
         assert!(!lock::is_holder_yield(&lock), 0);
         assert!(!lock::is_basket_yield(&lock), 1);
-        let yield_id = launch::migrate_instant_to_holder_yield_for_testing<TCOIN, SUI>(&mut lock, scenario.ctx());
+        let yield_id = launch::migrate_instant_to_holder_yield_v2_for_testing<TCOIN, SUI>(&mut lock, scenario.ctx());
         assert!(lock::is_holder_yield(&lock), 2);
         assert!(lock::holder_yield_id(&lock) == yield_id, 3);
         assert!(!lock::is_basket_yield(&lock), 4);
@@ -83,7 +83,7 @@ fun test_migrate_instant_to_basket_yield_success() {
     scenario.next_tx(ADMIN);
     {
         let mut lock = scenario.take_shared<BluefinPositionLock>();
-        let basket_id = launch::migrate_instant_to_basket_yield_for_testing<TCOIN, SUI>(
+        let basket_id = launch::migrate_instant_to_basket_yield_v2_for_testing<TCOIN, SUI>(
             &mut lock,
             sample_equal_basket(),
             scenario.ctx(),
@@ -113,9 +113,9 @@ fun test_migrate_holder_aborts_if_already_holder_yield() {
     scenario.next_tx(ADMIN);
     {
         let mut lock = scenario.take_shared<BluefinPositionLock>();
-        let _ = launch::migrate_instant_to_holder_yield_for_testing<TCOIN, SUI>(&mut lock, scenario.ctx());
+        let _ = launch::migrate_instant_to_holder_yield_v2_for_testing<TCOIN, SUI>(&mut lock, scenario.ctx());
         // second migrate → already_locked (21)
-        let _ = launch::migrate_instant_to_holder_yield_for_testing<TCOIN, SUI>(&mut lock, scenario.ctx());
+        let _ = launch::migrate_instant_to_holder_yield_v2_for_testing<TCOIN, SUI>(&mut lock, scenario.ctx());
         ts::return_shared(lock);
     };
     scenario.end();
@@ -129,8 +129,8 @@ fun test_migrate_basket_aborts_if_already_holder_yield() {
     scenario.next_tx(ADMIN);
     {
         let mut lock = scenario.take_shared<BluefinPositionLock>();
-        let _ = launch::migrate_instant_to_holder_yield_for_testing<TCOIN, SUI>(&mut lock, scenario.ctx());
-        let _ = launch::migrate_instant_to_basket_yield_for_testing<TCOIN, SUI>(
+        let _ = launch::migrate_instant_to_holder_yield_v2_for_testing<TCOIN, SUI>(&mut lock, scenario.ctx());
+        let _ = launch::migrate_instant_to_basket_yield_v2_for_testing<TCOIN, SUI>(
             &mut lock,
             sample_equal_basket(),
             scenario.ctx(),
@@ -148,7 +148,7 @@ fun test_migrate_holder_aborts_if_not_beneficiary() {
     scenario.next_tx(STRANGER);
     {
         let mut lock = scenario.take_shared<BluefinPositionLock>();
-        let _ = launch::migrate_instant_to_holder_yield_for_testing<TCOIN, SUI>(&mut lock, scenario.ctx());
+        let _ = launch::migrate_instant_to_holder_yield_v2_for_testing<TCOIN, SUI>(&mut lock, scenario.ctx());
         ts::return_shared(lock);
     };
     scenario.end();
@@ -162,7 +162,7 @@ fun test_migrate_basket_aborts_if_not_beneficiary() {
     scenario.next_tx(STRANGER);
     {
         let mut lock = scenario.take_shared<BluefinPositionLock>();
-        let _ = launch::migrate_instant_to_basket_yield_for_testing<TCOIN, SUI>(
+        let _ = launch::migrate_instant_to_basket_yield_v2_for_testing<TCOIN, SUI>(
             &mut lock,
             sample_equal_basket(),
             scenario.ctx(),
@@ -185,7 +185,7 @@ fun test_migrate_basket_invalid_weights_aborts() {
         assets.push_back(basket_yield::new_asset(type_name::with_defining_ids<TCOIN2>(), 1_000));
         // sum != 10000 → basket_bad_weights (38) inside new_config / create
         let bad = basket_yield::new_config(assets, false, basket_yield::payout_all_at_once());
-        let _ = launch::migrate_instant_to_basket_yield_for_testing<TCOIN, SUI>(&mut lock, bad, scenario.ctx());
+        let _ = launch::migrate_instant_to_basket_yield_v2_for_testing<TCOIN, SUI>(&mut lock, bad, scenario.ctx());
         ts::return_shared(lock);
     };
     scenario.end();
@@ -210,7 +210,7 @@ fun test_admin_detach_holder_yield_reverts_lock_to_plain() {
     scenario.next_tx(ADMIN);
     {
         let mut lock = scenario.take_shared<BluefinPositionLock>();
-        let _ = launch::migrate_instant_to_holder_yield_for_testing<TCOIN, SUI>(&mut lock, scenario.ctx());
+        let _ = launch::migrate_instant_to_holder_yield_v2_for_testing<TCOIN, SUI>(&mut lock, scenario.ctx());
         assert!(lock::is_holder_yield(&lock), 0);
         ts::return_shared(lock);
     };
@@ -225,7 +225,7 @@ fun test_admin_detach_holder_yield_reverts_lock_to_plain() {
         // Genuinely un-stuck, not just flagged clear: a fresh migrate (this
         // time to basket-yield, proving it isn't ghosted into the old mode)
         // succeeds on the same lock.
-        let basket_id = launch::migrate_instant_to_basket_yield_for_testing<TCOIN, SUI>(
+        let basket_id = launch::migrate_instant_to_basket_yield_v2_for_testing<TCOIN, SUI>(
             &mut lock,
             sample_equal_basket(),
             scenario.ctx(),
@@ -246,7 +246,7 @@ fun test_admin_detach_basket_yield_reverts_lock_to_plain() {
     scenario.next_tx(ADMIN);
     {
         let mut lock = scenario.take_shared<BluefinPositionLock>();
-        let _ = launch::migrate_instant_to_basket_yield_for_testing<TCOIN, SUI>(
+        let _ = launch::migrate_instant_to_basket_yield_v2_for_testing<TCOIN, SUI>(
             &mut lock,
             sample_equal_basket(),
             scenario.ctx(),
@@ -262,7 +262,7 @@ fun test_admin_detach_basket_yield_reverts_lock_to_plain() {
         lock::admin_detach_yield(&mut lock, &cap);
         assert!(!lock::is_basket_yield(&lock), 1);
         assert!(!lock::is_holder_yield(&lock), 2);
-        let yield_id = launch::migrate_instant_to_holder_yield_for_testing<TCOIN, SUI>(&mut lock, scenario.ctx());
+        let yield_id = launch::migrate_instant_to_holder_yield_v2_for_testing<TCOIN, SUI>(&mut lock, scenario.ctx());
         assert!(lock::is_holder_yield(&lock), 3);
         assert!(lock::holder_yield_id(&lock) == yield_id, 4);
         ts::return_shared(lock);
@@ -296,4 +296,41 @@ fun test_admin_detach_aborts_when_nothing_attached() {
 /// two can't silently drift apart if errors.move's constants are reordered.
 fun test_no_yield_to_detach_error_code_is_45() {
     assert!(errors::no_yield_to_detach() == 45, 0);
+}
+
+// ── retired originals stay retired ────────────────────────────────────────
+// The Compatible-upgrade twins for the wrong-type-arg fix: same name, same
+// original signature, body is now `abort errors::retired()`. Real logic
+// moved to `_v2`. Pinned here so nobody "helpfully" re-wires these later.
+
+#[test]
+#[expected_failure(abort_code = 29)]
+fun test_migrate_holder_yield_original_signature_retired() {
+    let mut scenario = ts::begin(ADMIN);
+    share_plain_lock(ADMIN, scenario.ctx());
+    scenario.next_tx(ADMIN);
+    {
+        let mut lock = scenario.take_shared<BluefinPositionLock>();
+        let _ = launch::migrate_instant_to_holder_yield<TCOIN, SUI>(&mut lock, scenario.ctx());
+        ts::return_shared(lock);
+    };
+    scenario.end();
+}
+
+#[test]
+#[expected_failure(abort_code = 29)]
+fun test_migrate_basket_yield_original_signature_retired() {
+    let mut scenario = ts::begin(ADMIN);
+    share_plain_lock(ADMIN, scenario.ctx());
+    scenario.next_tx(ADMIN);
+    {
+        let mut lock = scenario.take_shared<BluefinPositionLock>();
+        let _ = launch::migrate_instant_to_basket_yield<TCOIN, SUI>(
+            &mut lock,
+            sample_equal_basket(),
+            scenario.ctx(),
+        );
+        ts::return_shared(lock);
+    };
+    scenario.end();
 }
