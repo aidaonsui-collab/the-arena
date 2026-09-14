@@ -4938,6 +4938,18 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     });
     return sum;
   }
+  function rewardsDistributedSui(){
+    var sum = 0;
+    (rewardsLedger.distributions || []).forEach(function(d){
+      if (!d || !d.cat) return;
+      var cat = rewardsCat(d.cat);
+      if (!cat) return;
+      var n = (Number(d.amount) || 0) / Math.pow(10, rewardsDec(cat.unit));
+      var sui = quoteSuiAmt(n, cat.quote);
+      if (sui > 0 && isFinite(sui)) sum += sui;
+    });
+    return sum;
+  }
   function rewardsCatId(quote){
     if (Index && Index.rewardsCatFromQuote) return Index.rewardsCatFromQuote(quote) || "";
     var lab = (Index && Index.quoteLabel) ? Index.quoteLabel(quote) : String(quote || "");
@@ -5822,7 +5834,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
         '<p class="dist-lede">Gold, silver, and T-bills paid from Instant quote fees. Each row links to its transaction.</p>'+
         '<div class="dist-stats">'+
           '<div class="dist-stat"><div class="k">Cumulative distributed</div><div class="v">'+escHtml(fmtUsd(usd))+'</div><div class="s">at current prices</div>'+distBarsHTML(distUsdSeries(), "gold")+'</div>'+
-          '<div class="dist-stat"><div class="k">Distributions</div><div class="v">'+distN+'</div><div class="s">funded events on-chain</div>'+distBarsHTML(eventUsd, "sui")+'</div>'+
+          '<div class="dist-stat"><div class="k">SUI equivalent</div><div class="v">'+escHtml(fmt(rewardsDistributedSui()))+'</div><div class="s">RWA collected at current prices</div>'+distBarsHTML(eventUsd, "sui")+'</div>'+
           '<div class="dist-stat"><div class="k">Wallets</div><div class="v">'+(elig==null?"…":elig)+'</div><div class="s">eligible (synced holders)</div>'+distBarsHTML(eligBars, "muted")+'</div>'+
         '</div>'+
         '<div class="rewards-grid">'+cards+'</div>'+
