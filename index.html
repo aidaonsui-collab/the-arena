@@ -5924,8 +5924,6 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
         '<div class="mstat"><div class="k">Fees collected</div><div class="v">'+fmt(m.suiFee)+'</div><div class="s">1% pair · 60/5/25/10 of our 80%</div></div>'+
         '<div class="mstat"><div class="k">RWA rewards</div><div class="v">'+(rewardsDistributedUsd()>0?fmtUsd(rewardsDistributedUsd()):'$0')+'</div><div class="s">XAUM · XAGM · USDY distributed</div></div>'+
         '<div class="mstat"><div class="k">Tokens launched</div><div class="v">'+m.launches+'</div><div class="s">'+m.grads+' graduated</div></div>'+
-        '<div class="mstat"><div class="k">Winners paid</div><div class="v">'+m.bells+'</div><div class="s">'+fmt(m.bellPaid)+' SUI paid</div></div>'+
-        '<div class="mstat"><div class="k">RWA from fills</div><div class="v">'+fmt(m.pit)+'</div><div class="s">30% of our LP share</div></div>'+
       '</div>'+
       '<div class="card" style="padding:20px 22px;margin-bottom:14px"><div class="sec-label" style="margin-top:0">Volume <span>last '+Math.max(m.hours.length,1)+' hours with fills</span></div>'+
         '<div class="vol-bars">'+bars+'</div></div>'+
