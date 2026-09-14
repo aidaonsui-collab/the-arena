@@ -509,7 +509,7 @@ html[data-route="portfolio"] main{padding:0 0 72px}
   .bells-grid{grid-template-columns:1fr}
 }
 
-.metrics-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:8px 0 18px}
+.metrics-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:8px 0 18px}
 .mstat{background:var(--card);border-radius:20px;padding:18px 20px;box-shadow:var(--shadow)}
 .mstat .k{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
 .mstat .v{font-size:clamp(22px,3vw,32px);font-weight:650;margin-top:8px;font-variant-numeric:tabular-nums;letter-spacing:-.03em;font-family:"IBM Plex Mono",ui-monospace,monospace}
@@ -5853,6 +5853,59 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
         '</div>'+
       footerHTML()+'</div></div>';
   }
+  function quoteRowsVolUsd(tk, rows){
+    var q = poolQuote(tk);
+    var px = quoteUsd(q);
+    var n = 0;
+    (rows || []).forEach(function(r){
+      var amt = fromQuoteAmt(r.quote_amount, q);
+      if (px > 0) n += amt * px;
+      else n += quoteSuiAmt(amt, q) * (hop.suiUsd || 0);
+    });
+    return n;
+  }
+  var booksVolBusy = false;
+  function refreshBooksVol(){
+    if (state.route !== "metrics" || booksVolBusy) return;
+    var need = T.filter(function(tk){
+      return tk && tk.t && !tk.missing && !isHiddenToken(tk) && (tk.bluefinPool || tk.pool)
+        && !(tk.booksVolAt && Date.now() - tk.booksVolAt < 120000);
+    });
+    if (!need.length) return;
+    booksVolBusy = true;
+    var left = need.length;
+    function done(){
+      left--;
+      if (left > 0) return;
+      booksVolBusy = false;
+      if (state.route === "metrics") renderScreen();
+    }
+    need.forEach(function(tk){
+      function pull(acc, before, pagesLeft){
+        var url = "/api/trades?t="+encodeURIComponent(tk.t)+"&limit=500";
+        if (tk.bluefinPool) url += "&pool="+encodeURIComponent(tk.bluefinPool);
+        if (before) url += "&before="+before;
+        return fetch(url, { cache: "no-store" }).then(function(r){ return r.json(); }).then(function(j){
+          var trades = (j && j.trades) || [];
+          acc = acc.concat(trades);
+          var more = pagesLeft > 1 && Number(j && j.count) > acc.length && Number(j && j.nextBefore);
+          if (more) return pull(acc, j.nextBefore, pagesLeft - 1);
+          return acc;
+        });
+      }
+      pull([], 0, 4).then(function(trades){
+        if (trades && trades.length) tk.tapeRows = trades;
+        tk.booksVolUsd = quoteRowsVolUsd(tk, trades || []);
+        tk.booksVolAt = Date.now();
+        done();
+      }).catch(function(){ done(); });
+    });
+  }
+  function booksVolUsdOf(tk){
+    if (!tk) return 0;
+    if (typeof tk.booksVolUsd === "number") return tk.booksVolUsd;
+    return quoteRowsVolUsd(tk, tk.tapeRows || []);
+  }
   function metricsRollup(){
     const rows = (bus.trades || []).slice();
     const out = {fills:rows.length, suiVol:0, rwaVol:0, rwaVolUsd:0, suiFee:0, rwaFee:0, refl:0, creator:0, pit:0, plat:0, byPool:{}, hours:[]};
@@ -5906,8 +5959,9 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   }
   function metricsHTML(){
     const m = metricsRollup();
-    const top = Object.keys(m.byPool).map(function(k){ return m.byPool[k]; })
-      .sort(function(a,b){ return (b.volUsd || 0) - (a.volUsd || 0); }).slice(0,8);
+    const top = T.filter(function(tk){ return tk && tk.t && !tk.missing && !isHiddenToken(tk); }).map(function(tk){
+      return { id: tk.t, volUsd: booksVolUsdOf(tk), q: poolQuote(tk) };
+    }).sort(function(a,b){ return (b.volUsd || 0) - (a.volUsd || 0); }).slice(0,8);
     const feeTotal = m.creator+m.plat+m.pit;
     function feeBar(label, n, color){
       const pct = feeTotal>0 ? (n/feeTotal*100) : 0;
@@ -5919,17 +5973,16 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     const rows = top.map(function(r,i){
       const tk = listedTok(r.id) || {n:r.id, t:r.id};
       const volTxt = r.volUsd > 0 ? fmtUsd(r.volUsd) : (fmt(r.vol)+" "+r.q);
-      return '<tr data-go="token:'+escAttr(tk.t)+'"><td class="mono" style="color:var(--muted)">'+rank(i)+'</td><td><div class="feat-name">'+escHtml(tk.n)+'</div><div class="feat-tick">$'+escHtml(tk.t)+'</div></td><td class="mono">'+r.fills+'</td><td class="mono" style="text-align:right">'+volTxt+'</td></tr>';
+      return '<tr data-go="token:'+escAttr(tk.t)+'"><td class="mono" style="color:var(--muted)">'+rank(i)+'</td><td><div class="feat-name">'+escHtml(tk.n)+'</div><div class="feat-tick">$'+escHtml(tk.t)+'</div></td><td class="mono" style="text-align:right">'+volTxt+'</td></tr>';
     }).join("");
     const src = (window.ARENA_PACKAGE_ID)
       ? "Indexed from Bluefin AssetSwap (Instant) and leftover curve TradeEvent, ClaimEvent, BellEvent, GraduationEvent."
       : "Demo tape until ARENA_PACKAGE_ID is published. Same TradeEvent fields the keepers emit.";
     return '<div data-screen-label="Metrics">'+
-      '<div class="explore-head"><div><h1 class="books-title">Metrics</h1><p>Volume, fees, and graduates — all time, rolled up from the tape.</p></div></div>'+
+      '<div class="explore-head"><div><h1 class="books-title">Metrics</h1><p>Volume and graduates — all time, rolled up from Instant tape.</p></div></div>'+
       '<div class="metrics-grid">'+
-        '<div class="mstat"><div class="k">Volume · SUI</div><div class="v">'+fmt(m.suiVol)+'</div><div class="s">'+m.fills+' fills · all time</div></div>'+
+        '<div class="mstat"><div class="k">Volume · SUI</div><div class="v">'+fmt(m.suiVol)+'</div><div class="s">all time</div></div>'+
         '<div class="mstat"><div class="k">Volume · RWA</div><div class="v">'+(m.rwaVolUsd>0?fmtUsd(m.rwaVolUsd):(m.rwaVol>0?"—":"$0"))+'</div><div class="s">USDY · XAGM · XAUM · all time</div></div>'+
-        '<div class="mstat"><div class="k">Fees collected</div><div class="v">'+fmt(m.suiFee)+'</div><div class="s">1% pair · 60/5/25/10 of our 80% · all time</div></div>'+
         '<div class="mstat"><div class="k">Tokens launched</div><div class="v">'+m.launches+'</div><div class="s">'+m.grads+' graduated · all time</div></div>'+
       '</div>'+
       '<div class="card" style="padding:20px 22px;margin-bottom:14px"><div class="sec-label" style="margin-top:0">Volume <span>last '+Math.max(m.hours.length,1)+' hours with fills</span></div>'+
@@ -5942,7 +5995,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
             feeBar("RWA rewards", m.pit, "#298DFF")+
           '</div></div>'+
         '<div class="card" style="padding:20px 22px"><div class="sec-label" style="margin-top:0">Top by volume <span>all time</span></div>'+
-          (rows ? '<table class="m-table"><thead><tr><th>#</th><th>Token</th><th>Fills</th><th style="text-align:right">Volume</th></tr></thead><tbody>'+rows+'</tbody></table>' : '<div class="empty">No fills yet.</div>')+
+          (rows ? '<table class="m-table"><thead><tr><th>#</th><th>Token</th><th style="text-align:right">Volume</th></tr></thead><tbody>'+rows+'</tbody></table>' : '<div class="empty">No volume yet.</div>')+
         '</div></div>'+
       '<p class="m-note">'+src+' Instant volume is Bluefin AssetSwap per pool. Curve keepers still use TradeEvent.</p>'+
       footerHTML()+'</div>';
@@ -7462,6 +7515,7 @@ async function doBridgeDeposit(){
     paintNav();
     paintWallet();
     if (state.route === "portfolio") refreshPortfolio();
+    if (state.route === "metrics") refreshBooksVol();
     if (state.route === "pit") refreshEligible();
     if (state.route === "bridge") refreshBridgeBal();
     const q = $("#q");
