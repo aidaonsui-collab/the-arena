@@ -19,3 +19,4 @@ node_modules/
 keepers-stocks/node_modules/
 keepers-stocks/dist/
 keepers-stocks/data/
+.env*.local

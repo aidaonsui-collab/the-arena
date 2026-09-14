@@ -202,7 +202,7 @@ main{padding:18px 0 72px}
   .launch-points{grid-template-columns:1fr 1fr;gap:10px 28px;max-width:640px}
 }
 .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px}
-.split{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(280px,380px);grid-template-areas:"about ticket" "main ticket";gap:14px;align-items:start}
+.split{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(300px,420px);grid-template-areas:"about ticket" "main ticket";gap:14px;align-items:start}
 .split>.split-about{grid-area:about;min-width:0}
 .split>.split-main{grid-area:main}
 .split>.ticket{grid-area:ticket}
@@ -230,6 +230,9 @@ main{padding:18px 0 72px}
 .tv-wrap-dex{height:420px;background:#0b0e11;border-radius:0;overflow:hidden}
 .dex-embed{border:0;display:block;width:100%;height:100%;min-height:420px}
 .ticket{background:var(--card);border-radius:28px;padding:18px;box-shadow:var(--shadow);position:sticky;top:84px;min-width:0;max-width:100%;overflow:hidden}
+.ticket.ticket-cetus{overflow:visible;padding:12px 12px 16px}
+#cetus-terminal{width:100%;min-height:440px}
+#cetus-terminal .cs-swap-container{width:100%!important;max-width:none!important}
 .sides{display:flex;background:#16171A;border-radius:999px;padding:4px}
 .sides>div{flex:1;text-align:center;padding:10px;border-radius:999px;font-weight:650;cursor:pointer;color:var(--muted)}
 .sides>div.on-buy{background:var(--lift);color:var(--ink)}
@@ -752,6 +755,7 @@ window.ARENA_CALL_PACKAGE = window.ARENA_COLLECT_PACKAGE;
 // Compatible-upgrade event types keep the package id that first defined them.
 window.ARENA_HOLDER_YIELD_EVENT_PACKAGE = "0xe2dee7a21e382d47d8f13e39801c86987a88e9ebd5fb8801efd1b974e4e4d9a2"; // v11
 window.ARENA_BASKET_YIELD_EVENT_PACKAGE = "0x1710adbe0293015cac7492b6db0cf871a7af81c5a51cd9d5d99d3aadf9fea161"; // v12
+window.ARENA_COLLECT_LP_EVENT_PACKAGE = "0x68e178d50276b3bcbce11a136df48909aceff1f2a8ee8a45483e9f128e989972"; // v5 CollectLpFeesEvent
 window.ARENA_LOCK_PACKAGE = "0x067136624c5bec5221247e9b0a0a1afbd77a79aadbabdac18a95a10bc186cc74";
 window.ARENA_BLUEFIN_EVENT_PACKAGE = "0x8e28ff4116a8c9025b5d615b0b0a7bc45f4f543120f30a9d226e5b94c7277b79";
 window.ARENA_ADMIN_CAP = "0x79e041a4444971bfbf8000925ac3386d8351a3e997eb7d838d84eb6c3e507acf";
@@ -1640,6 +1644,30 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   function walletLabel(w){
     return String((w && w.name) || "Sui wallet").slice(0, 40);
   }
+  // Slush was "Sui Wallet". Do not match Suiet.
+  function walletIsSlush(w){
+    var n = String((w || suiSession.wallet || {}).name || "");
+    if (/suiet/i.test(n)) return false;
+    return /slush/i.test(n) || /^sui wallet$/i.test(n.trim());
+  }
+  function launchWalletHintText(){
+    if (!walletIsSlush()) return "";
+    return "Slush cannot preview coin-create. Signature 1 publishes your ticker (1B supply, TreasuryCap to this wallet). Slush shows a red Invalid struct tag: package and a yellow site warning on that step — the wallet fails to decode Publish, not a failed launch. Suiet previews it. Signature 2 (seed the pair, 1 SUI) looks normal in Slush.";
+  }
+  function paintLaunchWalletHint(){
+    var el = $("#launch-wallet-hint");
+    if (!el) return;
+    var text = launchWalletHintText();
+    if (!text){
+      el.hidden = true;
+      el.textContent = "";
+      el.removeAttribute("style");
+      return;
+    }
+    el.hidden = false;
+    el.textContent = text;
+    el.style.cssText = "font-size:12px;line-height:1.45;color:var(--muted);border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-top:4px;text-align:left";
+  }
   function hasSuiWallet(){ return listedWallets().length > 0 || !!(window.slush || window.sui); }
   function closeWalletPicker(){
     var modal = $("#wallet-modal");
@@ -1659,10 +1687,13 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       return '<button type="button" class="wallet-opt" data-wallet-pick="'+i+'">'+mark+'<span>'+escHtml(name)+'</span>'+(on ? '<span class="on">on</span>' : "")+'</button>';
     }).join("");
     if (!rows) rows = '<p class="wallet-sub">No Sui wallet found. Install Slush, Suiet, or another Wallet Standard wallet.</p>';
+    var sub = state.route === "launch"
+      ? "Launch signature 1 publishes the coin. Suiet previews that; Slush cannot."
+      : "Choose an installed Sui wallet.";
     modal.innerHTML =
       '<div class="wallet-sheet">'+
         '<h3>Connect wallet</h3>'+
-        '<p class="wallet-sub">Choose an installed Sui wallet.</p>'+
+        '<p class="wallet-sub">'+sub+'</p>'+
         (err ? '<div class="wallet-err">'+escHtml(err)+'</div>' : "")+
         rows+
         (suiSession.address ? '<button type="button" class="wallet-x" data-wallet-disconnect>Disconnect</button>' : '<button type="button" class="wallet-x" data-wallet-x>Cancel</button>')+
@@ -5260,6 +5291,70 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       quoteLabel: ev.quoteLabel,
       cat: ev.cat
     };
+    flushPendingCollectFees();
+  }
+  function distHasDigestCat(digest, cat){
+    if (!digest || !cat) return false;
+    var dgs = String(digest);
+    var list = rewardsLedger.distributions || [];
+    for (var i = 0; i < list.length; i++){
+      if (list[i] && list[i].digest === dgs && list[i].cat === cat && !list[i].staging) return true;
+    }
+    return false;
+  }
+  function launchTickForLock(lockId, vault){
+    var want = padAddr(lockId);
+    var tk = want ? T.find(function(x){ return padAddr(x.lockId) === want; }) : null;
+    if (tk && tk.t) return "$" + tk.t;
+    var type = vault && vault.token;
+    if (type){
+      var tail = String(type).split("::").pop();
+      if (tail) return "$" + String(tail).replace(/[^A-Za-z0-9_]/g, "").toUpperCase().slice(0, 12);
+    }
+    return lockId ? shortAddr(lockId) : "—";
+  }
+  var pendingCollectFees = [];
+  function applyCollectLpFees(ev){
+    if (!ev || !ev.lock_id) return;
+    if (!(Number(ev.pit_amount) > 0)) return;
+    var vault = rewardsVaultByLock(ev.lock_id);
+    var tk = T.find(function(x){ return padAddr(x.lockId) === padAddr(ev.lock_id); });
+    var cat = (vault && vault.cat) || "";
+    if (!cat && tk) cat = rewardsCatId(poolQuote(tk)) || rewardsCatId(tk.q) || "";
+    if (!cat){
+      pendingCollectFees.push(ev);
+      if (pendingCollectFees.length > 400) pendingCollectFees = pendingCollectFees.slice(-400);
+      return;
+    }
+    if (distHasDigestCat(ev.digest, cat)) return;
+    var key = "clp:" + String(ev.digest || "") + ":" + String(ev.lock_id) + ":" + String(ev.pit_amount);
+    if (!rewardsLedger.distributions) rewardsLedger.distributions = [];
+    for (var i = 0; i < rewardsLedger.distributions.length; i++){
+      if (rewardsLedger.distributions[i]._key === key){
+        var label = launchTickForLock(ev.lock_id, vault);
+        if (label.charAt(0) === "$") rewardsLedger.distributions[i].token = label;
+        return;
+      }
+    }
+    rewardsLedger.distributions.unshift({
+      _key: key,
+      cat: cat,
+      amount: ev.pit_amount,
+      token: launchTickForLock(ev.lock_id, vault),
+      ts: ev.ts,
+      digest: ev.digest,
+      lock_id: ev.lock_id,
+      yield_id: vault && vault.yield_id
+    });
+    rewardsLedger.distributions.sort(function(a,b){ return (b.ts||0)-(a.ts||0); });
+    rebuildRewardsLedger();
+    if (state.route === "pit" || state.route === "portfolio") scheduleScreen();
+  }
+  function flushPendingCollectFees(){
+    if (!pendingCollectFees.length) return;
+    var queued = pendingCollectFees;
+    pendingCollectFees = [];
+    queued.forEach(function(ev){ applyCollectLpFees(ev); });
   }
   function applyHolderYieldFunded(ev){
     if (!ev || !ev.yield_id) return;
@@ -5277,6 +5372,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       };
     }
     var key = String(ev.digest || "") + ":" + String(ev.yield_id) + ":" + String(ev.amount);
+    if (distHasDigestCat(ev.digest, ev.cat)) return;
     if (!rewardsLedger.distributions) rewardsLedger.distributions = [];
     for (var i = 0; i < rewardsLedger.distributions.length; i++){
       if (rewardsLedger.distributions[i]._key === key) return;
@@ -5882,6 +5978,9 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
           '<div><label>Name</label><input id="l-name" placeholder="Gladius Token" value="'+escAttr(state.lName)+'"></div>'+
           '<div><label>Ticker</label><input id="l-tick" placeholder="GLADIUS" maxlength="12" value="'+escAttr(state.lTick)+'"></div>'+
           '<div id="l-type-hint" style="font-size:12px;color:var(--muted);margin-top:-4px">'+(tickerToIdent(state.lTick) ? "Coin type will be <code>…::"+escHtml(tickerToIdent(state.lTick))+"::"+escHtml(tickerToIdent(state.lTick).toUpperCase())+"</code>" : "")+'</div>'+
+          (launchWalletHintText()
+            ? '<div id="launch-wallet-hint" style="font-size:12px;line-height:1.45;color:var(--muted);border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-top:4px;text-align:left">'+escHtml(launchWalletHintText())+'</div>'
+            : '<div id="launch-wallet-hint" hidden></div>')+
           '<button type="button" class="btn-trade" id="launch-go">'+launchBtnLabel()+'</button>'+
           '<div id="launch-note" style="font-size:12px;color:'+(state.lNoteErr?"#FF6640":"var(--muted)")+';margin-top:8px;text-align:center">'+
             escHtml(state.lNote || (Number(state.lFirstBuy)>0
@@ -5911,44 +6010,17 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
         '<button type="button" class="btn-trade" disabled>Bluefin pool pending</button>'+
       '</div>';
     }
-    const alt = q !== "SUI";
-    const buyOn = state.side !== "Sell";
-    const payAsset = buyOn ? (alt && state.payWith === "SUI" ? "SUI" : q) : tk.t;
-    const recvAsset = buyOn ? tk.t : (alt && state.payWith === "SUI" ? "SUI" : q);
     const canCollect = !!(tk.lockId && tk.bluefinPool);
-    const amtVal = escAttr(state.amt || (alt && state.payWith !== "SUI" ? quoteRec(q).chips[0] : "1"));
-    const payToggle = alt
-      ? '<div class="chips" id="pay-route" style="margin-top:10px">'+
-          '<div data-pay="SUI"'+(state.payWith==="SUI"?" class=\"on\"":"")+'>'+(buyOn?"Pay SUI":"Get SUI")+'</div>'+
-          '<div data-pay="'+q+'"'+(state.payWith!=="SUI"?" class=\"on\"":"")+'>'+(buyOn?"Pay "+q:"Get "+q)+'</div>'+
-        '</div>'
-      : '<div id="pay-route" style="display:none"></div>';
-    return '<div class="ticket" id="swap-box">'+
-      '<div class="pit-kicker">'+kicker+'</div>'+
-      '<div style="font-size:22px;font-weight:700;letter-spacing:-.03em;margin:8px 0 10px">Swap</div>'+
-      '<div class="sides">'+
-        '<div id="btn-buy" data-side="Buy"'+(buyOn?' class="on-buy"':'')+'>Buy</div>'+
-        '<div id="btn-sell" data-side="Sell"'+(buyOn?'':' class="on-sell"')+'>Sell</div>'+
-      '</div>'+
-      payToggle+
-      '<div style="margin-top:12px">'+
-        '<div class="kv" style="border:0;padding:0 0 8px"><span id="pay-label">'+(buyOn?"Pay with "+payAsset:"Sell "+tk.t)+'</span><span id="bal-text" class="mono" style="color:var(--muted)">—</span></div>'+
-        '<input id="amt" class="amt" inputmode="decimal" autocomplete="off" value="'+amtVal+'">'+
-        '<div class="chips" id="amt-chips"></div>'+
-      '</div>'+
-      '<div class="kv"><span style="color:var(--muted)">You receive</span><span id="receive">'+recvAsset+' …</span></div>'+
-      '<div class="kv"><span style="color:var(--muted)">Route</span><span id="venue-text">7k aggregator</span></div>'+
-      '<div class="kv" id="hop-row" style="display:none"><span style="color:var(--muted)">Path</span><span id="hop-text"></span></div>'+
-      '<div class="kv"><span style="color:var(--muted)">Pair</span><span class="mono">'+escHtml(tk.t)+' / '+q+'</span></div>'+
+    return '<div class="ticket ticket-cetus" id="swap-box" data-swap-sym="'+escAttr(tk.t)+'">'+
+      '<div class="pit-kicker">'+kicker+' · Cetus</div>'+
+      '<div id="cetus-terminal"></div>'+
+      '<div class="kv" style="margin-top:8px"><span style="color:var(--muted)">Pair</span><span class="mono">'+escHtml(tk.t)+' / '+q+'</span></div>'+
       '<div class="kv"><span style="color:var(--muted)">Lock</span><span>'+lockLabel+'</span></div>'+
-      '<div class="kv"><span style="color:var(--muted)">Pool fee</span><span>1% Bluefin</span></div>'+
-      '<button type="button" class="btn-trade" id="trade-btn" data-trade>Connect wallet</button>'+
-      '<div id="swap-err" class="swap-err"></div>'+
       (canCollect ? '<button type="button" class="btn-trade btn-ghost" id="collect-go" style="margin-top:10px">Collect LP fees</button>' : '')+
       migratePanelHTML(tk)+
       '<div style="margin-top:10px;text-align:center;font-size:11px;color:var(--muted)">'+
-        'Best route across Bluefin, Cetus, and other Sui pools. LP locked forever. Anyone can collect. Token-side fees burn.'+
-        (tk.bluefinPool ? ' · <a href="https://trade.bluefin.io/swap?pool='+tk.bluefinPool+'" target="_blank" rel="noopener">Bluefin</a>' : '')+
+        'Cetus aggregator. Routes Bluefin, Cetus, and other Sui pools. LP locked forever. Anyone can collect. Token-side fees burn.'+
+        (tk.bluefinPool ? ' · <a href="https://trade.bluefin.io/swap?pool='+escAttr(tk.bluefinPool)+'" target="_blank" rel="noopener">Bluefin</a>' : '')+
       '</div>'+
     '</div>';
   }
@@ -6615,6 +6687,7 @@ async function doBridgeDeposit(){
       state.connected = false;
     }
     paintLaunchBtn();
+    paintLaunchWalletHint();
     if (state.route === "pit") paintPitVotes();
   }
   function paintClocks(){
@@ -6672,6 +6745,67 @@ async function doBridgeDeposit(){
   }
   function tokenTypeOf(tk){
     return normType(typeNameStr(tk.token) || demoTypeId(tk));
+  }
+  function usesCetusSwap(tk){
+    return !!(tk && tk.bluefinPool);
+  }
+  var cetusTermReady = null;
+  function loadCetusTerminal(){
+    if (window.CetusSwap && typeof window.CetusSwap.init === "function") return Promise.resolve();
+    if (cetusTermReady) return cetusTermReady;
+    cetusTermReady = new Promise(function(res, rej){
+      if (!document.getElementById("cetus-term-css")){
+        var link = document.createElement("link");
+        link.id = "cetus-term-css";
+        link.rel = "stylesheet";
+        link.href = "https://archive.cetus.zone/assets/terminal/style-v2.css";
+        document.head.appendChild(link);
+      }
+      var s = document.createElement("script");
+      s.src = "https://archive.cetus.zone/assets/terminal/main-v2.js";
+      s.async = true;
+      s.onload = function(){ res(); };
+      s.onerror = function(){
+        cetusTermReady = null;
+        rej(new Error("Cetus Terminal failed to load"));
+      };
+      document.head.appendChild(s);
+    });
+    return cetusTermReady;
+  }
+  function mountCetusTerminal(tk){
+    var host = $("#cetus-terminal");
+    if (!host || !usesCetusSwap(tk)) return;
+    var toType = padType(tokenTypeOf(tk));
+    if (!toType || toType.indexOf("::") < 0 || /0xarena::/i.test(toType)){
+      host.innerHTML = '<div style="padding:28px 12px;color:var(--muted);font-size:13px;text-align:center">Loading coin type…</div>';
+      return;
+    }
+    var fromType = padType(SUI_TYPE);
+    var key = fromType + ">" + toType;
+    if (host.getAttribute("data-pair") === key && host.querySelector("#cs-swap-widget, .cs-swap-container")) return;
+    host.setAttribute("data-pair", key);
+    host.innerHTML = '<div style="padding:28px 12px;color:var(--muted);font-size:13px;text-align:center">Loading Cetus…</div>';
+    loadCetusTerminal().then(function(){
+      var el = $("#cetus-terminal");
+      if (!el || el.getAttribute("data-pair") !== key) return;
+      el.innerHTML = "";
+      window.CetusSwap.init({
+        containerId: "cetus-terminal",
+        independentWallet: true,
+        displayMode: "Integrated",
+        defaultFromToken: fromType,
+        defaultToToken: toType,
+        defaultSlippage: 1,
+        defaultRpc: window.SUI_RPC || "https://mainnet.suiet.app",
+        themeType: "Dark",
+        logo: "/brand/vice-mark.jpg"
+      });
+    }).catch(function(){
+      var el = $("#cetus-terminal");
+      if (!el) return;
+      el.innerHTML = '<div style="padding:22px 12px;color:var(--muted);font-size:13px;text-align:center">Cetus failed to load. <a href="https://app.cetus.zone/swap" target="_blank" rel="noopener">Open Cetus</a></div>';
+    });
   }
   function swapPayType(tk){
     if (state.side === "Sell") return tokenTypeOf(tk);
@@ -6820,6 +6954,10 @@ async function doBridgeDeposit(){
   }
   function paintTicket(){
     if (state.route === "token" && isDexBout(findT(state.sym))) {
+      if (usesCetusSwap(findT(state.sym))){
+        mountCetusTerminal(findT(state.sym));
+        return;
+      }
       paintSwapBox();
       return;
     }
@@ -7262,6 +7400,7 @@ async function doBridgeDeposit(){
       delete pendingBeneficiaries[padAddr(tk.lockId) || tk.lockId];
     }
     hydrateTokenMeta(tk);
+    flushPendingCollectFees();
     persistLaunches();
     if (bf && bus.sub && bus.sub.watchBluefinPool) bus.sub.watchBluefinPool(bf);
     if (launching && state.route === "launch") return;
@@ -7280,6 +7419,8 @@ async function doBridgeDeposit(){
     const host = $("#screens");
     var keepCard = host && host.querySelector(".chart-card[data-pool]");
     var keepPool = keepCard ? (keepCard.getAttribute("data-pool") || "") : "";
+    var keepTicket = host && host.querySelector("#swap-box.ticket-cetus");
+    var keepSwapSym = keepTicket ? (keepTicket.getAttribute("data-swap-sym") || "") : "";
     var keepHero = (state.route === "explore" && host) ? host.querySelector(".living-hero") : null;
     dropTv();
     const map = {explore:exploreHTML, pit:pitHTML, token:tokenHTML, launch:launchHTML, metrics:metricsHTML, bridge:bridgeHTML, portfolio:portfolioHTML};
@@ -7297,6 +7438,10 @@ async function doBridgeDeposit(){
       }
     } else {
       stopLivingHero();
+    }
+    var ticketSlot = host.querySelector("#swap-box.ticket-cetus");
+    if (keepTicket && ticketSlot && keepSwapSym && keepSwapSym === String(state.sym || "").toUpperCase()){
+      ticketSlot.parentNode.replaceChild(keepTicket, ticketSlot);
     }
     var slot = host.querySelector(".chart-card[data-pool]");
     if (keepCard && keepPool && slot && slot.getAttribute("data-pool") === keepPool){
@@ -7319,8 +7464,12 @@ async function doBridgeDeposit(){
     prevPot = money(pot);
     if (state.route === "token" && !isDexBout(findT(state.sym))) mountTvChart();
     if (state.route === "token" && isDexBout(findT(state.sym))){
-      refreshSwapBals(findT(state.sym));
-      scheduleSwapQuote();
+      var swapTk = findT(state.sym);
+      if (usesCetusSwap(swapTk)) mountCetusTerminal(swapTk);
+      else {
+        refreshSwapBals(swapTk);
+        scheduleSwapQuote();
+      }
     }
     if (state.route === "pit"){
       refreshPitObject();
@@ -7842,7 +7991,9 @@ async function doBridgeDeposit(){
         var pubPayload = ptx;
 
         if (btn) btn.textContent = "Sign 1 of 2 · publish coin…";
-        setLaunchNote("Publishing " + built.upper + ". Signature 1 of 2.", false);
+        setLaunchNote(walletIsSlush()
+          ? ("Signature 1 of 2 publishes " + built.upper + " (1B supply, TreasuryCap to you). Slush cannot preview Publish — red Invalid struct tag is the wallet, not a failed tx. Suiet previews this step.")
+          : ("Publishing " + built.upper + ". Signature 1 of 2."), false);
         var pubRes = await walletExec(pubPayload);
         var digest = txDigest(pubRes);
         var made = readPublishResult(pubRes, built.ident);
@@ -8177,6 +8328,7 @@ async function doBridgeDeposit(){
   function scheduleSwapQuote(){
     if (state.route !== "token") return;
     var tk = findT(state.sym);
+    if (usesCetusSwap(tk)) return;
     if (!isDexBout(tk) || !tk.bluefinPool) return;
     clearTimeout(swapQuoteTimer);
     swapQuote = { quoting: true, amountOut: swapQuote && swapQuote.amountOut, hops: swapQuote && swapQuote.hops, venue: swapQuote && swapQuote.venue };
@@ -9403,12 +9555,14 @@ async function doBridgeDeposit(){
       onHolderYieldLaunch: function(e){ applyHolderYieldLaunch(e); },
       onHolderYieldFunded: function(e){ applyHolderYieldFunded(e); },
       onHolderYieldClaim: function(e){ applyHolderYieldClaim(e); },
+      onCollectLpFees: function(e){ applyCollectLpFees(e); },
       onBasketYieldLaunch: function(e){ applyBasketYieldLaunch(e); },
       onBasketYieldFunded: function(e){ applyBasketYieldFunded(e); },
       onBasketYieldConverted: function(e){ applyBasketYieldConverted(e); },
       onBasketYieldClaim: function(e){ applyBasketYieldClaim(e); },
       onBasketYieldRotate: function(e){ applyBasketYieldRotate(e); },
       holderYieldPackages: [window.ARENA_HOLDER_YIELD_EVENT_PACKAGE, window.ARENA_CALL_PACKAGE, window.ARENA_COLLECT_PACKAGE].filter(Boolean),
+      collectLpPackages: [window.ARENA_COLLECT_LP_EVENT_PACKAGE, window.ARENA_CALL_PACKAGE, window.ARENA_COLLECT_PACKAGE].filter(Boolean),
       basketYieldPackages: [window.ARENA_BASKET_YIELD_EVENT_PACKAGE, window.ARENA_CALL_PACKAGE, window.ARENA_COLLECT_PACKAGE].filter(Boolean),
       burnPackages: [window.ARENA_COLLECT_PACKAGE, "0xd8531cc8c4e1ee914f0e4e48aea9a796faa0603459cc4665838f688e51bf23d9", "0x47ea732e44f21470aa3dd449a7b26731ed2c377e2c02e650f3ede6ea581bf000"].filter(Boolean),
       beneficiaryPackages: [window.ARENA_CALL_PACKAGE, window.ARENA_COLLECT_PACKAGE].filter(Boolean),

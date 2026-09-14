@@ -23,6 +23,12 @@ const CALL_PKG =
 const EVENT_PKG =
   process.env.ARENA_INSTADEX_PACKAGE ??
   "0xcf7835ae4e3f8a3d4eb4bd9d14cb4a3dbdd80e70908feb6c433688a31e119de3";
+const HY_EVENT_PKG =
+  process.env.ARENA_HOLDER_YIELD_EVENT_PACKAGE ??
+  "0xe2dee7a21e382d47d8f13e39801c86987a88e9ebd5fb8801efd1b974e4e4d9a2";
+const BY_EVENT_PKG =
+  process.env.ARENA_BASKET_YIELD_EVENT_PACKAGE ??
+  "0x1710adbe0293015cac7492b6db0cf871a7af81c5a51cd9d5d99d3aadf9fea161";
 
 type Launch = {
   lockId: string;
@@ -234,8 +240,8 @@ async function listYieldVaults(): Promise<Map<string, YieldVault>> {
   const map = new Map<string, YieldVault>();
   // Launch + migrate both emit HolderYieldLaunchEvent / BasketYieldLaunchEvent.
   const specs: { type: string; kind: "basket" | "holder"; idField: string }[] = [
-    { type: `${CALL_PKG}::events::BasketYieldLaunchEvent`, kind: "basket", idField: "basket_id" },
-    { type: `${CALL_PKG}::events::HolderYieldLaunchEvent`, kind: "holder", idField: "yield_id" },
+    { type: `${BY_EVENT_PKG}::events::BasketYieldLaunchEvent`, kind: "basket", idField: "basket_id" },
+    { type: `${HY_EVENT_PKG}::events::HolderYieldLaunchEvent`, kind: "holder", idField: "yield_id" },
   ];
   const q = `query($t:String!,$first:Int!,$after:String){ events(first:$first, after:$after, filter:{ type:$t }){ pageInfo { hasNextPage endCursor } nodes { contents { json } } } }`;
   for (const spec of specs) {

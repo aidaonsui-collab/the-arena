@@ -720,6 +720,23 @@
     };
   }
 
+  /// Instant LP quote split (v5). pit_amount is the rewards slice for both
+  /// pit collect and holder-yield collect. HolderYieldFundedEvent only fires
+  /// when the vault has registered holders — leftover goes to the creator.
+  function parseCollectLpFees(ev) {
+    var p = ev.parsedJson || {};
+    return {
+      lock_id: padId(p.lock_id || ""),
+      beneficiary: padId(p.beneficiary || ""),
+      token_amount: mistStr(p.token_amount),
+      creator_amount: mistStr(p.creator_amount),
+      platform_amount: mistStr(p.platform_amount),
+      pit_amount: mistStr(p.pit_amount),
+      ts: num(ev.timestampMs) || Date.now(),
+      digest: String((ev.id && (ev.id.txDigest || ev.id.tx_digest)) || ev.digest || "")
+    };
+  }
+
   function parseBasketYieldLaunch(ev) {
     var p = ev.parsedJson || {};
     var quoteRaw = p.quote;
@@ -822,6 +839,17 @@
       cursor = page.nextCursor;
     }
     return out;
+  }
+
+  function queryTxBlocks(rpc, filter, cursor, limit, desc) {
+    return rpcCall(rpc, "suix_queryTransactionBlocks", [
+      { filter: filter, options: { showEvents: true } },
+      cursor || null,
+      limit || 50,
+      desc !== false
+    ]).then(function (res) {
+      return res || { data: [], hasNextPage: false, nextCursor: null };
+    });
   }
 
   /**
@@ -1012,7 +1040,52 @@
       }
       var benPkgs = (opts.beneficiaryPackages || burnPkgs).slice();
       benPkgs.forEach(pullBeneficiary);
-      function emitHyLaunch(r) { if (opts.onHolderYieldLaunch) opts.onHolderYieldLaunch(r); }
+      var lockFeePulled = {};
+      function emitLockTxEvents(tx) {
+        var digest = String((tx && tx.digest) || "");
+        var ts = num(tx && tx.timestampMs);
+        var evs = (tx && tx.events) || [];
+        for (var i = 0; i < evs.length; i++) {
+          var e = evs[i] || {};
+          var typ = String(e.type || "");
+          var wrapped = {
+            parsedJson: e.parsedJson || {},
+            timestampMs: num(e.timestampMs) || ts,
+            id: { txDigest: digest }
+          };
+          if (/::events::CollectLpFeesEvent$/.test(typ)) emitCollectLp(parseCollectLpFees(wrapped));
+          else if (/::events::HolderYieldFundedEvent$/.test(typ)) emitHyFunded(parseHolderYieldFunded(wrapped));
+          else if (/::events::HolderYieldClaimEvent$/.test(typ)) emitHyClaim(parseHolderYieldClaim(wrapped));
+          else if (/::events::BasketYieldFundedEvent$/.test(typ)) emitByFunded(parseBasketYieldFunded(wrapped));
+          else if (/::events::BasketYieldConvertedEvent$/.test(typ)) emitByConverted(parseBasketYieldConverted(wrapped));
+        }
+      }
+      function pullLockFeeEvents(lockId, pages) {
+        lockId = padId(lockId);
+        if (!lockId || lockId === "0x0") return;
+        var key = lockId + ":" + (pages || 20);
+        if (lockFeePulled[key]) return;
+        lockFeePulled[key] = 1;
+        if (pages >= 8 && lockFeePulled[lockId + ":watch"] == null) lockFeePulled[lockId + ":watch"] = 1;
+        (async function () {
+          var cursor = null;
+          for (var i = 0; i < (pages || 20); i++) {
+            var page;
+            try {
+              page = await queryTxBlocks(rpc, { ChangedObject: lockId }, cursor, 50, true);
+            } catch (e) { break; }
+            var data = (page && page.data) || [];
+            if (!data.length) break;
+            data.forEach(emitLockTxEvents);
+            if (!page.hasNextPage || !page.nextCursor) break;
+            cursor = page.nextCursor;
+          }
+        })().catch(function () {});
+      }
+      function emitHyLaunch(r) {
+        if (opts.onHolderYieldLaunch) opts.onHolderYieldLaunch(r);
+        if (r && r.lock_id) pullLockFeeEvents(r.lock_id, 24);
+      }
       function emitHyFunded(r) { if (opts.onHolderYieldFunded) opts.onHolderYieldFunded(r); }
       function emitHyClaim(r) { if (opts.onHolderYieldClaim) opts.onHolderYieldClaim(r); }
       function pullHolderYield(pkg) {
@@ -1040,7 +1113,26 @@
         }
       }
       hyPkgs.forEach(pullHolderYield);
-      function emitByLaunch(r) { if (opts.onBasketYieldLaunch) opts.onBasketYieldLaunch(r); }
+      function emitCollectLp(r) { if (opts.onCollectLpFees) opts.onCollectLpFees(r); }
+      function pullCollectLp(pkg) {
+        if (!pkg || pkg === "0x0") return;
+        collect(rpc, pkg + "::events::CollectLpFeesEvent", parseCollectLpFees, 4, 50).then(function (rows) {
+          rows.forEach(emitCollectLp);
+        }).catch(function () {});
+      }
+      var clpPkgs = (opts.collectLpPackages || []).slice();
+      if (!clpPkgs.length) {
+        if (typeof window !== "undefined") {
+          [window.ARENA_COLLECT_LP_EVENT_PACKAGE, window.ARENA_CALL_PACKAGE, window.ARENA_COLLECT_PACKAGE].forEach(function (pkg) {
+            if (pkg && clpPkgs.indexOf(pkg) < 0) clpPkgs.push(pkg);
+          });
+        }
+      }
+      clpPkgs.forEach(pullCollectLp);
+      function emitByLaunch(r) {
+        if (opts.onBasketYieldLaunch) opts.onBasketYieldLaunch(r);
+        if (r && r.lock_id) pullLockFeeEvents(r.lock_id, 24);
+      }
       function emitByFunded(r) { if (opts.onBasketYieldFunded) opts.onBasketYieldFunded(r); }
       function emitByConverted(r) { if (opts.onBasketYieldConverted) opts.onBasketYieldConverted(r); }
       function emitByClaim(r) { if (opts.onBasketYieldClaim) opts.onBasketYieldClaim(r); }
@@ -1086,7 +1178,14 @@
           mintPkgs.forEach(pullMintLock);
           benPkgs.forEach(pullBeneficiary);
           hyPkgs.forEach(pullHolderYield);
+          clpPkgs.forEach(pullCollectLp);
           byPkgs.forEach(pullBasketYield);
+          Object.keys(lockFeePulled).forEach(function (k) {
+            if (k.slice(-6) !== ":watch") return;
+            var id = k.slice(0, -6);
+            delete lockFeePulled[id + ":2"];
+            pullLockFeeEvents(id, 2);
+          });
         }, opts.instadexMs || 45000);
         bluefinTimer = setInterval(function () { refreshBluefin(); }, opts.bluefinMs || 12000);
       }
@@ -1178,6 +1277,7 @@
     parseHolderYieldLaunch: parseHolderYieldLaunch,
     parseHolderYieldFunded: parseHolderYieldFunded,
     parseHolderYieldClaim: parseHolderYieldClaim,
+    parseCollectLpFees: parseCollectLpFees,
     parseBasketYieldLaunch: parseBasketYieldLaunch,
     parseBasketYieldFunded: parseBasketYieldFunded,
     parseBasketYieldConverted: parseBasketYieldConverted,
