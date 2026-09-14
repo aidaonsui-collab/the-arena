@@ -1755,6 +1755,31 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     }
     throw lastErr || new Error("Could not load @mysten/sui Transaction");
   }
+  var SuiClientCtor = null;
+  async function loadSuiClient(){
+    if (SuiClientCtor) return SuiClientCtor;
+    var urls = ["https://esm.sh/@mysten/sui@1.45.2/client", "https://esm.sh/@mysten/sui@1.37.2/client"];
+    for (var i = 0; i < urls.length; i++){
+      try {
+        var mod = await import(urls[i]);
+        SuiClientCtor = mod.SuiClient || (mod.default && mod.default.SuiClient);
+        if (SuiClientCtor) return SuiClientCtor;
+      } catch (e) {}
+    }
+    throw new Error("Could not load SuiClient");
+  }
+  function toB64(bytes){
+    if (typeof bytes === "string") return bytes;
+    return bytesToB64(bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes));
+  }
+  async function buildTxBytes(tx){
+    if (!tx || typeof tx.build !== "function") return null;
+    var Ctor = await loadSuiClient();
+    var client = new Ctor({ url: window.SUI_RPC || "https://fullnode.mainnet.sui.io:443" });
+    var bytes = await tx.build({ client: client });
+    if (bytes && bytes.bytes) bytes = bytes.bytes;
+    return bytes;
+  }
   function walletErrText(err){
     if (!err) return "";
     if (typeof err === "string") return err;
@@ -1840,6 +1865,48 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     if (!w) throw new Error("No Sui wallet found");
     if (typeof tx === "string") tx = asWalletTx(tx);
     if (typeof tx.setSender === "function") tx.setSender(suiSession.address);
+    var feats = w.features || {};
+    var opts = { showEffects: true, showEvents: true, showObjectChanges: true };
+    var last = null;
+    var bytes = null;
+    try { bytes = await buildTxBytes(tx); } catch (e) { last = e; }
+    if (bytes){
+      try {
+        var Ctor = await loadSuiClient();
+        var client = new Ctor({ url: window.SUI_RPC || "https://fullnode.mainnet.sui.io:443" });
+        var dry = await client.dryRunTransactionBlock({ transactionBlock: toB64(bytes) });
+        var st = dry && dry.effects && dry.effects.status;
+        if (st && st.status && st.status !== "success"){
+          throw new Error(st.error || "Transaction dry-run failed");
+        }
+      } catch (e) {
+        var dm = walletErrText(e);
+        if (/dry-run failed|Insufficient|MoveAbort|VMVerification|deserialize/i.test(dm)) throw e;
+      }
+    }
+    var signBlock = feats["sui:signTransactionBlock"] && feats["sui:signTransactionBlock"].signTransactionBlock;
+    if (signBlock && bytes){
+      try {
+        var signed = await signBlock({ transactionBlock: bytes, account: account, chain: "sui:mainnet" });
+        var sig = signed && signed.signature;
+        var b = (signed && (signed.transactionBlockBytes || signed.bytes)) || bytes;
+        if (sig) return await executeSigned(toB64(b), sig);
+      } catch (e) {
+        last = e;
+        if (isWalletReject(e)) throw e;
+      }
+    }
+    var execBlock = feats["sui:signAndExecuteTransactionBlock"] && feats["sui:signAndExecuteTransactionBlock"].signAndExecuteTransactionBlock;
+    if (execBlock && bytes){
+      try {
+        return await execBlock({
+          transactionBlock: bytes, account: account, chain: "sui:mainnet", options: opts
+        });
+      } catch (e) {
+        last = e;
+        if (isWalletReject(e)) throw e;
+      }
+    }
     var attempts = [];
     if (typeof tx.toJSON === "function"){
       try {
@@ -1847,17 +1914,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
         attempts.push(typeof j === "string" ? j : JSON.stringify(j));
       } catch (e) {}
     }
-    if (typeof tx.serialize === "function"){
-      try {
-        var v1 = tx.serialize();
-        if (v1 && attempts.indexOf(v1) < 0) attempts.push(v1);
-      } catch (e) {}
-    }
     attempts.push(tx);
-    if (asJson && attempts.length > 1) attempts = attempts.slice(0, 1).concat(attempts.slice(-1));
-    var feats = w.features || {};
-    var opts = { showEffects: true, showEvents: true, showObjectChanges: true };
-    var last = null;
     var signExec = feats["sui:signAndExecuteTransaction"] && feats["sui:signAndExecuteTransaction"].signAndExecuteTransaction;
     if (signExec){
       for (var i = 0; i < attempts.length; i++){
@@ -1870,20 +1927,16 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
           if (isWalletReject(e)) throw e;
         }
       }
-      throw last || new Error("Wallet could not sign");
     }
-    if (feats["sui:signAndExecuteTransactionBlock"] && feats["sui:signAndExecuteTransactionBlock"].signAndExecuteTransactionBlock){
-      return feats["sui:signAndExecuteTransactionBlock"].signAndExecuteTransactionBlock({
-        transactionBlock: attempts[0], account: account, chain: "sui:mainnet", options: opts
-      });
+    if (typeof w.signAndExecuteTransactionBlock === "function" && bytes){
+      try {
+        return await w.signAndExecuteTransactionBlock({ transactionBlock: bytes, options: opts });
+      } catch (e) {
+        last = e;
+        if (isWalletReject(e)) throw e;
+      }
     }
-    if (typeof w.signAndExecuteTransaction === "function"){
-      return w.signAndExecuteTransaction({ transaction: attempts[0], options: opts });
-    }
-    if (typeof w.signAndExecuteTransactionBlock === "function"){
-      return w.signAndExecuteTransactionBlock({ transactionBlock: attempts[0], options: opts });
-    }
-    throw new Error("Wallet cannot sign and execute");
+    throw last || new Error("Wallet cannot sign and execute");
   }
   function padType(t){
     t = String(t || "").trim();
