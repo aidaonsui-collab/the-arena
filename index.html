@@ -227,6 +227,8 @@ main{padding:18px 0 72px}
 .chart-ohlc .ma99{color:#C9B458}
 .chart-ohlc .ema{color:#7AE0B8}
 .tv-host iframe,.tv-host svg.local-chart{border:0;display:block;width:100%;height:100%}
+.tv-wrap-dex{height:420px;background:#0b0e11;border-radius:0;overflow:hidden}
+.dex-embed{border:0;display:block;width:100%;height:100%;min-height:420px}
 .ticket{background:var(--card);border-radius:28px;padding:18px;box-shadow:var(--shadow);position:sticky;top:84px;min-width:0;max-width:100%;overflow:hidden}
 .sides{display:flex;background:#16171A;border-radius:999px;padding:4px}
 .sides>div{flex:1;text-align:center;padding:10px;border-radius:999px;font-weight:650;cursor:pointer;color:var(--muted)}
@@ -2716,8 +2718,13 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       chip("data-ind","ema", !!ind.ema, "EMA9")+
       '</div>';
   }
-  function dexEmbed(pool){
+  function dexEmbed(tk){
+    var pool = (tk && tk.bluefinPool) || "";
     if (!pool) return '<div class="tv-host" style="display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:13px">Bluefin pool pending</div>';
+    if (poolQuote(tk) === "SUI"){
+      var src = "https://dexscreener.com/sui/"+pool+"?embed=1&loadChartSettings=0&trades=0&tabs=0&info=0&chartLeftToolbar=0&chartTheme=dark&theme=dark&chartStyle=1&chartType=usd&interval=15";
+      return '<div class="tv-wrap tv-wrap-dex"><iframe class="dex-embed" title="Dexscreener" src="'+escAttr(src)+'" loading="lazy" allowfullscreen></iframe></div>';
+    }
     return chartToolbarHTML()+'<div class="tv-wrap"><div class="tv-host" data-chart-pool="'+escAttr(pool)+'"><div class="chart-pending">Drawing chart…</div></div></div>';
   }
   var lw = { chart:null, candle:null, vol:null, ma7:null, ma25:null, ma99:null, ema:null, host:null, ticker:"", legend:null, rows:[] };
@@ -2987,6 +2994,10 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     }).catch(function(){ poolSnapBusy[id] = 0; });
   }
   function mountDexChart(){
+    if (document.querySelector("iframe.dex-embed")){
+      dropLwChart();
+      return;
+    }
     var host = document.querySelector(".tv-host[data-chart-pool]");
     if (!host){
       if (state.route !== "token") dropLwChart();
@@ -5967,7 +5978,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
         pairTicket(tk, q, insta)+
         '<div class="split-main">'+
           '<div class="card chart-card" data-pool="'+(tk.bluefinPool||"")+'" style="margin-top:12px">'+
-            dexEmbed(tk.bluefinPool)+'</div>'+
+            dexEmbed(tk)+'</div>'+
           tapeBody+'</div></div>'+
       footerHTML()+'</div>';
   }
@@ -7730,19 +7741,22 @@ async function doBridgeDeposit(){
           });
         }
         if (!built.b64) built.b64 = bytesToB64(built.bytes);
+        if (!built.bytes) built.bytes = b64ToBytes(built.b64);
 
-        var pubPayload;
-        if (built.txJson){
-          pubPayload = asWalletTx(built.txJson);
-        } else {
-          var TransactionP = await loadTransaction();
-          var ptx = new TransactionP();
-          ptx.setSender(suiSession.address);
-          var pub = ptx.publish({ modules: [built.b64], dependencies: ["0x1", "0x2"] });
-          var upgradeCap = Array.isArray(pub) ? pub[0] : pub;
-          ptx.transferObjects([upgradeCap], suiSession.address);
-          pubPayload = ptx;
-        }
+        // Always build a live Transaction in the page. Server txJson / asWalletTx
+        // wrappers made Slush parse a fake object and throw "Invalid struct tag: package".
+        var TransactionP = await loadTransaction();
+        var ptx = new TransactionP();
+        ptx.setSender(suiSession.address);
+        var STD = "0x0000000000000000000000000000000000000000000000000000000000000001";
+        var SUI_FRM = "0x0000000000000000000000000000000000000000000000000000000000000002";
+        var pub = ptx.publish({
+          modules: [Array.from(built.bytes)],
+          dependencies: [STD, SUI_FRM]
+        });
+        var upgradeCap = Array.isArray(pub) ? pub[0] : pub;
+        ptx.transferObjects([upgradeCap], suiSession.address);
+        var pubPayload = ptx;
 
         if (btn) btn.textContent = "Sign 1 of 2 · publish coin…";
         setLaunchNote("Publishing " + built.upper + ". Signature 1 of 2.", false);

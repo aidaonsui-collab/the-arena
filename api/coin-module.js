@@ -115,8 +115,11 @@ export async function POST(req) {
       const tx = new Transaction();
       tx.setSender(sender);
       const cap = tx.publish({
-        modules: [mod.b64],
-        dependencies: ["0x1", "0x2"],
+        modules: [Buffer.from(mod.b64, "base64")],
+        dependencies: [
+          "0x0000000000000000000000000000000000000000000000000000000000000001",
+          "0x0000000000000000000000000000000000000000000000000000000000000002",
+        ],
       });
       tx.transferObjects([cap], sender);
       txJson = await tx.toJSON();
