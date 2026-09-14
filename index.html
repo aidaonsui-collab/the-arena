@@ -1830,42 +1830,71 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       throw last || e;
     }
   }
+  function isWalletReject(err){
+    var m = walletErrText(err);
+    return /reject|denied|cancelled|canceled/i.test(m);
+  }
   async function walletExec(tx, asJson){
     var w = suiSession.wallet;
     var account = suiSession.account;
     if (!w) throw new Error("No Sui wallet found");
     if (typeof tx === "string") tx = asWalletTx(tx);
     if (typeof tx.setSender === "function") tx.setSender(suiSession.address);
-    var payload = tx;
-    if (asJson && typeof tx.toJSON === "function" && typeof tx.setSender === "function"){
-      try { payload = await tx.toJSON(); } catch (e) { payload = tx; }
+    var attempts = [];
+    if (typeof tx.toJSON === "function"){
+      try {
+        var j = await tx.toJSON();
+        attempts.push(typeof j === "string" ? j : JSON.stringify(j));
+      } catch (e) {}
     }
+    if (typeof tx.serialize === "function"){
+      try {
+        var v1 = tx.serialize();
+        if (v1 && attempts.indexOf(v1) < 0) attempts.push(v1);
+      } catch (e) {}
+    }
+    attempts.push(tx);
+    if (asJson && attempts.length > 1) attempts = attempts.slice(0, 1).concat(attempts.slice(-1));
     var feats = w.features || {};
     var opts = { showEffects: true, showEvents: true, showObjectChanges: true };
-    if (feats["sui:signAndExecuteTransaction"] && feats["sui:signAndExecuteTransaction"].signAndExecuteTransaction){
-      try {
-        return await feats["sui:signAndExecuteTransaction"].signAndExecuteTransaction({
-          transaction: payload, account: account, chain: "sui:mainnet", options: opts
-        });
-      } catch (e1) {
-        if (payload === tx) throw e1;
-        return feats["sui:signAndExecuteTransaction"].signAndExecuteTransaction({
-          transaction: tx, account: account, chain: "sui:mainnet", options: opts
-        });
+    var last = null;
+    var signExec = feats["sui:signAndExecuteTransaction"] && feats["sui:signAndExecuteTransaction"].signAndExecuteTransaction;
+    if (signExec){
+      for (var i = 0; i < attempts.length; i++){
+        try {
+          return await signExec({
+            transaction: attempts[i], account: account, chain: "sui:mainnet", options: opts
+          });
+        } catch (e) {
+          last = e;
+          if (isWalletReject(e)) throw e;
+        }
       }
+      throw last || new Error("Wallet could not sign");
     }
     if (feats["sui:signAndExecuteTransactionBlock"] && feats["sui:signAndExecuteTransactionBlock"].signAndExecuteTransactionBlock){
       return feats["sui:signAndExecuteTransactionBlock"].signAndExecuteTransactionBlock({
-        transactionBlock: payload, account: account, chain: "sui:mainnet", options: opts
+        transactionBlock: attempts[0], account: account, chain: "sui:mainnet", options: opts
       });
     }
     if (typeof w.signAndExecuteTransaction === "function"){
-      return w.signAndExecuteTransaction({ transaction: payload, options: opts });
+      return w.signAndExecuteTransaction({ transaction: attempts[0], options: opts });
     }
     if (typeof w.signAndExecuteTransactionBlock === "function"){
-      return w.signAndExecuteTransactionBlock({ transactionBlock: payload, options: opts });
+      return w.signAndExecuteTransactionBlock({ transactionBlock: attempts[0], options: opts });
     }
     throw new Error("Wallet cannot sign and execute");
+  }
+  function padType(t){
+    t = String(t || "").trim();
+    var i = t.indexOf("::");
+    if (i < 2) return t;
+    var pkg = t.slice(0, i).toLowerCase();
+    var rest = t.slice(i);
+    if (pkg.indexOf("0x") !== 0) return t;
+    var hex = pkg.slice(2);
+    if (!/^[0-9a-f]*$/.test(hex) || !hex) return t;
+    return "0x" + hex.padStart(64, "0") + rest;
   }
   function normType(t){
     if (t == null || t === "") return "";
@@ -7751,11 +7780,12 @@ async function doBridgeDeposit(){
         var STD = "0x0000000000000000000000000000000000000000000000000000000000000001";
         var SUI_FRM = "0x0000000000000000000000000000000000000000000000000000000000000002";
         var pub = ptx.publish({
-          modules: [Array.from(built.bytes)],
+          modules: [built.b64],
           dependencies: [STD, SUI_FRM]
         });
         var upgradeCap = Array.isArray(pub) ? pub[0] : pub;
         ptx.transferObjects([upgradeCap], suiSession.address);
+        if (typeof ptx.setGasBudget === "function") ptx.setGasBudget(100000000);
         var pubPayload = ptx;
 
         if (btn) btn.textContent = "Sign 1 of 2 · publish coin…";
@@ -7786,12 +7816,12 @@ async function doBridgeDeposit(){
 
       if (btn) btn.textContent = "Building PTB…";
       var capObj = await moveObject(capId);
-      var Ttype = innerType(capObj.type);
+      var Ttype = padType(innerType(capObj.type));
       if (!Ttype || String(capObj.type).indexOf("TreasuryCap") < 0) throw new Error("That object is not a TreasuryCap");
       var tokenObj = await moveObject(tokenCoinId);
       var tokenInner = innerType(tokenObj.type);
       if (normType(tokenInner) !== normType(Ttype)) throw new Error("Token coin type does not match TreasuryCap");
-      var Qtype = quoteRec(launchQuote).type;
+      var Qtype = padType(quoteRec(launchQuote).type);
       var metaT = await metadataFor(Ttype);
       var metaQ = await metadataFor(Qtype);
       if (metaT.name) { state.lName = metaT.name; var nEl = $("#l-name"); if (nEl) nEl.value = metaT.name; }
@@ -7811,8 +7841,8 @@ async function doBridgeDeposit(){
       var feeSplit = tx.splitCoins(tx.gas, [txAmt(LAUNCH_FEE)]);
       var feeArg = Array.isArray(feeSplit) ? feeSplit[0] : feeSplit;
       var creationArg = tx.moveCall({
-        target: "0x2::coin::zero",
-        typeArguments: [SUI_TYPE],
+        target: padType("0x2::coin::zero"),
+        typeArguments: [padType(SUI_TYPE)],
         arguments: []
       });
       // Instant: 100% token, 0 quote. Paths:
@@ -7843,7 +7873,7 @@ async function doBridgeDeposit(){
         var weightArgs = legs.map(function(leg){ return txPure(tx, "u64", txAmt(leg.bps)); });
         weightArgs.push(txPure(tx, "bool", equal));
         weightArgs.push(txPure(tx, "u8", mode));
-        var typeArgs = [Ttype, Qtype].concat(legs.map(function(leg){ return leg.type; }));
+        var typeArgs = [Ttype, Qtype].concat(legs.map(function(leg){ return padType(leg.type); }));
         var target =
           legs.length === 1 ? (CALL + "::launch::launch_instant_basket_yield_entry") :
           legs.length === 2 ? (CALL + "::launch::launch_instant_basket_yield_2_entry") :
