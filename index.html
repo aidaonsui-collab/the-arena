@@ -5493,6 +5493,69 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     });
     return Object.keys(seen).length;
   }
+  var eligibleCache = { at: 0, count: 0, series: [] };
+  async function suiJson(method, params){
+    var rpc = window.SUI_RPC || "https://mainnet.suiet.app";
+    var res = await fetch(rpc, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ jsonrpc:"2.0", id:1, method:method, params:params })
+    });
+    var j = await res.json();
+    if (j && j.error) throw new Error(j.error.message || "rpc");
+    return j && j.result;
+  }
+  function vaultHoldersTable(fields){
+    var h = fields && fields.holders;
+    var f = h && (h.fields || h);
+    if (!f) return { id: "", size: 0 };
+    var id = f.id;
+    if (id && typeof id === "object") id = id.id || "";
+    return { id: String(id || ""), size: Number(f.size) || 0 };
+  }
+  async function listTableAddresses(tableId){
+    var addrs = [];
+    var cursor = null;
+    for (var n = 0; n < 20; n++){
+      var page = await suiJson("suix_getDynamicFields", [tableId, cursor, 50]);
+      ((page && page.data) || []).forEach(function(df){
+        var name = df && df.name && df.name.value;
+        if (typeof name === "string" && name) addrs.push(name.toLowerCase());
+      });
+      if (!page || !page.hasNextPage) break;
+      cursor = page.nextCursor;
+    }
+    return addrs;
+  }
+  async function loadEligibleWallets(){
+    if (eligibleCache.at && Date.now() - eligibleCache.at < 30000) return eligibleCache.count;
+    var ids = Object.keys(rewardsVaults);
+    var seen = {};
+    var series = [];
+    for (var i = 0; i < ids.length; i++){
+      try {
+        var obj = await suiJson("sui_getObject", [ids[i], { showContent: true }]);
+        var fields = obj && obj.data && obj.data.content && obj.data.content.fields;
+        var tab = vaultHoldersTable(fields);
+        series.push(tab.size);
+        if (tab.id){
+          var addrs = await listTableAddresses(tab.id);
+          addrs.forEach(function(a){ seen[a] = 1; });
+        }
+      } catch (e) {}
+    }
+    var count = Object.keys(seen).length;
+    if (!count && series.length) count = series.reduce(function(a,b){ return a+b; }, 0);
+    eligibleCache = { at: Date.now(), count: count, series: series };
+    return count;
+  }
+  function refreshEligible(){
+    if (state.route !== "pit") return;
+    if (eligibleCache.at && Date.now() - eligibleCache.at < 30000) return;
+    loadEligibleWallets().then(function(){
+      if (state.route === "pit") renderScreen();
+    }).catch(function(){});
+  }
   function distCollectRows(){
     var rows = (rewardsLedger.claims || []).slice().sort(function(a,b){ return (b.ts||0)-(a.ts||0); }).slice(0, 12);
     if (!rows.length){
@@ -5537,7 +5600,8 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   function pitHTML(){
     var usd = rewardsDistributedUsd();
     var eventUsd = distEventUsd();
-    var wallets = distWalletCount();
+    var elig = eligibleCache.at ? eligibleCache.count : null;
+    var eligBars = (eligibleCache.series && eligibleCache.series.length) ? eligibleCache.series : (elig ? [elig] : []);
     var cards = REWARDS_CATS.map(function(cat){
       var tot = rewardsTotals(cat);
       return '<div class="rewards-card">'+
@@ -5570,7 +5634,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
         '<div class="dist-stats">'+
           '<div class="dist-stat"><div class="k">Cumulative distributed</div><div class="v">'+escHtml(fmtUsd(usd))+'</div><div class="s">at current prices</div>'+distBarsHTML(distUsdSeries(), "gold")+'</div>'+
           '<div class="dist-stat"><div class="k">Distributions</div><div class="v">'+distN+'</div><div class="s">funded events on-chain</div>'+distBarsHTML(eventUsd, "sui")+'</div>'+
-          '<div class="dist-stat"><div class="k">Wallets</div><div class="v">'+wallets+'</div><div class="s">claimed so far</div>'+distBarsHTML(Array(24).fill(wallets ? 1 : 0), "muted")+'</div>'+
+          '<div class="dist-stat"><div class="k">Wallets</div><div class="v">'+(elig==null?"…":elig)+'</div><div class="s">eligible (synced holders)</div>'+distBarsHTML(eligBars, "muted")+'</div>'+
         '</div>'+
         '<div class="rewards-grid">'+cards+'</div>'+
         '<div class="rewards-claim">'+
@@ -7155,6 +7219,7 @@ async function doBridgeDeposit(){
     paintNav();
     paintWallet();
     if (state.route === "portfolio") refreshPortfolio();
+    if (state.route === "pit") refreshEligible();
     if (state.route === "bridge") refreshBridgeBal();
     const q = $("#q");
     if (q) q.value = state.search;
