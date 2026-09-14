@@ -750,7 +750,7 @@ html[data-route="bridge"] .search-row{display:none}
 <script>
 window.ARENA_PACKAGE_ID = "0x5cfddf8ba23be6835644a8ea22482ff6ebb0081e42cc1bc052b5f770ca8bbdea";
 window.ARENA_INSTADEX_PACKAGE = "0xcf7835ae4e3f8a3d4eb4bd9d14cb4a3dbdd80e70908feb6c433688a31e119de3";
-window.ARENA_COLLECT_PACKAGE = "0xde8bab588b6deb2fa51357159264fdb70d873925c98998748fa9db0b0f331769";
+window.ARENA_COLLECT_PACKAGE = "0x3c97bece55ec13cc574b7254ee71db58a6675f25e6bf1902aabd50a0da5aa07b";
 window.ARENA_CALL_PACKAGE = window.ARENA_COLLECT_PACKAGE;
 // Compatible-upgrade event types keep the package id that first defined them.
 window.ARENA_HOLDER_YIELD_EVENT_PACKAGE = "0xe2dee7a21e382d47d8f13e39801c86987a88e9ebd5fb8801efd1b974e4e4d9a2"; // v11
@@ -8784,11 +8784,12 @@ async function doBridgeDeposit(){
       var tx = new Transaction();
       tx.setSender(suiSession.address);
       if (typeof tx.setGasBudget === "function") tx.setGasBudget(100000000);
+      if (!tk.bluefinPool) throw new Error("Bluefin pool missing — cannot migrate");
       if (isRwaQuote(q)){
         tx.moveCall({
-          target: CALL + "::launch::migrate_instant_to_holder_yield_entry",
+          target: CALL + "::launch::migrate_instant_to_holder_yield_v2_entry",
           typeArguments: [Ttype, Qtype],
-          arguments: [tx.object(tk.lockId)]
+          arguments: [tx.object(tk.lockId), tx.object(tk.bluefinPool)]
         });
       } else if (String(q).toUpperCase() === "SUI"){
         state.lBasket = true;
@@ -8802,13 +8803,13 @@ async function doBridgeDeposit(){
         weightArgs.push(txPure(tx, "u8", mode));
         var typeArgs = [Ttype, Qtype].concat(legs.map(function(leg){ return leg.type; }));
         var target =
-          legs.length === 1 ? (CALL + "::launch::migrate_instant_to_basket_yield_entry") :
-          legs.length === 2 ? (CALL + "::launch::migrate_instant_to_basket_yield_2_entry") :
-          (CALL + "::launch::migrate_instant_to_basket_yield_3_entry");
+          legs.length === 1 ? (CALL + "::launch::migrate_instant_to_basket_yield_v2_entry") :
+          legs.length === 2 ? (CALL + "::launch::migrate_instant_to_basket_yield_v2_2_entry") :
+          (CALL + "::launch::migrate_instant_to_basket_yield_v2_3_entry");
         tx.moveCall({
           target: target,
           typeArguments: typeArgs,
-          arguments: [tx.object(tk.lockId)].concat(weightArgs)
+          arguments: [tx.object(tk.lockId), tx.object(tk.bluefinPool)].concat(weightArgs)
         });
       } else {
         throw new Error("Migrate supports RWA quotes (holder) or SUI (basket)");
