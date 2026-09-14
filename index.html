@@ -514,6 +514,10 @@ html[data-route="portfolio"] main{padding:0 0 72px}
 .mstat .k{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
 .mstat .v{font-size:clamp(22px,3vw,32px);font-weight:650;margin-top:8px;font-variant-numeric:tabular-nums;letter-spacing:-.03em;font-family:"IBM Plex Mono",ui-monospace,monospace}
 .mstat .s{margin-top:4px;font-size:12px;color:var(--muted)}
+.split-panel{margin-top:12px}
+.split-row{display:grid;grid-template-columns:118px 1fr 44px;gap:8px;align-items:center;margin-top:8px;font-size:13px}
+.split-row input[type=range]{width:100%;accent-color:var(--pink)}
+.split-row b{font-variant-numeric:tabular-nums;text-align:right;font-size:12px;color:var(--muted)}
 .vol-bars{display:flex;align-items:flex-end;gap:4px;height:120px;padding:8px 0 0}
 .vol-bars i{flex:1;background:var(--pink);border-radius:4px 4px 0 0;min-height:2px;opacity:.85}
 .fee-rows{display:grid;gap:10px}
@@ -750,7 +754,7 @@ html[data-route="bridge"] .search-row{display:none}
 <script>
 window.ARENA_PACKAGE_ID = "0x5cfddf8ba23be6835644a8ea22482ff6ebb0081e42cc1bc052b5f770ca8bbdea";
 window.ARENA_INSTADEX_PACKAGE = "0xcf7835ae4e3f8a3d4eb4bd9d14cb4a3dbdd80e70908feb6c433688a31e119de3";
-window.ARENA_COLLECT_PACKAGE = "0x3c97bece55ec13cc574b7254ee71db58a6675f25e6bf1902aabd50a0da5aa07b";
+window.ARENA_COLLECT_PACKAGE = "0xe5e5b59142070d8ce8a411b6c100763d10f4fdcbc23ca3f33acd60324d4cce1d";
 window.ARENA_CALL_PACKAGE = window.ARENA_COLLECT_PACKAGE;
 // Compatible-upgrade event types keep the package id that first defined them.
 window.ARENA_HOLDER_YIELD_EVENT_PACKAGE = "0xe2dee7a21e382d47d8f13e39801c86987a88e9ebd5fb8801efd1b974e4e4d9a2"; // v11
@@ -889,7 +893,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   var pitStatePollAt = 0;
   let balance = 48.60;
   let xaumBal = 2.40;
-  const state = {route:"explore", sym:"VOLT", filter:"All", sort:"Market cap", time:"All", side:"Buy", amt:"1", connected:false, search:"", lName:"", lTick:"", lQuote:"SUI", lPath:"instadex", lMode:"Holders", lTokenAmt:"", lQuoteAmt:"", lFirstBuy:"1", lCap:"", lTokenCoin:"", lQuoteCoin:"", lCoinMode:"create", lDecimals:"9", lSupply:"1000000000", lDesc:"", lX:"", lTg:"", lWeb:"", lPublishedType:"", metricsWindow:"All", tapeTab:"trades", tapeOpen:"", tapePage:0, tapeAge:"age", tapeWallet:"", tapeFilterOpen:false, lFile:null, lArtUrl:"", lArtPreview:"", payWith:"SUI", lNote:"", lNoteErr:false, chartTf:900, chartInd:{vol:true,ma7:false,ma25:false,ma99:false,ema:false}, bridgeTick:"NVDA", bridgeAmt:"", bridgeDir:"in", bridgeRhDest:"", bridgeNote:"", bridgeBusy:false, quoteOpen:false, rewardsTab:"all", lBasket:false, lBasketEqual:true, lBasketMode:0, lBasketOn:{XAUM:true,XAGM:true,USDY:true}, lBasketBps:{XAUM:3334,XAGM:3333,USDY:3333}, pfRange:"1M", pfFlash:""};
+  const state = {route:"explore", sym:"VOLT", filter:"All", sort:"Market cap", time:"All", side:"Buy", amt:"1", connected:false, search:"", lName:"", lTick:"", lQuote:"SUI", lPath:"instadex", lMode:"Holders", lTokenAmt:"", lQuoteAmt:"", lFirstBuy:"1", lCap:"", lTokenCoin:"", lQuoteCoin:"", lCoinMode:"create", lDecimals:"9", lSupply:"1000000000", lDesc:"", lX:"", lTg:"", lWeb:"", lPublishedType:"", metricsWindow:"All", tapeTab:"trades", tapeOpen:"", tapePage:0, tapeAge:"age", tapeWallet:"", tapeFilterOpen:false, lFile:null, lArtUrl:"", lArtPreview:"", payWith:"SUI", lNote:"", lNoteErr:false, chartTf:900, chartInd:{vol:true,ma7:false,ma25:false,ma99:false,ema:false}, bridgeTick:"NVDA", bridgeAmt:"", bridgeDir:"in", bridgeRhDest:"", bridgeNote:"", bridgeBusy:false, quoteOpen:false, rewardsTab:"all", lBasket:false, lBasketEqual:true, lBasketMode:0, lBasketOn:{XAUM:true,XAGM:true,USDY:true}, lBasketBps:{XAUM:3334,XAGM:3333,USDY:3333}, lSplitPreset:"vice", lSplit:{creator:6000,platform:500,rewards:2500,buyback:1000}, pfRange:"1M", pfFlash:""};
   var metaEdit = { open: false, saving: false, file: null, preview: "", artUrl: "", note: "", err: false, name: "", desc: "", x: "", tg: "", web: "", creator: "", openedCreator: "" };
   let hashLock = false;
   const hop = { suiPerXaum: null, suiPerUsdy: null, suiPerXagm: null, usd: null, suiUsd: null, usdyUsd: null, xagmUsd: null, xaumUsd: null, source: "" };
@@ -5109,6 +5113,85 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
         : '<div style="font-size:12px;color:var(--muted);margin-top:6px">Off · standard Instant (pit collect). Toggle on for v2 basket yield.</div>')+
     '</div>';
   }
+  var SPLIT_PRESETS = {
+    vice: { creator: 6000, platform: 500, rewards: 2500, buyback: 1000 },
+    creator: { creator: 8000, platform: 500, rewards: 1000, buyback: 500 },
+    holders: { creator: 4000, platform: 500, rewards: 4500, buyback: 1000 },
+    buyback: { creator: 4000, platform: 500, rewards: 1500, buyback: 4000 }
+  };
+  function launchSplit(){
+    var s = state.lSplit || SPLIT_PRESETS.vice;
+    return {
+      creator: Number(s.creator) || 0,
+      platform: Number(s.platform) || 0,
+      rewards: Number(s.rewards) || 0,
+      buyback: Number(s.buyback) || 0
+    };
+  }
+  function launchSplitArgs(tx){
+    var s = launchSplit();
+    return [s.creator, s.platform, s.rewards, s.buyback].map(function(n){ return txPure(tx, "u64", txAmt(n)); });
+  }
+  function splitOk(){
+    var s = launchSplit();
+    return s.platform >= 500 && (s.creator + s.platform + s.rewards + s.buyback) === 10000;
+  }
+  function applySplitLeg(key, pct){
+    var s = launchSplit();
+    var bps = Math.round(Number(pct) || 0) * 100;
+    if (key === "platform") bps = Math.max(500, Math.min(9500, bps));
+    else bps = Math.max(0, Math.min(9500, bps));
+    var old = s[key];
+    s[key] = bps;
+    var delta = bps - old;
+    var order = key === "creator" ? ["rewards", "buyback"] : ["creator", "rewards", "buyback"].filter(function(k){ return k !== key; });
+    for (var i = 0; i < order.length && delta !== 0; i++){
+      var k = order[i];
+      var min = 0;
+      var next = s[k] - delta;
+      if (next < min){ delta -= (s[k] - min); s[k] = min; }
+      else { s[k] = next; delta = 0; }
+    }
+    s.platform = Math.max(500, s.platform);
+    s.creator += 10000 - (s.creator + s.platform + s.rewards + s.buyback);
+    if (s.creator < 0){ s.rewards = Math.max(0, s.rewards + s.creator); s.creator = 0; }
+    s.creator += 10000 - (s.creator + s.platform + s.rewards + s.buyback);
+    state.lSplit = s;
+    state.lSplitPreset = "custom";
+    paintSplitPercents();
+  }
+  function paintSplitPercents(){
+    var s = launchSplit();
+    $$("[data-split-leg]").forEach(function(el){
+      var k = el.getAttribute("data-split-leg");
+      var pct = Math.round((s[k] || 0) / 100);
+      if (el.value !== String(pct)) el.value = String(pct);
+      var lab = el.parentNode && el.parentNode.querySelector("b");
+      if (lab) lab.textContent = pct + "%";
+    });
+  }
+  function splitPanelHTML(){
+    var s = launchSplit();
+    var pre = state.lSplitPreset || "vice";
+    function pill(id, lab){
+      return '<button type="button" class="pill'+(pre===id?" on":"")+'" data-split-preset="'+id+'">'+escHtml(lab)+'</button>';
+    }
+    function row(key, lab, min){
+      var pct = Math.round((s[key] || 0) / 100);
+      return '<div class="split-row"><span>'+lab+'</span><input type="range" min="'+(min||0)+'" max="95" step="1" value="'+pct+'" data-split-leg="'+key+'"><b>'+pct+'%</b></div>';
+    }
+    return '<div class="split-panel">'+
+      '<label>Fee split</label>'+
+      '<div style="font-size:12px;color:var(--muted);margin-top:6px">Of our 80% of the 1% pair fee. Platform floor 5%. Locked on the pair at launch.</div>'+
+      '<div class="pills" style="margin-top:8px">'+
+        pill("vice","Vice")+pill("creator","Creator")+pill("holders","Holders")+pill("buyback","Buyback")+
+      '</div>'+
+      row("creator","Creator")+
+      row("platform","Platform",5)+
+      row("rewards","Rewards")+
+      row("buyback","VICE buyback")+
+    '</div>';
+  }
   function rewardsVaultByLock(lockId){
     var want = padAddr(lockId);
     if (!want) return null;
@@ -6025,6 +6108,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
           '<div><label>Quote</label>'+quoteDropdownHTML()+
             '<div style="font-size:12px;color:var(--muted);margin-top:6px">'+quoteRec(state.lQuote).what+'. TOKEN/'+state.lQuote+'. Starting market cap ≈ $3,500, same for every quote. No '+state.lQuote+' required for LP.</div>'+
             basketPanelHTML()+
+            splitPanelHTML()+
           '</div>'+
           '<div><label>First buy · SUI</label><input id="l-first-buy" inputmode="decimal" placeholder="1" value="'+escAttr(state.lFirstBuy)+'"></div>'+
             '<div id="l-first-buy-preview" style="font-size:13px;color:var(--text);margin-top:6px">'+escHtml(firstBuyPreview())+'</div>'+
@@ -8110,6 +8194,8 @@ async function doBridgeDeposit(){
       });
       // Instant: 100% token, 0 quote. Paths:
       // RWA quote → holder_yield; SUI+basket → basket_yield_N; else plain instant.
+      if (!splitOk()) throw new Error("Fee split must sum to 100% with platform ≥ 5%");
+      var splitArgs = launchSplitArgs(tx);
       var baseArgs = [
         tx.object(window.ARENA_CONFIG),
         tx.object(window.ARENA_CLOCK || "0x6"),
@@ -8123,9 +8209,9 @@ async function doBridgeDeposit(){
       ];
       if (isRwaQuote(launchQuote)){
         tx.moveCall({
-          target: CALL + "::launch::launch_instant_holder_yield_entry",
+          target: CALL + "::launch::launch_instant_holder_yield_v2_entry",
           typeArguments: [Ttype, Qtype],
-          arguments: baseArgs
+          arguments: baseArgs.concat(splitArgs)
         });
       } else if (state.lBasket && String(launchQuote).toUpperCase() === "SUI"){
         var legs = normalizeBasketBps(basketSelectedLegs());
@@ -8138,19 +8224,19 @@ async function doBridgeDeposit(){
         weightArgs.push(txPure(tx, "u8", mode));
         var typeArgs = [Ttype, Qtype].concat(legs.map(function(leg){ return padType(leg.type); }));
         var target =
-          legs.length === 1 ? (CALL + "::launch::launch_instant_basket_yield_entry") :
-          legs.length === 2 ? (CALL + "::launch::launch_instant_basket_yield_2_entry") :
-          (CALL + "::launch::launch_instant_basket_yield_3_entry");
+          legs.length === 1 ? (CALL + "::launch::launch_instant_basket_yield_v2_entry") :
+          legs.length === 2 ? (CALL + "::launch::launch_instant_basket_yield_v2_2_entry") :
+          (CALL + "::launch::launch_instant_basket_yield_v2_3_entry");
         tx.moveCall({
           target: target,
           typeArguments: typeArgs,
-          arguments: baseArgs.concat(weightArgs)
+          arguments: baseArgs.concat(weightArgs).concat(splitArgs)
         });
       } else {
         tx.moveCall({
-          target: CALL + "::launch::launch_instant_entry",
+          target: CALL + "::launch::launch_instant_v2_entry",
           typeArguments: [Ttype, Qtype],
-          arguments: baseArgs
+          arguments: baseArgs.concat(splitArgs)
         });
       }
       if (btn) btn.textContent = "Sign in wallet…";
@@ -9255,6 +9341,16 @@ async function doBridgeDeposit(){
       if (state.route === "launch" || state.route === "token") renderScreen();
       return;
     }
+    const splitPreset = e.target.closest("[data-split-preset]");
+    if (splitPreset){
+      var pid = splitPreset.getAttribute("data-split-preset");
+      if (SPLIT_PRESETS[pid]){
+        state.lSplitPreset = pid;
+        state.lSplit = Object.assign({}, SPLIT_PRESETS[pid]);
+        if (state.route === "launch") renderScreen();
+      }
+      return;
+    }
     const set = e.target.closest("[data-set]");
     if (set){
       const key = set.getAttribute("data-set");
@@ -9443,6 +9539,10 @@ async function doBridgeDeposit(){
       paintFirstBuyPreview();
     }
     if (e.target && e.target.id === "l-quote-coin") state.lQuoteCoin = e.target.value.trim();
+    var splitLeg = e.target && e.target.getAttribute && e.target.getAttribute("data-split-leg");
+    if (splitLeg){
+      applySplitLeg(splitLeg, e.target.value);
+    }
     var bpsEl = e.target && e.target.getAttribute && e.target.getAttribute("data-basket-bps");
     if (bpsEl){
       if (!state.lBasketBps) state.lBasketBps = {XAUM:3334,XAGM:3333,USDY:3333};

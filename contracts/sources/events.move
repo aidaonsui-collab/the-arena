@@ -417,6 +417,30 @@ public fun emit_collect_lp_fees(
     })
 }
 
+public struct LockLpSplitSetEvent has copy, drop {
+    lock_id: ID,
+    creator_bps: u64,
+    platform_bps: u64,
+    pit_bps: u64,
+    buyback_bps: u64,
+}
+
+public fun emit_lock_lp_split(
+    lock_id: ID,
+    creator_bps: u64,
+    platform_bps: u64,
+    pit_bps: u64,
+    buyback_bps: u64,
+) {
+    sui::event::emit(LockLpSplitSetEvent {
+        lock_id,
+        creator_bps,
+        platform_bps,
+        pit_bps,
+        buyback_bps,
+    })
+}
+
 public fun emit_vice_buyback_accrued(lock_id: ID, amount: u64) {
     if (amount == 0) return;
     sui::event::emit(ViceBuybackAccruedEvent { lock_id, amount })

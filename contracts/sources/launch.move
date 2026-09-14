@@ -19,6 +19,7 @@ use arena::math;
 use arena::pit::Pit;
 use arena::pool;
 use bluefin_spot::config::GlobalConfig;
+use std::option;
 use std::type_name;
 use sui::clock::Clock;
 use sui::coin::{Self, Coin, CoinMetadata, TreasuryCap};
@@ -184,6 +185,7 @@ public fun launch_instant<T, Q>(
         fee,
         token.into_balance(),
         virtual_quote,
+        option::none(),
         ctx,
     );
 
@@ -211,6 +213,64 @@ public fun launch_instant<T, Q>(
     lock_id
 }
 
+/// Instant with a creator-chosen lock split (of our 80% of the 1% pair fee).
+/// Platform bps must be ≥ 500. Sum of four bps = 10_000.
+public fun launch_instant_v2<T, Q>(
+    config: &mut Config,
+    clock: &Clock,
+    bf_config: &mut GlobalConfig,
+    treasury_cap: TreasuryCap<T>,
+    meta_t: &CoinMetadata<T>,
+    meta_q: &CoinMetadata<Q>,
+    token: Coin<T>,
+    fee_sui: Coin<SUI>,
+    creation_fee: Coin<SUI>,
+    creator_bps: u64,
+    platform_bps: u64,
+    pit_bps: u64,
+    buyback_bps: u64,
+    ctx: &mut TxContext,
+): ID {
+    config.take_launch_fee(fee_sui);
+    let token_amount = token.value();
+    assert!(token_amount > 0, errors::zero_amount());
+    let virtual_quote = config.instant_virtual_quote<Q>();
+    let fee = lock::take_creation_fee(bf_config, creation_fee, ctx.sender(), ctx);
+    let split = option::some(lock::new_lp_split(creator_bps, platform_bps, pit_bps, buyback_bps));
+    let (lock_id, bf_pool_id, position_id, _) = lock::seed_and_lock_instant(
+        ctx.sender(),
+        clock,
+        bf_config,
+        meta_t,
+        meta_q,
+        fee,
+        token.into_balance(),
+        virtual_quote,
+        split,
+        ctx,
+    );
+    let mint = InstadexMintLock<T> {
+        id: object::new(ctx),
+        cap: treasury_cap,
+    };
+    let mint_id = object::id(&mint);
+    transfer::share_object(mint);
+    events::emit_instadex_launch(
+        lock_id,
+        bf_pool_id,
+        position_id,
+        type_name::with_defining_ids<T>(),
+        type_name::with_defining_ids<Q>(),
+        ctx.sender(),
+        token_amount,
+        0,
+        0,
+        meta_t.get_name(),
+        meta_t.get_symbol(),
+    );
+    events::emit_instadex_mint_lock(lock_id, mint_id);
+    lock_id
+}
 
 /// Instant RWA holder-yield launch. Same as `launch_instant`, plus a shared
 /// `HolderYieldVault<T, Q>` and a launch-locked DF on the lock. The pit-bps
@@ -242,6 +302,7 @@ public fun launch_instant_holder_yield<T, Q>(
         fee,
         token.into_balance(),
         virtual_quote,
+        option::none(),
         ctx,
     );
 
@@ -302,6 +363,92 @@ public entry fun launch_instant_holder_yield_entry<T, Q>(
     );
 }
 
+public fun launch_instant_holder_yield_v2<T, Q>(
+    config: &mut Config,
+    clock: &Clock,
+    bf_config: &mut GlobalConfig,
+    treasury_cap: TreasuryCap<T>,
+    meta_t: &CoinMetadata<T>,
+    meta_q: &CoinMetadata<Q>,
+    token: Coin<T>,
+    fee_sui: Coin<SUI>,
+    creation_fee: Coin<SUI>,
+    creator_bps: u64,
+    platform_bps: u64,
+    pit_bps: u64,
+    buyback_bps: u64,
+    ctx: &mut TxContext,
+): ID {
+    config.take_launch_fee(fee_sui);
+    let token_amount = token.value();
+    assert!(token_amount > 0, errors::zero_amount());
+    let virtual_quote = config.instant_virtual_quote<Q>();
+    let fee = lock::take_creation_fee(bf_config, creation_fee, ctx.sender(), ctx);
+    let split = option::some(lock::new_lp_split(creator_bps, platform_bps, pit_bps, buyback_bps));
+    let (lock_id, bf_pool_id, position_id, _, yield_id) = lock::seed_and_lock_instant_holder_yield(
+        ctx.sender(),
+        clock,
+        bf_config,
+        meta_t,
+        meta_q,
+        fee,
+        token.into_balance(),
+        virtual_quote,
+        split,
+        ctx,
+    );
+    let mint = InstadexMintLock<T> {
+        id: object::new(ctx),
+        cap: treasury_cap,
+    };
+    let mint_id = object::id(&mint);
+    transfer::share_object(mint);
+    events::emit_instadex_launch(
+        lock_id,
+        bf_pool_id,
+        position_id,
+        type_name::with_defining_ids<T>(),
+        type_name::with_defining_ids<Q>(),
+        ctx.sender(),
+        token_amount,
+        0,
+        0,
+        meta_t.get_name(),
+        meta_t.get_symbol(),
+    );
+    events::emit_instadex_mint_lock(lock_id, mint_id);
+    events::emit_holder_yield_launch(
+        lock_id,
+        yield_id,
+        bf_pool_id,
+        type_name::with_defining_ids<T>(),
+        type_name::with_defining_ids<Q>(),
+    );
+    lock_id
+}
+
+public entry fun launch_instant_holder_yield_v2_entry<T, Q>(
+    config: &mut Config,
+    clock: &Clock,
+    bf_config: &mut GlobalConfig,
+    treasury_cap: TreasuryCap<T>,
+    meta_t: &CoinMetadata<T>,
+    meta_q: &CoinMetadata<Q>,
+    token: Coin<T>,
+    fee_sui: Coin<SUI>,
+    creation_fee: Coin<SUI>,
+    creator_bps: u64,
+    platform_bps: u64,
+    pit_bps: u64,
+    buyback_bps: u64,
+    ctx: &mut TxContext,
+) {
+    launch_instant_holder_yield_v2<T, Q>(
+        config, clock, bf_config, treasury_cap, meta_t, meta_q, token, fee_sui, creation_fee,
+        creator_bps, platform_bps, pit_bps, buyback_bps, ctx,
+    );
+}
+
 
 /// Instant RWA basket-yield launch. Same as `launch_instant`, plus a shared
 /// `BasketYieldVault<T, Q>` and launch-locked `BasketYieldKey` DF. Pit-bps
@@ -336,6 +483,7 @@ public fun launch_instant_basket_yield<T, Q>(
         token.into_balance(),
         virtual_quote,
         basket,
+        option::none(),
         ctx,
     );
 
@@ -450,6 +598,104 @@ public entry fun launch_instant_basket_yield_3_entry<T, Q, A0, A1, A2>(
     );
 }
 
+public fun launch_instant_basket_yield_v2<T, Q>(
+    config: &mut Config,
+    clock: &Clock,
+    bf_config: &mut GlobalConfig,
+    treasury_cap: TreasuryCap<T>,
+    meta_t: &CoinMetadata<T>,
+    meta_q: &CoinMetadata<Q>,
+    token: Coin<T>,
+    fee_sui: Coin<SUI>,
+    creation_fee: Coin<SUI>,
+    basket: BasketConfig,
+    creator_bps: u64,
+    platform_bps: u64,
+    pit_bps: u64,
+    buyback_bps: u64,
+    ctx: &mut TxContext,
+): ID {
+    config.take_launch_fee(fee_sui);
+    let token_amount = token.value();
+    assert!(token_amount > 0, errors::zero_amount());
+    let virtual_quote = config.instant_virtual_quote<Q>();
+    let fee = lock::take_creation_fee(bf_config, creation_fee, ctx.sender(), ctx);
+    let payout_mode = basket_yield::config_payout_mode(&basket);
+    let asset_count = basket_yield::config_asset_count(&basket);
+    let split = option::some(lock::new_lp_split(creator_bps, platform_bps, pit_bps, buyback_bps));
+    let (lock_id, bf_pool_id, position_id, _, basket_id) = lock::seed_and_lock_instant_basket_yield(
+        ctx.sender(), clock, bf_config, meta_t, meta_q, fee, token.into_balance(), virtual_quote, basket, split, ctx,
+    );
+    let mint = InstadexMintLock<T> { id: object::new(ctx), cap: treasury_cap };
+    let mint_id = object::id(&mint);
+    transfer::share_object(mint);
+    events::emit_instadex_launch(
+        lock_id, bf_pool_id, position_id,
+        type_name::with_defining_ids<T>(), type_name::with_defining_ids<Q>(),
+        ctx.sender(), token_amount, 0, 0, meta_t.get_name(), meta_t.get_symbol(),
+    );
+    events::emit_instadex_mint_lock(lock_id, mint_id);
+    events::emit_basket_yield_launch(
+        lock_id, basket_id, bf_pool_id,
+        type_name::with_defining_ids<T>(), type_name::with_defining_ids<Q>(),
+        payout_mode, asset_count,
+    );
+    lock_id
+}
+
+public entry fun launch_instant_basket_yield_v2_entry<T, Q, A0>(
+    config: &mut Config, clock: &Clock, bf_config: &mut GlobalConfig,
+    treasury_cap: TreasuryCap<T>, meta_t: &CoinMetadata<T>, meta_q: &CoinMetadata<Q>,
+    token: Coin<T>, fee_sui: Coin<SUI>, creation_fee: Coin<SUI>,
+    weight0: u64, equal_weight: bool, payout_mode: u8,
+    creator_bps: u64, platform_bps: u64, pit_bps: u64, buyback_bps: u64,
+    ctx: &mut TxContext,
+) {
+    let mut assets = vector[];
+    assets.push_back(basket_yield::new_asset(type_name::with_defining_ids<A0>(), weight0));
+    let basket = basket_yield::new_config(assets, equal_weight, payout_mode);
+    launch_instant_basket_yield_v2<T, Q>(
+        config, clock, bf_config, treasury_cap, meta_t, meta_q, token, fee_sui, creation_fee, basket,
+        creator_bps, platform_bps, pit_bps, buyback_bps, ctx,
+    );
+}
+
+public entry fun launch_instant_basket_yield_v2_2_entry<T, Q, A0, A1>(
+    config: &mut Config, clock: &Clock, bf_config: &mut GlobalConfig,
+    treasury_cap: TreasuryCap<T>, meta_t: &CoinMetadata<T>, meta_q: &CoinMetadata<Q>,
+    token: Coin<T>, fee_sui: Coin<SUI>, creation_fee: Coin<SUI>,
+    weight0: u64, weight1: u64, equal_weight: bool, payout_mode: u8,
+    creator_bps: u64, platform_bps: u64, pit_bps: u64, buyback_bps: u64,
+    ctx: &mut TxContext,
+) {
+    let mut assets = vector[];
+    assets.push_back(basket_yield::new_asset(type_name::with_defining_ids<A0>(), weight0));
+    assets.push_back(basket_yield::new_asset(type_name::with_defining_ids<A1>(), weight1));
+    let basket = basket_yield::new_config(assets, equal_weight, payout_mode);
+    launch_instant_basket_yield_v2<T, Q>(
+        config, clock, bf_config, treasury_cap, meta_t, meta_q, token, fee_sui, creation_fee, basket,
+        creator_bps, platform_bps, pit_bps, buyback_bps, ctx,
+    );
+}
+
+public entry fun launch_instant_basket_yield_v2_3_entry<T, Q, A0, A1, A2>(
+    config: &mut Config, clock: &Clock, bf_config: &mut GlobalConfig,
+    treasury_cap: TreasuryCap<T>, meta_t: &CoinMetadata<T>, meta_q: &CoinMetadata<Q>,
+    token: Coin<T>, fee_sui: Coin<SUI>, creation_fee: Coin<SUI>,
+    weight0: u64, weight1: u64, weight2: u64, equal_weight: bool, payout_mode: u8,
+    creator_bps: u64, platform_bps: u64, pit_bps: u64, buyback_bps: u64,
+    ctx: &mut TxContext,
+) {
+    let mut assets = vector[];
+    assets.push_back(basket_yield::new_asset(type_name::with_defining_ids<A0>(), weight0));
+    assets.push_back(basket_yield::new_asset(type_name::with_defining_ids<A1>(), weight1));
+    assets.push_back(basket_yield::new_asset(type_name::with_defining_ids<A2>(), weight2));
+    let basket = basket_yield::new_config(assets, equal_weight, payout_mode);
+    launch_instant_basket_yield_v2<T, Q>(
+        config, clock, bf_config, treasury_cap, meta_t, meta_q, token, fee_sui, creation_fee, basket,
+        creator_bps, platform_bps, pit_bps, buyback_bps, ctx,
+    );
+}
 
 /// Shared body for `migrate_instant_to_holder_yield` and its test-only twin.
 /// Everything the live-pool check does NOT cover: auth, mode-conflict guards
@@ -732,6 +978,28 @@ public entry fun launch_instant_entry<T, Q>(
         fee_sui,
         creation_fee,
         ctx,
+    );
+}
+
+public entry fun launch_instant_v2_entry<T, Q>(
+    config: &mut Config,
+    clock: &Clock,
+    bf_config: &mut GlobalConfig,
+    treasury_cap: TreasuryCap<T>,
+    meta_t: &CoinMetadata<T>,
+    meta_q: &CoinMetadata<Q>,
+    token: Coin<T>,
+    fee_sui: Coin<SUI>,
+    creation_fee: Coin<SUI>,
+    creator_bps: u64,
+    platform_bps: u64,
+    pit_bps: u64,
+    buyback_bps: u64,
+    ctx: &mut TxContext,
+) {
+    launch_instant_v2<T, Q>(
+        config, clock, bf_config, treasury_cap, meta_t, meta_q, token, fee_sui, creation_fee,
+        creator_bps, platform_bps, pit_bps, buyback_bps, ctx,
     );
 }
 

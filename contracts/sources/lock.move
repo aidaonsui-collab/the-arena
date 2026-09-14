@@ -73,6 +73,20 @@ public struct HolderYieldKey has copy, drop, store {}
 /// Value is the shared `BasketYieldVault` object id. Mutually exclusive with HolderYieldKey.
 public struct BasketYieldKey has copy, drop, store {}
 
+/// Creator-chosen Instant quote split on this lock (of our 80% of the 1% pair fee).
+/// Missing DF → Config `instant_lp_split` (live 60/5/25/10). Compatible: DF, no layout change.
+public struct LockLpSplitKey has copy, drop, store {}
+
+public struct LockLpSplit has copy, drop, store {
+    creator_bps: u64,
+    platform_bps: u64,
+    pit_bps: u64,
+    buyback_bps: u64,
+}
+
+/// Platform floor on a lock split so a creator cannot zero the pad.
+const MIN_PLATFORM_BPS: u64 = 500;
+
 /// Retired. `take_reserves_for_lock` can only ever run once, so this raced
 /// `seed_and_lock_bluefin` for the same one-shot flag — even when creator-gated,
 /// a griefing / delayed-rug path remains. Use `lock_graduated_lp_admin`.
@@ -287,7 +301,7 @@ public(package) fun seed_and_lock_internal<T, Q>(
     send_residual(rem_a, beneficiary, ctx);
     send_residual(rem_b, beneficiary, ctx);
 
-    vault_position(pool_id, bf_pool_id, position, beneficiary, unlock_ms, token_amount, quote_amount, ctx)
+    vault_position(pool_id, bf_pool_id, position, beneficiary, unlock_ms, token_amount, quote_amount, option::none(), ctx)
 }
 
 /// Instant DEX: 100% token, 0 quote. Price from `virtual_quote` / token amount (Robinpad Instant).
@@ -301,6 +315,7 @@ public(package) fun seed_and_lock_instant<T, Q>(
     creation_fee: Balance<SUI>,
     token: Balance<T>,
     virtual_quote: u64,
+    split: Option<LockLpSplit>,
     ctx: &mut TxContext,
 ): (ID, ID, ID, u64) {
     let token_amount = token.value();
@@ -345,6 +360,7 @@ public(package) fun seed_and_lock_instant<T, Q>(
         0,
         token_amount,
         0,
+        split,
         ctx,
     )
 }
@@ -360,6 +376,7 @@ public(package) fun seed_and_lock_instant_holder_yield<T, Q>(
     creation_fee: Balance<SUI>,
     token: Balance<T>,
     virtual_quote: u64,
+    split: Option<LockLpSplit>,
     ctx: &mut TxContext,
 ): (ID, ID, ID, u64, ID) {
     let token_amount = token.value();
@@ -409,6 +426,7 @@ public(package) fun seed_and_lock_instant_holder_yield<T, Q>(
     let lock_id = object::id(&lock);
     let yield_id = holder_yield::create_and_share<T, Q>(lock_id, bf_pool_id, ctx);
     attach_holder_yield(&mut lock, yield_id);
+    maybe_attach_lp_split(&mut lock, split);
     transfer::share_object(lock);
     (lock_id, bf_pool_id, position_id, 0, yield_id)
 }
@@ -422,10 +440,11 @@ fun vault_position(
     unlock_ms: u64,
     token_amount: u64,
     quote_amount: u64,
+    split: Option<LockLpSplit>,
     ctx: &mut TxContext,
 ): (ID, ID, ID, u64) {
     let position_id = object::id(&position);
-    let lock = BluefinPositionLock {
+    let mut lock = BluefinPositionLock {
         id: object::new(ctx),
         pool_id,
         bluefin_pool_id: bf_pool_id,
@@ -434,6 +453,7 @@ fun vault_position(
         unlock_ms,
     };
     let lock_id = object::id(&lock);
+    maybe_attach_lp_split(&mut lock, split);
     // Curve path only. Instadex (unlock_ms == 0) emits InstadexLaunchEvent instead.
     if (unlock_ms != 0) {
         events::emit_bluefin_lock(
@@ -504,7 +524,7 @@ public(package) fun collect_lp_fees_return_token<A, B>(
     let beneficiary = lock.beneficiary;
     let position = option::borrow_mut(&mut lock.position);
     let (_amt_a, _amt_b, bal_a, mut bal_b) = bluefin::collect_fee(clock, bf_config, bf_pool, position);
-    let (cr_bps, plat_bps, pit_bps, bb_bps) = config::instant_lp_split(config);
+    let (cr_bps, plat_bps, pit_bps, bb_bps) = lp_split(lock, config);
     let (creator_amt, platform_amt, pit_amt, buyback_amt) = split_std_lp_quote(
         bal_b.value(),
         cr_bps,
@@ -654,6 +674,62 @@ public(package) fun attach_holder_yield(lock: &mut BluefinPositionLock, yield_id
     df::add(&mut lock.id, HolderYieldKey {}, yield_id);
 }
 
+public(package) fun new_lp_split(
+    creator_bps: u64,
+    platform_bps: u64,
+    pit_bps: u64,
+    buyback_bps: u64,
+): LockLpSplit {
+    assert!(creator_bps + platform_bps + pit_bps + buyback_bps == BPS, errors::invalid_fee());
+    assert!(platform_bps >= MIN_PLATFORM_BPS, errors::invalid_fee());
+    LockLpSplit { creator_bps, platform_bps, pit_bps, buyback_bps }
+}
+
+fun maybe_attach_lp_split(lock: &mut BluefinPositionLock, split: Option<LockLpSplit>) {
+    if (option::is_some(&split)) {
+        attach_lp_split(lock, *option::borrow(&split));
+    };
+}
+
+fun attach_lp_split(lock: &mut BluefinPositionLock, split: LockLpSplit) {
+    assert!(!df::exists(&lock.id, LockLpSplitKey {}), errors::already_locked());
+    events::emit_lock_lp_split(
+        object::id(lock),
+        split.creator_bps,
+        split.platform_bps,
+        split.pit_bps,
+        split.buyback_bps,
+    );
+    df::add(&mut lock.id, LockLpSplitKey {}, split);
+}
+
+/// Lock split if set; otherwise Config Instant split (60/5/25/10 live).
+public(package) fun lp_split(lock: &BluefinPositionLock, config: &Config): (u64, u64, u64, u64) {
+    if (df::exists(&lock.id, LockLpSplitKey {})) {
+        let s: &LockLpSplit = df::borrow(&lock.id, LockLpSplitKey {});
+        (s.creator_bps, s.platform_bps, s.pit_bps, s.buyback_bps)
+    } else {
+        config::instant_lp_split(config)
+    }
+}
+
+/// Beneficiary may set the lock split once (same PTB as launch, or later if missing).
+public fun init_lock_lp_split(
+    lock: &mut BluefinPositionLock,
+    creator_bps: u64,
+    platform_bps: u64,
+    pit_bps: u64,
+    buyback_bps: u64,
+    ctx: &TxContext,
+) {
+    assert!(ctx.sender() == lock.beneficiary, errors::not_beneficiary());
+    attach_lp_split(lock, new_lp_split(creator_bps, platform_bps, pit_bps, buyback_bps));
+}
+
+public fun has_lp_split(lock: &BluefinPositionLock): bool {
+    df::exists(&lock.id, LockLpSplitKey {})
+}
+
 /// Collect LP fees and route the pit-bps quote slice into `HolderYieldVault`
 /// instead of the pit pot. Creator/platform unchanged; token A returned for burn.
 public(package) fun collect_lp_fees_return_token_to_holders<A, B>(
@@ -674,7 +750,7 @@ public(package) fun collect_lp_fees_return_token_to_holders<A, B>(
     let beneficiary = lock.beneficiary;
     let position = option::borrow_mut(&mut lock.position);
     let (_amt_a, _amt_b, bal_a, mut bal_b) = bluefin::collect_fee(clock, bf_config, bf_pool, position);
-    let (cr_bps, plat_bps, pit_bps, bb_bps) = config::instant_lp_split(config);
+    let (cr_bps, plat_bps, pit_bps, bb_bps) = lp_split(lock, config);
     let (creator_amt, platform_amt, pit_amt, buyback_amt) = split_std_lp_quote(
         bal_b.value(),
         cr_bps,
@@ -754,6 +830,7 @@ public(package) fun seed_and_lock_instant_basket_yield<T, Q>(
     token: Balance<T>,
     virtual_quote: u64,
     config: BasketConfig,
+    split: Option<LockLpSplit>,
     ctx: &mut TxContext,
 ): (ID, ID, ID, u64, ID) {
     let token_amount = token.value();
@@ -803,6 +880,7 @@ public(package) fun seed_and_lock_instant_basket_yield<T, Q>(
     let lock_id = object::id(&lock);
     let basket_id = basket_yield::create_and_share<T, Q>(lock_id, bf_pool_id, config, ctx);
     attach_basket_yield(&mut lock, basket_id);
+    maybe_attach_lp_split(&mut lock, split);
     transfer::share_object(lock);
     (lock_id, bf_pool_id, position_id, 0, basket_id)
 }
@@ -827,7 +905,7 @@ public(package) fun collect_lp_fees_return_token_to_basket<A, B>(
     let beneficiary = lock.beneficiary;
     let position = option::borrow_mut(&mut lock.position);
     let (_amt_a, _amt_b, bal_a, mut bal_b) = bluefin::collect_fee(clock, bf_config, bf_pool, position);
-    let (cr_bps, plat_bps, pit_bps, bb_bps) = config::instant_lp_split(config);
+    let (cr_bps, plat_bps, pit_bps, bb_bps) = lp_split(lock, config);
     let (creator_amt, platform_amt, pit_amt, buyback_amt) = split_std_lp_quote(
         bal_b.value(),
         cr_bps,

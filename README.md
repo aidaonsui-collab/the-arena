@@ -15,7 +15,7 @@ Vanilla HTML/CSS/JS SPA (`index.html`). Hash routes: `#/` Explore, `#/pit` Rewar
 Sui Move package: [`contracts/`](contracts/). Instant Create quotes: TOKEN/SUI, TOKEN/USDY, TOKEN/XAGM, TOKEN/XAUM.
 
 - Type origin: `0x5cfddf8ba23be6835644a8ea22482ff6ebb0081e42cc1bc052b5f770ca8bbdea`
-- Latest published-at (**v15**): `0x3c97bece55ec13cc574b7254ee71db58a6675f25e6bf1902aabd50a0da5aa07b` (migrate Instant yield type-arg brick fix + `admin_detach_yield`; v14 Instant LP 60/5/25/10; v13 migrate retired; v12 basket; v11 holder-yield)
+- Latest published-at (**v16**): `0xe5e5b59142070d8ce8a411b6c100763d10f4fdcbc23ca3f33acd60324d4cce1d` (creator-chosen Instant LP split on the lock; collect prefers lock DF; platform floor 5%)
 - Config: `0xcd527cb2389d806e5285ae708ee28df30a841ec5df7508ebfebaa0c9660b5d2c`
 - Pit SUI: `0x8ec38e9bcac0838bf474680e71d0c3f302f4ea2f757d759b7b399701f904389c`
 - Pit XAUM: `0xa8a391bf380914c04be5deb478474b42754a5aa8c29c0955f267d73190a98783`
