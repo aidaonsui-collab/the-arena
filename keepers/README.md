@@ -2,7 +2,7 @@
 
 Cron jobs for The Arena launchpad.
 
-**CALL package (mainnet v14):** `0xde8bab588b6deb2fa51357159264fdb70d873925c98998748fa9db0b0f331769` — Instant LP `set_instant_lp_split` 60/5/25/10 creator/platform/rewards/VICE buyback; plus v13 migrate / v12 basket / v11 holder-yield. Default Instant collect still uses `collect_instadex_fees` + pit (rewards slice now 25%). See `contracts/HOLDER_YIELD.md`. Reflection payouts **accrue on every fill** in Move (`pool::buy` / `pool::sell`). Claim-mode vaults still require wallet Claim (the registry table is not iterable). Push-mode vaults use `push-yield` with AdminCap + public holder indexes. They index, and they ring/settle the pit.
+**CALL package (mainnet v21):** `0x97158e99b999f8e7ad729d1e7de8c10e4f3550f25557a392fbca3296b000a984` — Instant LP `set_instant_lp_split` 60/5/25/10 creator/platform/rewards/VICE buyback; plus v13 migrate / v12 basket / v11 holder-yield. Default Instant collect still uses `collect_instadex_fees` + pit (rewards slice now 25%). See `contracts/HOLDER_YIELD.md`. Reflection payouts **accrue on every fill** in Move (`pool::buy` / `pool::sell`). Claim-mode vaults still require wallet Claim (the registry table is not iterable). Push-mode vaults use `push-yield` with AdminCap + public holder indexes. They index, and they ring/settle the pit.
 
 ## Jobs
 
@@ -80,7 +80,7 @@ npm run convert-basket
 
 | Var | Default | Meaning |
 | --- | --- | --- |
-| `ARENA_CALL_PACKAGE` | v13 `0x4b698b39…ecc772` | Move call package |
+| `ARENA_CALL_PACKAGE` | v21 `0x97158e99b9…` | Move call package |
 | `ARENA_CONVERT_DRY_RUN` | off | `1` = build PTB + `dryRunTransactionBlock` only (no sign) |
 | `ARENA_CONVERT_MIN_STAGING` | `1000000` | Skip smaller staging balances |
 | `ARENA_CONVERT_VAULT` | — | Optional single vault id |
