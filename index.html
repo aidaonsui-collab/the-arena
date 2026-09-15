@@ -567,7 +567,10 @@ html[data-route="portfolio"] main{padding:0 0 72px}
 .m-table{width:100%;border-collapse:collapse;font-size:14px}
 .m-table th{text-align:left;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600;padding:8px 6px;border-bottom:1px solid var(--line)}
 .m-table td{padding:12px 6px;border-bottom:1px solid var(--line);vertical-align:middle}
-.m-table td:nth-child(2){min-width:0;max-width:180px}
+.m-table td:nth-child(2){min-width:0}
+.m-tok{display:flex;align-items:center;gap:10px;min-width:0}
+.m-tok-copy{min-width:0;flex:1}
+.m-table .avatar{border-radius:10px}
 .m-table .feat-name,.m-table .feat-tick{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .m-table tr{cursor:pointer}
 .m-table tr:hover td{background:var(--lift)}
@@ -3642,7 +3645,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       if (!changed) return;
       if (state.route === "token" && String(state.sym).toUpperCase() === tk.t) renderScreen();
       else if (state.route === "explore") scheduleExploreList();
-      else if (state.route === "pit") scheduleScreen();
+      else if (state.route === "pit" || state.route === "metrics") scheduleScreen();
     }).catch(function(){
       tk.overlayBusy = false;
       tk.overlayHydrated = false;
@@ -6023,8 +6026,9 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       : '<div class="empty" style="width:100%">No fills in this window.</div>';
     const rows = top.map(function(r,i){
       const tk = listedTok(r.id) || {n:r.id, t:r.id};
+      hydrateTokenOverlay(tk);
       const volTxt = r.volUsd > 0 ? fmtUsd(r.volUsd) : (fmt(r.vol)+" "+r.q);
-      return '<tr data-go="token:'+escAttr(tk.t)+'"><td class="mono" style="color:var(--muted)">'+rank(i)+'</td><td><div class="feat-name">'+escHtml(tk.n)+'</div><div class="feat-tick">$'+escHtml(tk.t)+'</div></td><td class="mono" style="text-align:right">'+volTxt+'</td></tr>';
+      return '<tr data-go="token:'+escAttr(tk.t)+'"><td class="mono" style="color:var(--muted)">'+rank(i)+'</td><td><div class="m-tok">'+avatar(tk, 36)+'<div class="m-tok-copy"><div class="feat-name">'+escHtml(tk.n)+'</div><div class="feat-tick">$'+escHtml(tk.t)+'</div></div></div></td><td class="mono" style="text-align:right">'+volTxt+'</td></tr>';
     }).join("");
     const src = (window.ARENA_PACKAGE_ID)
       ? "Indexed from Bluefin AssetSwap (Instant) and leftover curve TradeEvent, ClaimEvent, BellEvent, GraduationEvent."
