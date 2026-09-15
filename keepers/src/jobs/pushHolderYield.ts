@@ -160,8 +160,21 @@ async function poolCoinABalance(poolId: string): Promise<bigint> {
  * Fetch coin holders via public APIs (best-effort).
  * Order: Suiscan → SuiVision → Mysten GraphQL Coin object scan.
  */
+
+/** Ensure package address in a Move type has a 0x prefix (Mysten GraphQL requires it). */
+function fullyQualifiedType(coinType: string): string {
+  const s = String(coinType || "").trim();
+  if (!s) return s;
+  const parts = s.split("::");
+  if (parts.length < 3) return s.startsWith("0x") || s.startsWith("0X") ? s : `0x${s}`;
+  const pkg = parts[0];
+  const rest = parts.slice(1).join("::");
+  const pkgFq = pkg.startsWith("0x") || pkg.startsWith("0X") ? pkg : `0x${pkg}`;
+  return `${pkgFq}::${rest}`;
+}
+
 export async function fetchCoinHolders(coinType: string): Promise<HolderRow[]> {
-  const type = String(coinType || "").trim();
+  const type = fullyQualifiedType(coinType);
   if (!type) return [];
 
   const fromSuiscan = await fetchHoldersSuiscan(type);
@@ -242,7 +255,8 @@ function normalizeExplorerHolders(j: unknown): HolderRow[] {
 
 /** Aggregate Coin<T> objects from Mysten GraphQL by AddressOwner. */
 async function fetchHoldersGraphqlCoins(coinType: string): Promise<HolderRow[]> {
-  const typeFilter = `0x2::coin::Coin<${coinType}>`;
+  const fq = fullyQualifiedType(coinType);
+  const typeFilter = `0x2::coin::Coin<${fq}>`;
   const q = `query($t:String!,$first:Int!,$after:String){
     objects(first:$first, after:$after, filter:{ type:$t }){
       pageInfo { hasNextPage endCursor }
@@ -250,8 +264,9 @@ async function fetchHoldersGraphqlCoins(coinType: string): Promise<HolderRow[]> 
         address
         owner {
           __typename
-          ... on AddressOwner { owner { address } }
-          ... on Parent { parent { address } }
+          ... on AddressOwner { address { address } }
+          ... on ObjectOwner { address { address } }
+          ... on ConsensusAddressOwner { address { address } }
           ... on Shared { initialSharedVersion }
         }
         asMoveObject { contents { json } }
@@ -268,6 +283,7 @@ async function fetchHoldersGraphqlCoins(coinType: string): Promise<HolderRow[]> 
           address?: string;
           owner?: {
             __typename?: string;
+            address?: { address?: string };
             owner?: { address?: string };
             parent?: { address?: string };
           };
@@ -285,7 +301,12 @@ async function fetchHoldersGraphqlCoins(coinType: string): Promise<HolderRow[]> 
             pageInfo { hasNextPage endCursor }
             nodes {
               address
-              owner { ... on AddressOwner { owner { address } } }
+              owner {
+                __typename
+                ... on AddressOwner { address { address } }
+                ... on ObjectOwner { address { address } }
+                ... on ConsensusAddressOwner { address { address } }
+              }
               asMoveObject { contents { json } }
             }
           }
@@ -298,8 +319,10 @@ async function fetchHoldersGraphqlCoins(coinType: string): Promise<HolderRow[]> 
     }
     const nodes = data.objects?.nodes ?? [];
     for (const n of nodes) {
-      const ownerAddr = n.owner?.owner?.address;
-      if (!ownerAddr) continue; // skip shared / object / immutable
+      const ownerAddr =
+        n.owner?.address?.address ??
+        (n.owner as { owner?: { address?: string } } | undefined)?.owner?.address;
+      if (!ownerAddr) continue; // skip shared / immutable / unmatched
       const json = n.asMoveObject?.contents?.json;
       const bal = mistOf(json?.balance ?? json?.fields?.balance);
       if (bal <= 0n) continue;
