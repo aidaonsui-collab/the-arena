@@ -68,7 +68,13 @@ export function typeNameOf(v: unknown): string {
   if (v == null || v === "") return "";
   if (typeof v === "string") return v;
   if (typeof v === "object") {
-    const o = v as { name?: string; address?: string; module?: string };
+    const o = v as {
+      name?: string;
+      address?: string;
+      module?: string;
+      fields?: { name?: string; address?: string; module?: string };
+    };
+    if (o.fields && (o.fields.name || o.fields.address)) return typeNameOf(o.fields);
     if (o.address && o.module) return `${o.address}::${o.module}::${o.name ?? ""}`;
     if (o.name) return String(o.name);
   }

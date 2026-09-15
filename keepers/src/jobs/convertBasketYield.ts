@@ -43,6 +43,8 @@ const EVENT_PKGS = [
   CALL_PKG,
   process.env.ARENA_INSTADEX_PACKAGE,
   process.env.ARENA_PACKAGE_ID,
+  // BasketYieldLaunchEvent / Funded type origin (v12)
+  "0x1710adbe0293015cac7492b6db0cf871a7af81c5a51cd9d5d99d3aadf9fea161",
 ].filter(Boolean) as string[];
 
 type BasketLaunch = {
@@ -415,7 +417,7 @@ async function convertOne(
     let parts: TransactionObjectArgument[] = [];
     if (splitAmts.length) {
       const split = tx.splitCoins(quoteCoin, splitAmts.map((a) => tx.pure.u64(a)));
-      parts = Array.isArray(split) ? [...split] : [split];
+      parts = splitAmts.map((_, i) => split[i] as TransactionObjectArgument);
     }
     const quoteParts: TransactionObjectArgument[] = [...parts, quoteCoin];
     for (let i = 0; i < legs.length; i++) {
@@ -510,6 +512,22 @@ export async function runConvertBasketYield() {
   const onlyVault = (process.env.ARENA_CONVERT_VAULT || "").trim().toLowerCase();
 
   const launches = await listBasketLaunches();
+  if (
+    onlyVault &&
+    !launches.some(
+      (L) => L.basketId.replace(/^0x/, "").toLowerCase() === onlyVault.replace(/^0x/, ""),
+    )
+  ) {
+    launches.push({
+      lockId: "",
+      basketId: onlyVault.startsWith("0x") ? onlyVault : `0x${onlyVault}`,
+      poolId: "",
+      token: "",
+      quote: SUI,
+      payoutMode: 0,
+      assetCount: 0,
+    });
+  }
   const results: unknown[] = [];
   let considered = 0;
 
