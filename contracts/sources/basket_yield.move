@@ -6,9 +6,15 @@
 /// deposit allowlisted RWA into per-asset pots (off-module SUI→RWA swap).
 /// See `contracts/BASKET_YIELD.md`.
 ///
+/// **Push distribute:** vaults with `PushDistributeKey` DF park RWA pots
+/// absolutely (no mps bump on deposit); keeper calls `push_payout` with AdminCap.
+/// Claim / sync abort in push mode. New vaults enable push by default; existing
+/// vaults opt in via `enable_push_distribute`.
+///
 /// Compatible-safe new module — does not alter v1 `holder_yield` Instant path.
 module arena::basket_yield;
 
+use arena::config::AdminCap;
 use arena::errors;
 use arena::events;
 use std::type_name::{Self, TypeName};
@@ -56,6 +62,10 @@ public struct BasketHolder has store, drop {
 public struct AssetPotKey has copy, drop, store {
     asset: TypeName,
 }
+
+/// DF on vault `id`: when present, RWA pots are for keeper push (absolute pot;
+/// no mps). Compatible — no layout change on the vault struct.
+public struct PushDistributeKey has copy, drop, store {}
 
 /// Per-RWA custody. Magnified index is in `BasketYieldVault.asset_mps`.
 public struct AssetPot<phantom A> has store {
@@ -196,14 +206,36 @@ public fun quote_share_for_index(cfg: &BasketConfig, i: u64, quote_amount: u64):
 // === Vault lifecycle ===
 
 /// Create and share a vault. Called once at Instant basket launch.
+/// New vaults enable push distribute by default.
 public(package) fun create_and_share<T, Q>(
     lock_id: ID,
     bluefin_pool_id: ID,
     config: BasketConfig,
     ctx: &mut TxContext,
 ): ID {
+    create_vault_inner<T, Q>(lock_id, bluefin_pool_id, config, /* push */ true, ctx)
+}
+
+/// Alias for migrate / launch: vault bound to an existing Instant lock
+/// (no Bluefin reseed). Same as `create_and_share` (push on by default).
+public(package) fun create_vault_for_lock<T, Q>(
+    lock_id: ID,
+    bluefin_pool_id: ID,
+    config: BasketConfig,
+    ctx: &mut TxContext,
+): ID {
+    create_and_share<T, Q>(lock_id, bluefin_pool_id, config, ctx)
+}
+
+fun create_vault_inner<T, Q>(
+    lock_id: ID,
+    bluefin_pool_id: ID,
+    config: BasketConfig,
+    push: bool,
+    ctx: &mut TxContext,
+): ID {
     validate_config(&config);
-    let vault = BasketYieldVault<T, Q> {
+    let mut vault = BasketYieldVault<T, Q> {
         id: object::new(ctx),
         lock_id,
         bluefin_pool_id,
@@ -216,20 +248,27 @@ public(package) fun create_and_share<T, Q>(
         asset_mps: table::new(ctx),
         asset_acc: table::new(ctx),
     };
+    if (push) {
+        df::add(&mut vault.id, PushDistributeKey {}, true);
+    };
     let id = object::id(&vault);
     transfer::share_object(vault);
     id
 }
 
-/// Alias for migrate / launch: vault bound to an existing Instant lock
-/// (no Bluefin reseed). Same as `create_and_share`.
-public(package) fun create_vault_for_lock<T, Q>(
-    lock_id: ID,
-    bluefin_pool_id: ID,
-    config: BasketConfig,
-    ctx: &mut TxContext,
-): ID {
-    create_and_share<T, Q>(lock_id, bluefin_pool_id, config, ctx)
+/// True when vault has `PushDistributeKey` (keeper push; claim/sync disabled).
+public fun is_push_mode<T, Q>(vault: &BasketYieldVault<T, Q>): bool {
+    df::exists(&vault.id, PushDistributeKey {})
+}
+
+/// Opt an existing (claim-mode) vault into push distribute. Idempotent.
+public fun enable_push_distribute<T, Q>(
+    vault: &mut BasketYieldVault<T, Q>,
+    _: &AdminCap,
+) {
+    if (!df::exists(&vault.id, PushDistributeKey {})) {
+        df::add(&mut vault.id, PushDistributeKey {}, true);
+    }
 }
 
 /// Stage the pit-bps quote slice even if nobody has synced yet. Convert still
@@ -267,11 +306,13 @@ public fun donate_quote<T, Q>(
 }
 
 /// Set registry weight to `coin.value()`. Accrues unpaid RWA before the update.
+/// Aborts in push mode — use keeper `push_payout` instead.
 public fun sync_registration<T, Q>(
     vault: &mut BasketYieldVault<T, Q>,
     coin: &Coin<T>,
     ctx: &TxContext,
 ) {
+    assert!(!is_push_mode(vault), errors::use_push_distribute());
     let who = ctx.sender();
     let new_amt = coin.value();
     ensure_holder(vault, who);
@@ -314,7 +355,6 @@ public fun deposit_converted_asset<T, Q, A>(
     assert_asset_in_config(&vault.config, tn);
     let to_amount = coin_a.value();
     assert!(to_amount > 0, errors::zero_amount());
-    assert!(vault.total_registered > 0, errors::no_holders());
 
     ensure_asset_pot<T, Q, A>(vault, tn);
     {
@@ -322,13 +362,17 @@ public fun deposit_converted_asset<T, Q, A>(
         pot.bal.join(coin_a.into_balance());
     };
 
-    if (!vault.asset_mps.contains(tn)) {
-        vault.asset_mps.add(tn, 0);
-    };
-    let total = vault.total_registered;
-    {
-        let amps = vault.asset_mps.borrow_mut(tn);
-        *amps = *amps + (to_amount as u256) * MAG / (total as u256);
+    // Push mode: absolute pot for keeper pro-rata — no mps accounting / registered gate.
+    if (!is_push_mode(vault)) {
+        assert!(vault.total_registered > 0, errors::no_holders());
+        if (!vault.asset_mps.contains(tn)) {
+            vault.asset_mps.add(tn, 0);
+        };
+        let total = vault.total_registered;
+        {
+            let amps = vault.asset_mps.borrow_mut(tn);
+            *amps = *amps + (to_amount as u256) * MAG / (total as u256);
+        };
     };
 
     let lock_id = vault.lock_id;
@@ -350,31 +394,75 @@ public fun convert_stub<T, Q>(_vault: &mut BasketYieldVault<T, Q>) {
     abort errors::retired()
 }
 
+// === Push distribute ===
+
+/// Admin/keeper: split `amount` from `AssetPot<A>` and transfer `Coin<A>` to
+/// `recipient`. Push-mode only.
+public fun push_payout<T, Q, A>(
+    vault: &mut BasketYieldVault<T, Q>,
+    _: &AdminCap,
+    recipient: address,
+    amount: u64,
+    clock: &Clock,
+    ctx: &mut TxContext,
+) {
+    assert!(is_push_mode(vault), errors::nothing_to_push());
+    assert!(amount > 0, errors::nothing_to_push());
+    let tn = type_name::with_defining_ids<A>();
+    assert_asset_in_config(&vault.config, tn);
+    assert!(df::exists(&vault.id, AssetPotKey { asset: tn }), errors::nothing_to_push());
+    {
+        let pot: &AssetPot<A> = df::borrow(&vault.id, AssetPotKey { asset: tn });
+        assert!(pot.bal.value() >= amount, errors::nothing_to_push());
+    };
+    let lock_id = vault.lock_id;
+    let vault_id = object::id(vault);
+    let c = {
+        let pot: &mut AssetPot<A> = df::borrow_mut(&mut vault.id, AssetPotKey { asset: tn });
+        coin::from_balance(pot.bal.split(amount), ctx)
+    };
+    events::emit_basket_yield_push(
+        lock_id,
+        vault_id,
+        recipient,
+        tn,
+        amount,
+        clock.timestamp_ms(),
+    );
+    transfer::public_transfer(c, recipient);
+}
+
 // === Claims ===
 
 /// All-at-once mode: claim pending for asset `A` (pad calls once per basket leg).
+/// Aborts in push mode — use keeper `push_payout` instead.
 public fun claim_all<T, Q, A>(
     vault: &mut BasketYieldVault<T, Q>,
     ctx: &mut TxContext,
 ): Coin<A> {
+    assert!(!is_push_mode(vault), errors::use_push_distribute());
     assert!(vault.config.payout_mode == PAYOUT_ALL_AT_ONCE, errors::basket_mode());
     claim_asset_inner(vault, ctx)
 }
 
 /// Claim pending for one asset regardless of payout mode (PTB building block).
+/// Aborts in push mode.
 public fun claim_asset<T, Q, A>(
     vault: &mut BasketYieldVault<T, Q>,
     ctx: &mut TxContext,
 ): Coin<A> {
+    assert!(!is_push_mode(vault), errors::use_push_distribute());
     claim_asset_inner(vault, ctx)
 }
 
 /// Rotating mode: claim the cursor asset, then advance `rotate_index`.
+/// Aborts in push mode.
 public fun claim_rotating<T, Q, A>(
     vault: &mut BasketYieldVault<T, Q>,
     clock: &Clock,
     ctx: &mut TxContext,
 ): Coin<A> {
+    assert!(!is_push_mode(vault), errors::use_push_distribute());
     assert!(vault.config.payout_mode == PAYOUT_ROTATING, errors::basket_mode());
     let tn = type_name::with_defining_ids<A>();
     let idx = vault.rotate_index;
@@ -587,13 +675,25 @@ fun u256_to_u64(x: u256): u64 {
 }
 
 #[test_only]
+/// Claim-mode vault (no PushDistributeKey) for legacy unit tests.
 public fun create_for_testing<T, Q>(
     lock_id: ID,
     bluefin_pool_id: ID,
     config: BasketConfig,
     ctx: &mut TxContext,
 ): ID {
-    create_and_share<T, Q>(lock_id, bluefin_pool_id, config, ctx)
+    create_vault_inner<T, Q>(lock_id, bluefin_pool_id, config, /* push */ false, ctx)
+}
+
+#[test_only]
+/// Push-mode vault (same as production `create_and_share`).
+public fun create_push_for_testing<T, Q>(
+    lock_id: ID,
+    bluefin_pool_id: ID,
+    config: BasketConfig,
+    ctx: &mut TxContext,
+): ID {
+    create_vault_inner<T, Q>(lock_id, bluefin_pool_id, config, /* push */ true, ctx)
 }
 
 #[test_only]
@@ -603,4 +703,14 @@ public fun fund_quote_for_testing<T, Q>(
     clock: &Clock,
 ): Balance<Q> {
     try_fund_quote(vault, fee, clock)
+}
+
+#[test_only]
+/// Direct deposit into an asset pot for push-mode unit tests (skips convert gates).
+public fun deposit_asset_for_testing<T, Q, A>(
+    vault: &mut BasketYieldVault<T, Q>,
+    coin_a: Coin<A>,
+    clock: &Clock,
+) {
+    deposit_converted_asset<T, Q, A>(vault, coin_a, 0, clock)
 }

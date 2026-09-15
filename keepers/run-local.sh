@@ -83,6 +83,10 @@ if [ $((now - last)) -ge "$EVERY" ]; then
   if [ "${ARENA_YIELD_PUSH:-}" = "1" ]; then
     run_job push-yield || true
   fi
+  # VICEFUN buyback bag → RWA basket → push to holders. Off unless ARENA_VICE_PUSH=1.
+  if [ "${ARENA_VICE_PUSH:-}" = "1" ]; then
+    run_job push-vice || true
+  fi
   if run_job withdraw; then
     echo "$now" > "$STAMP"
   fi

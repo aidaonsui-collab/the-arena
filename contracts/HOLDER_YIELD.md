@@ -104,6 +104,16 @@ HolderYieldPushEvent { lock_id, yield_id, recipient, amount, quote, timestamp_ms
 Pad Rewards: when vault is push mode, claim note says yield is auto-distributed
 by the keeper (no wallet Claim/sync).
 
+
+
+## Fee note — Instant LP VICE buyback slice
+
+After `set_instant_lp_split` (60/5/25/10), the **10% VICE** quote slice is parked in
+Config `BuybackBag` (`BuybackBagKey` DF), not the holder-yield vault. Keepers do **not**
+route that slice through Claim. Use `keepers` job `push-vice` (`runPushViceBuyback`) — dry-run by default; never auto-spends
+keeper wallet SUI. Live needs explicit `ARENA_VICE_SUI_AMOUNT` and/or `ARENA_VICE_WITHDRAW_BUYBACK=1`.
+See `keepers/README.md` § VICEFUN buyback push-distribute.
+
 ## Compatible caveats
 
 - New module + new public functions + new events only; no public visibility
