@@ -5673,6 +5673,18 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
             arguments: [tx.object(vaultId), coinArg]
           });
           calls++;
+          var assets = await resolveBasketAssets(v);
+          for (var ai = 0; ai < assets.length && calls < 8; ai++){
+            var A = padType(normType(assets[ai]));
+            if (!A) continue;
+            var gotA = tx.moveCall({
+              target: CALL + "::basket_yield::claim_all",
+              typeArguments: [Ttype, Qtype, A],
+              arguments: [tx.object(vaultId)]
+            });
+            if (tx.transferObjects) tx.transferObjects([gotA], tx.pure.address(suiSession.address));
+            calls++;
+          }
         } else {
           tx.moveCall({
             target: CALL + "::holder_yield::sync_registration",
@@ -5691,7 +5703,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       if (!calls) throw new Error("Hold launch tokens to sync registration, then claim");
       var res = await walletExec(tx);
       var digest = (res && (res.digest || (res.effects && res.effects.transactionDigest))) || "";
-      rewardsNote = digest ? ("Registered · " + digest.slice(0, 10) + "… Future converts split to synced holders.") : "Registered.";
+      rewardsNote = digest ? ("Claim sent · " + digest.slice(0, 10) + "…") : "Claim sent";
       pendingRewards.at = 0;
       if (bus.sub && typeof bus.sub.refreshInstadex === "function") setTimeout(function(){ bus.sub.refreshInstadex(); }, 1200);
     } finally {
