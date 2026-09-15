@@ -2,6 +2,9 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<script>
+try { if (localStorage.getItem("vice.theme") === "pastel") document.documentElement.setAttribute("data-theme","pastel"); } catch (e) {}
+</script>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Vice — Fair launches on Sui</title>
 <meta name="description" content="Straight to DEX launches. Pair with Sui or RWA's">
@@ -31,22 +34,48 @@
 <style>
 :root{
   --bg:#120814; --color-page-background:#120814; --card:#1c101c; --ink:#F4EEF2; --muted:#A898A8; --line:#3A2438;
-  --lift:#261626; --sui:#298DFF; --up:#298DFF; --down:#FF6640; --pink:#FF2EA6;
+  --lift:#261626; --well:#16171A; --well-focus:#1C1D21; --topbar:rgba(18,8,20,.9); --overlay:rgba(12,6,14,.72);
+  --sui:#298DFF; --up:#298DFF; --down:#FF6640; --pink:#FF2EA6;
   --silver:#C0C7D1; --gold:#C9A97E;
   --radius:14px; --shadow:0 8px 22px rgba(0,0,0,.38);
+  --scr-up:#3ECF8E;
+  color-scheme: dark;
+}
+html[data-theme="pastel"]{
+  --bg:#FFF6FA; --color-page-background:#FFF6FA; --card:#FFFFFF; --ink:#3A1730; --muted:#9A6B86; --line:#F0C9DC;
+  --lift:#FFEAF3; --well:#FFF0F6; --well-focus:#FFE0EE; --topbar:rgba(255,246,250,.92); --overlay:rgba(58,23,48,.28);
+  --sui:#2B7AE8; --up:#2B7AE8; --down:#E85A4A; --pink:#FF2EA6;
+  --silver:#7E8896; --gold:#A67C3D;
+  --shadow:0 10px 28px rgba(255,46,166,.10);
+  --scr-up:#1FA971;
+  color-scheme: light;
 }
 *{box-sizing:border-box}
-html,body{margin:0;padding:0;background:#120814!important;background-color:#120814!important;color:var(--ink);-webkit-font-smoothing:antialiased}
+html,body{margin:0;padding:0;background:var(--bg)!important;background-color:var(--bg)!important;color:var(--ink);-webkit-font-smoothing:antialiased}
 html{overflow-x:hidden}
-body{font-family:"Instrument Sans",ui-sans-serif,system-ui,sans-serif;font-size:15px;line-height:1.5;min-height:100dvh;overflow-x:hidden;background:#120814!important;background-color:#120814!important}
+body{font-family:"Instrument Sans",ui-sans-serif,system-ui,sans-serif;font-size:15px;line-height:1.5;min-height:100dvh;overflow-x:hidden;background:var(--bg)!important;background-color:var(--bg)!important}
 a{color:var(--sui);text-decoration:none}
 button,input,select,textarea{font:inherit;color:inherit}
 button{cursor:pointer}
 ::selection{background:rgba(41,141,255,.45)}
-.shell{width:min(1180px,calc(100% - 32px));margin:0 auto}
+.shell{width:min(1360px,calc(100% - 40px));margin:0 auto}
 .serif{font-family:"Instrument Serif",Georgia,serif}
 .mono{font-family:"IBM Plex Mono",ui-monospace,monospace;font-variant-numeric:tabular-nums}
-.topbar{position:sticky;top:0;z-index:40;background:rgba(18,8,20,.9);backdrop-filter:blur(16px);border-bottom:1px solid transparent}
+.topbar{position:sticky;top:0;z-index:40;background:var(--topbar);backdrop-filter:blur(16px);border-bottom:1px solid transparent}
+html[data-theme="pastel"] .topbar{border-bottom-color:var(--line)}
+.btn-theme{width:44px;height:44px;border-radius:10px;border:1px solid var(--line);background:var(--lift);color:var(--ink);display:grid;place-items:center;flex:none;padding:0}
+.btn-theme:hover{border-color:var(--pink);color:var(--pink)}
+.btn-theme svg{display:block}
+.btn-theme .theme-moon{display:none}
+html[data-theme="pastel"] .btn-theme .theme-sun{display:none}
+html[data-theme="pastel"] .btn-theme .theme-moon{display:block}
+html[data-theme="pastel"] .lcard{border-color:rgba(255,46,166,.14)}
+html[data-theme="pastel"] .lead-tile{text-shadow:none}
+html[data-theme="pastel"] .search-bar input::placeholder{color:#C196B0}
+html[data-theme="pastel"] .art-preview{color:rgba(58,23,48,.5)}
+html[data-theme="pastel"] .quote-badge.platform{background:rgba(255,246,250,.92)}
+html[data-theme="pastel"] .feat:hover{box-shadow:0 14px 34px rgba(255,46,166,.12)}
+html[data-theme="pastel"] .dock{background:color-mix(in srgb,var(--card) 94%,transparent);box-shadow:0 12px 40px rgba(255,46,166,.14)}
 .topbar-inner{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:14px;padding:12px 0;min-height:64px}
 .brand{display:flex;align-items:center;gap:10px;flex:none;cursor:pointer}
 .brand-mark{width:36px;height:36px;border-radius:10px;display:block;object-fit:cover;background:#140818}
@@ -55,25 +84,30 @@ button{cursor:pointer}
 .nav-item{padding:10px 12px 12px;border-radius:0;font-size:15px;font-weight:500;letter-spacing:0;text-transform:none;color:var(--muted);cursor:pointer;transition:color .2s;white-space:nowrap;border-bottom:2px solid transparent}
 .nav-item.on{background:transparent;color:var(--ink);box-shadow:none;border-bottom-color:var(--sui)}
 .nav-item:hover{color:var(--ink)}
-.btn-connect{background:var(--pink);color:#fff;border:0;border-radius:10px;padding:12px 18px;font-weight:700;font-size:12px;letter-spacing:.14em;text-transform:uppercase;justify-self:end;transition:filter .15s;position:relative;z-index:41}
+.topbar-actions{display:flex;align-items:center;gap:8px;justify-self:end}
+.btn-top-launch{display:inline-flex;align-items:center;justify-content:center;border:1.5px solid var(--sui);color:var(--sui);background:transparent;border-radius:10px;padding:11px 16px;min-height:44px;font-weight:700;font-size:12px;letter-spacing:.14em;text-transform:uppercase;transition:background .15s,color .15s,transform .15s}
+.btn-top-launch:hover{background:color-mix(in srgb,var(--sui) 14%,transparent)}
+.btn-top-launch:active{transform:scale(.96)}
+.btn-connect{background:var(--pink);color:#fff;border:0;border-radius:10px;padding:12px 18px;font-weight:700;font-size:12px;letter-spacing:.14em;text-transform:uppercase;transition:filter .15s;position:relative;z-index:41;min-height:44px}
 .btn-connect:hover{filter:brightness(.97)}
-.wallet-overlay{position:fixed;inset:0;z-index:80;background:rgba(12,6,14,.72);display:grid;place-items:center;padding:20px}
+.btn-connect:active{transform:scale(.96)}
+.wallet-overlay{position:fixed;inset:0;z-index:80;background:var(--overlay);display:grid;place-items:center;padding:20px}
 .wallet-overlay[hidden]{display:none}
 .wallet-sheet{background:var(--card);border-radius:18px;padding:22px 20px 16px;width:min(380px,100%);box-shadow:var(--shadow)}
 .wallet-sheet h3{margin:0 0 6px;font-size:18px;font-weight:650}
 .wallet-sheet .wallet-sub{margin:0 0 16px;color:var(--muted);font-size:13px}
-.wallet-opt{display:flex;align-items:center;gap:12px;width:100%;border:1px solid var(--line);background:#160e16;color:var(--ink);border-radius:12px;padding:12px 14px;margin:0 0 8px;text-align:left;font-weight:600}
+.wallet-opt{display:flex;align-items:center;gap:12px;width:100%;border:1px solid var(--line);background:var(--well);color:var(--ink);border-radius:12px;padding:12px 14px;margin:0 0 8px;text-align:left;font-weight:600}
 .wallet-opt:hover{background:var(--lift);border-color:#5a3a56}
 .wallet-opt img,.wallet-mark{width:28px;height:28px;border-radius:8px;flex:none;object-fit:cover}
-.wallet-mark{display:grid;place-items:center;background:#101211;color:var(--pink);font-size:13px;font-weight:700}
+.wallet-mark{display:grid;place-items:center;background:var(--well);color:var(--pink);font-size:13px;font-weight:700}
 .wallet-opt .on{margin-left:auto;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--sui)}
 .wallet-err{color:#FF6640;font-size:13px;margin:4px 0 8px}
 .wallet-x{width:100%;border:0;background:transparent;color:var(--muted);padding:8px;font-size:13px}
 .wallet-x:hover{color:var(--ink)}
 .meta-sheet{width:min(520px,100%);max-height:min(92dvh,720px);overflow:auto}
 .meta-sheet .form-grid{margin:12px 0 0;max-width:none}
-.meta-sheet textarea{width:100%;min-height:88px;resize:vertical;border:1px solid var(--line);border-radius:16px;padding:12px 14px;background:#16171A;outline:none;color:var(--ink)}
-.meta-sheet textarea:focus{border-color:var(--sui);background:#1C1D21}
+.meta-sheet textarea{width:100%;min-height:88px;resize:vertical;border:1px solid var(--line);border-radius:16px;padding:12px 14px;background:var(--well);outline:none;color:var(--ink)}
+.meta-sheet textarea:focus{border-color:var(--sui);background:var(--well-focus)}
 .meta-actions{display:flex;gap:8px;margin-top:4px}
 .meta-actions .btn-trade{flex:1;margin-top:0}
 .search-row{display:flex;align-items:center;gap:10px;margin:10px auto 4px}
@@ -81,7 +115,7 @@ button{cursor:pointer}
 .search-bar svg{flex:none;opacity:.45}
 .search-bar input{flex:1;border:0;outline:none;background:transparent;min-width:0;font-size:15px}
 .search-bar input::placeholder{color:#9CA3AF}
-.kbd{font-family:"IBM Plex Mono",monospace;font-size:11px;color:var(--muted);background:#16171A;border-radius:6px;padding:3px 7px;flex:none}
+.kbd{font-family:"IBM Plex Mono",monospace;font-size:11px;color:var(--muted);background:var(--well);border-radius:6px;padding:3px 7px;flex:none}
 .btn-create{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 14px;font-weight:600;box-shadow:none;white-space:nowrap;cursor:pointer;color:var(--ink)}
 .btn-create:hover{background:var(--lift)}
 main{padding:18px 0 72px}
@@ -144,7 +178,7 @@ main{padding:18px 0 72px}
 
 .lcard-art img,.avatar img{width:100%;height:100%;object-fit:cover;display:block}
 .art-field{display:flex;align-items:center;gap:14px}
-.art-preview{width:72px;height:72px;border-radius:18px;background:#101211;overflow:hidden;display:grid;place-items:center;flex:none;font-family:"Instrument Serif",Georgia,serif;font-size:28px;color:rgba(255,255,255,.8)}
+.art-preview{width:72px;height:72px;border-radius:18px;background:var(--well);overflow:hidden;display:grid;place-items:center;flex:none;font-family:"Instrument Serif",Georgia,serif;font-size:28px;color:rgba(255,255,255,.8)}
 .art-preview img{width:100%;height:100%;object-fit:cover}
 .art-field input[type=file]{font-size:13px;color:var(--muted)}
 .art-note{font-size:12px;color:var(--muted);margin-top:6px}
@@ -181,15 +215,15 @@ main{padding:18px 0 72px}
 .lcard.hot .ago{color:var(--pink)}
 .lcard-foot{display:none}
 .ago{color:var(--pink);font-weight:650;font-variant-numeric:tabular-nums}
-.count-pill{display:inline-flex;align-items:center;margin-left:10px;background:#101211;border-radius:999px;padding:4px 10px;font-size:12px;font-weight:600;color:var(--muted);vertical-align:middle}
+.count-pill{display:inline-flex;align-items:center;margin-left:10px;background:var(--well);border-radius:999px;padding:4px 10px;font-size:12px;font-weight:600;color:var(--muted);vertical-align:middle}
 .bar-row{display:flex;align-items:center;gap:8px;margin-top:4px}
 .bar-row .bar{flex:1;margin:0}
 .bar-pct{font-size:12px;font-weight:650;color:var(--muted);font-variant-numeric:tabular-nums}
 .lcard-top{display:flex;align-items:center;gap:10px;margin-bottom:12px}
-.chip{font-size:11px;font-weight:600;border-radius:999px;padding:3px 8px;background:#16171A;color:var(--muted);margin-left:auto;white-space:nowrap}
+.chip{font-size:11px;font-weight:600;border-radius:999px;padding:3px 8px;background:var(--well);color:var(--muted);margin-left:auto;white-space:nowrap}
 .chip.live{color:#7EB6FF;background:rgba(41,141,255,.16)}
 .chip.grad{color:#fff;background:var(--sui)}
-.bar{height:4px;background:#101211;border-radius:99px;overflow:hidden;margin-top:12px}
+.bar{height:4px;background:var(--well);border-radius:99px;overflow:hidden;margin-top:12px}
 .bar>i{display:block;height:100%;background:var(--sui);border-radius:99px}
 .rowlist{display:flex;flex-direction:column}
 .row{display:grid;grid-template-columns:28px 1fr 90px 72px 120px 110px;gap:12px;align-items:center;padding:14px 4px;border-top:1px solid var(--line);cursor:pointer}
@@ -217,10 +251,10 @@ main{padding:18px 0 72px}
 .stat .k{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
 .stat .v{font-size:18px;font-weight:650;margin-top:6px;font-variant-numeric:tabular-nums}
 .tv-wrap{position:relative}
-.tv-host{height:360px;width:100%;position:relative;background:#1C101C;border-radius:0;overflow:hidden}
+.tv-host{height:360px;width:100%;position:relative;background:var(--card);border-radius:0;overflow:hidden}
 .chart-pending{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:13px}
 .chart-card{padding:0;overflow:hidden}
-.chart-toolbar{display:flex;align-items:center;gap:2px;flex-wrap:wrap;padding:8px 10px;border-bottom:1px solid var(--line);background:#161018}
+.chart-toolbar{display:flex;align-items:center;gap:2px;flex-wrap:wrap;padding:8px 10px;border-bottom:1px solid var(--line);background:var(--well)}
 .chart-tf{border:0;background:transparent;color:var(--muted);font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:11px;letter-spacing:.04em;padding:5px 8px;border-radius:6px;cursor:pointer}
 .chart-tf.on{background:var(--lift);color:var(--ink)}
 .chart-ind-gap{flex:1;min-width:10px;height:1px}
@@ -239,14 +273,14 @@ main{padding:18px 0 72px}
 .ticket.ticket-cetus{overflow:visible;padding:12px 12px 16px}
 #cetus-terminal{width:100%;min-height:440px}
 #cetus-terminal .cs-swap-container{width:100%!important;max-width:none!important}
-.sides{display:flex;background:#16171A;border-radius:999px;padding:4px}
+.sides{display:flex;background:var(--well);border-radius:999px;padding:4px}
 .sides>div{flex:1;text-align:center;padding:10px;border-radius:999px;font-weight:650;cursor:pointer;color:var(--muted)}
 .sides>div.on-buy{background:var(--lift);color:var(--ink)}
 .sides>div.on-sell{background:#3A2422;color:#FF8A70}
-.amt{width:100%;border:1px solid var(--line);border-radius:16px;padding:14px 16px;font-size:26px;font-weight:650;outline:none;background:#16171A;color:var(--ink)}
-.amt:focus{border-color:var(--sui);background:#1C1D21}
+.amt{width:100%;border:1px solid var(--line);border-radius:16px;padding:14px 16px;font-size:26px;font-weight:650;outline:none;background:var(--well);color:var(--ink)}
+.amt:focus{border-color:var(--sui);background:var(--well-focus)}
 .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
-.chips>div{flex:1;text-align:center;background:#16171A;border-radius:999px;padding:8px 0;font-size:12px;font-weight:600;cursor:pointer}
+.chips>div{flex:1;text-align:center;background:var(--well);border-radius:999px;padding:8px 0;font-size:12px;font-weight:600;cursor:pointer}
 .chips>div:hover{background:var(--lift)}
 .chips>div.on{background:var(--lift);color:var(--ink)}
 .kv{display:flex;justify-content:space-between;align-items:baseline;gap:12px;padding:10px 0;border-top:1px solid var(--line);font-size:14px;min-width:0}
@@ -257,7 +291,7 @@ main{padding:18px 0 72px}
 .btn-trade.sell{background:#FECACA}
 .btn-trade:disabled{opacity:.5;cursor:not-allowed;filter:none}
 a.btn-trade{display:block;text-align:center;text-decoration:none;box-sizing:border-box}
-.btn-ghost{background:#16171A;color:var(--ink)}
+.btn-ghost{background:var(--well);color:var(--ink)}
 .ticket .swap-err{color:#FF6640;font-size:12px;text-align:center;margin-top:8px}
 
 .tape-tabs{display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap}
@@ -266,10 +300,10 @@ a.btn-trade{display:block;text-align:center;text-decoration:none;box-sizing:bord
 .tape-filter.on{color:var(--pink)}
 .tape-filter svg{width:20px;height:20px;display:block}
 .tape-filter-panel{display:flex;gap:8px;align-items:center;margin:0 0 12px;min-width:0;flex-wrap:wrap}
-.tape-filter-input{flex:1 1 160px;min-width:0;border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:#16171A;color:var(--ink);font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:12px;outline:none}
+.tape-filter-input{flex:1 1 160px;min-width:0;border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:var(--well);color:var(--ink);font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:12px;outline:none}
 .tape-filter-input:focus{border-color:var(--sui)}
 .tape-filter-go{border:0;background:var(--pink);color:#fff;border-radius:10px;padding:10px 14px;font-weight:700;font-size:12px;letter-spacing:.06em;text-transform:uppercase}
-.tape-filter-x,.tape-filter-me{border:1px solid var(--line);background:#16171A;color:var(--ink);border-radius:10px;padding:10px 12px;font-size:12px;font-weight:650}
+.tape-filter-x,.tape-filter-me{border:1px solid var(--line);background:var(--well);color:var(--ink);border-radius:10px;padding:10px 12px;font-size:12px;font-weight:650}
 .tape-filter-hint{width:100%;margin:0;font-size:12px;color:var(--muted)}
 .tape-name[data-tape-filter-set]{cursor:pointer}
 .tape-name[data-tape-filter-set]:hover{color:var(--sui)}
@@ -290,9 +324,9 @@ a.btn-trade{display:block;text-align:center;text-decoration:none;box-sizing:bord
 .tape-total .q-mark,.tape-total .sui-mark{margin-left:0}
 .sui-mark{width:12px;height:12px;flex:none}
 .tape-who{display:flex;align-items:center;justify-content:flex-end;gap:7px;min-width:0}
-.tape-av{width:18px;height:18px;border-radius:99px;background:#101211;color:var(--muted);font-size:10px;font-weight:700;display:grid;place-items:center;flex:none}
+.tape-av{width:18px;height:18px;border-radius:99px;background:var(--well);color:var(--muted);font-size:10px;font-weight:700;display:grid;place-items:center;flex:none}
 .tape-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;color:var(--ink)}
-.tape-n{font-size:11px;background:#101211;border-radius:6px;padding:2px 6px;color:var(--muted);flex:none}
+.tape-n{font-size:11px;background:var(--well);border-radius:6px;padding:2px 6px;color:var(--muted);flex:none}
 .tape-ico{border:0;background:transparent;color:var(--muted);padding:2px;display:grid;place-items:center;flex:none;line-height:0}
 .tape-ico:hover{color:var(--ink)}
 .tape-ico.on{color:var(--pink)}
@@ -302,7 +336,7 @@ a.btn-trade{display:block;text-align:center;text-decoration:none;box-sizing:bord
 .tape-ago{text-align:right;color:var(--muted);font-size:12px}
 .tape-count{margin-left:auto}
 .tape-pager{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:8px;margin-top:10px}
-.tape-pager button{border:1px solid var(--line);background:#16171A;color:var(--ink);border-radius:999px;padding:6px 12px;font-size:12px;font-weight:650;cursor:pointer}
+.tape-pager button{border:1px solid var(--line);background:var(--well);color:var(--ink);border-radius:999px;padding:6px 12px;font-size:12px;font-weight:650;cursor:pointer}
 .tape-pager button:disabled{opacity:.4;cursor:not-allowed}
 .tape-pager span,.tape-pager .tape-pg{font-size:12px;color:var(--muted);font-family:"IBM Plex Mono",ui-monospace,monospace}
 .tape-pager .tape-pg{display:inline-flex;align-items:center;gap:6px;padding:0 2px}
@@ -321,8 +355,8 @@ a.btn-trade{display:block;text-align:center;text-decoration:none;box-sizing:bord
 
 .form-grid{display:grid;gap:12px;text-align:left;max-width:520px;margin:28px auto 0}
 .form-grid label{font-size:12px;font-weight:600;color:var(--muted);letter-spacing:.06em;text-transform:uppercase}
-.form-grid input{width:100%;border:1px solid var(--line);border-radius:16px;padding:12px 14px;background:#16171A;outline:none;color:var(--ink)}
-.form-grid input:focus{border-color:var(--sui);background:#1C1D21}
+.form-grid input{width:100%;border:1px solid var(--line);border-radius:16px;padding:12px 14px;background:var(--well);outline:none;color:var(--ink)}
+.form-grid input:focus{border-color:var(--sui);background:var(--well-focus)}
 .social-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
 .social-row input{padding:12px 10px;font-size:13px}
 @media (max-width:560px){
@@ -330,13 +364,13 @@ a.btn-trade{display:block;text-align:center;text-decoration:none;box-sizing:bord
 }
 .toggle{display:flex;gap:8px;flex-wrap:wrap}
 .quote-dd{position:relative;max-width:320px}
-.quote-dd-btn{width:100%;display:flex;align-items:center;gap:10px;background:#140e14;border:1px solid var(--line);border-radius:12px;padding:10px 12px;color:var(--ink);font:inherit;font-weight:650;cursor:pointer;text-align:left}
+.quote-dd-btn{width:100%;display:flex;align-items:center;gap:10px;background:var(--well);border:1px solid var(--line);border-radius:12px;padding:10px 12px;color:var(--ink);font:inherit;font-weight:650;cursor:pointer;text-align:left}
 .quote-dd-btn:hover{border-color:#5a3a56}
 .quote-dd-btn .q-logo{width:22px;height:22px;border-radius:7px;object-fit:cover;flex:none;background:#F4EEF2;box-sizing:border-box}
 .quote-dd-btn .q-meta{flex:1;min-width:0}
 .quote-dd-btn .q-meta small{display:block;font-size:11px;font-weight:500;color:var(--muted);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .quote-dd-btn .q-chev{color:var(--muted);font-size:12px;margin-left:auto}
-.quote-dd-menu{display:none;position:absolute;z-index:40;left:0;right:0;top:calc(100% + 6px);background:#140e14;border:1px solid var(--line);border-radius:14px;padding:6px;box-shadow:var(--shadow);max-height:280px;overflow:auto}
+.quote-dd-menu{display:none;position:absolute;z-index:40;left:0;right:0;top:calc(100% + 6px);background:var(--well);border:1px solid var(--line);border-radius:14px;padding:6px;box-shadow:var(--shadow);max-height:280px;overflow:auto}
 .quote-dd.open .quote-dd-menu{display:block}
 .quote-dd-item{width:100%;display:flex;align-items:center;gap:10px;border:0;background:transparent;color:var(--ink);border-radius:10px;padding:9px 10px;font:inherit;font-weight:600;cursor:pointer;text-align:left}
 .quote-dd-item:hover,.quote-dd-item.on{background:var(--lift)}
@@ -367,7 +401,7 @@ a.btn-trade{display:block;text-align:center;text-decoration:none;box-sizing:bord
 .about-v .tick{font-size:14px;font-weight:550;color:var(--muted);margin-left:6px;letter-spacing:0}
 .about-s{font-size:13px;color:var(--muted);margin-top:6px}
 .about-links{display:flex;flex-wrap:wrap;gap:8px}
-.about-link{display:inline-flex;align-items:center;gap:7px;background:#101211;border:0;border-radius:999px;padding:8px 12px;font-size:13px;font-weight:600;color:var(--ink);cursor:pointer;text-decoration:none}
+.about-link{display:inline-flex;align-items:center;gap:7px;background:var(--well);border:0;border-radius:999px;padding:8px 12px;font-size:13px;font-weight:600;color:var(--ink);cursor:pointer;text-decoration:none}
 .about-link:hover{background:var(--lift);color:var(--ink)}
 .about-link svg{flex:none;opacity:.9}
 @media (max-width:860px){
@@ -397,7 +431,7 @@ a.btn-trade{display:block;text-align:center;text-decoration:none;box-sizing:bord
 .pit-tally{font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:12px;color:var(--muted);text-align:right;font-variant-numeric:tabular-nums}
 .pit-vote{border:0;background:var(--pink);color:#fff;border-radius:10px;padding:10px 14px;font-weight:700;font-size:11px;letter-spacing:.08em;text-transform:uppercase;white-space:nowrap}
 .pit-vote:hover{filter:brightness(.97)}
-.pit-vote.mine{background:#16171A;color:var(--ink);box-shadow:inset 0 0 0 1px var(--line)}
+.pit-vote.mine{background:var(--well);color:var(--ink);box-shadow:inset 0 0 0 1px var(--line)}
 .pit-vote:disabled{opacity:.55;cursor:not-allowed;filter:none}
 .bell-row{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:12px;align-items:center;padding:14px 2px;border-top:1px solid var(--line)}
 .bell-row:first-of-type{border-top:0}
@@ -510,7 +544,7 @@ html[data-route="launch"] main,html[data-route="token"] main,html[data-route="me
 .vol-bars i{flex:1;background:var(--pink);border-radius:4px 4px 0 0;min-height:2px;opacity:.85}
 .fee-rows{display:grid;gap:10px}
 .fee-row{display:grid;grid-template-columns:88px 1fr 90px;gap:10px;align-items:center;font-size:13px}
-.fee-row b{height:6px;border-radius:99px;background:#101211;overflow:hidden;display:block}
+.fee-row b{height:6px;border-radius:99px;background:var(--well);overflow:hidden;display:block}
 .fee-row b>i{display:block;height:100%;border-radius:99px}
 .pf-page{width:min(640px,calc(100% - 32px));margin:0 auto;padding:20px 0 80px}
 .pf-head{padding:8px 4px 4px}
@@ -609,7 +643,8 @@ html.shot,html.shot *{animation:none!important;transition:none!important}
   .shell{width:calc(100% - 20px)}
   .topbar-inner{grid-template-columns:1fr auto;grid-template-areas:"brand connect" "nav nav";padding:10px 0 12px}
   .brand{grid-area:brand}
-  .btn-connect{grid-area:connect;justify-self:end}
+  .topbar-actions{grid-area:connect;justify-self:end}
+  .btn-top-launch{display:none}
   .nav-pill{grid-area:nav;width:100%;justify-content:center;justify-self:stretch}
   .search-row{gap:8px}
   .btn-create{flex:none;padding:12px 14px}
@@ -646,7 +681,7 @@ html.shot,html.shot *{animation:none!important;transition:none!important}
 .bridge-hero p{margin:10px auto 0;color:var(--muted);font-size:14px;max-width:46ch;line-height:1.45}
 .bridge-wrap{max-width:440px;margin:0 auto}
 .bridge-card{background:var(--card);border-radius:24px;padding:18px 16px 16px;box-shadow:var(--shadow);border:1px solid rgba(255,255,255,.04)}
-.bridge-panel{background:#140e14;border:1px solid var(--line);border-radius:16px;padding:12px 14px 14px;position:relative}
+.bridge-panel{background:var(--well);border:1px solid var(--line);border-radius:16px;padding:12px 14px 14px;position:relative}
 .bridge-panel + .bridge-arrow{display:flex;justify-content:center;margin:-6px 0;position:relative;z-index:1}
 .bridge-arrow span{width:32px;height:32px;border-radius:999px;background:var(--lift);border:1px solid var(--line);display:grid;place-items:center;color:var(--muted);font-size:14px;line-height:1}
 .bridge-panel-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:0 0 10px}
@@ -661,16 +696,16 @@ html.shot,html.shot *{animation:none!important;transition:none!important}
 .bridge-amt-col .amt:focus{border:0;background:transparent;box-shadow:none}
 .bridge-out{font-size:28px;font-weight:650;font-variant-numeric:tabular-nums;letter-spacing:-.02em;line-height:1.2;min-height:1.2em}
 .bridge-asset{display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex:none}
-.bridge-pick{display:flex;align-items:center;gap:6px;background:#1c101c;border:1px solid var(--line);border-radius:999px;padding:6px 8px 6px 10px}
+.bridge-pick{display:flex;align-items:center;gap:6px;background:var(--card);border:1px solid var(--line);border-radius:999px;padding:6px 8px 6px 10px}
 .bridge-pick .bridge-tick-mark,.bridge-pick .bridge-tick-logo{width:22px;height:22px;border-radius:99px;background:var(--lift);display:grid;place-items:center;font-size:10px;font-weight:700;color:var(--ink);flex:none;object-fit:contain;padding:2px;box-sizing:border-box}
 .bridge-chain img{width:12px;height:12px;border-radius:99px;object-fit:contain;margin-right:2px;vertical-align:middle}
 .bridge-tick .bridge-tick-logo{width:14px;height:14px;border-radius:4px;object-fit:contain;margin-right:4px;vertical-align:-2px}
 .bridge-ticks{display:flex;flex-wrap:wrap;gap:4px;justify-content:flex-end;max-width:168px}
-.bridge-tick{border:1px solid var(--line);background:#120814;color:var(--muted);border-radius:999px;padding:5px 9px;font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:11px;font-weight:600;letter-spacing:.03em;cursor:pointer}
+.bridge-tick{border:1px solid var(--line);background:var(--bg);color:var(--muted);border-radius:999px;padding:5px 9px;font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:11px;font-weight:600;letter-spacing:.03em;cursor:pointer}
 .bridge-tick:hover{color:var(--ink);border-color:#5a3a56}
 .bridge-tick.on{background:var(--sui);color:#fff;border-color:var(--sui)}
 .bridge-dirs{display:flex;gap:8px;margin:0 0 12px}
-.bridge-dirs .pill{flex:1;text-align:center;padding:10px 12px;border-radius:12px;background:#140e14;border-color:var(--line);color:var(--muted);font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:none}
+.bridge-dirs .pill{flex:1;text-align:center;padding:10px 12px;border-radius:12px;background:var(--well);border-color:var(--line);color:var(--muted);font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:none}
 .bridge-dirs .pill:hover{color:var(--ink);border-color:#5a3a56}
 .bridge-dirs .pill.on{background:var(--sui);color:#fff;border-color:var(--sui)}
 .bridge-dirs .pill.on:hover{color:#fff;filter:brightness(1.05)}
@@ -697,7 +732,7 @@ html.shot,html.shot *{animation:none!important;transition:none!important}
 .bridge-dest-field{border-top:1px solid var(--line);margin:10px 2px 0;padding-top:12px}
 .bridge-dest-lab{color:var(--muted);font-size:13px;margin-bottom:6px;display:flex;gap:6px;align-items:center}
 .bridge-dest-req{color:var(--pink);font-size:11px;font-weight:600;letter-spacing:.03em;text-transform:uppercase}
-.bridge-dest-input{width:100%;box-sizing:border-box;background:#140e14;border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:13px;color:var(--ink);outline:none}
+.bridge-dest-input{width:100%;box-sizing:border-box;background:var(--well);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:13px;color:var(--ink);outline:none}
 .bridge-dest-input::placeholder{color:var(--muted);opacity:.8}
 .bridge-dest-input:focus{border-color:var(--sui)}
 .bridge-dest-input.bad{border-color:var(--pink)}
@@ -721,18 +756,153 @@ html[data-route="lock"] main{width:min(720px,calc(100% - 32px));margin:0 auto;pa
 .lock-card{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:18px 16px}
 .lock-field{margin:0 0 12px}
 .lock-field label{display:block;font-size:11px;font-weight:650;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:0 0 6px}
-.lock-field input,.lock-field textarea{width:100%;border:1px solid var(--line);background:#140e14;color:var(--ink);border-radius:12px;padding:12px 14px;font:inherit;font-size:14px}
+.lock-field input,.lock-field textarea{width:100%;border:1px solid var(--line);background:var(--well);color:var(--ink);border-radius:12px;padding:12px 14px;font:inherit;font-size:14px}
 .lock-field input:focus{border-color:var(--pink);outline:none}
 .lock-hint{font-size:12px;color:var(--muted);margin:8px 0 0;line-height:1.4}
 .lock-row{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 12px}
 .lock-list{display:flex;flex-direction:column;gap:10px;margin-top:12px}
-.lock-item{border:1px solid var(--line);border-radius:14px;padding:12px 14px;background:#140e14}
+.lock-item{border:1px solid var(--line);border-radius:14px;padding:12px 14px;background:var(--well)}
 .lock-item .k{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
 .lock-item .v{font-weight:650;margin-top:2px}
 .lock-item-top{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
 .lock-item button{margin-top:10px}
 
-@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important}}
+html[data-route="explore"] .search-row{display:none}
+html[data-route="explore"] main{padding-top:10px;padding-bottom:24px}
+.scr{display:flex;flex-direction:column}
+.scr-kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:12px}
+.scr-kpi{background:var(--card);border:1px solid color-mix(in srgb,var(--ink) 8%,transparent);border-radius:14px;padding:14px 16px 13px}
+.scr-kpi .k{font-size:11px;font-weight:650;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.scr-kpi .v{margin-top:6px;font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:clamp(22px,2.2vw,28px);font-weight:600;letter-spacing:-.04em;font-variant-numeric:tabular-nums;line-height:1.1}
+.scr-kpi .s{margin-top:4px;font-size:12px;color:var(--muted)}
+.scr-trend{display:flex;align-items:center;gap:14px;min-height:44px;margin:4px 0 8px;overflow:hidden}
+.scr-trend-k{flex:none;display:inline-flex;align-items:center;font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#fff;background:var(--pink);border-radius:8px;padding:6px 10px;line-height:1}
+.scr-trend-mask{overflow:hidden;flex:1;mask-image:linear-gradient(90deg,transparent,#000 16px,#000 calc(100% - 16px),transparent)}
+.scr-trend-track{display:flex;width:max-content;animation:trendScroll 36s linear infinite}
+.scr-trend:hover .scr-trend-track{animation-play-state:paused}
+.scr-trend-list{display:flex;gap:22px;padding-right:22px;margin:0;list-style:none}
+.scr-trend-list a,.scr-trend-list [data-go]{display:inline-flex;align-items:center;gap:8px;font-size:13px;font-weight:600;white-space:nowrap;cursor:pointer;color:inherit}
+.scr-trend-list img,.scr-trend-list .scr-av-fallback{width:20px;height:20px;border-radius:6px;object-fit:cover}
+.scr-trend-list em{font-style:normal;font-variant-numeric:tabular-nums;font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:12px}
+.scr-trend-list em.up,.scr .chg.up,.scr .tx-split .up{color:var(--scr-up)}
+.scr-trend-list em.down,.scr .chg.down,.scr .tx-split .down{color:var(--down)}
+@keyframes trendScroll{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+.scr-head h1{margin:10px 0 12px;font-size:22px;font-weight:700;letter-spacing:-.03em}
+.scr-toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+.scr-tabs{display:flex;gap:4px;overflow-x:auto;padding-bottom:2px}
+.scr-tabs button{flex:none;border:0;background:transparent;color:var(--muted);font-size:13px;font-weight:600;padding:8px 12px;min-height:40px;border-radius:999px;display:inline-flex;align-items:center;gap:6px}
+.scr-tabs button:hover{color:var(--ink)}
+.scr-tabs button.on{color:var(--ink);background:color-mix(in srgb,var(--ink) 8%,transparent)}
+.scr-search{flex:1 1 220px;min-width:180px;display:flex;align-items:center;gap:8px;background:var(--lift);border:1px solid var(--line);border-radius:12px;padding:0 12px;min-height:44px;color:var(--muted)}
+.scr-search input{flex:1;border:0;background:transparent;color:var(--ink);font:inherit;outline:none;min-width:0}
+.scr-search kbd{font-family:"IBM Plex Mono",monospace;font-size:11px;padding:2px 6px;border-radius:6px;border:1px solid var(--line);color:var(--muted)}
+.scr-tools{display:flex;align-items:center;gap:8px;margin-left:auto}
+.scr-tool,.scr-quote{min-height:44px;border-radius:12px;border:1px solid var(--line);background:var(--lift);color:var(--ink);padding:0 12px;font-size:13px;font-weight:600}
+.scr-tool{display:inline-flex;align-items:center;gap:6px}
+.scr-tool.on{border-color:var(--pink);color:var(--pink)}
+.scr-quotepill{display:inline-flex;align-items:stretch;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--lift)}
+.scr-quotepill-buy{border:0;background:transparent;color:var(--ink);padding:0 12px;min-height:44px;font-weight:700;font-size:13px;border-right:1px solid var(--line)}
+.scr-quotepill .scr-quote{border:0;background:transparent;border-radius:0;min-height:44px}
+.scr-launch-row{display:none}
+.scr-mlist{display:none}
+.scr-filter-wrap{position:relative}
+.scr-filter-pop{position:absolute;top:calc(100% + 6px);right:0;z-index:6;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px;min-width:180px;box-shadow:0 12px 32px rgba(8,2,10,.45)}
+.scr-filter-pop label{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:500}
+.scr-launch{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:0 18px;border-radius:12px;background:var(--pink);color:#fff;font-weight:700;font-size:13px;letter-spacing:.04em;border:0}
+.scr-launch:hover{filter:brightness(.97)}
+.scr-table-wrap{overflow-x:auto;border:1px solid color-mix(in srgb,var(--ink) 8%,transparent);border-radius:16px;background:var(--card)}
+.scr-table{width:100%;min-width:980px;border-collapse:collapse;font-variant-numeric:tabular-nums}
+.scr-table th,.scr-table td{padding:8px 12px;text-align:right;white-space:nowrap;font-size:13px}
+.scr-table th{color:var(--muted);font-size:11px;font-weight:650;letter-spacing:.08em;text-transform:uppercase;border-bottom:1px solid var(--line)}
+.scr-table th button{border:0;background:transparent;color:inherit;font:inherit;letter-spacing:inherit;text-transform:inherit;display:inline-flex;align-items:center;gap:4px;padding:4px 0}
+.scr-table th button.sorted{color:var(--ink)}
+.scr-table tbody tr{cursor:pointer}
+.scr-table tbody tr:hover{background:var(--lift)}
+.scr-table tbody td{border-bottom:1px solid color-mix(in srgb,var(--ink) 6%,transparent);font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:12.5px;font-weight:500}
+.scr-table tbody tr:last-child td{border-bottom:0}
+.col-rank,.col-coin,.col-tape{text-align:left}
+.col-rank{width:44px;min-width:44px;max-width:44px;color:var(--muted)}
+.scr-table th.col-coin,.scr-table td.col-coin{position:sticky;left:0;z-index:2;background:var(--card);width:228px;max-width:228px;padding-right:8px;white-space:normal}
+.scr-table th.col-tape,.scr-table td.col-tape{width:108px;min-width:108px;max-width:108px;padding-left:4px;padding-right:10px}
+.scr-table tbody tr:hover td.col-coin{background:var(--lift)}
+.scr-coin{display:flex;align-items:center;gap:8px;text-align:left}
+.scr-star{width:44px;height:44px;display:grid;place-items:center;border:0;background:transparent;color:var(--muted);flex:none}
+.scr-star.on{color:var(--pink)}
+.scr-av{width:32px;height:32px;border-radius:9px;object-fit:cover;flex:none}
+.scr-av-fallback{display:grid;place-items:center;font-weight:700;font-size:13px;color:#fff}
+.scr-coin-copy{min-width:0}
+.scr-coin-name{display:flex;align-items:center;gap:6px;font-family:"Instrument Sans",ui-sans-serif,sans-serif;font-size:14px;font-weight:650;letter-spacing:-.02em}
+.scr-hot{font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--bg);background:var(--pink);border-radius:999px;padding:2px 6px}
+.scr-coin-meta{display:flex;align-items:center;flex-wrap:wrap;gap:6px;color:var(--muted);font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:11px;font-weight:500}
+.scr-coin-tag{flex-basis:100%;margin-top:1px;font-size:10px;font-weight:650;letter-spacing:.08em;text-transform:uppercase;color:var(--pink)}
+.scr .chg,.scr .tx-split,.scr .sub{font-size:11px;margin-top:2px}
+.scr .sub{color:var(--muted)}
+.scr .tx-split{display:flex;justify-content:flex-end;gap:8px}
+.sparkline{display:block;margin:0}
+.sparkline.empty{width:96px;height:36px;display:block}
+.sparkline.up{color:var(--scr-up)}
+.sparkline.down{color:var(--down)}
+.col-buy{width:72px}
+.scr-buy{display:inline-flex;align-items:center;justify-content:center;min-height:44px;min-width:56px;padding:0 12px;border-radius:999px;background:var(--pink);color:#fff;font-family:"Instrument Sans",ui-sans-serif,sans-serif;font-size:13px;font-weight:700;border:0}
+.scr-buy:hover{filter:brightness(.97)}
+.scr-empty{text-align:center;padding:56px 16px;border:1px dashed var(--line);border-radius:16px}
+.scr-empty h2{margin:0 0 8px;font-size:20px}
+.scr-empty p{margin:0;color:var(--muted)}
+.dock-wrap,.dock-backdrop{display:none}
+@media (max-width:1100px){
+  .col-traders,.col-holders{display:none}
+}
+@media (max-width:920px){
+  .col-txns,.col-liq,.col-age{display:none}
+  .scr-kpis{grid-template-columns:1fr 1fr}
+  .scr-table{min-width:760px}
+}
+@media (max-width:860px){
+  html[data-route="explore"] main{padding-bottom:92px}
+  html[data-route="explore"] .footer{display:none}
+  .scr-toolbar{display:contents}
+  .scr-launch-row{display:flex;justify-content:flex-end;order:0;margin:2px 0 10px}
+  .scr-launch-row .scr-launch{min-width:132px;border-radius:14px;min-height:44px;font-size:15px}
+  .scr-launch-desk{display:none}
+  .scr-search{order:1;width:100%;flex:none;min-width:0;margin-bottom:12px;border-radius:14px}
+  .scr-search kbd{display:none}
+  .scr-kpis{order:2;gap:8px;margin-bottom:12px}
+  .scr-kpi{border-radius:16px}
+  .scr-kpi .v{font-size:22px}
+  .scr-trend{order:3;margin:0 0 12px}
+  .scr-head{display:none}
+  .scr-tabs{order:4;flex-wrap:wrap;gap:6px;margin-bottom:10px;overflow:visible}
+  .scr-tabs button{background:var(--card);border:1px solid color-mix(in srgb,var(--ink) 8%,transparent);min-height:44px}
+  .scr-tabs button.on{background:color-mix(in srgb,var(--pink) 18%,var(--card));border-color:transparent;color:var(--ink)}
+  .scr-tools{order:5;width:100%;margin:0 0 10px;justify-content:space-between}
+  .scr-table-wrap{display:none}
+  .scr-mlist{display:block;order:6;overflow-x:auto;-webkit-overflow-scrolling:touch;margin:0 -12px;padding:0 12px 8px;scrollbar-width:none}
+  .scr-mlist::-webkit-scrollbar{display:none}
+  .mrow{display:flex;align-items:center;min-width:680px;min-height:76px;border-bottom:1px solid color-mix(in srgb,var(--ink) 7%,transparent);cursor:pointer}
+  .mrow-id{position:sticky;left:0;z-index:2;display:flex;align-items:center;gap:8px;width:158px;flex:none;background:var(--bg);padding:8px 8px 8px 0;box-shadow:12px 0 12px -8px var(--bg)}
+  .mrow-rank{width:16px;flex:none;font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:12px;color:var(--muted)}
+  .mrow-id .scr-av{width:44px;height:44px;border-radius:12px}
+  .mrow-copy{min-width:0;flex:1}
+  .mrow-tick{display:flex;align-items:center;gap:5px;font-size:14px;font-weight:700;letter-spacing:-.02em;white-space:nowrap}
+  .mrow-name{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:72px}
+  .mrow-id .scr-star{width:36px;height:36px;margin-left:auto}
+  .mrow-spark{flex:none;width:112px;display:grid;place-items:center;padding:0 6px}
+  .mrow-cell{flex:none;width:92px;padding:0 10px;font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:13px;font-weight:600;font-variant-numeric:tabular-nums;text-align:right}
+  .mrow-k{display:block;font-family:"Instrument Sans",ui-sans-serif,sans-serif;font-size:10px;font-weight:650;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:2px}
+  .mrow-cell .chg,.mrow-cell .tx-split{display:block;margin-top:2px}
+  .mrow-buy{width:80px;display:grid;place-items:center}
+  .dock-wrap{display:block;position:fixed;left:12px;right:12px;bottom:max(10px,env(safe-area-inset-bottom));z-index:45;pointer-events:none}
+  .dock,.dock-sheet{pointer-events:auto}
+  .dock-backdrop{display:block;position:fixed;inset:0;z-index:44;background:transparent;pointer-events:auto}
+  .dock-sheet[hidden],.dock-backdrop[hidden]{display:none!important}
+  .dock{display:flex;align-items:stretch;justify-content:space-around;gap:2px;background:color-mix(in srgb,var(--card) 92%,transparent);backdrop-filter:blur(18px);border:1px solid color-mix(in srgb,var(--ink) 10%,transparent);border-radius:22px;padding:6px 6px 8px;min-height:64px;box-shadow:0 12px 40px rgba(8,2,10,.45)}
+  .dock-item{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;min-height:52px;border:0;background:transparent;color:var(--muted);font-size:10px;font-weight:650;border-radius:16px;padding:6px 2px}
+  .dock-item.on{color:var(--ink);background:color-mix(in srgb,var(--ink) 8%,transparent)}
+  .dock-sheet{display:flex;flex-direction:column;gap:2px;margin:0 8px 8px;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:8px;box-shadow:0 12px 32px rgba(8,2,10,.5)}
+  .dock-sheet [data-go]{display:block;padding:12px 14px;min-height:44px;border-radius:12px;font-weight:650;cursor:pointer}
+  .dock-sheet [data-go]:hover{background:var(--lift)}
+}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important}.scr-trend-track{animation:none}}
 </style>
 <script>
   window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
@@ -747,12 +917,19 @@ html[data-route="lock"] main{width:min(720px,calc(100% - 32px));margin:0 auto;pa
       <span class="brand-name">vice.</span>
     </div>
     <nav class="nav-pill" id="nav-pill"></nav>
-    <button type="button" class="btn-connect" id="wallet-btn" data-wallet>Connect</button>
+    <div class="topbar-actions">
+      <button type="button" class="btn-theme" id="theme-btn" data-theme-toggle title="Pastel mode" aria-label="Switch to pastel">
+        <svg class="theme-sun" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="4"/><path d="M12 3v2M12 19v2M5 12H3M21 12h-2M6.2 6.2l1.4 1.4M16.4 16.4l1.4 1.4M6.2 17.8l1.4-1.4M16.4 7.6l1.4-1.4"/></svg>
+        <svg class="theme-moon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M20 14.5A8.5 8.5 0 1 1 9.5 4 7 7 0 0 0 20 14.5z"/></svg>
+      </button>
+      <button type="button" class="btn-top-launch" data-go="launch">Launch</button>
+      <button type="button" class="btn-connect" id="wallet-btn" data-wallet>Connect</button>
+    </div>
   </div>
 </header>
 <div class="shell search-row">
   <div class="search-bar">
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9A9BA3" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3-3"/></svg>
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3-3"/></svg>
     <input id="q" type="search" placeholder="Search tokens" autocomplete="off">
     <span class="kbd">⌘K</span>
   </div>
@@ -761,6 +938,20 @@ html[data-route="lock"] main{width:min(720px,calc(100% - 32px));margin:0 auto;pa
 <div class="wallet-overlay" id="wallet-modal" hidden></div>
 <div class="wallet-overlay" id="meta-modal" hidden></div>
 <main id="screens"></main>
+<div class="dock-backdrop" id="dock-backdrop" hidden></div>
+<div class="dock-wrap" id="dock-wrap" hidden>
+  <div class="dock-sheet" id="dock-sheet" hidden>
+    <div data-go="bridge">Bridge</div>
+    <div data-go="lock">Vicelock</div>
+    <div data-go="launch">Create</div>
+  </div>
+  <nav class="dock" aria-label="Mobile">
+    <button type="button" class="dock-item on" data-go="explore"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg><span>Strip</span></button>
+    <button type="button" class="dock-item" data-go="pit"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 3h12l-1 7a7 7 0 0 1-10 0L6 3z"/><path d="M12 10v11"/></svg><span>Rewards</span></button>
+    <button type="button" class="dock-item" data-go="metrics"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19V9"/><path d="M10 19V5"/><path d="M16 19v-7"/><path d="M22 19V8"/></svg><span>Books</span></button>
+    <button type="button" class="dock-item" id="dock-more"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg><span>More</span></button>
+  </nav>
+</div>
 <script>
 window.ARENA_PACKAGE_ID = "0x5cfddf8ba23be6835644a8ea22482ff6ebb0081e42cc1bc052b5f770ca8bbdea";
 window.ARENA_INSTADEX_PACKAGE = "0xcf7835ae4e3f8a3d4eb4bd9d14cb4a3dbdd80e70908feb6c433688a31e119de3";
@@ -911,7 +1102,11 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   var pitStatePollAt = 0;
   let balance = 48.60;
   let xaumBal = 2.40;
-  const state = {route:"explore", sym:"VOLT", filter:"All", sort:"Market cap", time:"All", side:"Buy", amt:"1", connected:false, search:"", lName:"", lTick:"", lQuote:"SUI", lPath:"instadex", lMode:"Holders", lTokenAmt:"", lQuoteAmt:"", lFirstBuy:"1", lCap:"", lTokenCoin:"", lQuoteCoin:"", lCoinMode:"create", lDecimals:"9", lSupply:"1000000000", lDesc:"", lX:"", lTg:"", lWeb:"", lPublishedType:"", metricsWindow:"All", tapeTab:"trades", tapeOpen:"", tapePage:0, tapeAge:"age", tapeWallet:"", tapeFilterOpen:false, lFile:null, lArtUrl:"", lArtPreview:"", payWith:"SUI", lNote:"", lNoteErr:false, chartTf:900, chartInd:{vol:true,ma7:false,ma25:false,ma99:false,ema:false}, bridgeTick:"NVDA", bridgeAmt:"", bridgeDir:"in", bridgeRhDest:"", bridgeNote:"", bridgeBusy:false, quoteOpen:false, rewardsTab:"all", lBasket:false, lBasketEqual:true, lBasketMode:0, lBasketOn:{XAUM:true,XAGM:true,USDY:true}, lBasketBps:{XAUM:3334,XAGM:3333,USDY:3333}, lSplitPreset:"vice", lSplit:{creator:6000,platform:500,rewards:2500,buyback:1000}, pfRange:"1M", pfFlash:"", lockTab:"create", lockKind:"lock", lockTok:"", lockAmt:"", lockDays:"30", lockSelf:"self", lockBen:"", lockCliff:"90", lockEnd:"365", lockNote:"", lockNoteErr:false, lockBusy:false, lockMine:[], lockAll:[], lockLoad:false};
+  const state = {route:"explore", sym:"VOLT", filter:"All", sort:"Market cap", time:"All", side:"Buy", amt:"1", connected:false, search:"", lName:"", lTick:"", lQuote:"SUI", lPath:"instadex", lMode:"Holders", lTokenAmt:"", lQuoteAmt:"", lFirstBuy:"1", lCap:"", lTokenCoin:"", lQuoteCoin:"", lCoinMode:"create", lDecimals:"9", lSupply:"1000000000", lDesc:"", lX:"", lTg:"", lWeb:"", lPublishedType:"", metricsWindow:"All", tapeTab:"trades", tapeOpen:"", tapePage:0, tapeAge:"age", tapeWallet:"", tapeFilterOpen:false, lFile:null, lArtUrl:"", lArtPreview:"", payWith:"SUI", lNote:"", lNoteErr:false, chartTf:900, chartInd:{vol:true,ma7:false,ma25:false,ma99:false,ema:false}, bridgeTick:"NVDA", bridgeAmt:"", bridgeDir:"in", bridgeRhDest:"", bridgeNote:"", bridgeBusy:false, quoteOpen:false, rewardsTab:"all", lBasket:false, lBasketEqual:true, lBasketMode:0, lBasketOn:{XAUM:true,XAGM:true,USDY:true}, lBasketBps:{XAUM:3334,XAGM:3333,USDY:3333}, lSplitPreset:"vice", lSplit:{creator:6000,platform:500,rewards:2500,buyback:1000}, pfRange:"1M", pfFlash:"", lockTab:"create", lockKind:"lock", lockTok:"", lockAmt:"", lockDays:"30", lockSelf:"self", lockBen:"", lockCliff:"90", lockEnd:"365", lockNote:"", lockNoteErr:false, lockBusy:false, lockMine:[], lockAll:[], lockLoad:false, scrTab:"mcap", scrSort:"mcap", scrDir:-1, scrQuote:"All", scrBuyUsd:5, scrLiveOnly:false, scrFilters:false, watch:[]};
+  try {
+    var watchSaved = JSON.parse(localStorage.getItem("vice.watch.v1") || "[]");
+    if (Array.isArray(watchSaved)) state.watch = watchSaved.map(String);
+  } catch (e) { state.watch = []; }
   var metaEdit = { open: false, saving: false, file: null, preview: "", artUrl: "", note: "", err: false, name: "", desc: "", x: "", tg: "", web: "", creator: "", openedCreator: "" };
   let hashLock = false;
   const hop = { suiPerXaum: null, suiPerUsdy: null, suiPerXagm: null, suiPerVicefun: null, usd: null, suiUsd: null, usdyUsd: null, xagmUsd: null, xaumUsd: null, vicefunUsd: null, source: "" };
@@ -2354,6 +2549,35 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   }
   function paintExploreList(){
     if (state.route !== "explore") return;
+    var board = $("#scr-board");
+    if (board){
+      var all = T.filter(function(k){ return !isHiddenToken(k); }).map(scrRow);
+      var rows = scrFilterRows(all);
+      var stats = scrStats(all);
+      var kpis = $$("#scr-kpis .scr-kpi");
+      if (kpis[0]){ kpis[0].querySelector(".v").textContent = scrFmtCount(stats.tokens); kpis[0].querySelector(".s").textContent = scrFmtCount(stats.withLiq)+" with liquidity"; }
+      if (kpis[1]) kpis[1].querySelector(".v").textContent = scrFmtCompact(stats.volume);
+      if (kpis[2]){ kpis[2].querySelector(".v").textContent = scrFmtCount(stats.txns); kpis[2].querySelector(".s").textContent = scrFmtCount(stats.wallets)+" wallets"; }
+      if (kpis[3]){ kpis[3].querySelector(".v").textContent = scrFmtCompact(stats.liq); kpis[3].querySelector(".s").textContent = "across "+scrFmtCount(stats.tokens)+" pools"; }
+      var tb = $("#scr-tbody");
+      var ml = $("#scr-mlist");
+      var empty = $("#scr-empty");
+      if (!rows.length){
+        if (!empty){
+          var host = $("#screens");
+          if (host) host.innerHTML = exploreHTML();
+        }
+        return;
+      }
+      if (empty){
+        var host2 = $("#screens");
+        if (host2) host2.innerHTML = exploreHTML();
+        return;
+      }
+      if (tb) tb.innerHTML = rows.map(function(r,i){ return scrDeskRow(r, i+1); }).join("");
+      if (ml) ml.innerHTML = rows.map(function(r,i){ return scrMobRow(r, i+1); }).join("");
+      return;
+    }
     var list = $("#disc-list");
     if (!list) return;
     var lead = document.querySelector(".living-hero .lead-tile");
@@ -2728,7 +2952,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   function rank(i){ return String(i+1).padStart(2,"0"); }
   function isHiddenToken(k){
     const t = String((k && k.t) || "").toUpperCase();
-    if (t === "BFLN" || t === "GRAD" || t === "SMOKE" || t === "IDEX" || t === "SILVER") return true;
+    if (t === "BFLN" || t === "GRAD" || t === "SMOKE" || t === "IDEX" || t === "SILVER" || t === "SSILVER") return true;
     if (k && (k.mode === "AMC" || k.q === "AMC" || k.vaultId)) return true;
     const n = String((k && k.n) || "");
     return /^Arena (Bluefin|Grad|Smoke)$/i.test(n) || /^INSTA$/i.test(n);
@@ -2866,7 +3090,8 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     var pool = (tk && tk.bluefinPool) || "";
     if (!pool) return '<div class="tv-host" style="display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:13px">Bluefin pool pending</div>';
     if (poolQuote(tk) === "SUI"){
-      var src = "https://dexscreener.com/sui/"+pool+"?embed=1&loadChartSettings=0&trades=0&tabs=0&info=0&chartLeftToolbar=0&chartTheme=dark&theme=dark&chartStyle=1&chartType=usd&interval=15";
+      var light = themeNow() === "pastel";
+      var src = "https://dexscreener.com/sui/"+pool+"?embed=1&loadChartSettings=0&trades=0&tabs=0&info=0&chartLeftToolbar=0&chartTheme="+(light?"light":"dark")+"&theme="+(light?"light":"dark")+"&chartStyle=1&chartType=usd&interval=15";
       return '<div class="tv-wrap tv-wrap-dex"><iframe class="dex-embed" title="Dexscreener" src="'+escAttr(src)+'" loading="lazy" allowfullscreen></iframe></div>';
     }
     return chartToolbarHTML()+'<div class="tv-wrap"><div class="tv-host" data-chart-pool="'+escAttr(pool)+'"><div class="chart-pending">Drawing chart…</div></div></div>';
@@ -3030,7 +3255,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       }
     });
     if (lw.chart) lw.chart.applyOptions({
-      timeScale: { timeVisible: true, secondsVisible: Number(state.chartTf) < 3600, borderColor: "#3A2438" }
+      timeScale: { timeVisible: true, secondsVisible: Number(state.chartTf) < 3600, borderColor: themeNow() === "pastel" ? "#F0C9DC" : "#3A2438" }
     });
     lw.candle.setData(rows.map(function(r){ return { time: r.time, open: r.open, high: r.high, low: r.low, close: r.close }; }));
     if (lw.vol) lw.vol.setData(rows.map(function(r){
@@ -3070,13 +3295,14 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       host.setAttribute("data-local", tk.t);
       var LC = window.LightweightCharts;
       var magnet = (LC.CrosshairMode && LC.CrosshairMode.Magnet) || 1;
+      var pastel = themeNow() === "pastel";
       lw.chart = LC.createChart(host, {
         autoSize: true,
-        layout: { background: { color: "#1C101C" }, textColor: "#A898A8", fontFamily: "IBM Plex Mono, ui-monospace, monospace" },
-        grid: { vertLines: { color: "rgba(255,255,255,.06)" }, horzLines: { color: "rgba(255,255,255,.06)" } },
-        rightPriceScale: { borderColor: "#3A2438" },
+        layout: { background: { color: pastel ? "#FFFFFF" : "#1C101C" }, textColor: pastel ? "#9A6B86" : "#A898A8", fontFamily: "IBM Plex Mono, ui-monospace, monospace" },
+        grid: { vertLines: { color: pastel ? "rgba(255,46,166,.08)" : "rgba(255,255,255,.06)" }, horzLines: { color: pastel ? "rgba(255,46,166,.08)" : "rgba(255,255,255,.06)" } },
+        rightPriceScale: { borderColor: pastel ? "#F0C9DC" : "#3A2438" },
         timeScale: {
-          borderColor: "#3A2438",
+          borderColor: pastel ? "#F0C9DC" : "#3A2438",
           timeVisible: true,
           secondsVisible: Number(state.chartTf) < 3600,
           rightOffset: 6,
@@ -3326,12 +3552,14 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   }
   function hydrateTape(tk){
     if (!tk || tk.missing || !tk.t || tk.tapeBusy) return;
-    if (!viewingToken(tk)) return;
-    if (tk.tapeLoaded && tk.tapeAt && Date.now() - tk.tapeAt < 25000 && !state.tapeWallet) return;
+    var onScr = state.route === "explore";
+    if (!viewingToken(tk) && !onScr) return;
+    var tapeTtl = viewingToken(tk) ? 25000 : 60000;
+    if (tk.tapeLoaded && tk.tapeAt && Date.now() - tk.tapeAt < tapeTtl && !(viewingToken(tk) && state.tapeWallet)) return;
     tk.tapeBusy = true;
     var url = "/api/trades?t="+encodeURIComponent(tk.t)+"&limit=500";
     if (tk.bluefinPool) url += "&pool="+encodeURIComponent(tk.bluefinPool);
-    if (state.tapeWallet) url += "&wallet="+encodeURIComponent(state.tapeWallet);
+    if (viewingToken(tk) && state.tapeWallet) url += "&wallet="+encodeURIComponent(state.tapeWallet);
     function applyTape(j, append){
       if (!j || !Array.isArray(j.trades)) return;
       if (!j.trades.length && !(Number(j.count) > 0) && !append) return;
@@ -3350,6 +3578,8 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       }
       tk.tapeTotal = Number(j.count || tk.tapeRows.length) || tk.tapeRows.length;
       tk.tapeNext = Number(j.nextBefore || 0) || 0;
+      tk.holderCount = null;
+      if (state.route === "explore") scheduleExploreList();
       if (state.route === "token" && String(state.sym).toUpperCase() === tk.t){
         var count = document.querySelector(".tape-count");
         if (count && state.tapeTab !== "holders") count.textContent = tk.tapeTotal;
@@ -3371,7 +3601,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       tk.tapeAt = Date.now();
       applyTape(j, false);
       // Pull a few older pages so charts get real history, not only the latest window.
-      return pageMore(4);
+      return pageMore(onScr ? 0 : 4);
     }).then(function(){ tk.tapeBusy = false; }).catch(function(){ tk.tapeBusy = false; });
   }
   function loadMoreTape(tk){
@@ -3698,8 +3928,9 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   }
   function hydrateTokenStats(tk){
     if (!tk || tk.missing || !tk.t || tk.statsBusy) return;
-    if (!viewingToken(tk)) return;
-    if (tk.statsHydrated && tk.statsAt && Date.now() - tk.statsAt < 25000) return;
+    if (!viewingToken(tk) && state.route !== "explore") return;
+    var statsTtl = viewingToken(tk) ? 25000 : 60000;
+    if (tk.statsHydrated && tk.statsAt && Date.now() - tk.statsAt < statsTtl) return;
     tk.statsBusy = true;
     fetch("/api/token-stats?t="+encodeURIComponent(tk.t)).then(function(r){ return r.json(); }).then(function(j){
       tk.statsBusy = false;
@@ -4716,45 +4947,380 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       if (state.route === "portfolio") renderScreen();
     }).catch(function(){});
   }
+  var SCR_TABS = [
+    {id:"watch", label:"Watchlist"},
+    {id:"vice", label:"On Vice"},
+    {id:"hot", label:"Hot"},
+    {id:"mcap", label:"Market cap"},
+    {id:"vol", label:"24h volume"},
+    {id:"gain", label:"Gainers"},
+    {id:"new", label:"New"}
+  ];
+  var SCR_QUOTES = ["All","SUI","USDY","XAGM","XAUM"];
+  var SCR_COLS = [
+    {id:"mcap", label:"Mcap", cls:"col-mcap"},
+    {id:"age", label:"Age", cls:"col-age"},
+    {id:"txns", label:"Txns", cls:"col-txns"},
+    {id:"traders", label:"Traders", cls:"col-traders"},
+    {id:"holders", label:"Holders", cls:"col-holders"},
+    {id:"vol", label:"24h vol", cls:"col-vol"},
+    {id:"liq", label:"Liquidity", cls:"col-liq"},
+    {id:"price", label:"Price", cls:"col-price"}
+  ];
+  function scrFmtCompact(n){
+    if (!Number.isFinite(n)) return "$0";
+    var sign = n < 0 ? "-" : "";
+    var v = Math.abs(n);
+    if (v < 0.01) return sign + "<$0.01";
+    if (v < 1000) return sign + "$" + v.toFixed(2);
+    if (v < 10000) return sign + "$" + (v/1000).toFixed(2) + "K";
+    if (v < 1e6) return sign + "$" + (v/1000).toFixed(1) + "K";
+    if (v < 1e9) return sign + "$" + (v/1e6).toFixed(2) + "M";
+    return sign + "$" + (v/1e9).toFixed(2) + "B";
+  }
+  function scrFmtCount(n){
+    if (!Number.isFinite(n)) return "—";
+    return Math.max(0, Math.round(n)).toLocaleString();
+  }
+  function scrFmtPrice(n){
+    if (!Number.isFinite(n) || n <= 0) return "—";
+    if (n >= 1) return "$" + n.toFixed(n >= 100 ? 2 : 4);
+    var s = n.toFixed(n >= 0.0001 ? 6 : 8).replace(/0+$/, "").replace(/\.$/, "");
+    return "$" + s;
+  }
+  function scrFmtMaybe(n, fmt){
+    if (n == null || n < 0 || !Number.isFinite(n)) return "—";
+    return fmt(n);
+  }
+  function scrFmtAgeH(ageH){
+    var minutes = ageH * 60;
+    if (minutes < 60) return Math.max(1, Math.floor(minutes)) + "m";
+    if (ageH < 48) return Math.max(1, Math.floor(ageH)) + "h";
+    var days = ageH / 24;
+    if (days < 30) return Math.max(1, Math.floor(days)) + "d";
+    return Math.max(1, Math.floor(days / 30)) + "mo";
+  }
+  function scrChgText(ch){
+    if (!(Math.abs(Number(ch)) > 0.05)) return "—";
+    return (ch >= 0 ? "+" : "") + Number(ch).toFixed(1) + "%";
+  }
+  function scrAgeH(k){
+    var ts = launchTs(k);
+    if (ts) return Math.max(0.02, (Date.now() - ts) / 3600000);
+    return Math.max(1, Number(k.born) || 12);
+  }
+  function scrTape(k){
+    return tapeItems((k && k.tapeRows && k.tapeRows.length) ? 100000 : TAPE_CAP, k.t);
+  }
+  function scrTape24(k){
+    var cut = Date.now() - 86400000;
+    return scrTape(k).filter(function(r){ return (r.ts || 0) >= cut; });
+  }
+  function scrLiqUsd(k){
+    var snap = k && k.poolSnap;
+    if (!snap) return 0;
+    var q = poolQuote(k);
+    var u = quoteUsd(q);
+    var quoteAmt = fromBase(snap.coinBBig || "0", quoteDecimalsOf(q));
+    if (quoteAmt > 0 && u > 0) return quoteAmt * u * 2;
+    return 0;
+  }
+  function scrChgOf(k){
+    var q = poolQuote(k);
+    var cut = Date.now() - 86400000;
+    var rows = scrTape(k).slice().sort(function(a,b){ return (a.ts||0) - (b.ts||0); });
+    var first = 0, last = 0;
+    for (var i = 0; i < rows.length; i++){
+      var mc = fillMcUsd(rows[i], q);
+      if (!(mc > 0)) continue;
+      last = mc;
+      if ((rows[i].ts || 0) >= cut && !first) first = mc;
+    }
+    if (!(first > 0) || !(last > 0)) return 0;
+    return ((last - first) / first) * 100;
+  }
+  function scrPts(k){
+    var q = poolQuote(k);
+    var rows = scrTape(k).slice().sort(function(a,b){ return (a.ts||0) - (b.ts||0); });
+    var pts = [];
+    for (var i = 0; i < rows.length; i++){
+      var mc = fillMcUsd(rows[i], q);
+      if (mc > 0) pts.push(mc);
+    }
+    if (pts.length < 2){
+      var cap = usdCap(k);
+      return cap > 0 ? [cap, cap] : [];
+    }
+    if (pts.length <= 24) return pts;
+    var out = [], n = 24;
+    for (var j = 0; j < n; j++) out.push(pts[Math.round(j * (pts.length - 1) / (n - 1))]);
+    return out;
+  }
+  function scrHolders(k){
+    if (k.holderCount != null) return k.holderCount;
+    if (k.tapeRows && k.tapeRows.length){
+      try { k.holderCount = holdersOf(k).list.length; } catch (e) { k.holderCount = -1; }
+      return k.holderCount;
+    }
+    return -1;
+  }
+  function scrSpark(pts, up, w, h){
+    w = w || 96; h = h || 36;
+    if (!pts || pts.length < 2) return '<span class="sparkline empty"></span>';
+    var min = pts[0], max = pts[0], i;
+    for (i = 1; i < pts.length; i++){
+      if (pts[i] < min) min = pts[i];
+      if (pts[i] > max) max = pts[i];
+    }
+    var span = max - min || 1, pad = 2, coords = [];
+    for (i = 0; i < pts.length; i++){
+      coords.push([pad + (i/(pts.length-1))*(w-pad*2), h-pad - ((pts[i]-min)/span)*(h-pad*2)]);
+    }
+    var line = coords.map(function(c, idx){ return (idx?"L":"M")+c[0].toFixed(1)+" "+c[1].toFixed(1); }).join(" ");
+    var last = coords[coords.length-1];
+    var area = line+" L"+last[0].toFixed(1)+" "+(h-pad).toFixed(1)+" L"+pad+" "+(h-pad).toFixed(1)+" Z";
+    return '<svg class="sparkline '+(up?"up":"down")+'" viewBox="0 0 '+w+' '+h+'" width="'+w+'" height="'+h+'" aria-hidden="true"><path d="'+area+'" fill="currentColor" opacity="0.14" stroke="none"/><path d="'+line+'" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" stroke-linecap="round"/></svg>';
+  }
+  function scrAv(k, size){
+    size = size || 32;
+    var src = escUrl(k.img);
+    if (src) return '<img class="scr-av" src="'+src+'" alt="" width="'+size+'" height="'+size+'">';
+    return '<span class="scr-av scr-av-fallback" style="width:'+size+'px;height:'+size+'px;background:'+escAttr(k.c||"#FF2EA6")+'">'+(k.t||"?").charAt(0)+'</span>';
+  }
+  function scrStarBtn(tick, on){
+    return '<button type="button" class="scr-star'+(on?" on":"")+'" data-scr-watch="'+escAttr(tick)+'" aria-label="'+(on?"Unwatch":"Watch")+' '+escAttr(tick)+'"><svg width="15" height="15" viewBox="0 0 24 24" fill="'+(on?"currentColor":"none")+'" stroke="currentColor" stroke-width="2.2"><path d="M12 3.2l2.6 5.3 5.8.8-4.2 4.1 1 5.8L12 16.7 6.8 19.2l1-5.8L3.6 9.3l5.8-.8z"/></svg></button>';
+  }
+  function scrTopPct(n){
+    var p = Math.max(1, Math.min(12, Math.round(14 - Math.log10(Math.max(8, n)) * 3)));
+    return "top " + p + "%";
+  }
+  function scrVolUsd(k){
+    var q = poolQuote(k);
+    var px = quoteUsd(q);
+    var n = 0;
+    scrTape24(k).forEach(function(r){
+      var amt = fromQuoteAmt(r.quote_amount, q);
+      if (px > 0) n += amt * px;
+      else n += quoteSuiAmt(amt, q) * (hop.suiUsd || 0);
+    });
+    return n;
+  }
+  function scrRow(k){
+    var tape = scrTape24(k);
+    var buys = 0, sells = 0, traders = {};
+    tape.forEach(function(r){
+      if (r.is_buy) buys++; else sells++;
+      var who = String(r.trader || "").toLowerCase();
+      if (who) traders[who] = 1;
+    });
+    var mcap = usdCap(k) || 0;
+    var ch = scrChgOf(k);
+    k.ch = ch;
+    var last = tape[0];
+    var px = last ? (fillMcUsd(last, poolQuote(k)) / VIRTUAL_SUPPLY) : (mcap > 0 ? mcap / VIRTUAL_SUPPLY : 0);
+    var traderN = Object.keys(traders).length;
+    var holdN = scrHolders(k);
+    return {
+      k: k,
+      ticker: k.t,
+      name: k.n,
+      quote: poolQuote(k),
+      status: k.st || "Live",
+      mcap: mcap,
+      ch: ch,
+      vol: scrVolUsd(k),
+      liq: (function(){ var n = scrLiqUsd(k); return n > 0 ? n : -1; })(),
+      holders: holdN,
+      traders: traderN,
+      txns: tape.length,
+      buys: buys,
+      sells: sells,
+      price: px,
+      ageH: scrAgeH(k),
+      pts: scrPts(k),
+      watched: (state.watch || []).indexOf(k.t) >= 0
+    };
+  }
+  function scrFilterRows(rows){
+    var needle = String(state.search || "").trim().toLowerCase();
+    var tab = state.scrTab || "mcap";
+    var quote = state.scrQuote || "All";
+    var watch = state.watch || [];
+    var out = rows.filter(function(r){
+      if (quote !== "All" && r.quote !== quote) return false;
+      if (state.scrLiveOnly && r.status !== "Live" && r.status !== "Graduating") return false;
+      if (tab === "watch" && watch.indexOf(r.ticker) < 0) return false;
+      if (tab === "hot" && r.status !== "Graduating" && r.ch < 18 && r.vol < r.mcap * 0.7) return false;
+      if (tab === "gain" && r.ch <= 0) return false;
+      if (needle){
+        var hay = (r.ticker + " " + r.name + " " + r.quote + " " + (r.k.b || "")).toLowerCase();
+        if (hay.indexOf(needle) < 0) return false;
+      }
+      return true;
+    });
+    var sort = state.scrSort || "mcap";
+    var dir = Number(state.scrDir) || -1;
+    out.sort(function(a, b){
+      if (tab === "gain") return b.ch - a.ch;
+      var av, bv;
+      if (sort === "age"){ av = a.ageH; bv = b.ageH; }
+      else if (sort === "txns"){ av = a.txns; bv = b.txns; }
+      else if (sort === "traders"){ av = a.traders; bv = b.traders; }
+      else if (sort === "holders"){ av = a.holders; bv = b.holders; }
+      else if (sort === "vol"){ av = a.vol; bv = b.vol; }
+      else if (sort === "liq"){ av = a.liq; bv = b.liq; }
+      else if (sort === "price"){ av = a.price; bv = b.price; }
+      else { av = a.mcap; bv = b.mcap; }
+      if (av === bv) return a.ticker.localeCompare(b.ticker);
+      return (av - bv) * dir;
+    });
+    return out;
+  }
+  function scrStats(rows){
+    var tokens = rows.length, withLiq = 0, volume = 0, txns = 0, liq = 0, wallets = {};
+    rows.forEach(function(r){
+      if (r.liq > 0) withLiq++;
+      volume += r.vol || 0;
+      txns += r.txns || 0;
+      liq += r.liq || 0;
+      scrTape24(r.k).forEach(function(t){
+        var who = String(t.trader || "").toLowerCase();
+        if (who) wallets[who] = 1;
+      });
+    });
+    var allUsd = 0;
+    try { allUsd = booksAllVolUsd(); } catch (e) {}
+    return {
+      tokens: tokens,
+      withLiq: withLiq,
+      volume: allUsd > volume ? allUsd : volume,
+      txns: txns,
+      liq: liq,
+      wallets: Object.keys(wallets).length
+    };
+  }
+  function scrBuyAmt(tk){
+    var usd = Number(state.scrBuyUsd) || 5;
+    var q = poolQuote(tk);
+    if (q === "SUI"){
+      var px = hop.suiUsd || 0;
+      return px > 0 ? String(+(usd / px).toFixed(4)) : "1";
+    }
+    var u = quoteUsd(q);
+    return u > 0 ? String(+(usd / u).toFixed(4)) : String(usd);
+  }
+  function toggleWatch(tick){
+    tick = String(tick || "").toUpperCase();
+    if (!tick) return;
+    var w = (state.watch || []).slice();
+    var i = w.indexOf(tick);
+    if (i >= 0) w.splice(i, 1);
+    else w.push(tick);
+    state.watch = w;
+    try { localStorage.setItem("vice.watch.v1", JSON.stringify(w)); } catch (e) {}
+  }
+  function scrDeskRow(r, rank){
+    var up = r.ch >= 0;
+    var hot = r.status === "Graduating" ? '<span class="scr-hot">Hot</span>' : "";
+    return '<tr data-go="token:'+escAttr(r.ticker)+'">'+
+      '<td class="col-rank">'+rank+'</td>'+
+      '<td class="col-coin"><div class="scr-coin">'+scrStarBtn(r.ticker, r.watched)+scrAv(r.k, 32)+
+        '<div class="scr-coin-copy"><div class="scr-coin-name">'+escHtml(r.name)+hot+'</div>'+
+        '<div class="scr-coin-meta">$'+escHtml(r.ticker)+'<span>'+escHtml(r.quote)+'</span>'+(String(r.ticker).toUpperCase()==="VICEFUN"?'<span class="scr-coin-tag">platform token</span>':'')+'</div></div></div></td>'+
+      '<td class="col-tape">'+scrSpark(r.pts, up)+'</td>'+
+      '<td class="col-mcap">'+scrFmtCompact(r.mcap)+'<div class="chg '+(up?"up":"down")+'">'+scrChgText(r.ch)+'</div></td>'+
+      '<td class="col-age">'+scrFmtAgeH(r.ageH)+'</td>'+
+      '<td class="col-txns">'+scrFmtCount(r.txns)+'<div class="tx-split"><span class="up">'+scrFmtCount(r.buys)+'</span><span class="down">'+scrFmtCount(r.sells)+'</span></div></td>'+
+      '<td class="col-traders">'+scrFmtMaybe(r.traders, scrFmtCount)+'</td>'+
+      '<td class="col-holders">'+scrFmtMaybe(r.holders, scrFmtCount)+'</td>'+
+      '<td class="col-vol">'+scrFmtMaybe(r.vol, scrFmtCompact)+'</td>'+
+      '<td class="col-liq">'+scrFmtMaybe(r.liq, scrFmtCompact)+'</td>'+
+      '<td class="col-price">'+scrFmtPrice(r.price)+'</td>'+
+    '</tr>';
+  }
+  function scrMobRow(r, rank){
+    var up = r.ch >= 0;
+    var hot = r.status === "Graduating" ? '<span class="scr-hot">Hot</span>' : "";
+    return '<article class="mrow" data-go="token:'+escAttr(r.ticker)+'">'+
+      '<div class="mrow-id"><span class="mrow-rank">'+rank+'</span>'+scrAv(r.k, 44)+
+        '<div class="mrow-copy"><div class="mrow-tick">'+escHtml(r.ticker)+hot+'</div><div class="mrow-name">'+(String(r.ticker).toUpperCase()==="VICEFUN"?"platform token":escHtml(r.name))+'</div></div>'+
+        scrStarBtn(r.ticker, r.watched)+'</div>'+
+      '<div class="mrow-spark">'+scrSpark(r.pts, up, 108, 44)+'</div>'+
+      '<div class="mrow-cell"><span class="mrow-k">Mcap</span>'+scrFmtCompact(r.mcap)+'<span class="chg '+(up?"up":"down")+'">'+scrChgText(r.ch)+'</span></div>'+
+      '<div class="mrow-cell"><span class="mrow-k">Age</span><span>'+scrFmtAgeH(r.ageH)+'</span></div>'+
+      '<div class="mrow-cell"><span class="mrow-k">Txns</span>'+scrFmtCount(r.txns)+'<span class="tx-split"><span class="up">'+scrFmtCount(r.buys)+'</span><span class="down">'+scrFmtCount(r.sells)+'</span></span></div>'+
+      '<div class="mrow-cell"><span class="mrow-k">24h vol</span>'+scrFmtMaybe(r.vol, scrFmtCompact)+'</div>'+
+      '<div class="mrow-cell"><span class="mrow-k">Liq</span>'+scrFmtMaybe(r.liq, scrFmtCompact)+'</div>'+
+      '<div class="mrow-cell"><span class="mrow-k">Price</span>'+scrFmtPrice(r.price)+'</div>'+
+    '</article>';
+  }
+  function scrIco(id){
+    if (id === "watch") return '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 3.2l2.6 5.3 5.8.8-4.2 4.1 1 5.8L12 16.7 6.8 19.2l1-5.8L3.6 9.3l5.8-.8z"/></svg>';
+    if (id === "hot") return '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 3c2 4-2 5-1 9 3-2 5 0 5 4a6 6 0 1 1-12 0c0-4 4-7 8-13z"/></svg>';
+    if (id === "new") return '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 3l1.4 6.6L20 11l-6.6 1.4L12 19l-1.4-6.6L4 11l6.6-1.4z"/></svg>';
+    if (id === "vol" || id === "gain") return '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M4 17l6-6 4 4 6-8"/><path d="M14 7h6v6"/></svg>';
+    return '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M4 19V9"/><path d="M10 19V5"/><path d="M16 19v-7"/><path d="M22 19V8"/></svg>';
+  }
   function exploreHTML(){
-    if (state.filter === "Graduating" || state.filter === "Near graduation" || state.filter === "Graduated") state.filter = "All";
-    const pool = launchPool();
-    const leader = pitWinnerTok() || sortedT()[0];
-    const sorts = ["Recent","Newest","Market cap","Volume"];
-    let cards = pool.map(function(k,i){ return launchCard(k,i); }).join("");
-    if (!cards) cards = '<div class="empty card" style="grid-column:1/-1">No launches match.</div>';
-    const count = pool.length;
-    return '<div data-screen-label="The Strip">'+
-      '<section class="living-hero">'+
-        '<div class="hero-reel" aria-hidden="true">'+
-          '<video class="hero-video" id="strip-vid-a" muted playsinline preload="auto" poster="/media/strip-poster.jpg"></video>'+
-          '<video class="hero-video" id="strip-vid-b" muted playsinline preload="metadata" poster="/media/strip-poster.jpg" style="opacity:0"></video>'+
-        '</div>'+
-        '<div class="hero-shade"></div><div class="hero-grain"></div>'+
-        '<div class="hero-copy">'+
-          '<div class="strip-logo">vice.</div>'+
-          '<p>Straight to DEX launches.<br>Pair with Sui or RWA\'s</p>'+
-          '<div class="hero-actions">'+
-            '<button type="button" class="btn-pink" data-scroll="on-strip">Enter the strip</button>'+
-            '<button type="button" class="btn-outline" data-go="launch">Launch</button>'+
-          '</div>'+
-          leaderTileHTML(leader)+
-        '</div>'+
+    var rows = scrFilterRows(T.filter(function(k){ return !isHiddenToken(k); }).map(scrRow));
+    var stats = scrStats(T.filter(function(k){ return !isHiddenToken(k); }).map(scrRow));
+    var trending = T.filter(function(k){ return !isHiddenToken(k); }).map(scrRow).sort(function(a,b){
+      if (b.vol !== a.vol) return b.vol - a.vol;
+      return Math.abs(b.ch) - Math.abs(a.ch);
+    }).slice(0, 10);
+    var tab = state.scrTab || "mcap";
+    var sort = state.scrSort || "mcap";
+    var tabs = SCR_TABS.map(function(t){
+      return '<button type="button" class="'+(tab===t.id?"on":"")+'" data-scr-tab="'+t.id+'">'+scrIco(t.id)+escHtml(t.label)+'</button>';
+    }).join("");
+    var trendItems = trending.map(function(r){
+      return '<li><span data-go="token:'+escAttr(r.ticker)+'">'+scrAv(r.k, 20)+'<strong>'+escHtml(r.ticker)+'</strong><em class="'+(r.ch>=0?"up":"down")+'">'+scrChgText(r.ch)+'</em></span></li>';
+    }).join("");
+    var trend = trending.length
+      ? '<div class="scr-trend" id="scr-trend"><span class="scr-trend-k">Trending 24h</span><div class="scr-trend-mask"><div class="scr-trend-track"><ul class="scr-trend-list">'+trendItems+'</ul><ul class="scr-trend-list">'+trendItems+'</ul></div></div></div>'
+      : "";
+    var ths = SCR_COLS.map(function(c){
+      return '<th class="'+c.cls+'"><button type="button" class="'+(sort===c.id?"sorted":"")+'" data-scr-sort="'+c.id+'">'+c.label+(sort===c.id?(state.scrDir===-1?" ↓":" ↑"):"")+'</button></th>';
+    }).join("");
+    var body = rows.length
+      ? rows.map(function(r,i){ return scrDeskRow(r, i+1); }).join("")
+      : "";
+    var mobile = rows.length
+      ? rows.map(function(r,i){ return scrMobRow(r, i+1); }).join("")
+      : "";
+    var empty = !rows.length
+      ? '<div class="scr-empty" id="scr-empty"><h2>'+(tab==="watch"?"Nothing on your rail":"No pairs match")+'</h2><p>'+(tab==="watch"?"Star a pair to keep it here.":"Try another quote, clear filters, or search a different ticker.")+'</p></div>'
+      : "";
+    var quotes = SCR_QUOTES.map(function(q){
+      return '<option value="'+q+'"'+(state.scrQuote===q?" selected":"")+'>'+(q==="All"?"All quotes":q)+'</option>';
+    }).join("");
+    return '<div data-screen-label="The Strip" id="scr-board" class="shell scr">'+
+      '<div class="scr-launch-row"><button type="button" class="scr-launch" data-go="launch">Launch</button></div>'+
+      '<section class="scr-kpis" id="scr-kpis" aria-label="Strip stats">'+
+        '<article class="scr-kpi"><div class="k">Tokens</div><div class="v">'+scrFmtCount(stats.tokens)+'</div><div class="s">'+scrFmtCount(stats.withLiq)+' with liquidity</div></article>'+
+        '<article class="scr-kpi"><div class="k">24h volume</div><div class="v">'+scrFmtCompact(stats.volume)+'</div><div class="s">across every pool</div></article>'+
+        '<article class="scr-kpi"><div class="k">24h txns</div><div class="v">'+scrFmtCount(stats.txns)+'</div><div class="s">'+scrFmtCount(stats.wallets)+' wallets</div></article>'+
+        '<article class="scr-kpi"><div class="k">Liquidity</div><div class="v">'+scrFmtCompact(stats.liq)+'</div><div class="s">across '+scrFmtCount(stats.tokens)+' pools</div></article>'+
       '</section>'+
-      '<div class="shell strip-body">'+
-        '<div class="pit-strip" data-go="pit">'+
-          '<div><div class="pit-kicker">RWA rewards</div>'+
-            '<div class="pit-pot" style="font-size:clamp(20px,2.8vw,28px)">Gold · Silver · T-bills</div></div>'+
-          '<div class="pit-right"><div style="color:var(--ink);font-weight:650">Claimable wraps</div>'+
-            '<div style="color:var(--muted);margin-top:4px">XAUM · XAGM · USDY · holder + basket yield</div></div></div>'+
-        '<div class="strip-head" id="on-strip">'+
-          '<div class="explore-head" style="margin:0 0 8px"><div><h1 class="strip-head">On the strip <span class="count-pill">'+count+'</span></h1>'+
-            '<p>Every door is a pair. Walk in, buy, or list your own tonight.</p></div></div>'+
-          '<div class="pills-row">'+
-            '<div class="pills">'+sorts.map(function(s){return pill(s,"sort",s);}).join("")+'</div>'+
-          '</div></div>'+
-        '<div class="launches" id="disc-list" data-sig="'+escAttr(exploreListSig(pool))+'">'+cards+'</div>'+
-        footerHTML()+'</div></div>';
+      trend+
+      '<div class="scr-head"><h1>Screener</h1></div>'+
+      '<div class="scr-toolbar">'+
+        '<div class="scr-tabs" role="tablist">'+tabs+'</div>'+
+        '<label class="scr-search"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3-3"/></svg>'+
+          '<input id="q" type="search" value="'+escAttr(state.search)+'" placeholder="Search symbol, name or paste an address" autocomplete="off">'+
+          '<kbd>⌘K</kbd></label>'+
+        '<div class="scr-tools">'+
+          '<div class="scr-filter-wrap">'+
+            '<button type="button" class="scr-tool'+(state.scrFilters||state.scrLiveOnly?" on":"")+'" data-scr-filters>Filters</button>'+
+            (state.scrFilters ? '<div class="scr-filter-pop"><label><input type="checkbox" id="scr-live-only"'+(state.scrLiveOnly?" checked":"")+'> Live + graduating</label></div>' : "")+
+          '</div>'+
+          '<select class="scr-quote" id="scr-quote" aria-label="Quote asset">'+quotes+'</select>'+
+          '<button type="button" class="scr-launch scr-launch-desk" data-go="launch">Launch</button>'+
+        '</div>'+
+      '</div>'+
+      (empty || ('<div class="scr-table-wrap"><table class="scr-table"><thead><tr><th class="col-rank">#</th><th class="col-coin">Coin</th><th class="col-tape">Tape</th>'+ths+'</tr></thead><tbody id="scr-tbody">'+body+'</tbody></table></div><div class="scr-mlist" id="scr-mlist">'+mobile+'</div>'))+
+      footerHTML()+
+    '</div>';
   }
   function pitVoteLabel(tick){
     if (pitVoteBusy && pitVoteBusy === tick) return "Voting…";
@@ -6782,17 +7348,108 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     var m = String(objType || "").match(/<(.+)>$/);
     return m ? m[1] : "";
   }
-  async function lockDecimalsOf(type){
+  /// GraphQL `contents.json` renders Move ID / vector<u8> as base64; JSON-RPC
+  /// parsedJson uses a byte array; object ids on-chain are 0x-hex.
+  function decodeLockObjId(v){
+    if (v == null) return "";
+    if (typeof v === "object" && !Array.isArray(v)) v = v.id || v.bytes || v.address || "";
+    if (Array.isArray(v) && v.length){
+      var hexArr = v.map(function(n){ return ("0" + (Number(n) & 255).toString(16)).slice(-2); }).join("");
+      return padAddr(hexArr);
+    }
+    var s = String(v || "").trim();
+    if (!s) return "";
+    if (/^0x[0-9a-fA-F]+$/i.test(s) || /^[0-9a-fA-F]{64}$/i.test(s)) return padAddr(s);
+    try {
+      var bin = atob(s);
+      if (!bin) return "";
+      var hex = "";
+      for (var i = 0; i < bin.length; i++) hex += ("0" + bin.charCodeAt(i).toString(16)).slice(-2);
+      return padAddr(hex);
+    } catch (e) {}
+    return "";
+  }
+  function lockFieldBal(fields, fallback){
+    var b = fields && fields.balance;
+    if (b && typeof b === "object") b = b.value != null ? b.value : b;
+    try { return BigInt(String(b != null ? b : (fallback || "0")).split(".")[0] || "0"); } catch (e) { return 0n; }
+  }
+  function lockIsMine(l){
+    return !!(suiSession.address && l && sameAddr(suiSession.address, l.beneficiary));
+  }
+  function parseLockBen(ben){
+    var s = String(ben || "").trim().toLowerCase();
+    if (!s) return "";
+    if (s.indexOf("0x") !== 0) s = "0x" + s;
+    return /^0x[0-9a-f]{64}$/.test(s) ? s : "";
+  }
+  function lockAsBig(v){
+    try { return BigInt(String(v == null ? "0" : v).split(".")[0] || "0"); } catch (e) { return 0n; }
+  }
+  /// Same linear math as vesting_schedule::claimable. Zero at the cliff instant.
+  function lockClaimable(l, now){
+    now = now == null ? Date.now() : now;
+    var bal = lockAsBig(l && l.balance);
+    if (!(bal > 0n)) return 0n;
+    if (!l || l.type !== "vest") return now >= (l && l.unlockTime || 0) ? bal : 0n;
+    var cliff = Number(l.cliffTime || 0);
+    var end = Number(l.endTime || 0);
+    if (now < cliff) return 0n;
+    if (now >= end) return bal;
+    var total = lockAsBig(l.totalAmount);
+    if (!(total > 0n)) total = bal;
+    var claimed = lockAsBig(l.claimed);
+    var dur = BigInt(end - cliff);
+    if (!(dur > 0n)) return 0n;
+    var vested = (total * BigInt(now - cliff)) / dur;
+    if (vested <= claimed) return 0n;
+    var out = vested - claimed;
+    return out > bal ? bal : out;
+  }
+  async function lockDecimalsOf(type, required){
     type = padType(normType(type));
     if (type === padType(normType(SUI_TYPE))) return 9;
     try {
       var meta = await metadataFor(type);
-      if (meta && meta.decimals != null) return Number(meta.decimals);
+      if (meta && meta.decimals != null && isFinite(Number(meta.decimals))) return Number(meta.decimals);
     } catch (e) {}
-    return 9;
+    if (required) throw new Error("No CoinMetadata for this token. Won't guess decimals.");
+    return null;
+  }
+  var lockDecTimer = 0;
+  function ensureLockDecimals(){
+    var raw = String(state.lockTok || "").trim();
+    if (state.lockCustom && !raw){
+      state.lockDecTok = "";
+      state.lockDec = null;
+      state.lockDecErr = false;
+      return;
+    }
+    var tok = padType(normType(raw || lockDefaultTok()));
+    if (!tok || !/^0x[0-9a-fA-F]+::/.test(tok)){
+      state.lockDecTok = "";
+      state.lockDec = null;
+      state.lockDecErr = false;
+      return;
+    }
+    if (state.lockDecTok === tok && (state.lockDec != null || state.lockDecErr)) return;
+    state.lockDecTok = tok;
+    lockDecimalsOf(tok).then(function(d){
+      if (state.lockDecTok !== tok) return;
+      var err = d == null;
+      if (state.lockDec === d && state.lockDecErr === err) return;
+      state.lockDec = d;
+      state.lockDecErr = err;
+      if (state.route === "lock" && (state.lockTab || "create") === "create") renderScreen();
+    }).catch(function(){
+      if (state.lockDecTok !== tok) return;
+      state.lockDec = null;
+      state.lockDecErr = true;
+      if (state.route === "lock" && (state.lockTab || "create") === "create") renderScreen();
+    });
   }
   function vicelockHTML(){
-    if (!state.lockTok) state.lockTok = lockDefaultTok();
+    if (!state.lockCustom && !state.lockTok) state.lockTok = lockDefaultTok();
     var tab = state.lockTab || "create";
     var kind = state.lockKind || "lock";
     var tabs = [["create","Lock"],["mine","My locks"],["all","All locks"]];
@@ -6805,7 +7462,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     '</div>';
     var viceType = padType(normType(window.ARENA_VICEFUN_TYPE || ""));
     var tokNow = padType(normType(state.lockTok || ""));
-    var customOn = !tokNow || tokNow !== viceType;
+    var customOn = !!state.lockCustom || !tokNow || tokNow !== viceType;
     var tokPills =
       '<button type="button" class="pill'+(customOn?"":" on")+'" data-set="lockTok" data-val="'+escAttr(viceType)+'">$VICEFUN</button>'+
       '<button type="button" class="pill'+(customOn?" on":"")+'" data-set="lockTok" data-val="custom">Custom</button>';
@@ -6813,6 +7470,15 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     var dayPills = dayOpts.map(function(d){
       return '<button type="button" class="pill'+(String(state.lockDays)===d?" on":"")+'" data-set="lockDays" data-val="'+d+'">'+d+'d</button>';
     }).join("");
+    if (tab === "create") ensureLockDecimals();
+    var destPills = '<div class="lock-row">'+
+      '<button type="button" class="pill'+(state.lockSelf!=="other"?" on":"")+'" data-set="lockSelf" data-val="self">To me</button>'+
+      '<button type="button" class="pill'+(state.lockSelf==="other"?" on":"")+'" data-set="lockSelf" data-val="other">Other wallet</button>'+
+    '</div>'+
+      (state.lockSelf==="other" ? '<div class="lock-field"><label>Beneficiary</label><input id="lock-ben" value="'+escAttr(state.lockBen)+'" placeholder="0x… full 64-hex address" spellcheck="false"></div>' : "");
+    var decHint = state.lockDec != null
+      ? String(state.lockDec)+" decimals from CoinMetadata"
+      : (customOn ? (state.lockDecErr ? "No CoinMetadata — lock blocked until the type resolves." : "Decimals load from CoinMetadata.") : "");
     var form = '<div class="lock-card">'+
       kinds+
       '<div class="lock-field"><label>Token</label>'+
@@ -6821,20 +7487,18 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
           ? '<input id="lock-tok" value="'+escAttr(state.lockTok)+'" placeholder="0x…::module::TYPE" spellcheck="false">'
           : '')+
       '</div>'+
-      '<div class="lock-field"><label>Amount</label><input id="lock-amt" value="'+escAttr(state.lockAmt)+'" inputmode="decimal" placeholder="0.0"></div>'+
+      '<div class="lock-field"><label>Amount'+(state.lockDec!=null ? " · "+state.lockDec+" decimals" : "")+'</label><input id="lock-amt" value="'+escAttr(state.lockAmt)+'" inputmode="decimal" placeholder="0.0"></div>'+
+      (decHint ? '<p class="lock-hint" id="lock-dec-hint"'+(state.lockDecErr?' style="color:#FF6640"':'')+'>'+escHtml(decHint)+'</p>' : "")+
       (kind==="vest"
-        ? '<div class="lock-field"><label>Cliff (days)</label><input id="lock-cliff" value="'+escAttr(state.lockCliff||"90")+'" inputmode="numeric"></div>'+
+        ? '<div class="lock-field"><label>Cliff (days from now)</label><input id="lock-cliff" value="'+escAttr(state.lockCliff||"90")+'" inputmode="numeric"></div>'+
           '<div class="lock-field"><label>End (days from now)</label><input id="lock-end" value="'+escAttr(state.lockEnd||"365")+'" inputmode="numeric"></div>'+
-          '<div class="lock-field"><label>Beneficiary</label><input id="lock-ben" value="'+escAttr(state.lockBen)+'" placeholder="0x… recipient" spellcheck="false"></div>'
+          destPills+
+          '<p class="lock-hint">Linear vest: 0 at the cliff, then a slice each ms until end (100%). Not an all-at-once unlock.</p>'
         : '<div class="lock-field"><label>Unlock in</label><div class="lock-row">'+dayPills+'</div></div>'+
-          '<div class="lock-row">'+
-            '<button type="button" class="pill'+(state.lockSelf!=="other"?" on":"")+'" data-set="lockSelf" data-val="self">To me</button>'+
-            '<button type="button" class="pill'+(state.lockSelf==="other"?" on":"")+'" data-set="lockSelf" data-val="other">Other wallet</button>'+
-          '</div>'+
-          (state.lockSelf==="other" ? '<div class="lock-field"><label>Beneficiary</label><input id="lock-ben" value="'+escAttr(state.lockBen)+'" placeholder="0x…" spellcheck="false"></div>' : "")
+          destPills
       )+
       '<p class="lock-hint">1 SUI protocol fee. Same on-chain locker as SuiLock ('+escHtml((window.VICELOCK_PKG||"").slice(0,10))+'…).</p>'+
-      '<button type="button" class="btn-pink" data-lock-go'+(state.lockBusy?" disabled":"")+'>'+(state.lockBusy?"Signing…":(kind==="vest"?"Create vest":"Lock tokens"))+'</button>'+
+      '<button type="button" class="btn-pink" data-lock-go'+(state.lockBusy || (customOn && state.lockDecErr)?" disabled":"")+'>'+(state.lockBusy?"Signing…":(kind==="vest"?"Create vest":"Lock tokens"))+'</button>'+
       (state.lockNote ? '<p class="lock-hint" style="color:'+(state.lockNoteErr?"#FF6640":"var(--muted)")+'">'+escHtml(state.lockNote)+'</p>' : "")+
     '</div>';
     function lockRows(rows){
@@ -6843,20 +7507,33 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       return '<div class="lock-list">'+rows.map(function(l){
         var tick = lockTickOf(l.tokenType);
         var amt = fromBaseStr(l.balance, l.decimals);
-        var when = l.type === "vest"
-          ? ("cliff "+(l.cliffTime?new Date(l.cliffTime).toLocaleDateString():"—")+" · end "+(l.endTime?new Date(l.endTime).toLocaleDateString():"—"))
-          : ("unlocks "+(l.unlockTime?new Date(l.unlockTime).toLocaleString():"—"));
         var now = Date.now();
-        var ready = l.type === "lock" ? (now >= (l.unlockTime||0)) : (now >= (l.cliffTime||0));
-        var claim = ready
-          ? '<button type="button" class="btn-outline" data-lock-claim="'+escAttr(l.id)+'" data-lock-type="'+escAttr(l.type)+'" data-lock-token="'+escAttr(l.tokenType)+'">Claim</button>'
-          : '<div class="k">Locked</div>';
+        var claimable = lockClaimable(l, now);
+        var mine = lockIsMine(l);
+        var when, status;
+        if (l.type === "vest"){
+          when = "linear · cliff "+(l.cliffTime?new Date(l.cliffTime).toLocaleDateString():"—")+" → end "+(l.endTime?new Date(l.endTime).toLocaleDateString():"—");
+          if (claimable > 0n){
+            when += " · claimable "+fromBaseStr(String(claimable), l.decimals)+" now";
+            status = mine ? "claim" : "notyours";
+          } else if (now < (l.cliffTime||0)){
+            status = "locked";
+          } else {
+            status = "vesting";
+          }
+        } else {
+          when = "unlocks "+(l.unlockTime?new Date(l.unlockTime).toLocaleString():"—");
+          status = claimable > 0n ? (mine ? "claim" : "notyours") : "locked";
+        }
+        var claim = status === "claim"
+          ? '<button type="button" class="btn-outline" data-lock-claim="'+escAttr(l.id)+'" data-lock-type="'+escAttr(l.type)+'" data-lock-token="'+escAttr(l.tokenType)+'">'+(l.type==="vest"?"Claim vested":"Claim")+'</button>'
+          : '<div class="k">'+(status==="notyours"?"Not yours":status==="vesting"?"Vesting":"Locked")+'</div>';
         return '<div class="lock-item"><div class="lock-item-top"><div><div class="k">'+escHtml(l.type)+' · $'+escHtml(tick)+'</div><div class="v">'+escHtml(amt)+'</div><div class="k" style="margin-top:6px">'+escHtml(when)+'</div></div>'+claim+'</div></div>';
       }).join("")+'</div>';
     }
     var body = tab === "create" ? form : (tab === "mine" ? lockRows(state.lockMine) : lockRows(state.lockAll));
     return '<div data-screen-label="Vicelock">'+
-      '<div class="lock-hero"><h1><em>Vice</em>lock</h1><p>Time-lock or vest any Sui coin. Same locker as SuiLock — 1 SUI fee, claim when unlocked.</p><div class="pills" style="margin-top:14px">'+pills+'</div></div>'+
+      '<div class="lock-hero"><h1><em>Vice</em>lock</h1><p>Time-lock or vest any Sui coin. 1 SUI fee. Locks unlock all at once; vests drip linearly from cliff to end.</p><div class="pills" style="margin-top:14px">'+pills+'</div></div>'+
       body+
       footerHTML()+'</div>';
   }
@@ -6877,32 +7554,32 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     var seen = {};
     async function one(n, kind){
       var f = (n.contents && n.contents.json) || {};
-      var ben = String(f.beneficiary || "");
-      if (filterAddr && padAddr(ben) !== padAddr(filterAddr)) return;
-      var id = String(f.lock_id || f.schedule_id || f.vesting_id || f.id || "");
+      var id = decodeLockObjId(f.lock_id || f.wallet_id || f.schedule_id || f.vesting_id || f.id);
       if (!id || seen[id]) return;
       seen[id] = 1;
       var obj;
-      try { obj = await suiJson("sui_getObject", [id, { showContent: true, showType: true }]); } catch (e) { return; }
-      var content = obj && obj.data && obj.data.content;
-      var fields = (content && content.fields) || {};
-      var objType = (obj && obj.data && obj.data.type) || (content && content.type) || "";
-      var bal = String(fields.balance != null ? fields.balance : (kind==="vest" ? (f.total_amount||"0") : (f.amount||"0")));
-      if (!(BigInt(bal || "0") > 0n)) return;
-      var tokenType = lockCoinTypeFromObj(objType) || String(f.token_type || "");
+      try { obj = await moveObject(id); } catch (e) { return; }
+      var fields = (obj && obj.json) || {};
+      var ben = String(fields.beneficiary || f.beneficiary || "");
+      if (filterAddr && padAddr(ben) !== padAddr(filterAddr)) return;
+      var bal = lockFieldBal(fields, kind === "vest" ? (f.total_amount || "0") : (f.amount || "0"));
+      if (!(bal > 0n)) return;
+      var tokenType = lockCoinTypeFromObj(obj.type) || String(f.token_type || "");
       var decimals = 9;
       try { decimals = await lockDecimalsOf(tokenType); } catch (e) {}
       out.push({
         id: id,
         type: kind,
         tokenType: tokenType,
-        balance: bal,
-        decimals: decimals,
+        balance: String(bal),
+        decimals: decimals == null ? 9 : decimals,
         beneficiary: ben,
-        creator: String(f.creator || ""),
-        unlockTime: Number(f.unlock_time || fields.unlock_time || 0),
-        cliffTime: Number(f.cliff_time || fields.cliff_time || 0),
-        endTime: Number(f.end_time || fields.end_time || 0)
+        creator: String(fields.creator || f.creator || ""),
+        unlockTime: Number(fields.unlock_time || f.unlock_time || 0),
+        cliffTime: Number(fields.cliff_time || f.cliff_time || 0),
+        endTime: Number(fields.end_time || f.end_time || 0),
+        totalAmount: String(fields.total_amount || f.total_amount || "0"),
+        claimed: String(fields.claimed || "0")
       });
     }
     for (var i = 0; i < lockNodes.length; i++) await one(lockNodes[i], "lock");
@@ -6936,15 +7613,17 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       if (!suiSession.address) throw new Error("Connect a Sui wallet");
       var pkg = window.VICELOCK_PKG;
       if (!pkg) throw new Error("VICELOCK_PKG missing");
-      var tok = padType(normType(String(state.lockTok || "").trim() || lockDefaultTok()));
+      var tokRaw = String(state.lockTok || "").trim();
+      if (state.lockCustom && !tokRaw) throw new Error("Paste a token type");
+      var tok = padType(normType(tokRaw || lockDefaultTok()));
       if (!/^0x[0-9a-fA-F]+::[A-Za-z_][A-Za-z0-9_]*::[A-Za-z_][A-Za-z0-9_]*$/.test(tok)){
         throw new Error("Token must look like 0x…::module::TYPE");
       }
-      var dec = await lockDecimalsOf(tok);
+      var dec = await lockDecimalsOf(tok, true);
       var raw = lockParseAmt(state.lockAmt, dec);
       var kind = state.lockKind || "lock";
-      var ben = (kind === "lock" && state.lockSelf !== "other") ? suiSession.address : String(state.lockBen || "").trim();
-      if (!ben || ben.length < 20) throw new Error("Beneficiary address required");
+      var ben = state.lockSelf !== "other" ? suiSession.address : parseLockBen(state.lockBen);
+      if (!ben) throw new Error(state.lockSelf === "other" ? "Beneficiary must be a full Sui address (0x + 64 hex)" : "Connect a Sui wallet");
       var fee = BigInt(window.VICELOCK_FEE || "1000000000");
       var Transaction = await loadTransaction();
       var tx = new Transaction();
@@ -7006,15 +7685,34 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   }
   async function doVicelockClaim(id, kind, tokenType){
     try {
+      id = decodeLockObjId(id);
+      if (!id) throw new Error("Lock id missing");
       if (!suiSession.address) await connectWallet();
+      if (!suiSession.address) throw new Error("Connect a Sui wallet");
+      var live;
+      try { live = await moveObject(id); } catch (e) { live = null; }
+      var liveBen = live && live.json && live.json.beneficiary;
+      if (liveBen && !sameAddr(suiSession.address, liveBen)) throw new Error("Only the beneficiary can claim");
+      if (kind === "vest" && live && live.json){
+        var vestNow = {
+          type: "vest",
+          balance: String(lockFieldBal(live.json, "0")),
+          cliffTime: Number(live.json.cliff_time || 0),
+          endTime: Number(live.json.end_time || 0),
+          totalAmount: String(live.json.total_amount || "0"),
+          claimed: String(live.json.claimed || "0")
+        };
+        if (!(lockClaimable(vestNow) > 0n)) throw new Error("Nothing vested yet. Linear release starts after the cliff.");
+      }
       var pkg = window.VICELOCK_PKG;
       var Transaction = await loadTransaction();
       var tx = new Transaction();
       tx.setSender(suiSession.address);
       var mod = kind === "vest" ? "vesting_schedule" : "token_locker";
+      var liveType = live && lockCoinTypeFromObj(live.type);
       var got = tx.moveCall({
         target: pkg + "::" + mod + "::claim",
-        typeArguments: [padType(normType(tokenType))],
+        typeArguments: [padType(normType(liveType || tokenType))],
         arguments: [tx.object(id), tx.object(window.ARENA_CLOCK || "0x6")]
       });
       var coin = Array.isArray(got) ? got[0] : got;
@@ -7435,9 +8133,77 @@ async function doBridgeDeposit(){
       return '<div class="nav-item'+(on?" on":"")+'" data-go="'+n[1]+'">'+n[0]+'</div>';
     }).join("");
   }
+  function paintDock(){
+    var wrap = $("#dock-wrap");
+    if (!wrap) return;
+    wrap.hidden = false;
+    $$(".dock-item[data-go]").forEach(function(el){
+      var goTo = el.getAttribute("data-go");
+      el.classList.toggle("on", state.route === goTo || (goTo === "explore" && state.route === "token"));
+    });
+    var more = $("#dock-more");
+    var sheet = $("#dock-sheet");
+    var open = !!(sheet && !sheet.hidden);
+    if (more) more.classList.toggle("on", open);
+    var backdrop = $("#dock-backdrop");
+    if (backdrop) backdrop.hidden = !open;
+  }
+  function closeDockSheet(){
+    var sheet = $("#dock-sheet");
+    var backdrop = $("#dock-backdrop");
+    var wasOpen = !!(sheet && !sheet.hidden);
+    if (sheet) sheet.hidden = true;
+    if (backdrop) backdrop.hidden = true;
+    var more = $("#dock-more");
+    if (more) more.classList.remove("on");
+    return wasOpen;
+  }
+  var scrHydrateAt = 0;
+  function hydrateScreener(){
+    if (state.route !== "explore") return;
+    var now = Date.now();
+    if (now - scrHydrateAt < 8000) return;
+    scrHydrateAt = now;
+    var list = T.filter(function(k){ return k && !k.missing && !isHiddenToken(k); });
+    list.forEach(function(tk, i){
+      setTimeout(function(){
+        if (state.route !== "explore") return;
+        hydrateTokenStats(tk);
+        hydrateTape(tk);
+      }, Math.min(i * 80, 2400));
+    });
+  }
+  function themeNow(){
+    return document.documentElement.getAttribute("data-theme") === "pastel" ? "pastel" : "dark";
+  }
+  function paintThemeBtn(){
+    var el = $("#theme-btn");
+    if (!el) return;
+    var pastel = themeNow() === "pastel";
+    el.title = pastel ? "Night mode" : "Pastel mode";
+    el.setAttribute("aria-label", pastel ? "Switch to night" : "Switch to pastel");
+  }
+  function setTheme(t){
+    t = t === "pastel" ? "pastel" : "dark";
+    document.documentElement.setAttribute("data-theme", t);
+    try { localStorage.setItem("vice.theme", t); } catch (e) {}
+    paintThemeBtn();
+    var frame = document.querySelector("iframe.dex-embed");
+    if (frame && frame.src){
+      var light = t === "pastel";
+      frame.src = String(frame.src)
+        .replace(/chartTheme=(dark|light)/, "chartTheme=" + (light ? "light" : "dark"))
+        .replace(/([?&])theme=(dark|light)/, "$1theme=" + (light ? "light" : "dark"));
+    }
+    if (lw.chart){
+      dropLwChart();
+      if (state.route === "token") mountDexChart();
+    }
+  }
   function paintWallet(){
     const el = $("#wallet-btn");
     if (!el) return;
+    paintThemeBtn();
     if (suiSession.address){
       el.textContent = shortAddr(suiSession.address);
       state.connected = true;
@@ -8176,29 +8942,16 @@ async function doBridgeDeposit(){
     if (state.route === "pit" || state.route === "launch") scheduleScreen();
   }
   function renderScreen(){
+    if (state.route === "token" && isHiddenToken({ t: state.sym })) state.route = "explore";
     const host = $("#screens");
     var keepCard = host && host.querySelector(".chart-card[data-pool]");
     var keepPool = keepCard ? (keepCard.getAttribute("data-pool") || "") : "";
     var keepTicket = host && host.querySelector("#swap-box.ticket-cetus");
     var keepSwapSym = keepTicket ? (keepTicket.getAttribute("data-swap-sym") || "") : "";
-    var keepHero = (state.route === "explore" && host) ? host.querySelector(".living-hero") : null;
     dropTv();
     const map = {explore:exploreHTML, pit:pitHTML, token:tokenHTML, launch:launchHTML, metrics:metricsHTML, bridge:bridgeHTML, lock:vicelockHTML};
     host.innerHTML = (map[state.route] || exploreHTML)();
-    if (state.route === "explore"){
-      var heroSlot = host.querySelector(".living-hero");
-      if (keepHero && heroSlot){
-        var newTile = heroSlot.querySelector(".lead-tile");
-        var oldTile = keepHero.querySelector(".lead-tile");
-        if (newTile && oldTile) oldTile.replaceWith(newTile);
-        else if (newTile && !oldTile) keepHero.querySelector(".hero-copy").appendChild(newTile);
-        heroSlot.parentNode.replaceChild(keepHero, heroSlot);
-      } else {
-        bootLivingHero();
-      }
-    } else {
-      stopLivingHero();
-    }
+    stopLivingHero();
     var ticketSlot = host.querySelector("#swap-box.ticket-cetus");
     if (keepTicket && ticketSlot && keepSwapSym && keepSwapSym === String(state.sym || "").toUpperCase()){
       ticketSlot.parentNode.replaceChild(keepTicket, ticketSlot);
@@ -8215,6 +8968,8 @@ async function doBridgeDeposit(){
     }
     document.documentElement.setAttribute("data-route", state.route);
     paintNav();
+    paintDock();
+    if (state.route === "explore") hydrateScreener();
     paintWallet();
     if (state.route === "metrics") refreshBooksVol();
     if (state.route === "pit"){
@@ -8257,7 +9012,9 @@ async function doBridgeDeposit(){
     } catch (e) {}
   }
   function go(route, sym){
+    closeDockSheet();
     if (route === "portfolio") route = "pit";
+    if (route === "token" && isHiddenToken({ t: sym || state.sym })) route = "explore";
     const nextSym = sym || state.sym;
     if (route === state.route && (!sym || nextSym === state.sym)) return;
     window.scrollTo(0,0);
@@ -9825,6 +10582,68 @@ async function doBridgeDeposit(){
       openWalletPicker();
       return;
     }
+    if (e.target.closest("[data-theme-toggle]")){
+      setTheme(themeNow() === "pastel" ? "dark" : "pastel");
+      return;
+    }
+    function paintScrFull(){
+      if (state.route !== "explore") return;
+      var host = $("#screens");
+      if (host) host.innerHTML = exploreHTML();
+    }
+    const scrWatch = e.target.closest("[data-scr-watch]");
+    if (scrWatch){
+      e.preventDefault();
+      toggleWatch(scrWatch.getAttribute("data-scr-watch"));
+      paintScrFull();
+      return;
+    }
+    const scrTab = e.target.closest("[data-scr-tab]");
+    if (scrTab){
+      var nextTab = scrTab.getAttribute("data-scr-tab") || "mcap";
+      state.scrTab = nextTab;
+      if (nextTab === "mcap"){ state.scrSort = "mcap"; state.scrDir = -1; }
+      else if (nextTab === "vol"){ state.scrSort = "vol"; state.scrDir = -1; }
+      else if (nextTab === "new"){ state.scrSort = "age"; state.scrDir = 1; }
+      else if (nextTab === "gain"){ state.scrSort = "mcap"; state.scrDir = -1; }
+      paintScrFull();
+      return;
+    }
+    const scrSort = e.target.closest("[data-scr-sort]");
+    if (scrSort){
+      var col = scrSort.getAttribute("data-scr-sort") || "mcap";
+      if (state.scrSort === col) state.scrDir = state.scrDir === -1 ? 1 : -1;
+      else {
+        state.scrSort = col;
+        state.scrDir = col === "age" ? 1 : -1;
+      }
+      paintScrFull();
+      return;
+    }
+    if (e.target.closest("[data-scr-filters]")){
+      state.scrFilters = !state.scrFilters;
+      paintScrFull();
+      return;
+    }
+    if (e.target.closest("#dock-more")){
+      var sheet = $("#dock-sheet");
+      var backdrop = $("#dock-backdrop");
+      var open = !(sheet && !sheet.hidden);
+      if (sheet) sheet.hidden = !open;
+      if (backdrop) backdrop.hidden = !open;
+      var more = $("#dock-more");
+      if (more) more.classList.toggle("on", open);
+      return;
+    }
+    if (e.target.closest("#dock-backdrop")){
+      closeDockSheet();
+      return;
+    }
+    if (e.target.closest("#dock-sheet")){
+      closeDockSheet();
+    } else if (closeDockSheet()){
+      return;
+    }
     const side = e.target.closest("[data-side]");
     if (side){
       state.side = side.getAttribute("data-side");
@@ -10025,10 +10844,19 @@ async function doBridgeDeposit(){
         return;
       }
       if (key === "lockTab" || key === "lockKind" || key === "lockDays" || key === "lockSelf" || key === "lockTok"){
-        if (key === "lockTok" && val === "custom") state.lockTok = "";
+        if (key === "lockTok" && val === "custom"){
+          state.lockCustom = true;
+          state.lockTok = "";
+          state.lockDecTok = "";
+          state.lockDec = null;
+          state.lockDecErr = false;
+        } else if (key === "lockTok"){
+          state.lockCustom = false;
+        }
         if (state.route === "lock"){
           renderScreen();
           if (key === "lockTab") refreshVicelock();
+          if (key === "lockTok") ensureLockDecimals();
         }
         return;
       }
@@ -10187,6 +11015,16 @@ async function doBridgeDeposit(){
       if (state.route !== "explore") { go("explore"); return; }
       paintExploreList();
     }
+    if (e.target && e.target.id === "scr-quote"){
+      state.scrQuote = e.target.value || "All";
+      var hostQ = $("#screens");
+      if (state.route === "explore" && hostQ) hostQ.innerHTML = exploreHTML();
+    }
+    if (e.target && e.target.id === "scr-live-only"){
+      state.scrLiveOnly = !!e.target.checked;
+      var hostL = $("#screens");
+      if (state.route === "explore" && hostL) hostL.innerHTML = exploreHTML();
+    }
     if (e.target && e.target.id === "l-first-buy"){
       state.lFirstBuy = e.target.value.trim();
       paintFirstBuyPreview();
@@ -10213,7 +11051,15 @@ async function doBridgeDeposit(){
     if (e.target && e.target.id === "l-x") state.lX = e.target.value.trim();
     if (e.target && e.target.id === "l-tg") state.lTg = e.target.value.trim();
     if (e.target && e.target.id === "l-web") state.lWeb = e.target.value.trim();
-    if (e.target && e.target.id === "lock-tok") state.lockTok = e.target.value.trim();
+    if (e.target && e.target.id === "lock-tok"){
+      state.lockCustom = true;
+      state.lockTok = e.target.value.trim();
+      state.lockDecTok = "";
+      state.lockDec = null;
+      state.lockDecErr = false;
+      clearTimeout(lockDecTimer);
+      lockDecTimer = setTimeout(ensureLockDecimals, 400);
+    }
     if (e.target && e.target.id === "lock-amt") state.lockAmt = e.target.value;
     if (e.target && e.target.id === "lock-ben") state.lockBen = e.target.value.trim();
     if (e.target && e.target.id === "lock-cliff") state.lockCliff = e.target.value.trim();
@@ -10275,6 +11121,7 @@ async function doBridgeDeposit(){
   });
   document.addEventListener("keydown", function(e){
     if (e.key === "Escape"){
+      closeDockSheet();
       closeWalletPicker();
       if (!metaEdit.saving) closeMetaEditor();
     }
@@ -10288,6 +11135,8 @@ async function doBridgeDeposit(){
       const q = $("#q"); if (q) q.focus();
     }
   });
+  document.addEventListener("scroll", function(){ closeDockSheet(); }, { capture: true, passive: true });
+  window.addEventListener("scroll", function(){ closeDockSheet(); }, { passive: true });
   window.addEventListener("hashchange", function(){
     if (hashLock){ hashLock = false; return; }
     const p = parseHash();
@@ -10326,7 +11175,7 @@ async function doBridgeDeposit(){
       refreshPitObject();
       if (state.route === "explore"){
         if (bus.sub && bus.sub.refreshBluefin && bshift % 6 === 0) bus.sub.refreshBluefin();
-        T.slice(0, 24).forEach(function(tk){ if (tk && !tk.missing) hydrateTokenStats(tk); });
+        hydrateScreener();
         paintExploreList();
       }
     }
