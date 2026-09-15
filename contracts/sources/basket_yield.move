@@ -232,17 +232,16 @@ public(package) fun create_vault_for_lock<T, Q>(
     create_and_share<T, Q>(lock_id, bluefin_pool_id, config, ctx)
 }
 
-/// Stage the pit-bps quote slice. On no holders / zero, returns `fee` for
-/// creator residual rescue (same pattern as `holder_yield::try_fund`).
-/// Does **not** credit claimable Q — convert pays staging to the keeper; holders
-/// claim RWA after `deposit_converted_asset`.
+/// Stage the pit-bps quote slice even if nobody has synced yet. Convert still
+/// waits for `total_registered > 0` before buying RWAs. Does **not** credit
+/// claimable Q — holders claim RWA after `deposit_converted_asset`.
 public(package) fun try_fund_quote<T, Q>(
     vault: &mut BasketYieldVault<T, Q>,
     fee: Balance<Q>,
     clock: &Clock,
 ): Balance<Q> {
     let amount = fee.value();
-    if (amount == 0 || vault.total_registered == 0) {
+    if (amount == 0) {
         return fee
     };
     vault.quote_staging.join(fee);
@@ -255,6 +254,16 @@ public(package) fun try_fund_quote<T, Q>(
         clock.timestamp_ms(),
     );
     balance::zero<Q>()
+}
+
+/// Anyone can return refunded collect SUI (or extra quote) into vault staging.
+public fun donate_quote<T, Q>(
+    vault: &mut BasketYieldVault<T, Q>,
+    coin: Coin<Q>,
+    clock: &Clock,
+) {
+    let leftover = try_fund_quote(vault, coin.into_balance(), clock);
+    leftover.destroy_zero();
 }
 
 /// Set registry weight to `coin.value()`. Accrues unpaid RWA before the update.

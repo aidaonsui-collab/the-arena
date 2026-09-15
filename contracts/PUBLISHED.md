@@ -3,7 +3,9 @@
 Published from `0x92a32ac7fd525f8bd37ed359423b8d7d858cad26224854dfbff1914b75ee658b`.
 
 - Type origin / original package: `0x5cfddf8ba23be6835644a8ea22482ff6ebb0081e42cc1bc052b5f770ca8bbdea`
-- Latest published-at (v18): `0x01d99cb16b9c3771ae2caf9f910aaa3f02c8c4c9dcea86df127025dc5b973be0`
+- Latest published-at (v20): `0x6d18ec050fe14a81235285be409f0495d7832f0a314d642d0186fa365dbdf0cd`
+- v19 published-at: `0xeaf160ea10ed9be10dfa378686d3f33b3b69c2e5f9b706a56c91b0c417fc3d11`
+- v18 published-at: `0x01d99cb16b9c3771ae2caf9f910aaa3f02c8c4c9dcea86df127025dc5b973be0`
 - v17 published-at: `0x5915bce70b8f3db5bd29dfd0482333070acd446c796a33fa2631c918d096eb29`
 - v16 published-at: `0xe5e5b59142070d8ce8a411b6c100763d10f4fdcbc23ca3f33acd60324d4cce1d`
 - v15 published-at: `0x3c97bece55ec13cc574b7254ee71db58a6675f25e6bf1902aabd50a0da5aa07b`
@@ -24,7 +26,7 @@ Published from `0x92a32ac7fd525f8bd37ed359423b8d7d858cad26224854dfbff1914b75ee65
 - Pit SUI: `0x8ec38e9bcac0838bf474680e71d0c3f302f4ea2f757d759b7b399701f904389c`
 - Pit XAUM: `0xa8a391bf380914c04be5deb478474b42754a5aa8c29c0955f267d73190a98783`
 - AdminCap: `0x79e041a4444971bfbf8000925ac3386d8351a3e997eb7d838d84eb6c3e507acf` (held by the platform wallet)
-- UpgradeCap: `0x8db3965ac77247107c811cb79bccd9bf1daf5647136a0b2f8891351a56d73608` (held by the platform wallet, version 18, policy Compatible)
+- UpgradeCap: `0x8db3965ac77247107c811cb79bccd9bf1daf5647136a0b2f8891351a56d73608` (held by the platform wallet, version 20, policy Compatible)
 - Publish tx: `4zVLuMuPGG62WrkNCeodwpYs1athobrYymqi3fPULQWt`
 - Upgrade v2 tx: `9XJ5cvahK2Un4BBDGBTk3FPREiDodwxVhUACb75YwYX1` (2026-08-29 15:42 CT)
 - Upgrade v3 tx: `AtVquqVh1G1FCvQTZyYQ3ZizNYfceDJA36d66gWsWjPW` (fee_rate 100000 → 10000)
@@ -43,6 +45,8 @@ Published from `0x92a32ac7fd525f8bd37ed359423b8d7d858cad26224854dfbff1914b75ee65
 - Upgrade v16 tx: `FpVVSjC5VnjoBNSjmHVvSmriBb3szgKaPDYpRSokxZwL` (2026-09-14 16:40 CT; creator-chosen Instant LP split on the lock — `LockLpSplit` / `init_lock_lp_split` / `launch_instant_v2` + holder/basket `_v2` entries; collect prefers lock DF then Config 60/5/25/10; platform floor 5%, Compatible)
 - Upgrade v17 tx: `5ZNG1drF72qYnUbkcbQxG48Cuo1i1GrBV1bjej8UGGP9` (2026-09-14 20:32 CT; Instant Bluefin `fee_rate` 10_000 → 20_000 (2%, protocol max); LP split bps unchanged so dollar amounts double; existing 1% pools stay 1%, Compatible)
 - Upgrade v18 tx: `CvVM2rW496PCKAWaH31bQxfXt8NNC6HA6v8JJiHWQWqP` (2026-09-14; Instant seed + first buy in one tx — `launch_instant_v2_buy_entry` / holder + basket `_buy_entry`; swap Q→T on the owned pool before share so snipers cannot land first, Compatible)
+- Upgrade v19 tx: `HwMddagBsrRAjyvXycngZCwifWnhmgmFua3u33zY1X9P` (2026-09-15; basket `try_fund_quote` stages Rewards SUI even with 0 synced holders — no creator refund, Compatible)
+- Upgrade v20 tx: `Di4gTY6GMNKH3ADzkPAehXoH1nMToz4RZoWMJck8VAD9` (2026-09-15; `basket_yield::donate_quote` so refunded collect SUI can be returned to vault staging, Compatible)
 - Instant start FDV ~$4,500 (2026-09-14): AdminCap `set_instant_virtual_quote` SUI `4Qt9giELKnWJP9wWgvghrh4xaxGbmxNSt3NiN5dbFvZj`, USDY `DpyYiUQMWjXWB1uvtdnaz4KWuJBv3hc9a7j42yCAV7WK`, XAGM `581Mr3WYiy98PnjBnZpdb2EBWuBACmyLDj4Y2dA5FmnQ`, XAUM `ExJmDBXZf4Pt93z1zr1QL7tmZTHWCE8A7zJ1GUUdqqvi`. Prior DFs were ~$3,500. Existing pools unchanged.
 
 Call new functions on the latest published-at (`0x5915…`). Object types stay `0x5cfd…::pool::Pool` etc. `BluefinLockEvent` and `BluefinPositionLock` originated in v2 (`0x8e28…`). `InstadexLaunchEvent` and `InstadexMintLock` originated in v4 (`0xcf78…`). `CollectLpFeesEvent` originated in v5 (`0x68e1…`). `InstadexBurnEvent` originated in v6 (`0x47ea…`). `launch_instant` / `launch_instant_entry` originated in v7 (`0x5175…`). `take_pit_pot_for_burn` / `burn_pit_buy` / `InstadexPitSettleEvent` originated in v8 (`0xd853…`). `set_beneficiary` / `admin_set_beneficiary` / `BeneficiarySetEvent` originated in v9 (`0x488e…`). `register_pit` / `ring_pit` / `OfficialPitKey` enforcement on curve+Instadex sinks / retired `pit::ring`+`pit::create_pit` originated in v10 (`0xcc4c…`); `OfficialPitKey` type origin remains v7 (`0x5175…`) where the DF was first written. `holder_yield` / `launch_instant_holder_yield` / `collect_instadex_fees_holder_yield` / `HolderYieldVault` / `HolderYieldKey` / `HolderYieldLaunchEvent` / `HolderYieldFundedEvent` / `HolderYieldClaimEvent` originated in v11 (`0xe2de…`). `basket_yield` / `launch_instant_basket_yield` / `collect_instadex_fees_basket_yield` / `BasketYieldVault` / `BasketYieldKey` / `BasketYieldLaunchEvent` / `BasketYieldFundedEvent` / `BasketYieldConvertedEvent` / `BasketYieldClaimEvent` / `BasketYieldRotateEvent` originated in v12 (`0x1710…`). `migrate_instant_to_holder_yield` / `migrate_instant_to_basket_yield` (+ entry variants) originated in v13 (`0x4b69…`) and are retired (`errors::retired()`, 29) as of v15. `set_instant_lp_split` / `InstantLpSplit` / `take_buyback` / `ViceBuybackAccruedEvent` originated in v14 (`0xde8b…`). `migrate_instant_to_holder_yield_v2` / `migrate_instant_to_basket_yield_v2` (+ `_v2_entry` / `_v2_2_entry` / `_v2_3_entry`) / `lock::admin_detach_yield` originated in v15 (`0x3c97…`). `LockLpSplit` / `LockLpSplitKey` / `init_lock_lp_split` / `launch_instant_v2` / `launch_instant_holder_yield_v2` / `launch_instant_basket_yield_v2` (+ `_v2_entry` / `_v2_2_entry` / `_v2_3_entry`) / `LockLpSplitSetEvent` originated in v16 (`0xe5e5…`).

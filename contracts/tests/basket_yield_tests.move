@@ -114,7 +114,7 @@ fun test_sync_fund_quote_staging() {
 }
 
 #[test]
-fun test_fund_no_holders_returns_fee() {
+fun test_fund_no_holders_still_stages() {
     let mut scenario = ts::begin(ADMIN);
     let mut clock = clock::create_for_testing(scenario.ctx());
     clock.set_for_testing(1);
@@ -134,9 +134,15 @@ fun test_fund_no_holders_returns_fee() {
             coin::mint_for_testing<SUI>(30, scenario.ctx()).into_balance(),
             &clock,
         );
-        assert!(leftover.value() == 30, 0);
-        assert!(basket_yield::quote_staging_value(&vault) == 0, 1);
-        coin::burn_for_testing(coin::from_balance(leftover, scenario.ctx()));
+        assert!(leftover.value() == 0, 0);
+        leftover.destroy_zero();
+        assert!(basket_yield::quote_staging_value(&vault) == 30, 1);
+        basket_yield::donate_quote(
+            &mut vault,
+            coin::mint_for_testing<SUI>(12, scenario.ctx()),
+            &clock,
+        );
+        assert!(basket_yield::quote_staging_value(&vault) == 42, 2);
         ts::return_shared(vault);
         ts::return_shared(clock);
     };

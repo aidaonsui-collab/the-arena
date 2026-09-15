@@ -48,7 +48,7 @@ Reuse Instant **rewards slice** (`instant_lp_split` pit-bps: 25% after AdminCap,
      asset must be in `BasketConfig`; credits per-asset magnified dividends;
      emits `BasketYieldConvertedEvent`.
    - Weight-proportional quote attribution: `quote_share_for_index(cfg, i, amount)`.
-3. If `total_registered == 0`, return the pit-bps balance to creator residual.
+3. Stage the pit-bps quote even if `total_registered == 0` (do not refund to creator). Convert still requires holders before buying RWAs.
 
 Wrong collect aborts: basket lock on pit collect → `use_basket_yield_collect`
 (43); plain/holder lock on basket collect → `not_basket_yield` (39).

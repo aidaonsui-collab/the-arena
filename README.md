@@ -15,7 +15,7 @@ Vanilla HTML/CSS/JS SPA (`index.html`). Hash routes: `#/` Explore, `#/pit` Rewar
 Sui Move package: [`contracts/`](contracts/). Instant Create quotes: TOKEN/SUI, TOKEN/USDY, TOKEN/XAGM, TOKEN/XAUM.
 
 - Type origin: `0x5cfddf8ba23be6835644a8ea22482ff6ebb0081e42cc1bc052b5f770ca8bbdea`
-- Latest published-at (**v18**): `0x01d99cb16b9c3771ae2caf9f910aaa3f02c8c4c9dcea86df127025dc5b973be0` (Instant seed + first buy in one tx)
+- Latest published-at (**v20**): `0x6d18ec050fe14a81235285be409f0495d7832f0a314d642d0186fa365dbdf0cd` (basket stages Rewards with 0 holders; `donate_quote`)
 - Config: `0xcd527cb2389d806e5285ae708ee28df30a841ec5df7508ebfebaa0c9660b5d2c`
 - Pit SUI: `0x8ec38e9bcac0838bf474680e71d0c3f302f4ea2f757d759b7b399701f904389c`
 - Pit XAUM: `0xa8a391bf380914c04be5deb478474b42754a5aa8c29c0955f267d73190a98783`
