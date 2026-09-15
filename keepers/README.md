@@ -2,7 +2,7 @@
 
 Cron jobs for The Arena launchpad.
 
-**CALL package (mainnet v22):** `0x3ccc57531949d6f24178bd57fe20496ee4ff515e26c280f1b80f658bc020bcbe` — Instant LP `set_instant_lp_split` 60/5/25/10 creator/platform/rewards/VICE buyback; plus v13 migrate / v12 basket / v11 holder-yield. Default Instant collect still uses `collect_instadex_fees` + pit (rewards slice now 25%). See `contracts/HOLDER_YIELD.md`. Reflection payouts **accrue on every fill** in Move (`pool::buy` / `pool::sell`). Claim-mode vaults still require wallet Claim (the registry table is not iterable). Push-mode vaults use `push-yield` with AdminCap + public holder indexes. They index, and they ring/settle the pit.
+**CALL package (mainnet v23):** `0x1c808e5fe7f14703a72cae3cd71ebba98b3a9a97dc530feed6222595bfb4a853` — `config::set_quote_params` + `QuoteParams` DF; Instant LP split 60/5/25/10; plus v22 basket push / v21 holder push / v13 migrate. Default Instant collect still uses `collect_instadex_fees` + pit (rewards slice now 25%). See `contracts/HOLDER_YIELD.md`. Reflection payouts **accrue on every fill** in Move (`pool::buy` / `pool::sell`). Claim-mode vaults still require wallet Claim (the registry table is not iterable). Push-mode vaults use `push-yield` with AdminCap + public holder indexes. They index, and they ring/settle the pit.
 
 ## Jobs
 
@@ -80,7 +80,7 @@ npm run convert-basket
 
 | Var | Default | Meaning |
 | --- | --- | --- |
-| `ARENA_CALL_PACKAGE` | v21 `0x97158e99b9…` | Move call package |
+| `ARENA_CALL_PACKAGE` | v23 `0x1c80…` | Move call package |
 | `ARENA_CONVERT_DRY_RUN` | off | `1` = build PTB + `dryRunTransactionBlock` only (no sign) |
 | `ARENA_CONVERT_MIN_STAGING` | `1000000` | Skip smaller staging balances |
 | `ARENA_CONVERT_VAULT` | — | Optional single vault id |
@@ -108,7 +108,7 @@ ARENA_BASKET_PUSH_VAULT=<vaultId> ARENA_BASKET_PUSH_LIVE=1 npm run push-basket
 | `ARENA_BASKET_PUSH_LIVE` | off | `1` = sign+execute |
 | `ARENA_BASKET_PUSH_BATCH` | `20` | `push_payout`s per PTB |
 | `ARENA_GAS_COIN` | — | Optional gas object pin (avoid large reserve coin) |
-| `ARENA_CALL_PACKAGE` | v22 `0x3ccc…` | Call package with basket push APIs |
+| `ARENA_CALL_PACKAGE` | v23 `0x1c80…` | Call package (v22+ basket push APIs) |
 
 Requires Compatible v22+ (`enable_push_distribute` first). Does not DEX-hop keeper SUI.
 
