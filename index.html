@@ -9016,6 +9016,13 @@ async function doBridgeDeposit(){
     cetusUsdcSuiSnap = await poolSnap(window.ARENA_USDC_SUI_POOL);
     return cetusUsdcSuiSnap;
   }
+  var vicefunSuiSnap = null;
+  async function loadVicefunSuiPool(){
+    if (vicefunSuiSnap && vicefunSuiSnap.a) return vicefunSuiSnap;
+    if (!window.ARENA_VICEFUN_SUI_POOL) throw new Error("ARENA_VICEFUN_SUI_POOL missing");
+    vicefunSuiSnap = await poolSnap(window.ARENA_VICEFUN_SUI_POOL);
+    return vicefunSuiSnap;
+  }
   function asBigAmt(v){
     if (typeof v === "bigint") return v;
     if (v && typeof v === "object") v = v.value || v.amount || "0";
@@ -9290,6 +9297,11 @@ async function doBridgeDeposit(){
       var xaumUsdc = await loadXaumUsdcPool();
       return { tx: tx, coin: bluefinHop(tx, xaumUsdc, usdc, goldUsdc.coinOut, 0) };
     }
+    if (q === "VICEFUN"){
+      // 7k does not index VICEFUN — hop SUI → VICEFUN on the platform Bluefin pool.
+      var vicePool = await loadVicefunSuiPool();
+      return { tx: tx, coin: bluefinHop(tx, vicePool, SUI_TYPE, suiCoin, 0) };
+    }
     var midBuy = await sevenkOnto(tx, suiCoin, SUI_TYPE, Qtype, amount);
     return { tx: midBuy.tx, coin: midBuy.coinOut };
   }
@@ -9414,6 +9426,17 @@ async function doBridgeDeposit(){
         var goldUsdcOut = bluefinHop(tx, xaumUsdc, Qtype, xaumOut, 0);
         var goldUsdcSui = await loadUsdcSuiPool();
         outCoin = cetusHop(tx, goldUsdcSui, usdc, goldUsdcOut);
+      }
+    } else if (q === "VICEFUN"){
+      var viceHop = await loadVicefunSuiPool();
+      if (state.side === "Buy"){
+        var suiVice = await takeSwapCoin(tx, SUI_TYPE, amount);
+        var viceCoin = bluefinHop(tx, viceHop, SUI_TYPE, suiVice, 0);
+        outCoin = bluefinHop(tx, insta, Qtype, viceCoin, minOut);
+      } else {
+        var tokVice = await takeSwapCoin(tx, tokenTypeOf(tk), amount);
+        var viceOut = bluefinHop(tx, insta, tokenTypeOf(tk), tokVice, 0);
+        outCoin = bluefinHop(tx, viceHop, Qtype, viceOut, minOut);
       }
     } else {
       if (state.side === "Buy"){
