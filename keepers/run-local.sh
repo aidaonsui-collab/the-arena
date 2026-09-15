@@ -87,6 +87,11 @@ if [ $((now - last)) -ge "$EVERY" ]; then
   if [ "${ARENA_VICE_PUSH:-}" = "1" ]; then
     run_job push-vice || true
   fi
+  # Basket-yield RWA pots → coin holders (push mode). Off unless ARENA_BASKET_PUSH=1.
+  # Set ARENA_BASKET_PUSH_VAULT + ARENA_BASKET_PUSH_LIVE=1 for live payouts.
+  if [ "${ARENA_BASKET_PUSH:-}" = "1" ]; then
+    run_job push-basket || true
+  fi
   if run_job withdraw; then
     echo "$now" > "$STAMP"
   fi
