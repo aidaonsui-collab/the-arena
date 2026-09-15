@@ -6053,6 +6053,14 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     if (typeof tk.booksVolUsd === "number") return tk.booksVolUsd;
     return quoteRowsVolUsd(tk, tk.tapeRows || []);
   }
+  function booksAllVolUsd(){
+    var n = 0;
+    T.forEach(function(tk){
+      if (!tk || !tk.t || tk.missing || isHiddenToken(tk)) return;
+      n += booksVolUsdOf(tk) || 0;
+    });
+    return n;
+  }
   function metricsRollup(){
     const rows = (bus.trades || []).slice();
     const out = {fills:rows.length, suiVol:0, rwaVol:0, rwaVolUsd:0, suiFee:0, rwaFee:0, refl:0, creator:0, pit:0, plat:0, byPool:{}, hours:[]};
@@ -6106,9 +6114,12 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   }
   function metricsHTML(){
     const m = metricsRollup();
-    const top = T.filter(function(tk){ return tk && tk.t && !tk.missing && !isHiddenToken(tk); }).map(function(tk){
+    const listed = T.filter(function(tk){ return tk && tk.t && !tk.missing && !isHiddenToken(tk); });
+    const top = listed.map(function(tk){
       return { id: tk.t, volUsd: booksVolUsdOf(tk), q: poolQuote(tk) };
     }).sort(function(a,b){ return (b.volUsd || 0) - (a.volUsd || 0); }).slice(0,8);
+    var allUsd = booksAllVolUsd();
+    if (!(allUsd > 0)) allUsd = (m.rwaVolUsd || 0) + (m.suiVol || 0) * (hop.suiUsd || 0);
     const feeTotal = m.creator+m.plat+m.pit;
     function feeBar(label, n, color){
       const pct = feeTotal>0 ? (n/feeTotal*100) : 0;
@@ -6130,7 +6141,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       '<div class="explore-head"><div><h1 class="books-title">Metrics</h1><p>Volume and graduates — all time, rolled up from Instant tape.</p></div></div>'+
       '<div class="metrics-grid">'+
         '<div class="mstat"><div class="k">Volume · SUI</div><div class="v">'+fmt(m.suiVol)+'</div><div class="s">all time</div></div>'+
-        '<div class="mstat"><div class="k">Volume · RWA</div><div class="v">'+(m.rwaVolUsd>0?fmtUsd(m.rwaVolUsd):(m.rwaVol>0?"—":"$0"))+'</div><div class="s">USDY · XAGM · XAUM · all time</div></div>'+
+        '<div class="mstat"><div class="k">Volume · USD</div><div class="v">'+(allUsd > 0 ? fmtUsd(allUsd) : "$0")+'</div><div class="s">all tokens · all time</div></div>'+
         '<div class="mstat"><div class="k">Tokens launched</div><div class="v">'+m.launches+'</div><div class="s">'+m.grads+' graduated · all time</div></div>'+
       '</div>'+
       '<div class="card" style="padding:20px 22px;margin-bottom:14px"><div class="sec-label" style="margin-top:0">Volume <span>last '+Math.max(m.hours.length,1)+' hours with fills</span></div>'+
