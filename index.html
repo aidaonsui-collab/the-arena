@@ -155,6 +155,7 @@ main{padding:18px 0 72px}
 .quote-badge.gold{background:rgba(201,169,126,.94);color:#1A1218}
 .quote-badge.silver{background:rgba(192,199,209,.94);color:#1A1218}
 .quote-badge.tbill{background:rgba(62,207,142,.94);color:#102016}
+.quote-badge.platform{background:rgba(18,8,20,.82);color:var(--pink);border:1.5px solid var(--pink);box-shadow:0 0 0 1px rgba(255,46,166,.12)}
 .rwa-stack{position:absolute;left:6px;bottom:6px;display:flex;align-items:center;z-index:1}
 .rwa-stack img{width:18px;height:18px;border-radius:50%;border:1.5px solid rgba(18,8,20,.9);object-fit:cover;background:#F4EEF2;display:block}
 .rwa-stack img + img{margin-left:-7px}
@@ -3840,7 +3841,14 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       else if (state.route === "explore") scheduleExploreList();
     }).catch(function(){ tk.metaBusy = false; tk.metaHydrated = false; });
   }
+  function isPlatformToken(k){
+    if (!k) return false;
+    if (String(k.t || "").toUpperCase() === "VICEFUN") return true;
+    var typ = typeNameStr(k.token || k.type || "");
+    return !!(window.ARENA_VICEFUN_TYPE && typ && typ === window.ARENA_VICEFUN_TYPE);
+  }
   function quoteBadgeMeta(k){
+    if (isPlatformToken(k)) return { label: "Platform", klass: "platform" };
     var q = poolQuote(k);
     if (q === "XAUM") return { label: "Gold", klass: "gold" };
     if (q === "XAGM") return { label: "Silver", klass: "silver" };
@@ -3879,9 +3887,12 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     '</span>';
   }
   function quoteBadgeHTML(k){
+    var b = quoteBadgeMeta(k);
+    if (b && b.klass === "platform"){
+      return '<span class="quote-badge '+b.klass+'">'+b.label+'</span>';
+    }
     var stack = rwaStackHTML(rewardAssetsOf(k));
     if (stack) return stack;
-    var b = quoteBadgeMeta(k);
     if (!b) return "";
     return '<span class="quote-badge '+b.klass+'">'+b.label+'</span>';
   }
