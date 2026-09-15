@@ -942,6 +942,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   var rewardsVaults = {}; // yield_id -> launch meta
   var rewardsBusy = false;
   var rewardsNote = "";
+  var REWARDS_CLAIM_PAUSED = true;
   var pendingRewards = { addr: "", at: 0, usd: 0, parts: [], busy: false };
 
 
@@ -5639,6 +5640,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   }
 
   async function doRewardsClaim(){
+    if (REWARDS_CLAIM_PAUSED) return;
     if (rewardsBusy) return;
     var CALL = window.ARENA_CALL_PACKAGE || window.ARENA_COLLECT_PACKAGE;
     if (!CALL) throw new Error("ARENA_CALL_PACKAGE missing");
@@ -5803,6 +5805,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     return holderPendingFromFields(dfValueFields(df), fields.mps);
   }
   function pendingPillHTML(){
+    if (REWARDS_CLAIM_PAUSED) return "";
     if (!suiSession.address) return "";
     var mine = pendingRewards.addr === suiSession.address;
     var loading = pendingRewards.busy || !mine || !pendingRewards.at;
@@ -5959,25 +5962,27 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       return '<button type="button" class="pill'+(on?" on":"")+'" data-set="rewardsTab" data-val="'+escAttr(x[0])+'">'+escHtml(x[1])+'</button>';
     }).join("");
     var vaultN = Object.keys(rewardsVaults).length;
-    var claimNote = rewardsNote || (!suiSession.address
+    var claimNote = REWARDS_CLAIM_PAUSED
+      ? "Claim is paused while we rework registration and convert."
+      : (rewardsNote || (!suiSession.address
       ? "Connect to claim gold, silver, and T-bills from Instant volume."
       : (vaultN
         ? "Hold the launch token, then claim your share of XAUM, XAGM, or USDY."
-        : "Instant RWA volume starts the ledger."));
-    var claimLabel = rewardsBusy ? "Claiming…" : (suiSession.address ? "Claim" : "Connect to claim");
+        : "Instant RWA volume starts the ledger.")));
+    var claimLabel = REWARDS_CLAIM_PAUSED ? "Claim paused" : (rewardsBusy ? "Claiming…" : (suiSession.address ? "Claim" : "Connect to claim"));
     var distN = (rewardsLedger.distributions || []).length;
     return '<div data-screen-label="Distributions">'+
       '<div class="shell rewards-hero">'+
         '<h1>Distributions</h1>'+
         '<p class="dist-lede">Gold, silver, and T-bills paid from Instant quote fees. Each row links to its transaction.</p>'+
         '<div class="dist-stats">'+
-          '<div class="dist-stat"><div class="k">Converted to RWA</div><div class="v">'+escHtml(fmtUsd(usd))+'</div><div class="s">in vaults · Claim to withdraw to your wallet</div>'+distBarsHTML(distUsdSeries(), "gold")+'</div>'+
+          '<div class="dist-stat"><div class="k">Converted to RWA</div><div class="v">'+escHtml(fmtUsd(usd))+'</div><div class="s">in vaults</div>'+distBarsHTML(distUsdSeries(), "gold")+'</div>'+
           '<div class="dist-stat"><div class="k">SUI equivalent</div><div class="v">'+escHtml(fmt(rewardsDistributedSui()))+'</div><div class="s">RWA collected at current prices</div>'+distBarsHTML(eventUsd, "sui")+'</div>'+
           '<div class="dist-stat"><div class="k">Wallets</div><div class="v">'+(elig==null?"…":elig)+'</div><div class="s">eligible (synced holders)</div>'+distBarsHTML(eligBars, "muted")+'</div>'+
         '</div>'+
         '<div class="rewards-grid">'+cards+'</div>'+
         '<div class="rewards-claim">'+
-          '<button type="button" class="btn" data-rewards-claim'+(rewardsBusy || !suiSession.address ? " disabled" : "")+'>'+escHtml(claimLabel)+'</button>'+
+          '<button type="button" class="btn" data-rewards-claim disabled>'+escHtml(claimLabel)+'</button>'+
           pendingPillHTML()+
           '<div class="note">'+escHtml(claimNote)+'</div>'+
         '</div>'+
@@ -9383,7 +9388,7 @@ async function doBridgeDeposit(){
     }
     const claimBtn = e.target.closest("[data-rewards-claim]");
     if (claimBtn){
-      if (claimBtn.disabled || rewardsBusy) return;
+      if (REWARDS_CLAIM_PAUSED || claimBtn.disabled || rewardsBusy) return;
       doRewardsClaim().catch(function(err){
         rewardsNote = (err && err.message) || String(err);
         if (state.route === "pit" || state.route === "portfolio") scheduleScreen();
