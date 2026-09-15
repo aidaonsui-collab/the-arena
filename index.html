@@ -6803,18 +6803,12 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       '<button type="button" class="pill'+(kind==="lock"?" on":"")+'" data-set="lockKind" data-val="lock">Time lock</button>'+
       '<button type="button" class="pill'+(kind==="vest"?" on":"")+'" data-set="lockKind" data-val="vest">Vest</button>'+
     '</div>';
-    var chips = [["SUI", padType(normType(SUI_TYPE))]];
-    if (window.ARENA_VICEFUN_TYPE) chips.push(["VICEFUN", padType(normType(window.ARENA_VICEFUN_TYPE))]);
-    T.forEach(function(tk){
-      if (!tk || !tk.token || tk.missing || isHiddenToken(tk)) return;
-      var typ = padType(normType(tk.token));
-      if (chips.some(function(c){ return c[1] === typ; })) return;
-      if (chips.length < 8) chips.push([tk.t, typ]);
-    });
-    var tokPills = chips.map(function(c){
-      var on = padType(normType(state.lockTok)) === c[1];
-      return '<button type="button" class="pill'+(on?" on":"")+'" data-set="lockTok" data-val="'+escAttr(c[1])+'">$'+escHtml(c[0])+'</button>';
-    }).join("");
+    var viceType = padType(normType(window.ARENA_VICEFUN_TYPE || ""));
+    var tokNow = padType(normType(state.lockTok || ""));
+    var customOn = !tokNow || tokNow !== viceType;
+    var tokPills =
+      '<button type="button" class="pill'+(customOn?"":" on")+'" data-set="lockTok" data-val="'+escAttr(viceType)+'">$VICEFUN</button>'+
+      '<button type="button" class="pill'+(customOn?" on":"")+'" data-set="lockTok" data-val="custom">Custom</button>';
     var dayOpts = ["7","30","90","180","365"];
     var dayPills = dayOpts.map(function(d){
       return '<button type="button" class="pill'+(String(state.lockDays)===d?" on":"")+'" data-set="lockDays" data-val="'+d+'">'+d+'d</button>';
@@ -6823,7 +6817,9 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       kinds+
       '<div class="lock-field"><label>Token</label>'+
         '<div class="lock-row">'+tokPills+'</div>'+
-        '<input id="lock-tok" value="'+escAttr(state.lockTok)+'" placeholder="0x…::module::TYPE" spellcheck="false">'+
+        (customOn
+          ? '<input id="lock-tok" value="'+escAttr(state.lockTok)+'" placeholder="0x…::module::TYPE" spellcheck="false">'
+          : '')+
       '</div>'+
       '<div class="lock-field"><label>Amount</label><input id="lock-amt" value="'+escAttr(state.lockAmt)+'" inputmode="decimal" placeholder="0.0"></div>'+
       (kind==="vest"
@@ -10006,6 +10002,7 @@ async function doBridgeDeposit(){
         return;
       }
       if (key === "lockTab" || key === "lockKind" || key === "lockDays" || key === "lockSelf" || key === "lockTok"){
+        if (key === "lockTok" && val === "custom") state.lockTok = "";
         if (state.route === "lock"){
           renderScreen();
           if (key === "lockTab") refreshVicelock();
