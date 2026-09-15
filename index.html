@@ -2576,6 +2576,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       }
       if (tb) tb.innerHTML = rows.map(function(r,i){ return scrDeskRow(r, i+1); }).join("");
       if (ml) ml.innerHTML = rows.map(function(r,i){ return scrMobRow(r, i+1); }).join("");
+      rows.slice(0, 24).forEach(function(r){ scheduleHolders(r.k); });
       return;
     }
     var list = $("#disc-list");
@@ -4175,6 +4176,16 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     if (type && holderCache[type] && holderCache[type].list) return holderCache[type];
     return null;
   }
+  /** On-chain Coin objects for DEX / Instadex. Trade-tape reconstruction for curve
+   *  launches (no Coin objects in wallets yet). Never treat unique tape traders as
+   *  holders — that is why the screener showed 15 on $VICEFUN while the token page
+   *  showed 117. */
+  function holderCountOf(tk){
+    var snap = holderSnapOf(tk);
+    if (snap && snap.list) return snap.list.length;
+    if (isDexBout(tk)) return null;
+    try { return holdersOf(tk).list.length; } catch (e) { return 0; }
+  }
   async function fetchTokenHolders(tk){
     var type = tokenTypeOf(tk);
     var poolId = with0x(tk.bluefinPool || "");
@@ -4239,7 +4250,10 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       if (state.route === "token"){
         paintAboutBurn(tk);
         if (state.tapeTab === "holders") paintTape();
+        var count = document.querySelector(".tape-count");
+        if (count && (state.tapeTab === "holders" || !isDexBout(tk))) count.textContent = String(snap.list.length);
       }
+      if (state.route === "explore") scheduleExploreList();
     }).catch(function(){
       if (holderCache[type]) holderCache[type].loading = false;
     });
@@ -4285,6 +4299,10 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   function holderHTML(tk){
     const dex = isDexBout(tk);
     const snap = holderSnapOf(tk);
+    if (dex && !snap){
+      scheduleHolders(tk);
+      return '<div class="empty">Loading holders…</div>';
+    }
     const pack = snap || holdersOf(tk);
     const list = pack.list || [];
     const held = list.reduce(function(s,h){ return s + h.bal; }, 0);
@@ -5057,12 +5075,8 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     return out;
   }
   function scrHolders(k){
-    if (k.holderCount != null) return k.holderCount;
-    if (k.tapeRows && k.tapeRows.length){
-      try { k.holderCount = holdersOf(k).list.length; } catch (e) { k.holderCount = -1; }
-      return k.holderCount;
-    }
-    return -1;
+    var n = holderCountOf(k);
+    return n == null ? -1 : n;
   }
   function scrSpark(pts, up, w, h){
     w = w || 96; h = h || 36;
@@ -5263,6 +5277,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   }
   function exploreHTML(){
     var rows = scrFilterRows(T.filter(function(k){ return !isHiddenToken(k); }).map(scrRow));
+    rows.slice(0, 24).forEach(function(r){ scheduleHolders(r.k); });
     var stats = scrStats(T.filter(function(k){ return !isHiddenToken(k); }).map(scrRow));
     var trending = T.filter(function(k){ return !isHiddenToken(k); }).map(scrRow).sort(function(a,b){
       if (b.vol !== a.vol) return b.vol - a.vol;
@@ -7123,8 +7138,8 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       '<button type="button" class="about-link" data-copy="'+escAttr(demoTypeId(tk))+'">Contract</button>';
     if (tk.creator) resolveSuins([tk.creator]);
     scheduleHolders(tk);
-    const holdSnap = holderSnapOf(tk);
-    const holdN = holdSnap ? holdSnap.list.length : holdersOf(tk).list.length;
+    const holdN = holderCountOf(tk);
+    const holdLabel = holdN == null ? "…" : holdN;
     hydrateTape(tk);
     const tradeN = (tk.tapeTotal > 0 && !state.tapeWallet)
       ? tk.tapeTotal
@@ -7135,14 +7150,14 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
           '<div class="tape-tabs">'+
             '<button type="button" class="pill'+(tab!=="holders"?" on":"")+'" data-set="tapeTab" data-val="trades">Trades</button>'+
             '<button type="button" class="pill'+(tab==="holders"?" on":"")+'" data-set="tapeTab" data-val="holders">Holders</button>'+
-            '<span class="count-pill tape-count">'+(tab==="holders"?holdN:tradeN)+'</span>'+
+            '<span class="count-pill tape-count">'+(tab==="holders"?holdLabel:tradeN)+'</span>'+
             '<button type="button" class="tape-filter'+(state.tapeWallet || state.tapeFilterOpen ? " on" : "")+'" data-tape-filter aria-label="Filter wallet" title="Filter wallet">'+
               '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><path d="M4 5h16l-6 8v5l-4 2v-7L4 5z"/></svg></button></div>'+
           '<div id="tape">'+(tab==="holders" ? (holderHTML(tk)||'<div class="empty">No holders yet.</div>') : tapeHTML(tk.t))+'</div></div>'
       : '<div class="card" style="padding:18px;margin-top:12px">'+
           '<div class="tape-tabs">'+
             '<button type="button" class="pill on" data-set="tapeTab" data-val="holders">Holders</button>'+
-            '<span class="count-pill tape-count">'+holdN+'</span></div>'+
+            '<span class="count-pill tape-count">'+holdLabel+'</span></div>'+
           '<div id="tape">'+(holderHTML(tk)||'<div class="empty">No holder snapshot.</div>')+'</div></div>';
     return '<div data-screen-label="Token">'+
       '<div class="back" data-go="explore">← Explore</div>'+
@@ -8558,10 +8573,9 @@ async function doBridgeDeposit(){
       return;
     }
     scheduleHolders(tk);
-    const snap = holderSnapOf(tk);
-    const n = snap ? snap.list.length : holdersOf(tk).list.length;
+    const n = holderCountOf(tk);
     const count = document.querySelector(".tape-count");
-    if (count) count.textContent = n;
+    if (count) count.textContent = n == null ? "…" : n;
     tapeEl.innerHTML = holderHTML(tk) || '<div class="empty">No holders yet.</div>';
   }
   function paintLive(){
