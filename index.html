@@ -3702,7 +3702,8 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       if (state.route === "token" && String(state.sym).toUpperCase() === tk.t){
         paintAboutBurn(tk);
         paintCaps();
-      } else if (state.route === "explore") scheduleExploreList();
+      } else if (state.route === "metrics") scheduleScreen();
+      else if (state.route === "explore") scheduleExploreList();
     }).catch(function(){ tk.statsBusy = false; });
   }
   function hydrateTokenBurns(tk, attempt){
@@ -3721,6 +3722,8 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       if (state.route === "token" && String(state.sym).toUpperCase() === tk.t){
         paintAboutBurn(tk);
         if (state.tapeTab === "holders") paintTape();
+      } else if (state.route === "metrics") {
+        scheduleScreen();
       }
     }
     function done(ok){
@@ -6212,7 +6215,42 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     if (typeof tk.booksVolUsd === "number" && tk.booksVolUsd > n) return tk.booksVolUsd;
     return n;
   }
+  var VICEFUN_BURN_LOCK = "0xf38be874fd17488c028ed810085d987862f158d0f8c7c06bf745823163821bf7";
+  var _vicefunTkCache = null;
+  function vicefunTk(){
+    var tk = T.find(function(k){
+      return k && String(k.t || "").toUpperCase() === "VICEFUN";
+    });
+    if (tk){
+      if (!tk.lockId) tk.lockId = VICEFUN_BURN_LOCK;
+      if (!tk.bluefinPool && window.ARENA_VICEFUN_SUI_POOL) tk.bluefinPool = window.ARENA_VICEFUN_SUI_POOL;
+      if (!tk.token && window.ARENA_VICEFUN_TYPE) tk.token = window.ARENA_VICEFUN_TYPE;
+      _vicefunTkCache = tk;
+      return tk;
+    }
+    if (_vicefunTkCache) return _vicefunTkCache;
+    _vicefunTkCache = {
+      t: "VICEFUN",
+      n: "Vicefun",
+      lockId: VICEFUN_BURN_LOCK,
+      bluefinPool: window.ARENA_VICEFUN_SUI_POOL || "",
+      token: window.ARENA_VICEFUN_TYPE || "",
+      instadexBurn: 0,
+      burnFloor: 0,
+      decimals: 9,
+      missing: false
+    };
+    return _vicefunTkCache;
+  }
+  function ensureVicefunBurnHydrated(){
+    var tk = vicefunTk();
+    if (!tk) return;
+    // Seed from keepers token-stats, then sum InstadexBurnEvent for the VICEFUN Instant lock.
+    hydrateTokenStats(tk);
+    hydrateTokenBurns(tk);
+  }
   function booksAllVolUsd(){
+
     var n = 0;
     T.forEach(function(tk){
       if (!tk || !tk.t || tk.missing || isHiddenToken(tk)) return;
@@ -6272,7 +6310,9 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     return out;
   }
   function metricsHTML(){
+    ensureVicefunBurnHydrated();
     const m = metricsRollup();
+    var viceBurn = burnedOf(vicefunTk()) || 0;
     const listed = T.filter(function(tk){ return tk && tk.t && !tk.missing && !isHiddenToken(tk); });
     const top = listed.map(function(tk){
       return { id: tk.t, volUsd: booksVolUsdOf(tk), q: poolQuote(tk) };
@@ -6304,6 +6344,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
         '<div class="mstat"><div class="k">Volume · SUI</div><div class="v">'+fmt(m.suiVol)+'</div><div class="s">all time</div></div>'+
         '<div class="mstat"><div class="k">Volume · USD</div><div class="v">'+(allUsd > 0 ? fmtUsd(allUsd) : "$0")+'</div><div class="s">all tokens · all time</div></div>'+
         '<div class="mstat"><div class="k">Tokens launched</div><div class="v">'+m.launches+'</div><div class="s">'+m.grads+' graduated · all time</div></div>'+
+        '<div class="mstat"><div class="k">$VICEFUN burned</div><div class="v">'+fmtBig(viceBurn)+'</div><div class="s">LP collects · all time</div></div>'+
       '</div>'+
       '<div class="card" style="padding:20px 22px;margin-bottom:14px"><div class="sec-label" style="margin-top:0">Volume <span>last '+Math.max(m.hours.length,1)+' hours with fills</span></div>'+
         '<div class="vol-bars">'+bars+'</div></div>'+
