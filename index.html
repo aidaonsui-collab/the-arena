@@ -3699,10 +3699,10 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     attempt = Number(attempt) || 0;
     var lock = padAddr(tk.lockId) || tk.lockId;
     var sum = 0;
-    var after = "";
+    var before = "";
     var pages = 0;
-    var q1 = "query($t:String!,$first:Int!){ events(first:$first, filter:{ type:$t }){ pageInfo { hasNextPage endCursor } nodes { timestamp contents { json } transaction { digest } } } }";
-    var q2 = "query($t:String!,$first:Int!,$after:String!){ events(first:$first, after:$after, filter:{ type:$t }){ pageInfo { hasNextPage endCursor } nodes { timestamp contents { json } transaction { digest } } } }";
+    var q1 = "query($t:String!,$n:Int!){ events(last:$n, filter:{ type:$t }){ pageInfo { hasPreviousPage startCursor } nodes { timestamp contents { json } transaction { digest } } } }";
+    var q2 = "query($t:String!,$n:Int!,$before:String!){ events(last:$n, before:$before, filter:{ type:$t }){ pageInfo { hasPreviousPage startCursor } nodes { timestamp contents { json } transaction { digest } } } }";
     function paint(){
       if (state.route === "token" && String(state.sym).toUpperCase() === tk.t){
         paintAboutBurn(tk);
@@ -3725,14 +3725,15 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       }
     }
     function step(){
-      if (pages >= 40) return done(true);
+      if (pages >= 20) return done(true);
       pages++;
-      var req = after
-        ? gql(q2, { t: INSTADEX_BURN_EVENT, first: 50, after: after })
-        : gql(q1, { t: INSTADEX_BURN_EVENT, first: 50 });
+      var req = before
+        ? gql(q2, { t: INSTADEX_BURN_EVENT, n: 50, before: before })
+        : gql(q1, { t: INSTADEX_BURN_EVENT, n: 50 });
       req.then(function(data){
         var conn = data && data.events;
         var nodes = (conn && conn.nodes) || [];
+        var hit = 0;
         for (var i = 0; i < nodes.length; i++){
           var n = nodes[i];
           var p = (n.contents && n.contents.json) || {};
@@ -3742,12 +3743,19 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
             ts: Date.parse(n.timestamp) || 0,
             digest: (n.transaction && n.transaction.digest) || ""
           };
-          seenBurns[burnEventKey(row)] = 1;
-          if (row.lock_id && sameAddr(row.lock_id, lock)) sum += Number(row.amount) || 0;
+          var key = burnEventKey(row);
+          if (seenBurns[key]) continue;
+          seenBurns[key] = 1;
+          if (row.lock_id && sameAddr(row.lock_id, lock)){
+            sum += Number(row.amount) || 0;
+            hit++;
+          }
         }
         if (sum > 0) paint();
-        if (conn && conn.pageInfo && conn.pageInfo.hasNextPage && conn.pageInfo.endCursor){
-          after = conn.pageInfo.endCursor;
+        // Newest-first: stop once a page has no burns for this lock after we already found some.
+        if (hit === 0 && sum > 0) return done(true);
+        if (conn && conn.pageInfo && conn.pageInfo.hasPreviousPage && conn.pageInfo.startCursor){
+          before = conn.pageInfo.startCursor;
           return step();
         }
         done(true);
