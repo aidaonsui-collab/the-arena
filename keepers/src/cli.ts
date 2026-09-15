@@ -16,11 +16,13 @@ const jobs: Record<string, () => Promise<unknown>> = {
   convertBasket: async () => (await import("./jobs/convertBasketYield.ts")).runConvertBasketYield(),
   "push-yield": async () => (await import("./jobs/pushHolderYield.ts")).runPushHolderYield(),
   pushYield: async () => (await import("./jobs/pushHolderYield.ts")).runPushHolderYield(),
+  "push-vice": async () => (await import("./jobs/pushViceBuyback.ts")).runPushViceBuyback(),
+  pushVice: async () => (await import("./jobs/pushViceBuyback.ts")).runPushViceBuyback(),
 };
 
 if (!job || !jobs[job]) {
   console.error(
-    "usage: tsx src/cli.ts <reflections|trades|pit|ring|settle|instadex|collect|withdraw|convert-basket|push-yield>",
+    "usage: tsx src/cli.ts <reflections|trades|pit|ring|settle|instadex|collect|withdraw|convert-basket|push-yield|push-vice>",
   );
   process.exit(1);
 }

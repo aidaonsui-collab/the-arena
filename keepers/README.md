@@ -11,7 +11,7 @@ Cron jobs for The Arena launchpad.
 | `* * * * *` | `/api/reflections` | Ingest `TradeEvent` + `ClaimEvent` (kind=0). Snapshot unpaid/claimed per holder. |
 | `*/5 * * * *` | `/api/ring` | Sign `config::ring_pit` when Clock >= `round_end_ms` and the previous winner is settled. |
 | `*/5 * * * *` | `/api/settle` | Only if `/api/pit-state` has an unsettled 24h MC winner. AdminCap drains `Pit<SUI>`, hops to quote, Bluefin-buys, burns. Then leftover curve `pool::settle_pit` if an on-chain winner is pending. |
-| `0 * * * *` | `/api/collect` | Poke collect on Instadex locks with accrued LP fees. Path: `HolderYieldKey` → `collect_instadex_fees_holder_yield`; `BasketYieldKey` → `collect_instadex_fees_basket_yield`; else pit `collect_instadex_fees`. Yield mode from launch/migrate events, with **lock DF fallback** so migrated Instant flips without allowlist. Burns coin A; Instant quote 60/5/25/10 creator/platform/rewards-or-vault/VICE buyback after `set_instant_lp_split`. Then `withdraw` (platform 5%; buyback bag stays until VICE burn keeper). Home Mac LaunchAgent every 30m (`ARENA_COLLECT_EVERY_S=1800`). |
+| `0 * * * *` | `/api/collect` | Poke collect on Instadex locks with accrued LP fees. Path: `HolderYieldKey` → `collect_instadex_fees_holder_yield`; `BasketYieldKey` → `collect_instadex_fees_basket_yield`; else pit `collect_instadex_fees`. Yield mode from launch/migrate events, with **lock DF fallback** so migrated Instant flips without allowlist. Burns coin A; Instant quote 60/5/25/10 creator/platform/rewards-or-vault/VICE buyback after `set_instant_lp_split`. Then `withdraw` (platform 5%; buyback bag stays until `push-vice` distributes to $VICEFUN holders). Home Mac LaunchAgent every 30m (`ARENA_COLLECT_EVERY_S=1800`). |
 | `*/15 * * * *` | `/api/convert-basket` | Discover `BasketYieldVault`s with `quote_staging` via `BasketYieldLaunch`/`Funded` GraphQL events. `take_quote_for_convert` → SUI→USDC→RWA hop (same Cetus/Bluefin pools as `settleInstadex`) → `deposit_converted_asset` per weight leg. |
 | every 5 min (Air) | `tsx src/cli.ts trades` | Index Bluefin AssetSwap per Instant pool into SQLite (`keepers/data/trades.sqlite`) and publish `/api/trades` for the token-page tape. Same job sums `InstadexBurnEvent` and pool reserves to `/api/token-stats` so About MC and Burned stay in sync. |
 
@@ -118,6 +118,38 @@ ARENA_YIELD_PUSH=1 npx tsx src/cli.ts push-yield
 **Holder indexing:** `fetchCoinHolders(coinType)` tries Suiscan holders API → SuiVision →
 Mysten GraphQL `objects(filter:{type: Coin<T>})` aggregated by `AddressOwner`. Excludes
 vault / lock / pool addresses and zero balances. Pro-rata: `amount_i = pot * bal_i / supply_held`.
+
+
+
+## VICEFUN buyback push-distribute
+
+Scaffold: plan RWA basket (XAUM / XAGM / USDY) → **pro-rata push** to `$VICEFUN` holders
+(no Claim). Default is **dry-run only**. **Never auto-spends** keeper wallet SUI.
+
+```
+npx tsx src/cli.ts push-vice
+npm run push-vice
+```
+
+`run-local.sh` runs `push-vice` when `ARENA_VICE_PUSH=1` (still dry unless live gates set).
+
+| Var | Default | Meaning |
+| --- | --- | --- |
+| `ARENA_VICE_PUSH` | off | Enable from `run-local.sh` |
+| `ARENA_VICE_PUSH_LIVE` | off | `1` = allow hop/transfer (still needs a funded source) |
+| `ARENA_VICE_SUI_AMOUNT` | `0` | **Explicit** wallet SUI mist to spend (omit = spend none) |
+| `ARENA_VICE_GAS_RESERVE` | `1500000000` | Leftover SUI required if spending wallet |
+| `ARENA_VICE_WITHDRAW_BUYBACK` | off | Also `withdraw_buyback` from Config bag |
+| `ARENA_BUYBACK_BAG` | discover DF | Field or Bag id (`BuybackBagKey`) |
+| `ARENA_VICE_MIN_BUYBACK` | `1000000` | Skip live hop below this planned spend |
+| `ARENA_VICE_PUSH_BATCH` | `20` | Transfers per PTB |
+| `ARENA_VICE_WALLET_RWAS` | off | Skip DEX hop; push RWAs already in wallet |
+| `ARENA_VICE_BASKET` | equal thirds | e.g. `XAUM:4000,XAGM:3000,USDY:3000` (bps) |
+| `ARENA_VICEFUN_TYPE` | mainnet VICEFUN | Holder coin type |
+
+**Flow (when explicitly funded):** optional bag withdraw and/or explicit wallet SUI →
+SUI→USDC(Cetus)→XAUM|XAGM(Bluefin)|USDY(Cetus) → keep RWAs on keeper →
+`fetchCoinHolders(VICEFUN)` pro-rata `transferObjects` in batches.
 
 ## Events for the UI indexer
 
