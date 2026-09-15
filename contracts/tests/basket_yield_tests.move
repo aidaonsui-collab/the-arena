@@ -2,6 +2,7 @@
 module arena::basket_yield_tests;
 
 use arena::basket_yield::{Self, BasketYieldVault};
+use arena::config::{Self, AdminCap};
 use arena::lock::{Self, BluefinPositionLock};
 use arena::tcoin::TCOIN;
 use arena::tcoin2::TCOIN2;
@@ -366,6 +367,129 @@ fun test_attach_basket_conflicts_with_holder() {
         // Instead exercise yield_mode_conflict by attaching basket id onto holder lock.
         lock::debug_attach_basket_for_testing(&mut bf_lock, sui::object::id_from_address(@0xBADD));
         ts::return_shared(bf_lock);
+    };
+    scenario.end();
+}
+
+#[test]
+fun test_basket_enable_push_distribute() {
+    let mut scenario = ts::begin(ADMIN);
+    config::init_for_testing(scenario.ctx());
+    let cfg = sample_equal_config();
+    basket_yield::create_for_testing<TCOIN, SUI>(
+        sui::object::id_from_address(@0xC101),
+        sui::object::id_from_address(@0xC102),
+        cfg,
+        scenario.ctx(),
+    );
+    scenario.next_tx(config::platform_wallet());
+    {
+        let mut vault = scenario.take_shared<BasketYieldVault<TCOIN, SUI>>();
+        let cap = scenario.take_from_sender<AdminCap>();
+        assert!(!basket_yield::is_push_mode(&vault), 0);
+        basket_yield::enable_push_distribute(&mut vault, &cap);
+        assert!(basket_yield::is_push_mode(&vault), 1);
+        basket_yield::enable_push_distribute(&mut vault, &cap);
+        assert!(basket_yield::is_push_mode(&vault), 2);
+        scenario.return_to_sender(cap);
+        ts::return_shared(vault);
+    };
+    scenario.end();
+}
+
+#[test]
+fun test_basket_push_payout() {
+    let mut scenario = ts::begin(ADMIN);
+    config::init_for_testing(scenario.ctx());
+    let mut clock = clock::create_for_testing(scenario.ctx());
+    clock.set_for_testing(5_000);
+    let cfg = sample_equal_config();
+    basket_yield::create_push_for_testing<TCOIN, SUI>(
+        sui::object::id_from_address(@0xC103),
+        sui::object::id_from_address(@0xC104),
+        cfg,
+        scenario.ctx(),
+    );
+    clock.share_for_testing();
+
+    scenario.next_tx(config::platform_wallet());
+    {
+        let mut vault = scenario.take_shared<BasketYieldVault<TCOIN, SUI>>();
+        let clock = scenario.take_shared<Clock>();
+        let cap = scenario.take_from_sender<AdminCap>();
+        assert!(basket_yield::is_push_mode(&vault), 0);
+        // Deposit SUI (first basket leg) into pot without mps / registered gate.
+        basket_yield::deposit_asset_for_testing<TCOIN, SUI, SUI>(
+            &mut vault,
+            coin::mint_for_testing<SUI>(100, scenario.ctx()),
+            &clock,
+        );
+        assert!(basket_yield::pot_value<TCOIN, SUI, SUI>(&vault) == 100, 1);
+        assert!(basket_yield::asset_mps_of(&vault, type_name::with_defining_ids<SUI>()) == 0, 2);
+        basket_yield::push_payout<TCOIN, SUI, SUI>(
+            &mut vault,
+            &cap,
+            USER1,
+            40,
+            &clock,
+            scenario.ctx(),
+        );
+        assert!(basket_yield::pot_value<TCOIN, SUI, SUI>(&vault) == 60, 3);
+        scenario.return_to_sender(cap);
+        ts::return_shared(vault);
+        ts::return_shared(clock);
+    };
+    scenario.next_tx(USER1);
+    {
+        let c = scenario.take_from_sender<coin::Coin<SUI>>();
+        assert!(c.value() == 40, 4);
+        coin::burn_for_testing(c);
+    };
+    scenario.end();
+}
+
+#[test]
+#[expected_failure(abort_code = 46)]
+fun test_basket_claim_aborts_in_push_mode() {
+    let mut scenario = ts::begin(ADMIN);
+    let mut clock = clock::create_for_testing(scenario.ctx());
+    clock.set_for_testing(6_000);
+    let cfg = sample_equal_config();
+    basket_yield::create_push_for_testing<TCOIN, SUI>(
+        sui::object::id_from_address(@0xC105),
+        sui::object::id_from_address(@0xC106),
+        cfg,
+        scenario.ctx(),
+    );
+    clock.share_for_testing();
+    scenario.next_tx(ADMIN);
+    {
+        let mut vault = scenario.take_shared<BasketYieldVault<TCOIN, SUI>>();
+        let c = basket_yield::claim_asset<TCOIN, SUI, SUI>(&mut vault, scenario.ctx());
+        coin::burn_for_testing(c);
+        ts::return_shared(vault);
+    };
+    scenario.end();
+}
+
+#[test]
+#[expected_failure(abort_code = 46)]
+fun test_basket_sync_aborts_in_push_mode() {
+    let mut scenario = ts::begin(ADMIN);
+    let cfg = sample_equal_config();
+    basket_yield::create_push_for_testing<TCOIN, SUI>(
+        sui::object::id_from_address(@0xC107),
+        sui::object::id_from_address(@0xC108),
+        cfg,
+        scenario.ctx(),
+    );
+    scenario.next_tx(USER1);
+    {
+        let mut vault = scenario.take_shared<BasketYieldVault<TCOIN, SUI>>();
+        let c = coin::mint_for_testing<TCOIN>(100, scenario.ctx());
+        basket_yield::sync_registration(&mut vault, &c, scenario.ctx());
+        coin::burn_for_testing(c);
+        ts::return_shared(vault);
     };
     scenario.end();
 }

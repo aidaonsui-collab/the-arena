@@ -233,6 +233,16 @@ public struct BasketYieldClaimEvent has copy, drop {
     payout_mode: u8,
 }
 
+/// Keeper pushed one RWA asset from a push-mode basket vault to a coin holder.
+public struct BasketYieldPushEvent has copy, drop {
+    lock_id: ID,
+    basket_id: ID,
+    recipient: address,
+    asset: TypeName,
+    amount: u64,
+    timestamp_ms: u64,
+}
+
 /// Rotating payout cursor advanced.
 public struct BasketYieldRotateEvent has copy, drop {
     lock_id: ID,
@@ -617,6 +627,24 @@ public fun emit_basket_yield_claim(
         asset,
         amount,
         payout_mode,
+    })
+}
+
+public fun emit_basket_yield_push(
+    lock_id: ID,
+    basket_id: ID,
+    recipient: address,
+    asset: TypeName,
+    amount: u64,
+    timestamp_ms: u64,
+) {
+    sui::event::emit(BasketYieldPushEvent {
+        lock_id,
+        basket_id,
+        recipient,
+        asset,
+        amount,
+        timestamp_ms,
     })
 }
 

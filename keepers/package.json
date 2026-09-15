@@ -13,7 +13,8 @@
     "convert-basket": "npx tsx src/cli.ts convert-basket",
     "push-yield": "npx tsx src/cli.ts push-yield",
     "typecheck": "tsc --noEmit",
-    "push-vice": "npx tsx src/cli.ts push-vice"
+    "push-vice": "npx tsx src/cli.ts push-vice",
+    "push-basket": "npx tsx src/cli.ts push-basket"
   },
   "dependencies": {
     "@mysten/sui": "^1.37.0"

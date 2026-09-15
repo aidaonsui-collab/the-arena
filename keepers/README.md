@@ -2,7 +2,7 @@
 
 Cron jobs for The Arena launchpad.
 
-**CALL package (mainnet v21):** `0x97158e99b999f8e7ad729d1e7de8c10e4f3550f25557a392fbca3296b000a984` — Instant LP `set_instant_lp_split` 60/5/25/10 creator/platform/rewards/VICE buyback; plus v13 migrate / v12 basket / v11 holder-yield. Default Instant collect still uses `collect_instadex_fees` + pit (rewards slice now 25%). See `contracts/HOLDER_YIELD.md`. Reflection payouts **accrue on every fill** in Move (`pool::buy` / `pool::sell`). Claim-mode vaults still require wallet Claim (the registry table is not iterable). Push-mode vaults use `push-yield` with AdminCap + public holder indexes. They index, and they ring/settle the pit.
+**CALL package (mainnet v22):** `0x3ccc57531949d6f24178bd57fe20496ee4ff515e26c280f1b80f658bc020bcbe` — Instant LP `set_instant_lp_split` 60/5/25/10 creator/platform/rewards/VICE buyback; plus v13 migrate / v12 basket / v11 holder-yield. Default Instant collect still uses `collect_instadex_fees` + pit (rewards slice now 25%). See `contracts/HOLDER_YIELD.md`. Reflection payouts **accrue on every fill** in Move (`pool::buy` / `pool::sell`). Claim-mode vaults still require wallet Claim (the registry table is not iterable). Push-mode vaults use `push-yield` with AdminCap + public holder indexes. They index, and they ring/settle the pit.
 
 ## Jobs
 
@@ -91,6 +91,26 @@ Home Mac `run-local.sh` runs `convert-basket` in the 30m collect window (after `
 
 **Operator notes:** Prefer dry-run first (`ARENA_CONVERT_DRY_RUN=1`). Non-SUI quote vaults are skipped unless `ARENA_CONVERT_WALLET_RWAS=1`. Bluefin `minOut` is `1` (parity with settle). Collect must run first so staging is funded.
 
+
+## Basket-yield push distribute
+
+Push remaining RWA pots (`AssetPot`) from a push-mode `BasketYieldVault` pro-rata to
+all `$VICEFUN` (or `ARENA_VICEFUN_TYPE`) coin holders — no Claim/sync.
+
+```
+ARENA_BASKET_PUSH_VAULT=<vaultId> npx tsx src/cli.ts push-basket          # dry-run
+ARENA_BASKET_PUSH_VAULT=<vaultId> ARENA_BASKET_PUSH_LIVE=1 npm run push-basket
+```
+
+| Var | Default | Meaning |
+| --- | --- | --- |
+| `ARENA_BASKET_PUSH_VAULT` | — | Required vault id |
+| `ARENA_BASKET_PUSH_LIVE` | off | `1` = sign+execute |
+| `ARENA_BASKET_PUSH_BATCH` | `20` | `push_payout`s per PTB |
+| `ARENA_GAS_COIN` | — | Optional gas object pin (avoid large reserve coin) |
+| `ARENA_CALL_PACKAGE` | v22 `0x3ccc…` | Call package with basket push APIs |
+
+Requires Compatible v22+ (`enable_push_distribute` first). Does not DEX-hop keeper SUI.
 
 ## Holder-yield push distribute
 
