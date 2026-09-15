@@ -943,6 +943,10 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   var rewardsBusy = false;
   var rewardsNote = "";
   var REWARDS_CLAIM_PAUSED = true;
+  // VICEFUN basket vault (v22 PushDistributeKey enabled) — seed push_mode for Rewards copy.
+  var KNOWN_BASKET_PUSH_VAULTS = {
+    "0x3b8a61405825146ee68f351363f29a3e4206683fced840ea10cdfba50fe075e7": true
+  };
   var pendingRewards = { addr: "", at: 0, usd: 0, parts: [], busy: false };
 
 
@@ -5024,7 +5028,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
         '<button type="button" class="pill'+(on?" on":"")+'" data-basket-toggle="1">'+(on?"On":"Off")+'</button>'+
       '</div>'+
       (on
-        ? ('<div style="font-size:12px;color:var(--muted);margin-top:6px">Holders earn selected RWAs from Instant pit-bps (SUI quote stays). Pick 1–3 · equal or custom · all-at-once or rotating.</div>'+
+        ? ('<div style="font-size:12px;color:var(--muted);margin-top:6px">Holders earn selected RWAs from Instant pit-bps (SUI quote stays). New baskets <strong style="color:var(--ink);font-weight:650">auto-distribute</strong> (push-mode) — no Claim. Pick 1–3 · equal or custom. All-at-once / rotating apply only if a vault is claim-mode.</div>'+
            '<div class="pills" style="margin-top:8px">'+chips+'</div>'+
            '<div class="pills" style="margin-top:8px">'+
              '<button type="button" class="pill'+(equal?" on":"")+'" data-basket-equal="1">Equal</button>'+
@@ -5033,7 +5037,8 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
            '<div class="pills" style="margin-top:8px">'+
              '<button type="button" class="pill'+(mode===0?" on":"")+'" data-basket-mode="0">All-at-once</button>'+
              '<button type="button" class="pill'+(mode===1?" on":"")+'" data-basket-mode="1">Rotating</button>'+
-           '</div>'+bpsInputs)
+           '</div>'+
+           '<div style="font-size:11px;color:var(--muted);margin-top:6px">Payout style (claim-mode only). Live push vaults skip Claim entirely.</div>'+bpsInputs)
         : '<div style="font-size:12px;color:var(--muted);margin-top:6px">Off · standard Instant (pit collect). Toggle on for v2 basket yield.</div>')+
     '</div>';
   }
@@ -5359,8 +5364,11 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     flushPendingCollectFees();
     detectHolderYieldPushMode(ev.yield_id);
   }
-  async function detectHolderYieldPushMode(vaultId){
+  async function detectYieldPushMode(vaultId){
     if (!vaultId || !rewardsVaults[vaultId]) return;
+    if (KNOWN_BASKET_PUSH_VAULTS[padAddr(vaultId)] || KNOWN_BASKET_PUSH_VAULTS[vaultId]){
+      rewardsVaults[vaultId].push_mode = true;
+    }
     try {
       var cursor = null;
       for (var page = 0; page < 4; page++){
@@ -5368,7 +5376,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
         var rows = (res && res.data) || [];
         for (var i = 0; i < rows.length; i++){
           var nameType = String((rows[i].name && rows[i].name.type) || "");
-          if (/::holder_yield::PushDistributeKey$/.test(nameType)){
+          if (/::(holder_yield|basket_yield)::PushDistributeKey$/.test(nameType)){
             rewardsVaults[vaultId].push_mode = true;
             if (state.route === "pit") scheduleScreen();
             return;
@@ -5379,6 +5387,8 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       }
     } catch (e) {}
   }
+  function detectHolderYieldPushMode(vaultId){ return detectYieldPushMode(vaultId); }
+  function detectBasketYieldPushMode(vaultId){ return detectYieldPushMode(vaultId); }
   function distHasDigestCat(digest, cat){
     if (!digest || !cat) return false;
     var dgs = String(digest);
@@ -5502,6 +5512,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
 
   function applyBasketYieldLaunch(ev){
     if (!ev || !ev.basket_id) return;
+    var knownPush = !!(KNOWN_BASKET_PUSH_VAULTS[padAddr(ev.basket_id)] || KNOWN_BASKET_PUSH_VAULTS[ev.basket_id]);
     rewardsVaults[ev.basket_id] = {
       kind: "basket",
       lock_id: ev.lock_id,
@@ -5515,8 +5526,10 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       asset_count: Number(ev.asset_count) || 0,
       assets: (ev.assets && ev.assets.slice()) || (rewardsVaults[ev.basket_id] && rewardsVaults[ev.basket_id].assets) || [],
       rotate_index: (rewardsVaults[ev.basket_id] && rewardsVaults[ev.basket_id].rotate_index) || 0,
-      cat: ev.cat || ""
+      cat: ev.cat || "",
+      push_mode: !!(ev.push_mode || knownPush || (rewardsVaults[ev.basket_id] && rewardsVaults[ev.basket_id].push_mode))
     };
+    detectBasketYieldPushMode(ev.basket_id);
     var tk = T.find(function(x){
       return padAddr(x.lockId) === padAddr(ev.lock_id) || padAddr(x.bluefinPool) === padAddr(ev.bluefin_pool_id);
     });
@@ -5616,6 +5629,105 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       yield_id: ev.basket_id,
       basket_id: ev.basket_id
     });
+    rewardsLedger.distributions.sort(function(a,b){ return (b.ts||0)-(a.ts||0); });
+    rebuildRewardsLedger();
+    if (state.route === "pit" || state.route === "portfolio") scheduleScreen();
+  }
+  function applyBasketYieldPush(ev){
+    if (!ev || !ev.basket_id) return;
+    if (!ev.cat) ev.cat = rewardsCatId(ev.asset);
+    if (rewardsVaults[ev.basket_id]) rewardsVaults[ev.basket_id].push_mode = true;
+    else {
+      rewardsVaults[ev.basket_id] = {
+        kind: "basket",
+        lock_id: ev.lock_id,
+        basket_id: ev.basket_id,
+        yield_id: ev.basket_id,
+        assets: [],
+        payout_mode: 0,
+        rotate_index: 0,
+        push_mode: true,
+        cat: ev.cat || ""
+      };
+    }
+    ensureVaultAsset(rewardsVaults[ev.basket_id], ev.asset);
+    if (!ev.cat || !(Number(ev.amount) > 0)) return;
+    // Aggregate per digest+asset so ~N holder pushes become one history row.
+    var key = String(ev.digest || "") + ":bypush:" + String(ev.basket_id) + ":" + String(ev.asset || "");
+    if (!rewardsLedger.distributions) rewardsLedger.distributions = [];
+    var existing = null;
+    for (var i = 0; i < rewardsLedger.distributions.length; i++){
+      if (rewardsLedger.distributions[i]._key === key){ existing = rewardsLedger.distributions[i]; break; }
+    }
+    var tk = null;
+    var vault = rewardsVaults[ev.basket_id];
+    if (vault && vault.bluefin_pool_id){
+      tk = T.find(function(x){ return padAddr(x.bluefinPool) === padAddr(vault.bluefin_pool_id); });
+    }
+    if (!tk && vault && vault.lock_id){
+      tk = T.find(function(x){ return padAddr(x.lockId) === padAddr(vault.lock_id); });
+    }
+    var label = (tk ? ("$"+tk.t) : "—") + " · auto";
+    if (existing){
+      existing.amount = String(asBigInt(existing.amount) + asBigInt(ev.amount));
+      if (ev.ts && (!existing.ts || ev.ts > existing.ts)) existing.ts = ev.ts;
+    } else {
+      rewardsLedger.distributions.unshift({
+        _key: key,
+        cat: ev.cat,
+        amount: ev.amount,
+        token: label,
+        ts: ev.ts,
+        digest: ev.digest,
+        yield_id: ev.basket_id,
+        basket_id: ev.basket_id,
+        push: true
+      });
+    }
+    rewardsLedger.distributions.sort(function(a,b){ return (b.ts||0)-(a.ts||0); });
+    rebuildRewardsLedger();
+    if (state.route === "pit" || state.route === "portfolio") scheduleScreen();
+  }
+  function applyHolderYieldPush(ev){
+    if (!ev || !ev.yield_id) return;
+    if (!ev.cat) ev.cat = rewardsCatId(ev.quote);
+    if (rewardsVaults[ev.yield_id]) rewardsVaults[ev.yield_id].push_mode = true;
+    else if (ev.cat) {
+      rewardsVaults[ev.yield_id] = {
+        kind: "holder",
+        lock_id: ev.lock_id,
+        yield_id: ev.yield_id,
+        quote: ev.quote,
+        quoteLabel: ev.quoteLabel,
+        cat: ev.cat,
+        push_mode: true
+      };
+    }
+    if (!ev.cat || !(Number(ev.amount) > 0)) return;
+    var key = String(ev.digest || "") + ":hypush:" + String(ev.yield_id);
+    if (!rewardsLedger.distributions) rewardsLedger.distributions = [];
+    var existing = null;
+    for (var i = 0; i < rewardsLedger.distributions.length; i++){
+      if (rewardsLedger.distributions[i]._key === key){ existing = rewardsLedger.distributions[i]; break; }
+    }
+    var tk = null;
+    if (ev.lock_id) tk = T.find(function(x){ return padAddr(x.lockId) === padAddr(ev.lock_id); });
+    var label = (tk ? ("$"+tk.t) : "—") + " · auto";
+    if (existing){
+      existing.amount = String(asBigInt(existing.amount) + asBigInt(ev.amount));
+      if (ev.ts && (!existing.ts || ev.ts > existing.ts)) existing.ts = ev.ts;
+    } else {
+      rewardsLedger.distributions.unshift({
+        _key: key,
+        cat: ev.cat,
+        amount: ev.amount,
+        token: label,
+        ts: ev.ts,
+        digest: ev.digest,
+        yield_id: ev.yield_id,
+        push: true
+      });
+    }
     rewardsLedger.distributions.sort(function(a,b){ return (b.ts||0)-(a.ts||0); });
     rebuildRewardsLedger();
     if (state.route === "pit" || state.route === "portfolio") scheduleScreen();
@@ -5986,20 +6098,27 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     var vaultN = Object.keys(rewardsVaults).length;
     var anyPush = Object.keys(rewardsVaults).some(function(k){
       var v = rewardsVaults[k];
-      return v && v.kind !== "basket" && v.push_mode;
+      return v && !!v.push_mode;
     });
-    var claimNote = REWARDS_CLAIM_PAUSED
-      ? (anyPush
-        ? "RWA yield is auto-distributed by the keeper — no Claim needed."
-        : "Claim is paused while we rework registration and convert.")
+    var anyClaimMode = Object.keys(rewardsVaults).some(function(k){
+      var v = rewardsVaults[k];
+      return v && !v.push_mode;
+    });
+    var onlyPush = anyPush && !anyClaimMode;
+    var claimNote = onlyPush
+      ? "Push-mode baskets (and holder-yield) auto-distribute RWA to holders — no Claim needed."
       : (anyPush
-        ? "RWA yield is auto-distributed by the keeper — no Claim needed."
-        : (rewardsNote || (!suiSession.address
+        ? "Some vaults auto-distribute (push-mode). Claim is only for claim-mode vaults."
+        : (REWARDS_CLAIM_PAUSED
+          ? "Claim is paused while we rework registration and convert."
+          : (rewardsNote || (!suiSession.address
       ? "Connect to claim gold, silver, and T-bills from Instant volume."
       : (vaultN
         ? "Hold the launch token, then claim your share of XAUM, XAGM, or USDY."
-        : "Instant RWA volume starts the ledger."))));
-    var claimLabel = REWARDS_CLAIM_PAUSED ? "Claim paused" : (rewardsBusy ? "Claiming…" : (suiSession.address ? "Claim" : "Connect to claim"));
+        : "Instant RWA volume starts the ledger.")))));
+    var claimLabel = (REWARDS_CLAIM_PAUSED || onlyPush)
+      ? (onlyPush ? "Auto-distributed" : "Claim paused")
+      : (rewardsBusy ? "Claiming…" : (suiSession.address ? "Claim" : "Connect to claim"));
     var distN = (rewardsLedger.distributions || []).length;
     return '<div data-screen-label="Distributions">'+
       '<div class="shell rewards-hero">'+
@@ -9826,7 +9945,9 @@ async function doBridgeDeposit(){
       onBasketYieldFunded: function(e){ applyBasketYieldFunded(e); },
       onBasketYieldConverted: function(e){ applyBasketYieldConverted(e); },
       onBasketYieldClaim: function(e){ applyBasketYieldClaim(e); },
+      onBasketYieldPush: function(e){ applyBasketYieldPush(e); },
       onBasketYieldRotate: function(e){ applyBasketYieldRotate(e); },
+      onHolderYieldPush: function(e){ applyHolderYieldPush(e); },
       holderYieldPackages: [window.ARENA_HOLDER_YIELD_EVENT_PACKAGE, window.ARENA_CALL_PACKAGE, window.ARENA_COLLECT_PACKAGE].filter(Boolean),
       collectLpPackages: [window.ARENA_COLLECT_LP_EVENT_PACKAGE, window.ARENA_CALL_PACKAGE, window.ARENA_COLLECT_PACKAGE].filter(Boolean),
       basketYieldPackages: [window.ARENA_BASKET_YIELD_EVENT_PACKAGE, window.ARENA_CALL_PACKAGE, window.ARENA_COLLECT_PACKAGE].filter(Boolean),

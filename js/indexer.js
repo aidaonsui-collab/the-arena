@@ -720,6 +720,22 @@
     };
   }
 
+  function parseHolderYieldPush(ev) {
+    var p = ev.parsedJson || {};
+    var quoteRaw = p.quote;
+    return {
+      lock_id: padId(p.lock_id || ""),
+      yield_id: padId(p.yield_id || ""),
+      recipient: padId(p.recipient || ""),
+      amount: mistStr(p.amount),
+      quote: typeNameOf(quoteRaw) || quoteRaw,
+      quoteLabel: quoteLabel(typeNameOf(quoteRaw) || quoteRaw),
+      cat: rewardsCatFromQuote(quoteRaw),
+      ts: num(p.timestamp_ms) || num(ev.timestampMs) || Date.now(),
+      digest: String((ev.id && (ev.id.txDigest || ev.id.tx_digest)) || ev.digest || "")
+    };
+  }
+
   /// Instant LP quote split (v5). pit_amount is the rewards slice for both
   /// pit collect and holder-yield collect. HolderYieldFundedEvent only fires
   /// when the vault has registered holders — leftover goes to the creator.
@@ -799,6 +815,21 @@
       payout_mode: num(p.payout_mode),
       cat: rewardsCatFromQuote(assetRaw),
       ts: num(ev.timestampMs) || Date.now(),
+      digest: String((ev.id && (ev.id.txDigest || ev.id.tx_digest)) || ev.digest || "")
+    };
+  }
+
+  function parseBasketYieldPush(ev) {
+    var p = ev.parsedJson || {};
+    var assetRaw = p.asset;
+    return {
+      lock_id: padId(p.lock_id || ""),
+      basket_id: padId(p.basket_id || ""),
+      recipient: padId(p.recipient || ""),
+      asset: typeNameOf(assetRaw) || assetRaw,
+      amount: mistStr(p.amount),
+      cat: rewardsCatFromQuote(assetRaw),
+      ts: num(p.timestamp_ms) || num(ev.timestampMs) || Date.now(),
       digest: String((ev.id && (ev.id.txDigest || ev.id.tx_digest)) || ev.digest || "")
     };
   }
@@ -1056,8 +1087,10 @@
           if (/::events::CollectLpFeesEvent$/.test(typ)) emitCollectLp(parseCollectLpFees(wrapped));
           else if (/::events::HolderYieldFundedEvent$/.test(typ)) emitHyFunded(parseHolderYieldFunded(wrapped));
           else if (/::events::HolderYieldClaimEvent$/.test(typ)) emitHyClaim(parseHolderYieldClaim(wrapped));
+          else if (/::events::HolderYieldPushEvent$/.test(typ)) emitHyPush(parseHolderYieldPush(wrapped));
           else if (/::events::BasketYieldFundedEvent$/.test(typ)) emitByFunded(parseBasketYieldFunded(wrapped));
           else if (/::events::BasketYieldConvertedEvent$/.test(typ)) emitByConverted(parseBasketYieldConverted(wrapped));
+          else if (/::events::BasketYieldPushEvent$/.test(typ)) emitByPush(parseBasketYieldPush(wrapped));
         }
       }
       function pullLockFeeEvents(lockId, pages) {
@@ -1088,6 +1121,7 @@
       }
       function emitHyFunded(r) { if (opts.onHolderYieldFunded) opts.onHolderYieldFunded(r); }
       function emitHyClaim(r) { if (opts.onHolderYieldClaim) opts.onHolderYieldClaim(r); }
+      function emitHyPush(r) { if (opts.onHolderYieldPush) opts.onHolderYieldPush(r); }
       function pullHolderYield(pkg) {
         if (!pkg || pkg === "0x0") return;
         collect(rpc, pkg + "::events::HolderYieldLaunchEvent", parseHolderYieldLaunch, 4, 50).then(function (rows) {
@@ -1098,6 +1132,10 @@
         }).catch(function () {});
         collect(rpc, pkg + "::events::HolderYieldClaimEvent", parseHolderYieldClaim, 8, 50).then(function (rows) {
           rows.forEach(emitHyClaim);
+        }).catch(function () {});
+        // Push distributes one event per holder — pull more pages than claim/funded.
+        collect(rpc, pkg + "::events::HolderYieldPushEvent", parseHolderYieldPush, 24, 50).then(function (rows) {
+          rows.forEach(emitHyPush);
         }).catch(function () {});
       }
       var hyPkgs = (opts.holderYieldPackages || []).slice();
@@ -1136,6 +1174,7 @@
       function emitByFunded(r) { if (opts.onBasketYieldFunded) opts.onBasketYieldFunded(r); }
       function emitByConverted(r) { if (opts.onBasketYieldConverted) opts.onBasketYieldConverted(r); }
       function emitByClaim(r) { if (opts.onBasketYieldClaim) opts.onBasketYieldClaim(r); }
+      function emitByPush(r) { if (opts.onBasketYieldPush) opts.onBasketYieldPush(r); }
       function emitByRotate(r) { if (opts.onBasketYieldRotate) opts.onBasketYieldRotate(r); }
       function pullBasketYield(pkg) {
         if (!pkg || pkg === "0x0") return;
@@ -1150,6 +1189,9 @@
         }).catch(function () {});
         collect(rpc, pkg + "::events::BasketYieldClaimEvent", parseBasketYieldClaim, 8, 50).then(function (rows) {
           rows.forEach(emitByClaim);
+        }).catch(function () {});
+        collect(rpc, pkg + "::events::BasketYieldPushEvent", parseBasketYieldPush, 24, 50).then(function (rows) {
+          rows.forEach(emitByPush);
         }).catch(function () {});
         collect(rpc, pkg + "::events::BasketYieldRotateEvent", parseBasketYieldRotate, 4, 50).then(function (rows) {
           rows.forEach(emitByRotate);
@@ -1277,11 +1319,13 @@
     parseHolderYieldLaunch: parseHolderYieldLaunch,
     parseHolderYieldFunded: parseHolderYieldFunded,
     parseHolderYieldClaim: parseHolderYieldClaim,
+    parseHolderYieldPush: parseHolderYieldPush,
     parseCollectLpFees: parseCollectLpFees,
     parseBasketYieldLaunch: parseBasketYieldLaunch,
     parseBasketYieldFunded: parseBasketYieldFunded,
     parseBasketYieldConverted: parseBasketYieldConverted,
     parseBasketYieldClaim: parseBasketYieldClaim,
+    parseBasketYieldPush: parseBasketYieldPush,
     parseBasketYieldRotate: parseBasketYieldRotate,
     rewardsCatFromQuote: rewardsCatFromQuote,
     typeNameOf: typeNameOf,
