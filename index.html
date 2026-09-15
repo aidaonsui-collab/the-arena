@@ -5353,9 +5353,31 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       token: ev.token,
       quote: ev.quote,
       quoteLabel: ev.quoteLabel,
-      cat: ev.cat
+      cat: ev.cat,
+      push_mode: !!ev.push_mode
     };
     flushPendingCollectFees();
+    detectHolderYieldPushMode(ev.yield_id);
+  }
+  async function detectHolderYieldPushMode(vaultId){
+    if (!vaultId || !rewardsVaults[vaultId]) return;
+    try {
+      var cursor = null;
+      for (var page = 0; page < 4; page++){
+        var res = await suiJson("suix_getDynamicFields", [vaultId, cursor, 50]);
+        var rows = (res && res.data) || [];
+        for (var i = 0; i < rows.length; i++){
+          var nameType = String((rows[i].name && rows[i].name.type) || "");
+          if (/::holder_yield::PushDistributeKey$/.test(nameType)){
+            rewardsVaults[vaultId].push_mode = true;
+            if (state.route === "pit") scheduleScreen();
+            return;
+          }
+        }
+        if (!res || !res.hasNextPage) break;
+        cursor = res.nextCursor;
+      }
+    } catch (e) {}
   }
   function distHasDigestCat(digest, cat){
     if (!digest || !cat) return false;
@@ -5962,13 +5984,21 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       return '<button type="button" class="pill'+(on?" on":"")+'" data-set="rewardsTab" data-val="'+escAttr(x[0])+'">'+escHtml(x[1])+'</button>';
     }).join("");
     var vaultN = Object.keys(rewardsVaults).length;
+    var anyPush = Object.keys(rewardsVaults).some(function(k){
+      var v = rewardsVaults[k];
+      return v && v.kind !== "basket" && v.push_mode;
+    });
     var claimNote = REWARDS_CLAIM_PAUSED
-      ? "Claim is paused while we rework registration and convert."
-      : (rewardsNote || (!suiSession.address
+      ? (anyPush
+        ? "RWA yield is auto-distributed by the keeper — no Claim needed."
+        : "Claim is paused while we rework registration and convert.")
+      : (anyPush
+        ? "RWA yield is auto-distributed by the keeper — no Claim needed."
+        : (rewardsNote || (!suiSession.address
       ? "Connect to claim gold, silver, and T-bills from Instant volume."
       : (vaultN
         ? "Hold the launch token, then claim your share of XAUM, XAGM, or USDY."
-        : "Instant RWA volume starts the ledger.")));
+        : "Instant RWA volume starts the ledger."))));
     var claimLabel = REWARDS_CLAIM_PAUSED ? "Claim paused" : (rewardsBusy ? "Claiming…" : (suiSession.address ? "Claim" : "Connect to claim"));
     var distN = (rewardsLedger.distributions || []).length;
     return '<div data-screen-label="Distributions">'+

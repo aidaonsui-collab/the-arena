@@ -2,7 +2,7 @@
 
 Cron jobs for The Arena launchpad.
 
-**CALL package (mainnet v14):** `0xde8bab588b6deb2fa51357159264fdb70d873925c98998748fa9db0b0f331769` — Instant LP `set_instant_lp_split` 60/5/25/10 creator/platform/rewards/VICE buyback; plus v13 migrate / v12 basket / v11 holder-yield. Default Instant collect still uses `collect_instadex_fees` + pit (rewards slice now 25%). See `contracts/HOLDER_YIELD.md`. Reflection payouts **accrue on every fill** in Move (`pool::buy` / `pool::sell`). Keepers do not push SUI/XAUM to wallets (the holder table is not iterable). They index, and they ring/settle the pit.
+**CALL package (mainnet v14):** `0xde8bab588b6deb2fa51357159264fdb70d873925c98998748fa9db0b0f331769` — Instant LP `set_instant_lp_split` 60/5/25/10 creator/platform/rewards/VICE buyback; plus v13 migrate / v12 basket / v11 holder-yield. Default Instant collect still uses `collect_instadex_fees` + pit (rewards slice now 25%). See `contracts/HOLDER_YIELD.md`. Reflection payouts **accrue on every fill** in Move (`pool::buy` / `pool::sell`). Claim-mode vaults still require wallet Claim (the registry table is not iterable). Push-mode vaults use `push-yield` with AdminCap + public holder indexes. They index, and they ring/settle the pit.
 
 ## Jobs
 
@@ -90,6 +90,34 @@ npm run convert-basket
 Home Mac `run-local.sh` runs `convert-basket` in the 30m collect window (after `collect`, before `withdraw`). Optional Vercel cron every 15m on `/api/convert-basket` (Bearer `CRON_SECRET`).
 
 **Operator notes:** Prefer dry-run first (`ARENA_CONVERT_DRY_RUN=1`). Non-SUI quote vaults are skipped unless `ARENA_CONVERT_WALLET_RWAS=1`. Bluefin `minOut` is `1` (parity with settle). Collect must run first so staging is funded.
+
+
+## Holder-yield push distribute
+
+Option A: vaults with `PushDistributeKey` park Rewards quote in `reward_pot`; keeper
+pushes pro-rata to **coin holders** (no Claim/sync). Requires Compatible upgrade
+(see `contracts/HOLDER_YIELD.md` — **not published yet**).
+
+```
+ARENA_PUSH_DRY_RUN=1 npx tsx src/cli.ts push-yield
+# live (needs AdminCap on keeper):
+ARENA_YIELD_PUSH=1 npx tsx src/cli.ts push-yield
+```
+
+`run-local.sh` runs `push-yield` in the collect window when `ARENA_YIELD_PUSH=1`.
+
+| Var | Default | Meaning |
+| --- | --- | --- |
+| `ARENA_YIELD_PUSH` | off | Enable push job from `run-local.sh` |
+| `ARENA_PUSH_DRY_RUN` | off | Log + `dryRunTransactionBlock` only |
+| `ARENA_PUSH_MIN_POT` | `1000` | Skip dust pots (mist) |
+| `ARENA_PUSH_BATCH` | `20` | `push_payout` calls per PTB |
+| `ARENA_PUSH_VAULT` | — | Optional single vault id |
+| `ARENA_ADMIN_CAP` | `0x79e041…` | Required for live push |
+
+**Holder indexing:** `fetchCoinHolders(coinType)` tries Suiscan holders API → SuiVision →
+Mysten GraphQL `objects(filter:{type: Coin<T>})` aggregated by `AddressOwner`. Excludes
+vault / lock / pool addresses and zero balances. Pro-rata: `amount_i = pot * bal_i / supply_held`.
 
 ## Events for the UI indexer
 

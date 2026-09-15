@@ -35,9 +35,10 @@ Locks without a yield DF stay on the pit path until migrated.
 | `collect_instadex_fees` (default Instant) | 60/5/25/10 creator / platform / **pit** / VICE | burn via mint lock |
 | `collect_instadex_fees_holder_yield` | 60/5/25/10 creator / platform / **vault** / VICE | burn via mint lock |
 
-If the vault has `total_registered == 0`, the pit-bps balance is returned to
-the creator residual (same rescue as undistributable reflection), not parked
-unclaimable.
+If the vault has `total_registered == 0` **and is not in push mode**, the
+pit-bps balance is returned to the creator residual (same rescue as
+undistributable reflection). In **push mode**, the fee is parked in the pot
+even with zero registered holders.
 
 Calling the wrong collect aborts: holder-yield lock → `use_holder_yield_collect`
 (36); plain lock on the yield collect → `not_holder_yield` (35).
@@ -79,6 +80,29 @@ Forward-only path for a **plain** Instant `BluefinPositionLock` (no
 | --- | --- |
 | `launch::migrate_instant_to_holder_yield<T, Q>` | Non-entry; returns vault id |
 | `launch::migrate_instant_to_holder_yield_entry<T, Q>` | Entry wrapper |
+
+
+## Push distribute (option A)
+
+Compatible upgrade: vaults may park the Rewards slice in `reward_pot` for a
+**keeper push** instead of magnified-dividend claim.
+
+- DF key: `holder_yield::PushDistributeKey` on vault `id` (value `bool`)
+- `is_push_mode(vault)` — `df::exists`
+- New vaults (`create_and_share` / migrate) **enable push by default**
+- Existing claim-mode vaults: AdminCap `enable_push_distribute` (idempotent)
+- `try_fund` in push mode: park fee even when `total_registered == 0`; **do not**
+  bump `mps`. Still emits `HolderYieldFundedEvent`.
+- Keeper: `push_payout(vault, &AdminCap, recipient, amount, clock)` splits pot →
+  `Coin<Q>` to recipient; emits `HolderYieldPushEvent`
+- `claim` / `sync_registration` abort with `use_push_distribute` (46) in push mode
+
+```
+HolderYieldPushEvent { lock_id, yield_id, recipient, amount, quote, timestamp_ms }
+```
+
+Pad Rewards: when vault is push mode, claim note says yield is auto-distributed
+by the keeper (no wallet Claim/sync).
 
 ## Compatible caveats
 
