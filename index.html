@@ -5673,32 +5673,6 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
             arguments: [tx.object(vaultId), coinArg]
           });
           calls++;
-          var assets = await resolveBasketAssets(v);
-          var mode = Number(v.payout_mode) || 0;
-          if (mode === 1){
-            var idx = Number(v.rotate_index) || 0;
-            var Arot = padType(normType(assets[idx] || assets[0] || ""));
-            if (Arot){
-              var gotR = tx.moveCall({
-                target: CALL + "::basket_yield::claim_rotating",
-                typeArguments: [Ttype, Qtype, Arot],
-                arguments: [tx.object(vaultId), tx.object(window.ARENA_CLOCK || "0x6")]
-              });
-              if (tx.transferObjects) tx.transferObjects([gotR], tx.pure.address(suiSession.address));
-            }
-          } else {
-            for (var ai = 0; ai < assets.length && calls < 8; ai++){
-              var A = padType(normType(assets[ai]));
-              if (!A) continue;
-              var gotA = tx.moveCall({
-                target: CALL + "::basket_yield::claim_all",
-                typeArguments: [Ttype, Qtype, A],
-                arguments: [tx.object(vaultId)]
-              });
-              if (tx.transferObjects) tx.transferObjects([gotA], tx.pure.address(suiSession.address));
-              calls++;
-            }
-          }
         } else {
           tx.moveCall({
             target: CALL + "::holder_yield::sync_registration",
@@ -5717,7 +5691,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       if (!calls) throw new Error("Hold launch tokens to sync registration, then claim");
       var res = await walletExec(tx);
       var digest = (res && (res.digest || (res.effects && res.effects.transactionDigest))) || "";
-      rewardsNote = digest ? ("Claim sent · " + digest.slice(0, 10) + "… Check wallet for XAUM / XAGM / USDY.") : "Claim sent";
+      rewardsNote = digest ? ("Registered · " + digest.slice(0, 10) + "… Future converts split to synced holders.") : "Registered.";
       pendingRewards.at = 0;
       if (bus.sub && typeof bus.sub.refreshInstadex === "function") setTimeout(function(){ bus.sub.refreshInstadex(); }, 1200);
     } finally {
