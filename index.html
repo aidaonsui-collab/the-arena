@@ -4990,11 +4990,11 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     });
     return legs;
   }
-  function basketPanelHTML(){
+  function basketPanelHTML(opts){
     if (isRwaQuote(state.lQuote)){
       return '<div style="font-size:12px;color:var(--muted);margin-top:8px">v1 holder-yield · quote is the reward asset. Basket picker is off on this path.</div>';
     }
-    var on = !!state.lBasket;
+    var on = !!(opts && opts.forceOn) || !!state.lBasket;
     var equal = state.lBasketEqual !== false;
     var mode = Number(state.lBasketMode) || 0;
     var chips = BASKET_RWA.map(function(lab){
@@ -5260,9 +5260,15 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     if (!tk || !isInstadex(tk) || !tk.lockId) return "";
     var kind = lockYieldKind(tk);
     if (kind){
+      var labs = rwaLabsOf(rewardAssetsOf(tk));
+      var rwaLine = labs.length
+        ? ("Holders earn "+labs.join(" · ")+". Collect LP fees, then keepers convert staged SUI into the basket.")
+        : (kind==="basket"
+          ? "Rewards already route to the RWA basket vault. Collect LP fees to stage SUI; keepers buy gold / silver / T-bills."
+          : "Rewards already route to holder yield. Collect LP fees to fund holders.");
       return '<div class="card" style="padding:14px 16px;margin-top:10px">'+
-        '<div style="font-size:12px;font-weight:600;color:var(--ink)">Yield mode · '+(kind==="basket"?"basket":"holder")+'</div>'+
-        '<div style="font-size:12px;color:var(--muted);margin-top:4px">Collect routes LP pit-bps to holders. Rewards tab indexes the vault.</div>'+
+        '<div style="font-size:12px;font-weight:600;color:var(--ink)">Yield mode · '+(kind==="basket"?"basket (already on)":"holder")+'</div>'+
+        '<div style="font-size:12px;color:var(--muted);margin-top:4px">'+escHtml(rwaLine)+'</div>'+
       '</div>';
     }
     var q = poolQuote(tk);
@@ -5287,11 +5293,10 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
         '<div style="font-size:12px;color:var(--muted)">Migrate to yield is available for RWA quotes (holder) or SUI (basket).</div>'+
       '</div>';
     }
-    if (!state.lBasket) state.lBasket = true;
     return '<div class="card" style="padding:14px 16px;margin-top:10px">'+
       '<div style="font-size:12px;font-weight:600;color:var(--ink)">Forward Rewards into the RWA basket</div>'+
       '<div style="font-size:12px;color:var(--muted);margin-top:4px">One-way. SUI quote stays. The Rewards % of LP fees stages as SUI, then keepers buy gold / silver / T-bills for holders. Pick the basket, then migrate.</div>'+
-      basketPanelHTML()+
+      basketPanelHTML({forceOn:true})+
       '<button type="button" class="btn-trade btn-ghost" id="migrate-go" style="margin-top:10px"'+(can?"":" disabled")+'>Migrate · buy basket</button>'+
       '<div id="migrate-note" style="font-size:11px;color:var(--muted);margin-top:6px;text-align:center">'+escHtml(hint)+'</div>'+
     '</div>';
