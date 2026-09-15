@@ -9,7 +9,7 @@ export const PIT_XAUM =
   process.env.ARENA_PIT_XAUM || "0xa8a391bf380914c04be5deb478474b42754a5aa8c29c0955f267d73190a98783";
 export const CALL_PKG =
   process.env.ARENA_CALL_PACKAGE ??
-  "0x5915bce70b8f3db5bd29dfd0482333070acd446c796a33fa2631c918d096eb29";
+  "0x01d99cb16b9c3771ae2caf9f910aaa3f02c8c4c9dcea86df127025dc5b973be0";
 export const ADMIN_CAP =
   process.env.ARENA_ADMIN_CAP ||
   "0x79e041a4444971bfbf8000925ac3386d8351a3e997eb7d838d84eb6c3e507acf";

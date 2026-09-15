@@ -13,6 +13,7 @@ use bluefin_spot::position::Position;
 use integer_mate::i32;
 use sui::balance::Balance;
 use sui::clock::Clock;
+use sui::coin::Coin;
 use sui::object::ID;
 use sui::tx_context::TxContext;
 
@@ -20,6 +21,8 @@ use sui::tx_context::TxContext;
 /// Bluefin max is 20_000 (`EInvalidFeeRate` 1027 above that).
 const TICK_SPACING: u32 = 60;
 const FEE_RATE: u64 = 20_000;
+/// Bluefin max sqrt minus the same offset the pad / 7k SDK uses (B → A buy).
+const SQRT_LIMIT_B2A: u128 = 79226673515401279992447579054;
 
 public(package) fun tick_spacing(): u32 { TICK_SPACING }
 public(package) fun fee_rate(): u64 { FEE_RATE }
@@ -40,14 +43,9 @@ public(package) fun full_range_tick_bits(protocol_config: &GlobalConfig): (u32, 
     )
 }
 
-/// Create a Bluefin pool, seed full-range liquidity, and share the pool.
-/// Residuals are returned to the caller (forwarded to the Arena creator).
-///
-/// `create_pool_and_get_object` + `open_position` + `add_liquidity_with_fixed_amount`
-/// + `share_pool_object` so we hold the pool long enough to share it. The
-/// combined `create_pool_with_liquidity` entry already shares internally and
-/// does not return the pool object.
-public(package) fun create_and_seed<CoinA, CoinB, CoinFee>(
+/// Create a Bluefin pool and seed liquidity, keeping the pool owned so the
+/// caller can swap before `share_pool`. Residuals go back to the caller.
+public(package) fun create_and_seed_owned<CoinA, CoinB, CoinFee>(
     clock: &Clock,
     protocol_config: &mut GlobalConfig,
     pool_name: vector<u8>,
@@ -67,7 +65,7 @@ public(package) fun create_and_seed<CoinA, CoinB, CoinFee>(
     amount: u64,
     is_fixed_a: bool,
     ctx: &mut TxContext,
-): (ID, Position, u64, u64, Balance<CoinA>, Balance<CoinB>) {
+): (bf_pool::Pool<CoinA, CoinB>, Position, u64, u64, Balance<CoinA>, Balance<CoinB>) {
     let mut pool = bf_pool::create_pool_and_get_object<CoinA, CoinB, CoinFee>(
         clock,
         protocol_config,
@@ -102,8 +100,87 @@ public(package) fun create_and_seed<CoinA, CoinB, CoinFee>(
         amount,
         is_fixed_a,
     );
+    (pool, position, paid_a, paid_b, rem_a, rem_b)
+}
+
+public(package) fun share_pool<CoinA, CoinB>(pool: bf_pool::Pool<CoinA, CoinB>) {
+    bf_pool::share_pool_object(pool)
+}
+
+/// Quote (coin B) → token (coin A). Used to bundle Instant first-buy before share.
+public(package) fun swap_quote_for_token<T, Q>(
+    clock: &Clock,
+    protocol_config: &GlobalConfig,
+    pool: &mut bf_pool::Pool<T, Q>,
+    quote: Coin<Q>,
+    min_out: u64,
+): (Balance<T>, Balance<Q>) {
+    let amt = quote.value();
+    bf_pool::swap(
+        clock,
+        protocol_config,
+        pool,
+        sui::balance::zero<T>(),
+        quote.into_balance(),
+        false,
+        true,
+        amt,
+        min_out,
+        SQRT_LIMIT_B2A,
+    )
+}
+
+/// Create a Bluefin pool, seed full-range liquidity, and share the pool.
+/// Residuals are returned to the caller (forwarded to the Arena creator).
+///
+/// `create_pool_and_get_object` + `open_position` + `add_liquidity_with_fixed_amount`
+/// + `share_pool_object` so we hold the pool long enough to share it. The
+/// combined `create_pool_with_liquidity` entry already shares internally and
+/// does not return the pool object.
+public(package) fun create_and_seed<CoinA, CoinB, CoinFee>(
+    clock: &Clock,
+    protocol_config: &mut GlobalConfig,
+    pool_name: vector<u8>,
+    icon_url: vector<u8>,
+    coin_a_symbol: vector<u8>,
+    coin_a_decimals: u8,
+    coin_a_url: vector<u8>,
+    coin_b_symbol: vector<u8>,
+    coin_b_decimals: u8,
+    coin_b_url: vector<u8>,
+    current_sqrt_price: u128,
+    creation_fee: Balance<CoinFee>,
+    lower_tick_bits: u32,
+    upper_tick_bits: u32,
+    balance_a: Balance<CoinA>,
+    balance_b: Balance<CoinB>,
+    amount: u64,
+    is_fixed_a: bool,
+    ctx: &mut TxContext,
+): (ID, Position, u64, u64, Balance<CoinA>, Balance<CoinB>) {
+    let (pool, position, paid_a, paid_b, rem_a, rem_b) = create_and_seed_owned<CoinA, CoinB, CoinFee>(
+        clock,
+        protocol_config,
+        pool_name,
+        icon_url,
+        coin_a_symbol,
+        coin_a_decimals,
+        coin_a_url,
+        coin_b_symbol,
+        coin_b_decimals,
+        coin_b_url,
+        current_sqrt_price,
+        creation_fee,
+        lower_tick_bits,
+        upper_tick_bits,
+        balance_a,
+        balance_b,
+        amount,
+        is_fixed_a,
+        ctx,
+    );
     let pool_id = sui::object::id(&pool);
-    bf_pool::share_pool_object(pool);
+    share_pool(pool);
     (pool_id, position, paid_a, paid_b, rem_a, rem_b)
 }
 

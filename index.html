@@ -744,7 +744,7 @@ html[data-route="bridge"] .search-row{display:none}
 <script>
 window.ARENA_PACKAGE_ID = "0x5cfddf8ba23be6835644a8ea22482ff6ebb0081e42cc1bc052b5f770ca8bbdea";
 window.ARENA_INSTADEX_PACKAGE = "0xcf7835ae4e3f8a3d4eb4bd9d14cb4a3dbdd80e70908feb6c433688a31e119de3";
-window.ARENA_COLLECT_PACKAGE = "0x5915bce70b8f3db5bd29dfd0482333070acd446c796a33fa2631c918d096eb29";
+window.ARENA_COLLECT_PACKAGE = "0x01d99cb16b9c3771ae2caf9f910aaa3f02c8c4c9dcea86df127025dc5b973be0";
 window.ARENA_CALL_PACKAGE = window.ARENA_COLLECT_PACKAGE;
 // Compatible-upgrade event types keep the package id that first defined them.
 window.ARENA_HOLDER_YIELD_EVENT_PACKAGE = "0xe2dee7a21e382d47d8f13e39801c86987a88e9ebd5fb8801efd1b974e4e4d9a2"; // v11
@@ -6177,7 +6177,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
             '<div><input id="l-art" type="file" accept="image/png,image/jpeg,image/webp,image/gif">'+
             '<div class="art-note" id="l-art-note">'+(state.lArtUrl?"Ready · Blob URL set":"png, jpeg, webp, or gif · 2MB")+'</div></div></div></div>'+
           '<div><label>Coin</label>'+
-            '<div style="font-size:12px;color:var(--muted);margin-top:6px">1,000,000,000 supply · 9 decimals. Publish, seed, then first buy in SUI.</div></div>'+
+            '<div style="font-size:12px;color:var(--muted);margin-top:6px">1,000,000,000 supply · 9 decimals. Publish, then seed + first buy in one signature.</div></div>'+
           '<div><label>Description · optional</label><input id="l-desc" placeholder="One line about the token" value="'+escAttr(state.lDesc)+'"></div>'+
           '<div><label>Socials · optional</label><div class="social-row">'+
             '<input id="l-x" spellcheck="false" placeholder="x.com/handle" value="'+escAttr(state.lX)+'">'+
@@ -6193,10 +6193,10 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
           '<div><label>First buy · SUI</label><input id="l-first-buy" inputmode="decimal" placeholder="1" value="'+escAttr(state.lFirstBuy)+'"></div>'+
             '<div id="l-first-buy-preview" style="font-size:13px;color:var(--text);margin-top:6px">'+escHtml(firstBuyPreview())+'</div>'+
             '<div style="font-size:12px;color:var(--muted);margin-top:4px">'+(state.lQuote==="SUI"
-              ? "SUI swapped into TOKEN/SUI right after seed. Puts quote in the pool so the first sell can land. 0 skips."
+              ? "SUI swapped into TOKEN/SUI in the same transaction as seed, before the pool is public. 0 skips."
               : state.lQuote==="USDY"
-              ? "Paid in SUI. Hopped SUI → USDC → USDY on Cetus, then TOKEN/USDY on Bluefin. You do not need USDY in the wallet. 0 skips."
-              : "Paid in SUI. Hopped SUI → "+state.lQuote+" → TOKEN after seed on Bluefin. You do not need "+state.lQuote+" in the wallet. 0 skips.")+'</div>'+
+              ? "Paid in SUI. Same tx hops SUI → USDC → USDY on Cetus, then buys TOKEN/USDY on Bluefin before the pool is public. 0 skips."
+              : "Paid in SUI. Same tx hops SUI → "+state.lQuote+", then buys TOKEN on Bluefin before the pool is public. 0 skips.")+'</div>'+
           '<div><label>Name</label><input id="l-name" placeholder="Gladius Token" value="'+escAttr(state.lName)+'"></div>'+
           '<div><label>Ticker</label><input id="l-tick" placeholder="GLADIUS" maxlength="12" value="'+escAttr(state.lTick)+'"></div>'+
           '<div id="l-type-hint" style="font-size:12px;color:var(--muted);margin-top:-4px">'+(tickerToIdent(state.lTick) ? "Coin type will be <code>…::"+escHtml(tickerToIdent(state.lTick))+"::"+escHtml(tickerToIdent(state.lTick).toUpperCase())+"</code>" : "")+'</div>'+
@@ -6206,7 +6206,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
           '<button type="button" class="btn-trade" id="launch-go">'+launchBtnLabel()+'</button>'+
           '<div id="launch-note" style="font-size:12px;color:'+(state.lNoteErr?"#FF6640":"var(--muted)")+';margin-top:8px;text-align:center">'+
             escHtml(state.lNote || (Number(state.lFirstBuy)>0
-              ? ("Pay 1 SUI launch fee, then a first buy of "+state.lFirstBuy+" SUI"+(state.lQuote==="SUI"?"":state.lQuote==="USDY"?" hopped through Cetus USDY":" hopped through "+state.lQuote)+".")
+              ? ("Pay 1 SUI launch fee. First buy of "+state.lFirstBuy+" SUI lands in the same transaction as seed"+(state.lQuote==="SUI"?"":state.lQuote==="USDY"?" (SUI → USDY hop, then TOKEN)":" (SUI → "+state.lQuote+" hop, then TOKEN)")+".")
               : "Pay 1 SUI launch fee. 0 quote LP."))+
           '</div>'+
         '</div></div>'+
@@ -8242,7 +8242,7 @@ async function doBridgeDeposit(){
         state.lCap = capId;
         state.lTokenCoin = tokenCoinId;
         state.lPublishedType = made.coinType;
-        setLaunchNote("Coin live at " + made.packageId.slice(0, 10) + "…. Signature 2 of 2 seeds the pair.", false);
+        setLaunchNote("Coin live at " + made.packageId.slice(0, 10) + "…. Signature 2 of 2 seeds the pair" + (firstBuy > 0n ? " and first buy." : "."), false);
       }
 
       if (btn) btn.textContent = "Building PTB…";
@@ -8267,7 +8267,7 @@ async function doBridgeDeposit(){
       }
       var tx = new Transaction();
       tx.setSender(suiSession.address);
-      if (typeof tx.setGasBudget === "function") tx.setGasBudget(200000000);
+      if (typeof tx.setGasBudget === "function") tx.setGasBudget(firstBuy > 0n ? 400000000 : 200000000);
       var tokenArg = tx.object(tokenCoinId);
       var feeSplit = tx.splitCoins(tx.gas, [txAmt(LAUNCH_FEE)]);
       var feeArg = Array.isArray(feeSplit) ? feeSplit[0] : feeSplit;
@@ -8278,6 +8278,7 @@ async function doBridgeDeposit(){
       });
       // Instant: 100% token, 0 quote. Paths:
       // RWA quote → holder_yield; SUI+basket → basket_yield_N; else plain instant.
+      // First buy (if any) is the same PTB: swap Q→T on the owned pool before share.
       if (!splitOk()) throw new Error("Fee split must sum to 100% with platform ≥ 5%");
       var splitArgs = launchSplitArgs(tx);
       var baseArgs = [
@@ -8291,11 +8292,32 @@ async function doBridgeDeposit(){
         feeArg,
         creationArg
       ];
+      var buyArg;
+      var minOutArg;
+      if (firstBuy > 0n){
+        if (launchQuote === "SUI"){
+          var buySplit = tx.splitCoins(tx.gas, [txAmt(firstBuy)]);
+          buyArg = Array.isArray(buySplit) ? buySplit[0] : buySplit;
+        } else {
+          var hopped = await hopSuiToQuoteOnTx(tx, launchQuote, firstBuy);
+          tx = hopped.tx;
+          buyArg = hopped.coin;
+        }
+        minOutArg = txPure(tx, "u64", txAmt(1));
+      } else {
+        buyArg = tx.moveCall({
+          target: padType("0x2::coin::zero"),
+          typeArguments: [Qtype],
+          arguments: []
+        });
+        minOutArg = txPure(tx, "u64", txAmt(0));
+      }
+      var buyArgs = [buyArg, minOutArg];
       if (isRwaQuote(launchQuote)){
         tx.moveCall({
-          target: CALL + "::launch::launch_instant_holder_yield_v2_entry",
+          target: CALL + "::launch::launch_instant_holder_yield_v2_buy_entry",
           typeArguments: [Ttype, Qtype],
-          arguments: baseArgs.concat(splitArgs)
+          arguments: baseArgs.concat(splitArgs).concat(buyArgs)
         });
       } else if (state.lBasket && String(launchQuote).toUpperCase() === "SUI"){
         var legs = normalizeBasketBps(basketSelectedLegs());
@@ -8308,22 +8330,22 @@ async function doBridgeDeposit(){
         weightArgs.push(txPure(tx, "u8", mode));
         var typeArgs = [Ttype, Qtype].concat(legs.map(function(leg){ return padType(leg.type); }));
         var target =
-          legs.length === 1 ? (CALL + "::launch::launch_instant_basket_yield_v2_entry") :
-          legs.length === 2 ? (CALL + "::launch::launch_instant_basket_yield_v2_2_entry") :
-          (CALL + "::launch::launch_instant_basket_yield_v2_3_entry");
+          legs.length === 1 ? (CALL + "::launch::launch_instant_basket_yield_v2_buy_entry") :
+          legs.length === 2 ? (CALL + "::launch::launch_instant_basket_yield_v2_2_buy_entry") :
+          (CALL + "::launch::launch_instant_basket_yield_v2_3_buy_entry");
         tx.moveCall({
           target: target,
           typeArguments: typeArgs,
-          arguments: baseArgs.concat(weightArgs).concat(splitArgs)
+          arguments: baseArgs.concat(weightArgs).concat(splitArgs).concat(buyArgs)
         });
       } else {
         tx.moveCall({
-          target: CALL + "::launch::launch_instant_v2_entry",
+          target: CALL + "::launch::launch_instant_v2_buy_entry",
           typeArguments: [Ttype, Qtype],
-          arguments: baseArgs.concat(splitArgs)
+          arguments: baseArgs.concat(splitArgs).concat(buyArgs)
         });
       }
-      if (btn) btn.textContent = "Sign in wallet…";
+      if (btn) btn.textContent = firstBuy > 0n ? "Sign 2 of 2 · seed + first buy…" : "Sign in wallet…";
       var result = await walletExec(tx);
       var digest = txDigest(result);
       launchedOk = true;
@@ -8332,47 +8354,10 @@ async function doBridgeDeposit(){
       var launched = digest ? await waitForInstadexLaunch(digest) : null;
       if (launched){
         upsertInstadex(launched);
-        if (firstBuy > 0n && launched.bluefin_pool_id){
-          if (btn) btn.textContent = "Sign first buy · SUI…";
-          setLaunchNote(launchQuote === "SUI"
-            ? "Pair live. Sign the first buy in SUI."
-            : "Pair live. Sign the first buy: SUI → "+launchQuote+" → token.", false);
-          var buyTk = {
-            t: String(launched.symbol || state.lTick || "").toUpperCase(),
-            token: launched.token || Ttype,
-            bluefinPool: launched.bluefin_pool_id,
-            q: launchQuote,
-            instadex: true
-          };
-          var prevSide = state.side, prevPay = state.payWith;
-          state.side = "Buy";
-          state.payWith = "SUI";
-          swapping = true;
-          var buyErrLast = null;
-          try {
-            for (var bi = 0; bi < 3; bi++){
-              try {
-                if (launchQuote !== "SUI") await swapViaQuoteHop(buyTk, firstBuy, 1n);
-                else await swapViaBluefin(buyTk, firstBuy, 1n);
-                buyErrLast = null;
-                break;
-              } catch (buyErr){
-                buyErrLast = buyErr;
-                if (bi < 2) await sleep(800 + bi * 400);
-              }
-            }
-            if (buyErrLast) throw buyErrLast;
-            if (bus.sub && bus.sub.refreshBluefin) bus.sub.refreshBluefin(launched.bluefin_pool_id);
-            setLaunchNote("Launched with first buy in SUI.", false);
-          } catch (buyErr){
-            var buyMsg = (buyErr && buyErr.message) ? buyErr.message : String(buyErr);
-            setLaunchNote("Launched. First buy failed: "+buyMsg+" Pair is live — retry the buy on the token page with Pay SUI.", true);
-          } finally {
-            swapping = false;
-            state.side = prevSide;
-            state.payWith = prevPay;
-          }
+        if (firstBuy > 0n && bus.sub && bus.sub.refreshBluefin && launched.bluefin_pool_id){
+          bus.sub.refreshBluefin(launched.bluefin_pool_id);
         }
+        if (firstBuy > 0n) setLaunchNote("Launched with first buy in the same transaction.", false);
         var sym = String(launched.symbol || state.lTick || "").toUpperCase();
         if (sym) go("token", sym);
         else go("explore");
@@ -8747,6 +8732,28 @@ async function doBridgeDeposit(){
     }
     tx.transferObjects([outB], suiSession.address);
     return outA;
+  }
+  /// SUI → quote coin on an existing PTB (Cetus / 7k / Bluefin hop). Used to
+  /// bundle Instant first-buy with seed: hop first, then pass Coin<Q> into launch.
+  async function hopSuiToQuoteOnTx(tx, q, amount){
+    q = String(q || "").toUpperCase();
+    var Qtype = padType(quoteRec(q).type);
+    var usdc = window.ARENA_USDC_TYPE;
+    var suiCoin = await takeSwapCoin(tx, SUI_TYPE, amount);
+    if (q === "USDY"){
+      var toUsdc = await sevenkOnto(tx, suiCoin, SUI_TYPE, usdc, amount);
+      tx = toUsdc.tx;
+      var cetus = await loadUsdyUsdcPool();
+      return { tx: tx, coin: cetusHop(tx, cetus, usdc, toUsdc.coinOut) };
+    }
+    if (q === "XAUM"){
+      var goldUsdc = await sevenkOnto(tx, suiCoin, SUI_TYPE, usdc, amount);
+      tx = goldUsdc.tx;
+      var xaumUsdc = await loadXaumUsdcPool();
+      return { tx: tx, coin: bluefinHop(tx, xaumUsdc, usdc, goldUsdc.coinOut, 0) };
+    }
+    var midBuy = await sevenkOnto(tx, suiCoin, SUI_TYPE, Qtype, amount);
+    return { tx: midBuy.tx, coin: midBuy.coinOut };
   }
   async function swapViaBluefin(tk, amount, minOut){
     var Transaction = await loadTransaction();

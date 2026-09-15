@@ -306,7 +306,9 @@ public(package) fun seed_and_lock_internal<T, Q>(
 
 /// Instant DEX: 100% token, 0 quote. Price from `virtual_quote` / token amount (Robinpad Instant).
 /// Token is Bluefin coin A so collect still burns A and splits B.
-public(package) fun seed_and_lock_instant<T, Q>(
+/// Optional `first_buy` (Coin<Q>) swaps Q→T on the owned pool before share, so
+/// seed + creator buy are one tx. Pass `coin::zero` / `min_out = 0` to skip.
+fun seed_instant_pool<T, Q>(
     beneficiary: address,
     clock: &Clock,
     bf_config: &mut GlobalConfig,
@@ -315,9 +317,10 @@ public(package) fun seed_and_lock_instant<T, Q>(
     creation_fee: Balance<SUI>,
     token: Balance<T>,
     virtual_quote: u64,
-    split: Option<LockLpSplit>,
+    first_buy: Coin<Q>,
+    min_out: u64,
     ctx: &mut TxContext,
-): (ID, ID, ID, u64) {
+): (ID, Position) {
     let token_amount = token.value();
     assert!(token_amount > 0 && virtual_quote > 0, errors::insufficient_liquidity());
     let ideal_sqrt = math::sqrt_price_x64(token_amount, virtual_quote);
@@ -327,8 +330,8 @@ public(package) fun seed_and_lock_instant<T, Q>(
     name.append(b"-");
     name.append(*meta_q.get_symbol().as_bytes());
 
-    let (bf_pool_id, position, _paid_a, paid_b, rem_a, rem_b) =
-        bluefin::create_and_seed<T, Q, SUI>(
+    let (mut pool, position, _paid_a, paid_b, rem_a, rem_b) =
+        bluefin::create_and_seed_owned<T, Q, SUI>(
             clock,
             bf_config,
             name,
@@ -352,6 +355,37 @@ public(package) fun seed_and_lock_instant<T, Q>(
     assert!(paid_b == 0, errors::invalid_fee());
     send_residual(rem_a, beneficiary, ctx);
     send_residual(rem_b, beneficiary, ctx);
+    if (first_buy.value() > 0) {
+        let (out_t, out_q) = bluefin::swap_quote_for_token(clock, bf_config, &mut pool, first_buy, min_out);
+        send_residual(out_t, beneficiary, ctx);
+        send_residual(out_q, beneficiary, ctx);
+    } else {
+        first_buy.destroy_zero();
+    };
+    let pool_id = object::id(&pool);
+    bluefin::share_pool(pool);
+    (pool_id, position)
+}
+
+public(package) fun seed_and_lock_instant<T, Q>(
+    beneficiary: address,
+    clock: &Clock,
+    bf_config: &mut GlobalConfig,
+    meta_t: &CoinMetadata<T>,
+    meta_q: &CoinMetadata<Q>,
+    creation_fee: Balance<SUI>,
+    token: Balance<T>,
+    virtual_quote: u64,
+    split: Option<LockLpSplit>,
+    first_buy: Coin<Q>,
+    min_out: u64,
+    ctx: &mut TxContext,
+): (ID, ID, ID, u64) {
+    let token_amount = token.value();
+    let (bf_pool_id, position) = seed_instant_pool(
+        beneficiary, clock, bf_config, meta_t, meta_q, creation_fee, token, virtual_quote,
+        first_buy, min_out, ctx,
+    );
     vault_position(
         object::id_from_address(@0x0),
         bf_pool_id,
@@ -377,42 +411,14 @@ public(package) fun seed_and_lock_instant_holder_yield<T, Q>(
     token: Balance<T>,
     virtual_quote: u64,
     split: Option<LockLpSplit>,
+    first_buy: Coin<Q>,
+    min_out: u64,
     ctx: &mut TxContext,
 ): (ID, ID, ID, u64, ID) {
-    let token_amount = token.value();
-    assert!(token_amount > 0 && virtual_quote > 0, errors::insufficient_liquidity());
-    let ideal_sqrt = math::sqrt_price_x64(token_amount, virtual_quote);
-    let (lower_bits, upper_bits, init_sqrt) = bluefin::instant_range(bf_config, ideal_sqrt);
-
-    let mut name = *meta_t.get_symbol().as_bytes();
-    name.append(b"-");
-    name.append(*meta_q.get_symbol().as_bytes());
-
-    let (bf_pool_id, position, _paid_a, paid_b, rem_a, rem_b) =
-        bluefin::create_and_seed<T, Q, SUI>(
-            clock,
-            bf_config,
-            name,
-            metadata_url(meta_t),
-            *meta_t.get_symbol().as_bytes(),
-            meta_t.get_decimals(),
-            metadata_url(meta_t),
-            *meta_q.get_symbol().as_bytes(),
-            meta_q.get_decimals(),
-            metadata_url(meta_q),
-            init_sqrt,
-            creation_fee,
-            lower_bits,
-            upper_bits,
-            token,
-            sui::balance::zero<Q>(),
-            token_amount,
-            true,
-            ctx,
-        );
-    assert!(paid_b == 0, errors::invalid_fee());
-    send_residual(rem_a, beneficiary, ctx);
-    send_residual(rem_b, beneficiary, ctx);
+    let (bf_pool_id, position) = seed_instant_pool(
+        beneficiary, clock, bf_config, meta_t, meta_q, creation_fee, token, virtual_quote,
+        first_buy, min_out, ctx,
+    );
 
     let position_id = object::id(&position);
     let mut lock = BluefinPositionLock {
@@ -831,42 +837,14 @@ public(package) fun seed_and_lock_instant_basket_yield<T, Q>(
     virtual_quote: u64,
     config: BasketConfig,
     split: Option<LockLpSplit>,
+    first_buy: Coin<Q>,
+    min_out: u64,
     ctx: &mut TxContext,
 ): (ID, ID, ID, u64, ID) {
-    let token_amount = token.value();
-    assert!(token_amount > 0 && virtual_quote > 0, errors::insufficient_liquidity());
-    let ideal_sqrt = math::sqrt_price_x64(token_amount, virtual_quote);
-    let (lower_bits, upper_bits, init_sqrt) = bluefin::instant_range(bf_config, ideal_sqrt);
-
-    let mut name = *meta_t.get_symbol().as_bytes();
-    name.append(b"-");
-    name.append(*meta_q.get_symbol().as_bytes());
-
-    let (bf_pool_id, position, _paid_a, paid_b, rem_a, rem_b) =
-        bluefin::create_and_seed<T, Q, SUI>(
-            clock,
-            bf_config,
-            name,
-            metadata_url(meta_t),
-            *meta_t.get_symbol().as_bytes(),
-            meta_t.get_decimals(),
-            metadata_url(meta_t),
-            *meta_q.get_symbol().as_bytes(),
-            meta_q.get_decimals(),
-            metadata_url(meta_q),
-            init_sqrt,
-            creation_fee,
-            lower_bits,
-            upper_bits,
-            token,
-            sui::balance::zero<Q>(),
-            token_amount,
-            true,
-            ctx,
-        );
-    assert!(paid_b == 0, errors::invalid_fee());
-    send_residual(rem_a, beneficiary, ctx);
-    send_residual(rem_b, beneficiary, ctx);
+    let (bf_pool_id, position) = seed_instant_pool(
+        beneficiary, clock, bf_config, meta_t, meta_q, creation_fee, token, virtual_quote,
+        first_buy, min_out, ctx,
+    );
 
     let position_id = object::id(&position);
     let mut lock = BluefinPositionLock {

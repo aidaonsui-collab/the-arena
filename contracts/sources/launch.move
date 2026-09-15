@@ -186,6 +186,8 @@ public fun launch_instant<T, Q>(
         token.into_balance(),
         virtual_quote,
         option::none(),
+        coin::zero<Q>(ctx),
+        0,
         ctx,
     );
 
@@ -231,6 +233,31 @@ public fun launch_instant_v2<T, Q>(
     buyback_bps: u64,
     ctx: &mut TxContext,
 ): ID {
+    launch_instant_v2_buy(
+        config, clock, bf_config, treasury_cap, meta_t, meta_q, token, fee_sui, creation_fee,
+        creator_bps, platform_bps, pit_bps, buyback_bps, coin::zero<Q>(ctx), 0, ctx,
+    )
+}
+
+/// Instant v2 + first buy of `Coin<Q>` on the new pool before it is shared.
+public fun launch_instant_v2_buy<T, Q>(
+    config: &mut Config,
+    clock: &Clock,
+    bf_config: &mut GlobalConfig,
+    treasury_cap: TreasuryCap<T>,
+    meta_t: &CoinMetadata<T>,
+    meta_q: &CoinMetadata<Q>,
+    token: Coin<T>,
+    fee_sui: Coin<SUI>,
+    creation_fee: Coin<SUI>,
+    creator_bps: u64,
+    platform_bps: u64,
+    pit_bps: u64,
+    buyback_bps: u64,
+    first_buy: Coin<Q>,
+    min_out: u64,
+    ctx: &mut TxContext,
+): ID {
     config.take_launch_fee(fee_sui);
     let token_amount = token.value();
     assert!(token_amount > 0, errors::zero_amount());
@@ -247,6 +274,8 @@ public fun launch_instant_v2<T, Q>(
         token.into_balance(),
         virtual_quote,
         split,
+        first_buy,
+        min_out,
         ctx,
     );
     let mint = InstadexMintLock<T> {
@@ -303,6 +332,8 @@ public fun launch_instant_holder_yield<T, Q>(
         token.into_balance(),
         virtual_quote,
         option::none(),
+        coin::zero<Q>(ctx),
+        0,
         ctx,
     );
 
@@ -363,7 +394,7 @@ public entry fun launch_instant_holder_yield_entry<T, Q>(
     );
 }
 
-public fun launch_instant_holder_yield_v2<T, Q>(
+public fun launch_instant_holder_yield_v2_buy<T, Q>(
     config: &mut Config,
     clock: &Clock,
     bf_config: &mut GlobalConfig,
@@ -377,6 +408,8 @@ public fun launch_instant_holder_yield_v2<T, Q>(
     platform_bps: u64,
     pit_bps: u64,
     buyback_bps: u64,
+    first_buy: Coin<Q>,
+    min_out: u64,
     ctx: &mut TxContext,
 ): ID {
     config.take_launch_fee(fee_sui);
@@ -395,6 +428,8 @@ public fun launch_instant_holder_yield_v2<T, Q>(
         token.into_balance(),
         virtual_quote,
         split,
+        first_buy,
+        min_out,
         ctx,
     );
     let mint = InstadexMintLock<T> {
@@ -427,6 +462,28 @@ public fun launch_instant_holder_yield_v2<T, Q>(
     lock_id
 }
 
+public fun launch_instant_holder_yield_v2<T, Q>(
+    config: &mut Config,
+    clock: &Clock,
+    bf_config: &mut GlobalConfig,
+    treasury_cap: TreasuryCap<T>,
+    meta_t: &CoinMetadata<T>,
+    meta_q: &CoinMetadata<Q>,
+    token: Coin<T>,
+    fee_sui: Coin<SUI>,
+    creation_fee: Coin<SUI>,
+    creator_bps: u64,
+    platform_bps: u64,
+    pit_bps: u64,
+    buyback_bps: u64,
+    ctx: &mut TxContext,
+): ID {
+    launch_instant_holder_yield_v2_buy(
+        config, clock, bf_config, treasury_cap, meta_t, meta_q, token, fee_sui, creation_fee,
+        creator_bps, platform_bps, pit_bps, buyback_bps, coin::zero<Q>(ctx), 0, ctx,
+    )
+}
+
 public entry fun launch_instant_holder_yield_v2_entry<T, Q>(
     config: &mut Config,
     clock: &Clock,
@@ -446,6 +503,30 @@ public entry fun launch_instant_holder_yield_v2_entry<T, Q>(
     launch_instant_holder_yield_v2<T, Q>(
         config, clock, bf_config, treasury_cap, meta_t, meta_q, token, fee_sui, creation_fee,
         creator_bps, platform_bps, pit_bps, buyback_bps, ctx,
+    );
+}
+
+public entry fun launch_instant_holder_yield_v2_buy_entry<T, Q>(
+    config: &mut Config,
+    clock: &Clock,
+    bf_config: &mut GlobalConfig,
+    treasury_cap: TreasuryCap<T>,
+    meta_t: &CoinMetadata<T>,
+    meta_q: &CoinMetadata<Q>,
+    token: Coin<T>,
+    fee_sui: Coin<SUI>,
+    creation_fee: Coin<SUI>,
+    creator_bps: u64,
+    platform_bps: u64,
+    pit_bps: u64,
+    buyback_bps: u64,
+    first_buy: Coin<Q>,
+    min_out: u64,
+    ctx: &mut TxContext,
+) {
+    launch_instant_holder_yield_v2_buy<T, Q>(
+        config, clock, bf_config, treasury_cap, meta_t, meta_q, token, fee_sui, creation_fee,
+        creator_bps, platform_bps, pit_bps, buyback_bps, first_buy, min_out, ctx,
     );
 }
 
@@ -484,6 +565,8 @@ public fun launch_instant_basket_yield<T, Q>(
         virtual_quote,
         basket,
         option::none(),
+        coin::zero<Q>(ctx),
+        0,
         ctx,
     );
 
@@ -615,6 +698,31 @@ public fun launch_instant_basket_yield_v2<T, Q>(
     buyback_bps: u64,
     ctx: &mut TxContext,
 ): ID {
+    launch_instant_basket_yield_v2_buy(
+        config, clock, bf_config, treasury_cap, meta_t, meta_q, token, fee_sui, creation_fee, basket,
+        creator_bps, platform_bps, pit_bps, buyback_bps, coin::zero<Q>(ctx), 0, ctx,
+    )
+}
+
+public fun launch_instant_basket_yield_v2_buy<T, Q>(
+    config: &mut Config,
+    clock: &Clock,
+    bf_config: &mut GlobalConfig,
+    treasury_cap: TreasuryCap<T>,
+    meta_t: &CoinMetadata<T>,
+    meta_q: &CoinMetadata<Q>,
+    token: Coin<T>,
+    fee_sui: Coin<SUI>,
+    creation_fee: Coin<SUI>,
+    basket: BasketConfig,
+    creator_bps: u64,
+    platform_bps: u64,
+    pit_bps: u64,
+    buyback_bps: u64,
+    first_buy: Coin<Q>,
+    min_out: u64,
+    ctx: &mut TxContext,
+): ID {
     config.take_launch_fee(fee_sui);
     let token_amount = token.value();
     assert!(token_amount > 0, errors::zero_amount());
@@ -624,7 +732,7 @@ public fun launch_instant_basket_yield_v2<T, Q>(
     let asset_count = basket_yield::config_asset_count(&basket);
     let split = option::some(lock::new_lp_split(creator_bps, platform_bps, pit_bps, buyback_bps));
     let (lock_id, bf_pool_id, position_id, _, basket_id) = lock::seed_and_lock_instant_basket_yield(
-        ctx.sender(), clock, bf_config, meta_t, meta_q, fee, token.into_balance(), virtual_quote, basket, split, ctx,
+        ctx.sender(), clock, bf_config, meta_t, meta_q, fee, token.into_balance(), virtual_quote, basket, split, first_buy, min_out, ctx,
     );
     let mint = InstadexMintLock<T> { id: object::new(ctx), cap: treasury_cap };
     let mint_id = object::id(&mint);
@@ -694,6 +802,63 @@ public entry fun launch_instant_basket_yield_v2_3_entry<T, Q, A0, A1, A2>(
     launch_instant_basket_yield_v2<T, Q>(
         config, clock, bf_config, treasury_cap, meta_t, meta_q, token, fee_sui, creation_fee, basket,
         creator_bps, platform_bps, pit_bps, buyback_bps, ctx,
+    );
+}
+
+public entry fun launch_instant_basket_yield_v2_buy_entry<T, Q, A0>(
+    config: &mut Config, clock: &Clock, bf_config: &mut GlobalConfig,
+    treasury_cap: TreasuryCap<T>, meta_t: &CoinMetadata<T>, meta_q: &CoinMetadata<Q>,
+    token: Coin<T>, fee_sui: Coin<SUI>, creation_fee: Coin<SUI>,
+    weight0: u64, equal_weight: bool, payout_mode: u8,
+    creator_bps: u64, platform_bps: u64, pit_bps: u64, buyback_bps: u64,
+    first_buy: Coin<Q>, min_out: u64,
+    ctx: &mut TxContext,
+) {
+    let mut assets = vector[];
+    assets.push_back(basket_yield::new_asset(type_name::with_defining_ids<A0>(), weight0));
+    let basket = basket_yield::new_config(assets, equal_weight, payout_mode);
+    launch_instant_basket_yield_v2_buy<T, Q>(
+        config, clock, bf_config, treasury_cap, meta_t, meta_q, token, fee_sui, creation_fee, basket,
+        creator_bps, platform_bps, pit_bps, buyback_bps, first_buy, min_out, ctx,
+    );
+}
+
+public entry fun launch_instant_basket_yield_v2_2_buy_entry<T, Q, A0, A1>(
+    config: &mut Config, clock: &Clock, bf_config: &mut GlobalConfig,
+    treasury_cap: TreasuryCap<T>, meta_t: &CoinMetadata<T>, meta_q: &CoinMetadata<Q>,
+    token: Coin<T>, fee_sui: Coin<SUI>, creation_fee: Coin<SUI>,
+    weight0: u64, weight1: u64, equal_weight: bool, payout_mode: u8,
+    creator_bps: u64, platform_bps: u64, pit_bps: u64, buyback_bps: u64,
+    first_buy: Coin<Q>, min_out: u64,
+    ctx: &mut TxContext,
+) {
+    let mut assets = vector[];
+    assets.push_back(basket_yield::new_asset(type_name::with_defining_ids<A0>(), weight0));
+    assets.push_back(basket_yield::new_asset(type_name::with_defining_ids<A1>(), weight1));
+    let basket = basket_yield::new_config(assets, equal_weight, payout_mode);
+    launch_instant_basket_yield_v2_buy<T, Q>(
+        config, clock, bf_config, treasury_cap, meta_t, meta_q, token, fee_sui, creation_fee, basket,
+        creator_bps, platform_bps, pit_bps, buyback_bps, first_buy, min_out, ctx,
+    );
+}
+
+public entry fun launch_instant_basket_yield_v2_3_buy_entry<T, Q, A0, A1, A2>(
+    config: &mut Config, clock: &Clock, bf_config: &mut GlobalConfig,
+    treasury_cap: TreasuryCap<T>, meta_t: &CoinMetadata<T>, meta_q: &CoinMetadata<Q>,
+    token: Coin<T>, fee_sui: Coin<SUI>, creation_fee: Coin<SUI>,
+    weight0: u64, weight1: u64, weight2: u64, equal_weight: bool, payout_mode: u8,
+    creator_bps: u64, platform_bps: u64, pit_bps: u64, buyback_bps: u64,
+    first_buy: Coin<Q>, min_out: u64,
+    ctx: &mut TxContext,
+) {
+    let mut assets = vector[];
+    assets.push_back(basket_yield::new_asset(type_name::with_defining_ids<A0>(), weight0));
+    assets.push_back(basket_yield::new_asset(type_name::with_defining_ids<A1>(), weight1));
+    assets.push_back(basket_yield::new_asset(type_name::with_defining_ids<A2>(), weight2));
+    let basket = basket_yield::new_config(assets, equal_weight, payout_mode);
+    launch_instant_basket_yield_v2_buy<T, Q>(
+        config, clock, bf_config, treasury_cap, meta_t, meta_q, token, fee_sui, creation_fee, basket,
+        creator_bps, platform_bps, pit_bps, buyback_bps, first_buy, min_out, ctx,
     );
 }
 
@@ -1000,6 +1165,30 @@ public entry fun launch_instant_v2_entry<T, Q>(
     launch_instant_v2<T, Q>(
         config, clock, bf_config, treasury_cap, meta_t, meta_q, token, fee_sui, creation_fee,
         creator_bps, platform_bps, pit_bps, buyback_bps, ctx,
+    );
+}
+
+public entry fun launch_instant_v2_buy_entry<T, Q>(
+    config: &mut Config,
+    clock: &Clock,
+    bf_config: &mut GlobalConfig,
+    treasury_cap: TreasuryCap<T>,
+    meta_t: &CoinMetadata<T>,
+    meta_q: &CoinMetadata<Q>,
+    token: Coin<T>,
+    fee_sui: Coin<SUI>,
+    creation_fee: Coin<SUI>,
+    creator_bps: u64,
+    platform_bps: u64,
+    pit_bps: u64,
+    buyback_bps: u64,
+    first_buy: Coin<Q>,
+    min_out: u64,
+    ctx: &mut TxContext,
+) {
+    launch_instant_v2_buy<T, Q>(
+        config, clock, bf_config, treasury_cap, meta_t, meta_q, token, fee_sui, creation_fee,
+        creator_bps, platform_bps, pit_bps, buyback_bps, first_buy, min_out, ctx,
     );
 }
 
