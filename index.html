@@ -711,6 +711,25 @@ html.shot,html.shot *{animation:none!important;transition:none!important}
   .bridge-hero{margin-bottom:14px;text-align:left}
 }
 html[data-route="bridge"] .search-row{display:none}
+html[data-route="lock"] .search-row{display:none}
+html[data-route="lock"] main{width:min(720px,calc(100% - 32px));margin:0 auto;padding:18px 0 72px}
+.lock-hero{margin:0 0 18px}
+.lock-hero h1{font-size:clamp(28px,5vw,44px);font-weight:700;letter-spacing:-.03em;margin:0;line-height:1.1}
+.lock-hero h1 em{font-style:normal;color:var(--pink)}
+.lock-hero p{margin:10px 0 0;color:var(--muted);font-size:14px;max-width:48ch;line-height:1.45}
+.lock-card{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:18px 16px}
+.lock-field{margin:0 0 12px}
+.lock-field label{display:block;font-size:11px;font-weight:650;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:0 0 6px}
+.lock-field input,.lock-field textarea{width:100%;border:1px solid var(--line);background:#140e14;color:var(--ink);border-radius:12px;padding:12px 14px;font:inherit;font-size:14px}
+.lock-field input:focus{border-color:var(--pink);outline:none}
+.lock-hint{font-size:12px;color:var(--muted);margin:8px 0 0;line-height:1.4}
+.lock-row{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 12px}
+.lock-list{display:flex;flex-direction:column;gap:10px;margin-top:12px}
+.lock-item{border:1px solid var(--line);border-radius:14px;padding:12px 14px;background:#140e14}
+.lock-item .k{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.lock-item .v{font-weight:650;margin-top:2px}
+.lock-item-top{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
+.lock-item button{margin-top:10px}
 
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important}}
 </style>
@@ -755,6 +774,8 @@ window.ARENA_BLUEFIN_EVENT_PACKAGE = "0x8e28ff4116a8c9025b5d615b0b0a7bc45f4f5431
 window.ARENA_ADMIN_CAP = "0x79e041a4444971bfbf8000925ac3386d8351a3e997eb7d838d84eb6c3e507acf";
 window.ARENA_CONFIG = "0xcd527cb2389d806e5285ae708ee28df30a841ec5df7508ebfebaa0c9660b5d2c";
 window.ARENA_CLOCK = "0x6";
+window.VICELOCK_PKG = "0x93d1a123f8955c344d83d571048cf2d53ab790ba9c202391e4ef54e467574558";
+window.VICELOCK_FEE = "1000000000";
 window.ARENA_BLUEFIN_CONFIG = "0x03db251ba509a8d5d8777b6338836082335d93eecbdd09a11e190a1cff51c352";
 window.ARENA_BLUEFIN_SPOT = "0xd075338d105482f1527cbfd363d6413558f184dec36d9138a70261e87f486e9c";
 window.ARENA_XAUM_USDC_POOL = "0x458fc3722cc88babd7cbe78273aa5e4ecbdff75c76a2ad14cd1f75418b569649";
@@ -889,7 +910,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   var pitStatePollAt = 0;
   let balance = 48.60;
   let xaumBal = 2.40;
-  const state = {route:"explore", sym:"VOLT", filter:"All", sort:"Market cap", time:"All", side:"Buy", amt:"1", connected:false, search:"", lName:"", lTick:"", lQuote:"SUI", lPath:"instadex", lMode:"Holders", lTokenAmt:"", lQuoteAmt:"", lFirstBuy:"1", lCap:"", lTokenCoin:"", lQuoteCoin:"", lCoinMode:"create", lDecimals:"9", lSupply:"1000000000", lDesc:"", lX:"", lTg:"", lWeb:"", lPublishedType:"", metricsWindow:"All", tapeTab:"trades", tapeOpen:"", tapePage:0, tapeAge:"age", tapeWallet:"", tapeFilterOpen:false, lFile:null, lArtUrl:"", lArtPreview:"", payWith:"SUI", lNote:"", lNoteErr:false, chartTf:900, chartInd:{vol:true,ma7:false,ma25:false,ma99:false,ema:false}, bridgeTick:"NVDA", bridgeAmt:"", bridgeDir:"in", bridgeRhDest:"", bridgeNote:"", bridgeBusy:false, quoteOpen:false, rewardsTab:"all", lBasket:false, lBasketEqual:true, lBasketMode:0, lBasketOn:{XAUM:true,XAGM:true,USDY:true}, lBasketBps:{XAUM:3334,XAGM:3333,USDY:3333}, lSplitPreset:"vice", lSplit:{creator:6000,platform:500,rewards:2500,buyback:1000}, pfRange:"1M", pfFlash:""};
+  const state = {route:"explore", sym:"VOLT", filter:"All", sort:"Market cap", time:"All", side:"Buy", amt:"1", connected:false, search:"", lName:"", lTick:"", lQuote:"SUI", lPath:"instadex", lMode:"Holders", lTokenAmt:"", lQuoteAmt:"", lFirstBuy:"1", lCap:"", lTokenCoin:"", lQuoteCoin:"", lCoinMode:"create", lDecimals:"9", lSupply:"1000000000", lDesc:"", lX:"", lTg:"", lWeb:"", lPublishedType:"", metricsWindow:"All", tapeTab:"trades", tapeOpen:"", tapePage:0, tapeAge:"age", tapeWallet:"", tapeFilterOpen:false, lFile:null, lArtUrl:"", lArtPreview:"", payWith:"SUI", lNote:"", lNoteErr:false, chartTf:900, chartInd:{vol:true,ma7:false,ma25:false,ma99:false,ema:false}, bridgeTick:"NVDA", bridgeAmt:"", bridgeDir:"in", bridgeRhDest:"", bridgeNote:"", bridgeBusy:false, quoteOpen:false, rewardsTab:"all", lBasket:false, lBasketEqual:true, lBasketMode:0, lBasketOn:{XAUM:true,XAGM:true,USDY:true}, lBasketBps:{XAUM:3334,XAGM:3333,USDY:3333}, lSplitPreset:"vice", lSplit:{creator:6000,platform:500,rewards:2500,buyback:1000}, pfRange:"1M", pfFlash:"", lockTab:"create", lockKind:"lock", lockTok:"", lockAmt:"", lockDays:"30", lockSelf:"self", lockBen:"", lockCliff:"90", lockEnd:"365", lockNote:"", lockNoteErr:false, lockBusy:false, lockMine:[], lockAll:[], lockLoad:false};
   var metaEdit = { open: false, saving: false, file: null, preview: "", artUrl: "", note: "", err: false, name: "", desc: "", x: "", tg: "", web: "", creator: "", openedCreator: "" };
   let hashLock = false;
   const hop = { suiPerXaum: null, suiPerUsdy: null, suiPerXagm: null, suiPerVicefun: null, usd: null, suiUsd: null, usdyUsd: null, xagmUsd: null, xaumUsd: null, vicefunUsd: null, source: "" };
@@ -4450,7 +4471,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     return '<footer class="footer">'+
       '<div><div class="brand-name" style="margin-bottom:8px">vice.</div>'+
         '<p style="margin:0;max-width:42ch">Fair launches on Sui. Instant seeds Bluefin in block one. T-bills hop Cetus. Quote is SUI, USDY, XAGM, or XAUM. LP locked forever.</p></div>'+
-      '<div><h4>Product</h4><div data-go="explore">The Strip</div><div data-go="pit">Distributions</div><div data-go="metrics">Books</div><div data-go="bridge">Bridge</div><div data-go="launch">Create</div><a href="https://x.com/ViceFun" target="_blank" rel="noopener">X</a></div>'+
+      '<div><h4>Product</h4><div data-go="explore">The Strip</div><div data-go="pit">Distributions</div><div data-go="metrics">Books</div><div data-go="bridge">Bridge</div><div data-go="lock">Vicelock</div><div data-go="launch">Create</div><a href="https://x.com/ViceFun" target="_blank" rel="noopener">X</a></div>'+
       '<div><h4>Fees</h4>Bluefin 2% on the pair (keeps 20%).<br>Our 80% quote split 60/5/25/10 creator/platform/rewards/VICE buyback.<br>Token-side LP fees burn.</div></footer>';
   }
   var pfCache = { addr: "", rows: [], at: 0 };
@@ -6693,6 +6714,288 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       footerHTML()+'</div>';
   }
 
+  function lockDefaultTok(){
+    return padType(normType(window.ARENA_VICEFUN_TYPE || SUI_TYPE));
+  }
+  function lockParseAmt(human, decimals){
+    var s = String(human || "").trim().replace(/,/g, "");
+    if (!s || !isFinite(Number(s)) || Number(s) <= 0) throw new Error("Enter an amount");
+    var d = Number(decimals);
+    if (!(d >= 0)) d = 9;
+    var parts = s.split(".");
+    var whole = (parts[0] || "0").replace(/^0+(?=\d)/, "") || "0";
+    var frac = (parts[1] || "").slice(0, d);
+    while (frac.length < d) frac += "0";
+    return BigInt(whole) * (10n ** BigInt(d)) + BigInt(frac || "0");
+  }
+  function lockDaysMs(n){
+    return Math.round(Number(n) * 86400000);
+  }
+  function lockTickOf(type){
+    var t = padType(normType(type || ""));
+    if (t === padType(normType(SUI_TYPE))) return "SUI";
+    if (window.ARENA_VICEFUN_TYPE && t === padType(normType(window.ARENA_VICEFUN_TYPE))) return "VICEFUN";
+    var parts = String(type || "").split("::");
+    return (parts[parts.length - 1] || "TOKEN").toUpperCase();
+  }
+  function lockCoinTypeFromObj(objType){
+    var m = String(objType || "").match(/<(.+)>$/);
+    return m ? m[1] : "";
+  }
+  async function lockDecimalsOf(type){
+    type = padType(normType(type));
+    if (type === padType(normType(SUI_TYPE))) return 9;
+    try {
+      var meta = await metadataFor(type);
+      if (meta && meta.decimals != null) return Number(meta.decimals);
+    } catch (e) {}
+    return 9;
+  }
+  function vicelockHTML(){
+    if (!state.lockTok) state.lockTok = lockDefaultTok();
+    var tab = state.lockTab || "create";
+    var kind = state.lockKind || "lock";
+    var tabs = [["create","Lock"],["mine","My locks"],["all","All locks"]];
+    var pills = tabs.map(function(x){
+      return '<button type="button" class="pill'+(tab===x[0]?" on":"")+'" data-set="lockTab" data-val="'+x[0]+'">'+x[1]+'</button>';
+    }).join("");
+    var kinds = '<div class="lock-row">'+
+      '<button type="button" class="pill'+(kind==="lock"?" on":"")+'" data-set="lockKind" data-val="lock">Time lock</button>'+
+      '<button type="button" class="pill'+(kind==="vest"?" on":"")+'" data-set="lockKind" data-val="vest">Vest</button>'+
+    '</div>';
+    var chips = [["SUI", padType(normType(SUI_TYPE))]];
+    if (window.ARENA_VICEFUN_TYPE) chips.push(["VICEFUN", padType(normType(window.ARENA_VICEFUN_TYPE))]);
+    T.forEach(function(tk){
+      if (!tk || !tk.token || tk.missing || isHiddenToken(tk)) return;
+      var typ = padType(normType(tk.token));
+      if (chips.some(function(c){ return c[1] === typ; })) return;
+      if (chips.length < 8) chips.push([tk.t, typ]);
+    });
+    var tokPills = chips.map(function(c){
+      var on = padType(normType(state.lockTok)) === c[1];
+      return '<button type="button" class="pill'+(on?" on":"")+'" data-set="lockTok" data-val="'+escAttr(c[1])+'">$'+escHtml(c[0])+'</button>';
+    }).join("");
+    var dayOpts = ["7","30","90","180","365"];
+    var dayPills = dayOpts.map(function(d){
+      return '<button type="button" class="pill'+(String(state.lockDays)===d?" on":"")+'" data-set="lockDays" data-val="'+d+'">'+d+'d</button>';
+    }).join("");
+    var form = '<div class="lock-card">'+
+      kinds+
+      '<div class="lock-field"><label>Token</label>'+
+        '<div class="lock-row">'+tokPills+'</div>'+
+        '<input id="lock-tok" value="'+escAttr(state.lockTok)+'" placeholder="0x…::module::TYPE" spellcheck="false">'+
+      '</div>'+
+      '<div class="lock-field"><label>Amount</label><input id="lock-amt" value="'+escAttr(state.lockAmt)+'" inputmode="decimal" placeholder="0.0"></div>'+
+      (kind==="vest"
+        ? '<div class="lock-field"><label>Cliff (days)</label><input id="lock-cliff" value="'+escAttr(state.lockCliff||"90")+'" inputmode="numeric"></div>'+
+          '<div class="lock-field"><label>End (days from now)</label><input id="lock-end" value="'+escAttr(state.lockEnd||"365")+'" inputmode="numeric"></div>'+
+          '<div class="lock-field"><label>Beneficiary</label><input id="lock-ben" value="'+escAttr(state.lockBen)+'" placeholder="0x… recipient" spellcheck="false"></div>'
+        : '<div class="lock-field"><label>Unlock in</label><div class="lock-row">'+dayPills+'</div></div>'+
+          '<div class="lock-row">'+
+            '<button type="button" class="pill'+(state.lockSelf!=="other"?" on":"")+'" data-set="lockSelf" data-val="self">To me</button>'+
+            '<button type="button" class="pill'+(state.lockSelf==="other"?" on":"")+'" data-set="lockSelf" data-val="other">Other wallet</button>'+
+          '</div>'+
+          (state.lockSelf==="other" ? '<div class="lock-field"><label>Beneficiary</label><input id="lock-ben" value="'+escAttr(state.lockBen)+'" placeholder="0x…" spellcheck="false"></div>' : "")
+      )+
+      '<p class="lock-hint">1 SUI protocol fee. Same on-chain locker as SuiLock ('+escHtml((window.VICELOCK_PKG||"").slice(0,10))+'…).</p>'+
+      '<button type="button" class="btn-pink" data-lock-go'+(state.lockBusy?" disabled":"")+'>'+(state.lockBusy?"Signing…":(kind==="vest"?"Create vest":"Lock tokens"))+'</button>'+
+      (state.lockNote ? '<p class="lock-hint" style="color:'+(state.lockNoteErr?"#FF6640":"var(--muted)")+'">'+escHtml(state.lockNote)+'</p>' : "")+
+    '</div>';
+    function lockRows(rows){
+      if (state.lockLoad) return '<p class="lock-hint">Loading…</p>';
+      if (!rows || !rows.length) return '<p class="lock-hint">None yet.</p>';
+      return '<div class="lock-list">'+rows.map(function(l){
+        var tick = lockTickOf(l.tokenType);
+        var amt = fromBaseStr(l.balance, l.decimals);
+        var when = l.type === "vest"
+          ? ("cliff "+(l.cliffTime?new Date(l.cliffTime).toLocaleDateString():"—")+" · end "+(l.endTime?new Date(l.endTime).toLocaleDateString():"—"))
+          : ("unlocks "+(l.unlockTime?new Date(l.unlockTime).toLocaleString():"—"));
+        var now = Date.now();
+        var ready = l.type === "lock" ? (now >= (l.unlockTime||0)) : (now >= (l.cliffTime||0));
+        var claim = ready
+          ? '<button type="button" class="btn-outline" data-lock-claim="'+escAttr(l.id)+'" data-lock-type="'+escAttr(l.type)+'" data-lock-token="'+escAttr(l.tokenType)+'">Claim</button>'
+          : '<div class="k">Locked</div>';
+        return '<div class="lock-item"><div class="lock-item-top"><div><div class="k">'+escHtml(l.type)+' · $'+escHtml(tick)+'</div><div class="v">'+escHtml(amt)+'</div><div class="k" style="margin-top:6px">'+escHtml(when)+'</div></div>'+claim+'</div></div>';
+      }).join("")+'</div>';
+    }
+    var body = tab === "create" ? form : (tab === "mine" ? lockRows(state.lockMine) : lockRows(state.lockAll));
+    return '<div data-screen-label="Vicelock">'+
+      '<div class="lock-hero"><h1><em>Vice</em>lock</h1><p>Time-lock or vest any Sui coin. Same locker as SuiLock — 1 SUI fee, claim when unlocked.</p><div class="pills" style="margin-top:14px">'+pills+'</div></div>'+
+      body+
+      footerHTML()+'</div>';
+  }
+  async function fetchVicelockEntries(filterAddr){
+    var pkg = window.VICELOCK_PKG;
+    if (!pkg) return [];
+    var lockType = pkg + "::token_locker::TokensLocked";
+    var vestType = pkg + "::vesting_schedule::VestingScheduleCreated";
+    var q = "query($t:String!){ events(last:40, filter:{ type:$t }){ nodes { contents { json } } } }";
+    var lockPage, vestPage;
+    try {
+      lockPage = await gql(q, { t: lockType });
+      vestPage = await gql(q, { t: vestType });
+    } catch (e) { return []; }
+    var lockNodes = (lockPage && lockPage.events && lockPage.events.nodes) || [];
+    var vestNodes = (vestPage && vestPage.events && vestPage.events.nodes) || [];
+    var out = [];
+    var seen = {};
+    async function one(n, kind){
+      var f = (n.contents && n.contents.json) || {};
+      var ben = String(f.beneficiary || "");
+      if (filterAddr && padAddr(ben) !== padAddr(filterAddr)) return;
+      var id = String(f.lock_id || f.schedule_id || f.vesting_id || f.id || "");
+      if (!id || seen[id]) return;
+      seen[id] = 1;
+      var obj;
+      try { obj = await suiJson("sui_getObject", [id, { showContent: true, showType: true }]); } catch (e) { return; }
+      var content = obj && obj.data && obj.data.content;
+      var fields = (content && content.fields) || {};
+      var objType = (obj && obj.data && obj.data.type) || (content && content.type) || "";
+      var bal = String(fields.balance != null ? fields.balance : (kind==="vest" ? (f.total_amount||"0") : (f.amount||"0")));
+      if (!(BigInt(bal || "0") > 0n)) return;
+      var tokenType = lockCoinTypeFromObj(objType) || String(f.token_type || "");
+      var decimals = 9;
+      try { decimals = await lockDecimalsOf(tokenType); } catch (e) {}
+      out.push({
+        id: id,
+        type: kind,
+        tokenType: tokenType,
+        balance: bal,
+        decimals: decimals,
+        beneficiary: ben,
+        creator: String(f.creator || ""),
+        unlockTime: Number(f.unlock_time || fields.unlock_time || 0),
+        cliffTime: Number(f.cliff_time || fields.cliff_time || 0),
+        endTime: Number(f.end_time || fields.end_time || 0)
+      });
+    }
+    for (var i = 0; i < lockNodes.length; i++) await one(lockNodes[i], "lock");
+    for (var j = 0; j < vestNodes.length; j++) await one(vestNodes[j], "vest");
+    return out;
+  }
+  async function refreshVicelock(){
+    if (state.route !== "lock") return;
+    var tab = state.lockTab || "create";
+    if (tab === "create") return;
+    state.lockLoad = true;
+    if (state.route === "lock") renderScreen();
+    try {
+      if (tab === "mine"){
+        if (!suiSession.address){ state.lockMine = []; }
+        else state.lockMine = await fetchVicelockEntries(suiSession.address);
+      } else {
+        state.lockAll = await fetchVicelockEntries();
+      }
+    } catch (e) {
+      state.lockNote = (e && e.message) || String(e);
+      state.lockNoteErr = true;
+    }
+    state.lockLoad = false;
+    if (state.route === "lock") renderScreen();
+  }
+  async function doVicelockSubmit(){
+    if (state.lockBusy) return;
+    try {
+      if (!suiSession.address) await connectWallet();
+      if (!suiSession.address) throw new Error("Connect a Sui wallet");
+      var pkg = window.VICELOCK_PKG;
+      if (!pkg) throw new Error("VICELOCK_PKG missing");
+      var tok = padType(normType(String(state.lockTok || "").trim() || lockDefaultTok()));
+      if (!/^0x[0-9a-fA-F]+::[A-Za-z_][A-Za-z0-9_]*::[A-Za-z_][A-Za-z0-9_]*$/.test(tok)){
+        throw new Error("Token must look like 0x…::module::TYPE");
+      }
+      var dec = await lockDecimalsOf(tok);
+      var raw = lockParseAmt(state.lockAmt, dec);
+      var kind = state.lockKind || "lock";
+      var ben = (kind === "lock" && state.lockSelf !== "other") ? suiSession.address : String(state.lockBen || "").trim();
+      if (!ben || ben.length < 20) throw new Error("Beneficiary address required");
+      var fee = BigInt(window.VICELOCK_FEE || "1000000000");
+      var Transaction = await loadTransaction();
+      var tx = new Transaction();
+      tx.setSender(suiSession.address);
+      var coinArg;
+      if (normType(tok) === SUI_TYPE){
+        var sp = tx.splitCoins(tx.gas, [txAmt(raw)]);
+        coinArg = Array.isArray(sp) ? sp[0] : sp;
+      } else {
+        coinArg = await takeSwapCoin(tx, tok, raw);
+      }
+      var fp = tx.splitCoins(tx.gas, [txAmt(fee)]);
+      var feeArg = Array.isArray(fp) ? fp[0] : fp;
+      if (kind === "vest"){
+        var cliff = Date.now() + lockDaysMs(state.lockCliff || 90);
+        var end = Date.now() + lockDaysMs(state.lockEnd || 365);
+        if (end <= cliff) throw new Error("End must be after cliff");
+        tx.moveCall({
+          target: pkg + "::vesting_schedule::new",
+          typeArguments: [tok],
+          arguments: [
+            coinArg, feeArg, tx.object(window.ARENA_CLOCK || "0x6"),
+            txPure(tx, "address", ben),
+            txPure(tx, "u64", txAmt(cliff)),
+            txPure(tx, "u64", txAmt(end))
+          ]
+        });
+      } else {
+        var unlock = Date.now() + lockDaysMs(state.lockDays || 30);
+        if (unlock <= Date.now()) throw new Error("Unlock must be in the future");
+        tx.moveCall({
+          target: pkg + "::token_locker::lock",
+          typeArguments: [tok],
+          arguments: [
+            coinArg, feeArg, tx.object(window.ARENA_CLOCK || "0x6"),
+            txPure(tx, "address", ben),
+            txPure(tx, "u64", txAmt(unlock))
+          ]
+        });
+      }
+      if (typeof tx.setGasBudget === "function") tx.setGasBudget(40000000);
+      state.lockBusy = true;
+      state.lockNote = "Sign in wallet…";
+      state.lockNoteErr = false;
+      if (state.route === "lock") renderScreen();
+      var res = await walletExec(tx);
+      var digest = (res && (res.digest || (res.effects && res.effects.transactionDigest))) || "";
+      state.lockBusy = false;
+      state.lockAmt = "";
+      state.lockNote = digest ? ("Locked · " + String(digest).slice(0, 10) + "…") : "Locked";
+      state.lockNoteErr = false;
+      if (state.route === "lock") renderScreen();
+    } catch (err){
+      state.lockBusy = false;
+      state.lockNote = (err && err.message) || String(err);
+      state.lockNoteErr = true;
+      if (state.route === "lock") renderScreen();
+    }
+  }
+  async function doVicelockClaim(id, kind, tokenType){
+    try {
+      if (!suiSession.address) await connectWallet();
+      var pkg = window.VICELOCK_PKG;
+      var Transaction = await loadTransaction();
+      var tx = new Transaction();
+      tx.setSender(suiSession.address);
+      var mod = kind === "vest" ? "vesting_schedule" : "token_locker";
+      var got = tx.moveCall({
+        target: pkg + "::" + mod + "::claim",
+        typeArguments: [padType(normType(tokenType))],
+        arguments: [tx.object(id), tx.object(window.ARENA_CLOCK || "0x6")]
+      });
+      var coin = Array.isArray(got) ? got[0] : got;
+      if (tx.transferObjects) tx.transferObjects([coin], txPure(tx, "address", suiSession.address));
+      state.lockNote = "Claiming…";
+      state.lockNoteErr = false;
+      var res = await walletExec(tx);
+      var digest = (res && (res.digest || (res.effects && res.effects.transactionDigest))) || "";
+      state.lockNote = digest ? ("Claimed · " + String(digest).slice(0, 10) + "…") : "Claimed";
+      await refreshVicelock();
+    } catch (err){
+      state.lockNote = (err && err.message) || String(err);
+      state.lockNoteErr = true;
+      if (state.route === "lock") renderScreen();
+    }
+  }
+
   async function refreshBridgeBal(){
     if (state.route !== "bridge"){
       state.bridgeBalHuman = "—";
@@ -7026,6 +7329,7 @@ async function doBridgeDeposit(){
     if (route === "pit") return "#/distributions";
     if (route === "metrics") return "#/books";
     if (route === "bridge") return "#/bridge";
+    if (route === "lock") return "#/vicelock";
     return "#/"+route;
   }
   function parseHash(){
@@ -7046,6 +7350,7 @@ async function doBridgeDeposit(){
     if (r === "books") return {route:"metrics", sym:state.sym};
     if (r === "launch" || r === "metrics" || r === "analytics") return {route: r==="analytics"?"metrics":r, sym:state.sym};
     if (r === "bridge") return {route:"bridge", sym:state.sym};
+    if (r === "lock" || r === "vicelock" || r === "suilock") return {route:"lock", sym:state.sym};
     return {route:"explore", sym:state.sym};
   }
   function paintShareMeta(){
@@ -7088,7 +7393,7 @@ async function doBridgeDeposit(){
     if (can) can.setAttribute("href", url);
   }
   function paintNav(){
-    const nav = [["The Strip","explore"],["Distributions","pit"],["Books","metrics"],["Bridge","bridge"]];
+    const nav = [["The Strip","explore"],["Distributions","pit"],["Books","metrics"],["Bridge","bridge"],["Vicelock","lock"]];
     $("#nav-pill").innerHTML = nav.map(function(n){
       const on = state.route === n[1] || (n[1]==="explore" && state.route==="token");
       return '<div class="nav-item'+(on?" on":"")+'" data-go="'+n[1]+'">'+n[0]+'</div>';
@@ -7844,7 +8149,7 @@ async function doBridgeDeposit(){
     var keepSwapSym = keepTicket ? (keepTicket.getAttribute("data-swap-sym") || "") : "";
     var keepHero = (state.route === "explore" && host) ? host.querySelector(".living-hero") : null;
     dropTv();
-    const map = {explore:exploreHTML, pit:pitHTML, token:tokenHTML, launch:launchHTML, metrics:metricsHTML, bridge:bridgeHTML};
+    const map = {explore:exploreHTML, pit:pitHTML, token:tokenHTML, launch:launchHTML, metrics:metricsHTML, bridge:bridgeHTML, lock:vicelockHTML};
     host.innerHTML = (map[state.route] || exploreHTML)();
     if (state.route === "explore"){
       var heroSlot = host.querySelector(".living-hero");
@@ -9662,6 +9967,13 @@ async function doBridgeDeposit(){
         });
         return;
       }
+      if (key === "lockTab" || key === "lockKind" || key === "lockDays" || key === "lockSelf" || key === "lockTok"){
+        if (state.route === "lock"){
+          renderScreen();
+          if (key === "lockTab") refreshVicelock();
+        }
+        return;
+      }
       if (state.route === "launch" || state.route === "metrics") renderScreen();
       else if (state.route === "explore"){
         if (key === "sort" || key === "filter"){
@@ -9723,6 +10035,15 @@ async function doBridgeDeposit(){
     }
     if (e.target.closest("[data-evm-disconnect]")){
       disconnectEvmWallet();
+      return;
+    }
+    if (e.target.closest("[data-lock-go]")){
+      doVicelockSubmit();
+      return;
+    }
+    const lockClaim = e.target.closest("[data-lock-claim]");
+    if (lockClaim){
+      doVicelockClaim(lockClaim.getAttribute("data-lock-claim"), lockClaim.getAttribute("data-lock-type"), lockClaim.getAttribute("data-lock-token"));
       return;
     }
     if (e.target.closest("[data-bridge-max]")){
@@ -9834,6 +10155,11 @@ async function doBridgeDeposit(){
     if (e.target && e.target.id === "l-x") state.lX = e.target.value.trim();
     if (e.target && e.target.id === "l-tg") state.lTg = e.target.value.trim();
     if (e.target && e.target.id === "l-web") state.lWeb = e.target.value.trim();
+    if (e.target && e.target.id === "lock-tok") state.lockTok = e.target.value.trim();
+    if (e.target && e.target.id === "lock-amt") state.lockAmt = e.target.value;
+    if (e.target && e.target.id === "lock-ben") state.lockBen = e.target.value.trim();
+    if (e.target && e.target.id === "lock-cliff") state.lockCliff = e.target.value.trim();
+    if (e.target && e.target.id === "lock-end") state.lockEnd = e.target.value.trim();
     if (e.target && e.target.id === "m-name") metaEdit.name = e.target.value;
     if (e.target && e.target.id === "m-desc") metaEdit.desc = e.target.value;
     if (e.target && e.target.id === "m-x") metaEdit.x = e.target.value.trim();
