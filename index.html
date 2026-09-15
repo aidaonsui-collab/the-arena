@@ -1422,7 +1422,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     for (var i = 0; i < 15; i++){
       try {
         var data = await gql(
-          "query($d:String!){ transaction(digest:$d){ effects { status events(first:10){ nodes { contents { json } } } } } }",
+          "query($d:String!){ transaction(digest:$d){ effects { status events(first:50){ nodes { contents { json } } } } } }",
           { d: digest }
         );
         var nodes = (((data && data.transaction && data.transaction.effects && data.transaction.effects.events) || {}).nodes) || [];
@@ -5265,23 +5265,21 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
         '<div style="font-size:12px;color:var(--muted);margin-top:4px">Collect routes LP pit-bps to holders. Rewards tab indexes the vault.</div>'+
       '</div>';
     }
-    if (!canMigrateInstant(tk)){
-      if (!suiSession.address) return "";
-      var ben = tk.lockBeneficiary || tk.creator;
-      if (ben && !sameAddr(suiSession.address, ben)) return "";
-      // beneficiary unknown — still hint after hydrate
-      if (!ben){
-        return '<div style="margin-top:10px;font-size:11px;color:var(--muted);text-align:center">Checking lock beneficiary for migrate…</div>';
-      }
-      return "";
-    }
     var q = poolQuote(tk);
+    var can = canMigrateInstant(tk);
+    var ben = tk.lockBeneficiary || tk.creator;
+    var hint = "";
+    if (!can){
+      if (!suiSession.address) hint = "Connect the creator wallet to migrate.";
+      else if (ben && !sameAddr(suiSession.address, ben)) hint = "Only the lock beneficiary can migrate.";
+      else if (!ben) hint = "Checking lock beneficiary…";
+    }
     if (isRwaQuote(q)){
       return '<div class="card" style="padding:14px 16px;margin-top:10px">'+
         '<div style="font-size:12px;font-weight:600;color:var(--ink)">Migrate to holder yield</div>'+
-        '<div style="font-size:12px;color:var(--muted);margin-top:4px">Forward-only. Quote stays '+escHtml(q)+'. Pit slice becomes claimable '+escHtml(q)+' for holders. Beneficiary only.</div>'+
-        '<button type="button" class="btn-trade btn-ghost" id="migrate-go" style="margin-top:10px">Migrate · holder yield</button>'+
-        '<div id="migrate-note" style="font-size:11px;color:var(--muted);margin-top:6px;text-align:center"></div>'+
+        '<div style="font-size:12px;color:var(--muted);margin-top:4px">Forward-only. Rewards slice becomes claimable '+escHtml(q)+' for holders instead of the pit.</div>'+
+        '<button type="button" class="btn-trade btn-ghost" id="migrate-go" style="margin-top:10px"'+(can?"":" disabled")+'>Migrate · holder yield</button>'+
+        '<div id="migrate-note" style="font-size:11px;color:var(--muted);margin-top:6px;text-align:center">'+escHtml(hint)+'</div>'+
       '</div>';
     }
     if (String(q).toUpperCase() !== "SUI"){
@@ -5289,14 +5287,13 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
         '<div style="font-size:12px;color:var(--muted)">Migrate to yield is available for RWA quotes (holder) or SUI (basket).</div>'+
       '</div>';
     }
-    // Force basket picker on for migrate path
     if (!state.lBasket) state.lBasket = true;
     return '<div class="card" style="padding:14px 16px;margin-top:10px">'+
-      '<div style="font-size:12px;font-weight:600;color:var(--ink)">Migrate to basket yield</div>'+
-      '<div style="font-size:12px;color:var(--muted);margin-top:4px">Forward-only. SUI quote stays; pick RWA basket for holders. Same picker as Create. Beneficiary only.</div>'+
+      '<div style="font-size:12px;font-weight:600;color:var(--ink)">Forward Rewards into the RWA basket</div>'+
+      '<div style="font-size:12px;color:var(--muted);margin-top:4px">One-way. SUI quote stays. The Rewards % of LP fees stages as SUI, then keepers buy gold / silver / T-bills for holders. Pick the basket, then migrate.</div>'+
       basketPanelHTML()+
-      '<button type="button" class="btn-trade btn-ghost" id="migrate-go" style="margin-top:10px">Migrate · basket yield</button>'+
-      '<div id="migrate-note" style="font-size:11px;color:var(--muted);margin-top:6px;text-align:center"></div>'+
+      '<button type="button" class="btn-trade btn-ghost" id="migrate-go" style="margin-top:10px"'+(can?"":" disabled")+'>Migrate · buy basket</button>'+
+      '<div id="migrate-note" style="font-size:11px;color:var(--muted);margin-top:6px;text-align:center">'+escHtml(hint)+'</div>'+
     '</div>';
   }
   function ensureVaultAsset(vault, assetType){
