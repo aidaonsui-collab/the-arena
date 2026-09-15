@@ -16,9 +16,10 @@ use sui::clock::Clock;
 use sui::object::ID;
 use sui::tx_context::TxContext;
 
-/// Volatile SUI meme pool: tick spacing 60, 1% fee (1e6 scale: 10_000 = 1%).
+/// Volatile SUI meme pool: tick spacing 60, 2% fee (1e6 scale: 20_000 = 2%).
+/// Bluefin max is 20_000 (`EInvalidFeeRate` 1027 above that).
 const TICK_SPACING: u32 = 60;
-const FEE_RATE: u64 = 10_000;
+const FEE_RATE: u64 = 20_000;
 
 public(package) fun tick_spacing(): u32 { TICK_SPACING }
 public(package) fun fee_rate(): u64 { FEE_RATE }

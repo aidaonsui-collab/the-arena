@@ -2,7 +2,7 @@
 
 Fair launches on Sui. **Instadex Instant** seeds Bluefin in block one on SUI, USDY (Ondo T-bills), XAGM (Matrixdock silver), or XAUM (Matrixdock gold): 100% of the token, 0 real quote, 1 SUI launch fee. First-buy hops: Cetus USDY/USDC for T-bills, Bluefin XAGM/USDC and XAUM/USDC for silver and gold. LP is locked forever.
 
-**Fees.** Bluefin pair fee is 1% (protocol keeps 20%). Of the remaining quote LP share, Instant is **60/5/25/10 creator / platform / rewards / VICE buyback** once AdminCap `set_instant_lp_split` is called after upgrade (until then live Config still 60/10/30). Instant **holder-yield** (v11+) routes the rewards slice into a claimable vault of the **paired RWA** — see [`contracts/HOLDER_YIELD.md`](contracts/HOLDER_YIELD.md). Instant **basket-yield** (v12+) stages that slice then converts into a multi-asset basket — see [`contracts/BASKET_YIELD.md`](contracts/BASKET_YIELD.md). Curve fills still use 60/10/30 (or reflection 50/20/20/10). Token-side LP fees burn. The 10% VICE slice accrues in Config until a keeper swaps to $VICE and burns.
+**Fees.** Bluefin pair fee is 2% on Instant (protocol keeps 20%). Of the remaining quote LP share, Instant is **60/5/25/10 creator / platform / rewards / VICE buyback** once AdminCap `set_instant_lp_split` is called after upgrade (until then live Config still 60/10/30). Instant **holder-yield** (v11+) routes the rewards slice into a claimable vault of the **paired RWA** — see [`contracts/HOLDER_YIELD.md`](contracts/HOLDER_YIELD.md). Instant **basket-yield** (v12+) stages that slice then converts into a multi-asset basket — see [`contracts/BASKET_YIELD.md`](contracts/BASKET_YIELD.md). Curve fills still use 60/10/30 (or reflection 50/20/20/10). Token-side LP fees burn. The 10% VICE slice accrues in Config until a keeper swaps to $VICE and burns.
 
 **Rewards.** The old Pit nav is now **Rewards** (`#/pit`): gold / silver / T-bills (XAUM / XAGM / USDY) distributions from holder-yield launches. Multi-RWA baskets (pair one quote, pay several RWAs) are the next scaffold after v1 single-quote yield.
 
@@ -15,7 +15,7 @@ Vanilla HTML/CSS/JS SPA (`index.html`). Hash routes: `#/` Explore, `#/pit` Rewar
 Sui Move package: [`contracts/`](contracts/). Instant Create quotes: TOKEN/SUI, TOKEN/USDY, TOKEN/XAGM, TOKEN/XAUM.
 
 - Type origin: `0x5cfddf8ba23be6835644a8ea22482ff6ebb0081e42cc1bc052b5f770ca8bbdea`
-- Latest published-at (**v16**): `0xe5e5b59142070d8ce8a411b6c100763d10f4fdcbc23ca3f33acd60324d4cce1d` (creator-chosen Instant LP split on the lock; collect prefers lock DF; platform floor 5%)
+- Latest published-at (**v17**): `0x5915bce70b8f3db5bd29dfd0482333070acd446c796a33fa2631c918d096eb29` (Instant Bluefin fee 2%; creator-chosen LP split on the lock)
 - Config: `0xcd527cb2389d806e5285ae708ee28df30a841ec5df7508ebfebaa0c9660b5d2c`
 - Pit SUI: `0x8ec38e9bcac0838bf474680e71d0c3f302f4ea2f757d759b7b399701f904389c`
 - Pit XAUM: `0xa8a391bf380914c04be5deb478474b42754a5aa8c29c0955f267d73190a98783`

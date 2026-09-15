@@ -213,7 +213,7 @@ public fun launch_instant<T, Q>(
     lock_id
 }
 
-/// Instant with a creator-chosen lock split (of our 80% of the 1% pair fee).
+/// Instant with a creator-chosen lock split (of our 80% of the 2% pair fee).
 /// Platform bps must be ≥ 500. Sum of four bps = 10_000.
 public fun launch_instant_v2<T, Q>(
     config: &mut Config,

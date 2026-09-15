@@ -59,7 +59,7 @@ Graduation for XAUM defaults to **1 XAUM** (not 2,000 units). 2,000 SUI is only 
 - Curve fills: 1% (`swap_fee_bps=100`) of every fill.
   - Standard: 60% creator, 10% platform, 30% pit.
   - Reflection: 50/20/20/10 holders/creator/pit/platform.
-- Instant / Instadex Bluefin LP: protocol keeps ~20% of the 1% pair fee; remaining **quote** LP share splits Config `std_*` bps (default **60/10/30** creator/platform/pit). Token-side LP fees burn.
+- Instant / Instadex Bluefin LP: protocol keeps ~20% of the 2% pair fee; remaining **quote** LP share splits Config Instant / lock `LockLpSplit` (default **60/5/25/10** creator/platform/rewards/VICE). Token-side LP fees burn.
   - **Default Instant** (`launch_instant`): pit 30% → official `Pit<Q>` (Fight Night / burn path).
   - **Holder-yield Instant** (`launch_instant_holder_yield`, v11+): pit 30% → claimable `HolderYieldVault` in quote **Q** (XAUM / XAGM / USDY). Holders `sync_registration` then `claim`. See [`HOLDER_YIELD.md`](HOLDER_YIELD.md). Pad **Rewards** tab indexes `HolderYield*` events.
   - **Basket-yield Instant** (`launch_instant_basket_yield`, v12+): pit 30% → `BasketYieldVault` quote staging, then convert/claim multi-asset. See [`BASKET_YIELD.md`](BASKET_YIELD.md).
@@ -83,7 +83,7 @@ holders (XAUM / XAGM / USDY), not the pit pot. See `HOLDER_YIELD.md` for event
 shapes, DF flag, and Compatible notes. Default `launch_instant` is unchanged.
 
 
-Create is Robinpad Instant: the creator publishes `Coin<T>` and pays the 1 SUI launch fee. **No quote coin.** `launch_instant` seeds a Bluefin Spot pool with 100% of `Coin<T>` and 0 quote, initializes at `tickLower` so the mint is single-sided, and vaults the Position NFT in `BluefinPositionLock` forever (`unlock_ms = 0`; `claim_bluefin_position` aborts). Starting price is `Config.instant_virtual_quote<Q>` (default 1 SUI / 0.01 XAUM; AdminCap `set_instant_virtual_quote`). Token is Bluefin coin A, quote is coin B, so collect still burns A and splits B. `launch_instadex` remains as the two-sided seed (creator brings `Coin<T>` + `Coin<Q>`). Anyone can poke `launch::collect_instadex_fees`. The pit argument must be the official `Pit<Q>` registered on Config (`config::register_pit` with AdminCap; SUI + XAUM after this upgrade). The Bluefin pool argument must match `BluefinPositionLock.bluefin_pool_id`. Bluefin keeps 20% of the 1% swap fee; the remaining LP share of the quote (coin B) splits Config.std_* bps (default 60/10/30 creator/platform/pit). Token (coin A) fees are burned through the vaulted `InstadexMintLock<T>` TreasuryCap (zero A is `destroy_zero`, not burn). `TreasuryCap<T>` stays locked (no extract, no mint).
+Create is Robinpad Instant: the creator publishes `Coin<T>` and pays the 1 SUI launch fee. **No quote coin.** `launch_instant` seeds a Bluefin Spot pool with 100% of `Coin<T>` and 0 quote, initializes at `tickLower` so the mint is single-sided, and vaults the Position NFT in `BluefinPositionLock` forever (`unlock_ms = 0`; `claim_bluefin_position` aborts). Starting price is `Config.instant_virtual_quote<Q>` (default 1 SUI / 0.01 XAUM; AdminCap `set_instant_virtual_quote`). Token is Bluefin coin A, quote is coin B, so collect still burns A and splits B. `launch_instadex` remains as the two-sided seed (creator brings `Coin<T>` + `Coin<Q>`). Anyone can poke `launch::collect_instadex_fees`. The pit argument must be the official `Pit<Q>` registered on Config (`config::register_pit` with AdminCap; SUI + XAUM after this upgrade). The Bluefin pool argument must match `BluefinPositionLock.bluefin_pool_id`. Bluefin keeps 20% of the 2% swap fee (v17+ Instant; existing 1% pools stay 1%); the remaining LP share of the quote (coin B) splits Config.std_* bps (live Instant 60/5/25/10 creator/platform/rewards/VICE, or per-lock `LockLpSplit`). Token (coin A) fees are burned through the vaulted `InstadexMintLock<T>` TreasuryCap (zero A is `destroy_zero`, not burn). `TreasuryCap<T>` stays locked (no extract, no mint).
 
 **PTB** — `launch::launch_instant<T, Q>` / `launch_instant_entry` (returns `lock_id`):
 
@@ -99,7 +99,7 @@ Create is Robinpad Instant: the creator publishes `Coin<T>` and pays the 1 SUI l
 | `fee_sui` | 1 SUI launch fee (`Config.take_launch_fee`) |
 | `creation_fee` | `Coin<SUI>` Bluefin pool-creation fee (mainnet currently 0; leftover returned to sender) |
 
-No quote coin. No Pit, no `pit_mode`, no reflection, no Arena `Pool`, no `GraduationEvent`. Bluefin params: tick spacing 60, `fee_rate` 10_000 (1%). Range is `[floor(idealTick, 60), max usable]`, pool init at `tickLower` so paid quote is 0. Ideal tick from `sqrtPriceX64(token_amount, instant_virtual_quote<Q>)`. `BluefinPositionLock.pool_id` is `@0x0` (no curve pool); `bluefin_pool_id` is the spot pool; beneficiary is the sender. Residuals from the seed go to the creator. `launch_instadex_entry` still exists for two-sided seeds.
+No quote coin. No Pit, no `pit_mode`, no reflection, no Arena `Pool`, no `GraduationEvent`. Bluefin params: tick spacing 60, `fee_rate` 20_000 (2%). Range is `[floor(idealTick, 60), max usable]`, pool init at `tickLower` so paid quote is 0. Ideal tick from `sqrtPriceX64(token_amount, instant_virtual_quote<Q>)`. `BluefinPositionLock.pool_id` is `@0x0` (no curve pool); `bluefin_pool_id` is the spot pool; beneficiary is the sender. Residuals from the seed go to the creator. `launch_instadex_entry` still exists for two-sided seeds.
 
 Emits `InstadexLaunchEvent`:
 
@@ -124,7 +124,7 @@ Anyone can poke `launch::collect_instadex_fees<A, B>` — Bluefin LP fees accrue
 | `config` | Arena `Config` `0xcd527cb2389d806e5285ae708ee28df30a841ec5df7508ebfebaa0c9660b5d2c` |
 | `pit` | `Pit<Q>` (SUI: `0x8ec38e9bcac0838bf474680e71d0c3f302f4ea2f757d759b7b399701f904389c`) |
 
-Do not pass `Pit<T>` — pit and platform bags are quote-typed. Do not call `config.fee_split` on collected amounts (that takes another `swap_fee_bps`). Call latest published-at (`0xe5e5b59142070d8ce8a411b6c100763d10f4fdcbc23ca3f33acd60324d4cce1d` v16), not the type-origin package.
+Do not pass `Pit<T>` — pit and platform bags are quote-typed. Do not call `config.fee_split` on collected amounts (that takes another `swap_fee_bps`). Call latest published-at (`0x5915bce70b8f3db5bd29dfd0482333070acd446c796a33fa2631c918d096eb29` v17), not the type-origin package.
 
 ## Graduation
 
@@ -145,7 +145,7 @@ Creation fee is taken from `quote_reserve` (aborts if short). No extra SUI coin.
 
 **XAUM quote PTB** — `lock::seed_and_lock_bluefin_with_fee<T, XAUM>`: same objects plus an extra `Coin<SUI>` paying Bluefin's pool-creation fee. Residuals from the seed go to the pool creator, not the platform.
 
-The Bluefin pool is named `SYM-SUI` / `SYM-XAUM`, fee 1% (`fee_rate=10_000` in 1e6), tick spacing 60, full-range ticks snapped from GlobalConfig min/max (`−443636` / `443636` bits `4294523660` / `443636`) inward to spacing 60. Initial `sqrtPriceX64` is the curve spot `(virtual_quote + real_quote) / token_reserve`. The Position NFT sits in a shared `BluefinPositionLock` for `Config.lp_lock_ms` (180 days); the creator calls `claim_bluefin_position` after `unlock_ms`.
+The Bluefin pool is named `SYM-SUI` / `SYM-XAUM`, Instant fee 2% (`fee_rate=20_000` in 1e6), tick spacing 60, full-range ticks snapped from GlobalConfig min/max (`−443636` / `443636` bits `4294523660` / `443636`) inward to spacing 60. Initial `sqrtPriceX64` is the curve spot `(virtual_quote + real_quote) / token_reserve`. The Position NFT sits in a shared `BluefinPositionLock` for `Config.lp_lock_ms` (180 days); the creator calls `claim_bluefin_position` after `unlock_ms`.
 
 `lock::lock_graduated_lp` remains as the raw-coin vault for tests and as a fallback. Only the pool creator can call it (so a searcher cannot grief the Bluefin seed). Buy-and-burn pit winners that already locked (or have an empty token reserve) `forfeit` instead of aborting, so the next `ring` can run. The pot stays.
 

@@ -73,7 +73,7 @@ public struct HolderYieldKey has copy, drop, store {}
 /// Value is the shared `BasketYieldVault` object id. Mutually exclusive with HolderYieldKey.
 public struct BasketYieldKey has copy, drop, store {}
 
-/// Creator-chosen Instant quote split on this lock (of our 80% of the 1% pair fee).
+/// Creator-chosen Instant quote split on this lock (of our 80% of the 2% pair fee).
 /// Missing DF → Config `instant_lp_split` (live 60/5/25/10). Compatible: DF, no layout change.
 public struct LockLpSplitKey has copy, drop, store {}
 

@@ -764,7 +764,7 @@ html[data-route="bridge"] .search-row{display:none}
 <script>
 window.ARENA_PACKAGE_ID = "0x5cfddf8ba23be6835644a8ea22482ff6ebb0081e42cc1bc052b5f770ca8bbdea";
 window.ARENA_INSTADEX_PACKAGE = "0xcf7835ae4e3f8a3d4eb4bd9d14cb4a3dbdd80e70908feb6c433688a31e119de3";
-window.ARENA_COLLECT_PACKAGE = "0xe5e5b59142070d8ce8a411b6c100763d10f4fdcbc23ca3f33acd60324d4cce1d";
+window.ARENA_COLLECT_PACKAGE = "0x5915bce70b8f3db5bd29dfd0482333070acd446c796a33fa2631c918d096eb29";
 window.ARENA_CALL_PACKAGE = window.ARENA_COLLECT_PACKAGE;
 // Compatible-upgrade event types keep the package id that first defined them.
 window.ARENA_HOLDER_YIELD_EVENT_PACKAGE = "0xe2dee7a21e382d47d8f13e39801c86987a88e9ebd5fb8801efd1b974e4e4d9a2"; // v11
@@ -1157,14 +1157,14 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     if (!(buy > 0)) return "0 skips the first buy.";
     var suiUsd = hop.suiUsd;
     if (!(suiUsd > 0)) return "Estimate loads with SUI price…";
-    var buyUsd = buy * suiUsd * 0.99;
+    var buyUsd = buy * suiUsd * 0.98;
     var start = INSTANT_START_USD;
     var supply = Number(TOKEN_SUPPLY) || 1e9;
     var got = supply * buyUsd / (start + buyUsd);
     var pct = got / supply * 100;
     var tick = String(state.lTick || "TOKEN").toUpperCase() || "TOKEN";
     var pctTxt = pct >= 1 ? pct.toFixed(2) : (pct >= 0.1 ? pct.toFixed(2) : pct.toFixed(3));
-    return "≈ " + fmtAmt(got) + " " + tick + " · " + pctTxt + "% of supply (est. after 1% fee)";
+    return "≈ " + fmtAmt(got) + " " + tick + " · " + pctTxt + "% of supply (est. after 2% fee)";
   }
   function paintFirstBuyPreview(){
     var el = $("#l-first-buy-preview");
@@ -4218,7 +4218,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     const note = parts.reflectionMode
       ? "1% on the "+q+" fill · 50/20/20/10 · launch 1 SUI"
       : (isDexBout(tk)
-        ? "1% pair · 60/5/25/10 creator/platform/rewards/VICE · launch 1 SUI"
+        ? "2% pair · 60/5/25/10 creator/platform/rewards/VICE · launch 1 SUI"
         : "1% on the fill · 60/10/30 · launch 1 SUI");
     let hopLine = "";
     if (altQuote(tk) && state.side === "Buy"){
@@ -4544,7 +4544,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       '<div><div class="brand-name" style="margin-bottom:8px">vice.</div>'+
         '<p style="margin:0;max-width:42ch">Fair launches on Sui. Instant seeds Bluefin in block one. T-bills hop Cetus. Quote is SUI, USDY, XAGM, or XAUM. LP locked forever.</p></div>'+
       '<div><h4>Product</h4><div data-go="explore">The Strip</div><div data-go="pit">Distributions</div><div data-go="portfolio">Portfolio</div><div data-go="metrics">Books</div><div data-go="bridge">Bridge</div><div data-go="launch">Create</div><a href="https://x.com/ViceFun" target="_blank" rel="noopener">X</a></div>'+
-      '<div><h4>Fees</h4>Bluefin 1% on the pair (keeps 20%).<br>Our 80% quote split 60/5/25/10 creator/platform/rewards/VICE buyback.<br>Token-side LP fees burn.</div></footer>';
+      '<div><h4>Fees</h4>Bluefin 2% on the pair (keeps 20%).<br>Our 80% quote split 60/5/25/10 creator/platform/rewards/VICE buyback.<br>Token-side LP fees burn.</div></footer>';
   }
   var pfCache = { addr: "", rows: [], at: 0 };
   var PF_RANGES = ["1D","1W","1M","1Y","All"];
@@ -5228,7 +5228,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     }
     return '<div class="split-panel">'+
       '<label>Fee split</label>'+
-      '<div style="font-size:12px;color:var(--muted);margin-top:6px">Of our 80% of the 1% pair fee. Platform floor 5%. Locked on the pair at launch.</div>'+
+      '<div style="font-size:12px;color:var(--muted);margin-top:6px">Of our 80% of the 2% pair fee. Platform floor 5%. Locked on the pair at launch.</div>'+
       '<div class="pills" style="margin-top:8px">'+
         pill("vice","Vice")+pill("creator","Creator")+pill("holders","Holders")+pill("buyback","Buyback")+
       '</div>'+
