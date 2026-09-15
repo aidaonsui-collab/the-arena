@@ -642,6 +642,88 @@ fun test_instant_virtual_quote_defaults() {
     scenario.end();
 }
 
+/// Documents the actual bug: before set_quote_params<Q> is ever called for a
+/// new Instadex quote, it silently gets XAUM's price/graduation scale —
+/// gold-shaped assumptions applied to whatever QCOIN actually is.
+#[test]
+fun test_quote_params_defaults_to_xaum_shape_before_calibration() {
+    let mut scenario = ts::begin(ADMIN);
+    setup(&mut scenario);
+    scenario.next_tx(ADMIN);
+    let config = scenario.take_shared<Config>();
+    let (q_vq, q_grad) = config.quote_params<QCOIN>();
+    let (xaum_vq, xaum_grad) = (config.virtual_quote_xaum(), config.graduation_xaum());
+    // setup() sets SUI's and XAUM's defaults equal, so this can't also assert
+    // they differ from each other — the real point is that QCOIN, an
+    // arbitrary non-SUI quote, silently inherits XAUM's numbers verbatim.
+    assert!(q_vq == xaum_vq && q_grad == xaum_grad, 0);
+    ts::return_shared(config);
+    scenario.end();
+}
+
+#[test]
+fun test_set_quote_params_calibrates_one_quote_without_touching_others() {
+    let mut scenario = ts::begin(ADMIN);
+    setup(&mut scenario);
+    scenario.next_tx(config::platform_wallet());
+    let mut config = scenario.take_shared<Config>();
+    let cap = scenario.take_from_sender<AdminCap>();
+    let (tcoin_vq_before, tcoin_grad_before) = config.quote_params<TCOIN>();
+    config::set_quote_params<QCOIN>(&mut config, &cap, 500, 2_000);
+    let (q_vq, q_grad) = config.quote_params<QCOIN>();
+    assert!(q_vq == 500 && q_grad == 2_000, 0);
+    // SUI and an uncalibrated third quote (standing in for XAUM's bucket) are untouched.
+    let (sui_vq, sui_grad) = config.quote_params<SUI>();
+    assert!(sui_vq == config.virtual_quote_sui() && sui_grad == config.graduation_sui(), 1);
+    let (tcoin_vq_after, tcoin_grad_after) = config.quote_params<TCOIN>();
+    assert!(tcoin_vq_after == tcoin_vq_before && tcoin_grad_after == tcoin_grad_before, 2);
+    ts::return_to_sender(&scenario, cap);
+    ts::return_shared(config);
+    scenario.end();
+}
+
+#[test]
+fun test_set_quote_params_can_be_recalibrated() {
+    let mut scenario = ts::begin(ADMIN);
+    setup(&mut scenario);
+    scenario.next_tx(config::platform_wallet());
+    let mut config = scenario.take_shared<Config>();
+    let cap = scenario.take_from_sender<AdminCap>();
+    config::set_quote_params<QCOIN>(&mut config, &cap, 500, 2_000);
+    config::set_quote_params<QCOIN>(&mut config, &cap, 900, 3_000);
+    let (q_vq, q_grad) = config.quote_params<QCOIN>();
+    assert!(q_vq == 900 && q_grad == 3_000, 0);
+    ts::return_to_sender(&scenario, cap);
+    ts::return_shared(config);
+    scenario.end();
+}
+
+/// Same invariant the SUI/XAUM setters already enforce: graduation must clear
+/// virtual_quote, or a pool can graduate on its own first buy.
+#[test]
+#[expected_failure(abort_code = 33)] // errors::bad_param()
+fun test_set_quote_params_rejects_graduation_not_above_virtual_quote() {
+    let mut scenario = ts::begin(ADMIN);
+    setup(&mut scenario);
+    scenario.next_tx(config::platform_wallet());
+    let mut config = scenario.take_shared<Config>();
+    let cap = scenario.take_from_sender<AdminCap>();
+    config::set_quote_params<QCOIN>(&mut config, &cap, 1_000, 1_000);
+    abort 42
+}
+
+#[test]
+#[expected_failure(abort_code = 33)] // errors::bad_param()
+fun test_set_quote_params_rejects_zero_virtual_quote() {
+    let mut scenario = ts::begin(ADMIN);
+    setup(&mut scenario);
+    scenario.next_tx(config::platform_wallet());
+    let mut config = scenario.take_shared<Config>();
+    let cap = scenario.take_from_sender<AdminCap>();
+    config::set_quote_params<QCOIN>(&mut config, &cap, 0, 1_000);
+    abort 42
+}
+
 #[test]
 fun test_instadex_mint_lock() {
     let mut scenario = ts::begin(ADMIN);

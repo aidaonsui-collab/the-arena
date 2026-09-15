@@ -80,6 +80,19 @@ public struct BuybackBagKey has copy, drop, store {}
 /// Dynamic-field key for Instant virtual quote (price only; 0 real quote is deposited).
 public struct InstantVirtualQuoteKey<phantom Q> has copy, drop, store {}
 
+/// Dynamic-field key + value for `quote_params<Q>` (the Instadex-path pair-open
+/// price + graduation threshold, both in Q's own units). Compatible: not a
+/// Config field. Missing DF for a non-SUI Q falls back to the xaum-shaped
+/// fields below, which is wrong for any Q not actually priced like XAUM — set
+/// this explicitly for every new Instadex quote instead of relying on that
+/// fallback.
+public struct InstadexQuoteParamsKey<phantom Q> has copy, drop, store {}
+
+public struct InstadexQuoteParams has copy, drop, store {
+    virtual_quote: u64,
+    graduation: u64,
+}
+
 const DEFAULT_INSTANT_VIRTUAL_SUI: u64 = 1_000_000_000;
 const DEFAULT_INSTANT_VIRTUAL_XAUM: u64 = 10_000_000;
 // Live Instant virtual quotes are AdminCap DFs sized to the same ~$4,500 start
@@ -338,13 +351,37 @@ public fun buyback_value<Q>(config: &Config): u64 {
     }
 }
 
-/// `(virtual_quote, graduation_threshold)` for quote type `Q`.
-/// SUI uses the SUI pair params; every other quote (XAUM on Bluefin, ticker XAUM not GOLD) uses the xaum params.
+/// `(virtual_quote, graduation_threshold)` for quote type `Q`, both in Q's own
+/// units. An explicit `set_quote_params<Q>` DF always wins. Absent that: SUI
+/// uses the SUI pair params; every other quote (XAUM on Bluefin, ticker XAUM
+/// not GOLD) uses the xaum params — correct only for a quote actually priced
+/// like XAUM. Any other quote needs `set_quote_params<Q>` called once, or an
+/// Instadex launch against it opens at XAUM's price/graduation scale.
 public fun quote_params<Q>(config: &Config): (u64, u64) {
-    if (type_name::with_defining_ids<Q>() == type_name::with_defining_ids<SUI>()) {
+    let key = InstadexQuoteParamsKey<Q> {};
+    if (df::exists(&config.id, key)) {
+        let p: &InstadexQuoteParams = df::borrow(&config.id, key);
+        (p.virtual_quote, p.graduation)
+    } else if (type_name::with_defining_ids<Q>() == type_name::with_defining_ids<SUI>()) {
         (config.virtual_quote_sui, config.graduation_sui)
     } else {
         (config.virtual_quote_xaum, config.graduation_xaum)
+    }
+}
+
+/// Calibrate the Instadex-path open price + graduation threshold for quote
+/// type `Q`, both in Q's own units. Same invariant the SUI/XAUM setters
+/// already enforce: `graduation` must clear `virtual_quote`, or a pool can
+/// graduate on its first buy (or `pool::new` aborts before it does).
+public fun set_quote_params<Q>(config: &mut Config, _: &AdminCap, virtual_quote: u64, graduation: u64) {
+    assert!(virtual_quote > 0, errors::bad_param());
+    assert!(graduation > virtual_quote, errors::bad_param());
+    let key = InstadexQuoteParamsKey<Q> {};
+    let p = InstadexQuoteParams { virtual_quote, graduation };
+    if (df::exists(&config.id, key)) {
+        *df::borrow_mut(&mut config.id, key) = p;
+    } else {
+        df::add(&mut config.id, key, p);
     }
 }
 
