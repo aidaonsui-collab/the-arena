@@ -126,11 +126,6 @@ main{padding:18px 0 72px}
 .lead-stat .v{font-size:clamp(20px,2.6vw,28px);font-weight:700;letter-spacing:-.04em;margin-top:4px;font-variant-numeric:tabular-nums;font-family:"IBM Plex Mono",ui-monospace,monospace}
 @media (max-width:860px){
   .living-hero{min-height:78vh}
-  .wanted{left:14px;top:calc(var(--letterbox) + 10px)}
-  .cutscene-loc{left:14px;bottom:calc(var(--letterbox) + 12px)}
-  .cutscene-place{font-size:18px}
-  .cutscene-skip{right:14px;bottom:calc(var(--letterbox) + 10px)}
-  .cutscene-replay{top:12px;right:12px}
   .lead-tile{padding:14px 16px}
   .lead-tile-copy .feat-name{font-size:26px}
   .lead-stats{width:100%;justify-content:space-between;margin-left:0;gap:12px}
@@ -462,32 +457,12 @@ html[data-route="explore"] .search-row,html[data-route="pit"] .search-row,html[d
 html[data-route="explore"] main,html[data-route="pit"] main{padding:0 0 72px}
 html[data-route="launch"] main,html[data-route="token"] main,html[data-route="metrics"] main{width:min(1180px,calc(100% - 32px));margin:0 auto;padding:18px 0 72px}
 html[data-route="portfolio"] main{padding:0 0 72px}
-.living-hero{position:relative;min-height:min(92vh,920px);overflow:hidden;display:flex;align-items:flex-end;--letterbox:clamp(52px,8.5vh,92px)}
+.living-hero{position:relative;min-height:min(92vh,920px);overflow:hidden;display:flex;align-items:flex-end}
 .hero-reel{position:absolute;inset:0;overflow:hidden;pointer-events:none}
 .hero-video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transform:scale(1.04);transition:opacity .7s ease}
 .hero-shade{position:absolute;inset:0;z-index:2;pointer-events:none;background:linear-gradient(180deg,rgba(18,8,20,.08) 6%,rgba(18,8,20,.22) 48%,rgba(18,8,20,.4) 100%),linear-gradient(90deg,rgba(18,8,20,.22) 0%,transparent 46%)}
 .hero-grain{position:absolute;inset:0;z-index:3;pointer-events:none;opacity:.18;mix-blend-mode:overlay;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 0.55 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>")}
-.hero-copy{position:relative;z-index:4;width:min(1180px,calc(100% - 32px));margin:0 auto;padding:48px 0 28px;transition:opacity .42s cubic-bezier(.2,0,0,1),transform .42s cubic-bezier(.2,0,0,1)}
-.living-hero[data-cutscene="on"] .hero-copy{opacity:0;transform:translateY(12px);pointer-events:none}
-.living-hero[data-cutscene="on"] .hero-shade{background:linear-gradient(180deg,transparent 50%,rgba(18,8,20,.55) 100%)}
-.cutscene{position:absolute;inset:0;pointer-events:none}
-.cutscene .hero-video{z-index:5;transition:opacity .28s ease}
-.cutscene-hud{position:absolute;inset:0;z-index:7;pointer-events:none}
-.wanted{position:absolute;top:calc(var(--letterbox) + 14px);left:22px;display:flex;flex-direction:column;gap:6px}
-.wanted-k{font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:11px;letter-spacing:.28em;text-transform:uppercase;color:var(--gold)}
-.wanted-stars{display:flex;gap:5px}
-.wanted-stars i{width:11px;height:11px;background:var(--gold);clip-path:polygon(50% 0%,61% 35%,98% 35%,68% 57%,79% 91%,50% 70%,21% 91%,32% 57%,2% 35%,39% 35%);filter:drop-shadow(0 0 5px rgba(201,169,126,.75))}
-.cutscene-loc{position:absolute;left:22px;bottom:calc(var(--letterbox) + 16px)}
-.cutscene-beat{font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:var(--pink)}
-.cutscene-place{font-size:22px;font-weight:650;letter-spacing:.04em}
-.cutscene-skip{pointer-events:auto;position:absolute;right:22px;bottom:calc(var(--letterbox) + 14px);display:inline-flex;align-items:center;gap:4px;background:rgba(18,8,20,.62);color:var(--ink);border:1px solid rgba(244,238,242,.26);border-radius:8px;padding:12px 16px;min-height:44px;font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:12px;font-weight:650;letter-spacing:.2em;text-transform:uppercase;backdrop-filter:blur(8px)}
-.cutscene-skip:hover{background:rgba(18,8,20,.88)}
-.letterbox{position:absolute;left:0;right:0;height:var(--letterbox);background:#050308;z-index:6;pointer-events:none;transition:transform .52s cubic-bezier(.2,0,0,1)}
-.letterbox-top{top:0;transform:translateY(-100%)}
-.letterbox-bot{bottom:0;transform:translateY(100%)}
-.living-hero[data-cutscene="on"] .letterbox-top,.living-hero[data-cutscene="on"] .letterbox-bot{transform:translateY(0)}
-.cutscene-replay{position:absolute;top:16px;right:18px;z-index:8;background:rgba(18,8,20,.55);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:10px 14px;min-height:44px;font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:11px;font-weight:650;letter-spacing:.16em;text-transform:uppercase;backdrop-filter:blur(8px)}
-.cutscene-replay:hover{background:rgba(18,8,20,.85)}
+.hero-copy{position:relative;z-index:4;width:min(1180px,calc(100% - 32px));margin:0 auto;padding:48px 0 28px}
 .night-hero{position:relative;min-height:min(58vh,560px);margin:18px auto 16px;width:min(1180px,calc(100% - 32px));border-radius:18px;overflow:hidden;display:flex;align-items:flex-end}
 .night-hero img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
 .night-hero .shade{position:absolute;inset:0;background:linear-gradient(90deg,rgba(12,6,14,.82) 0%,rgba(12,6,14,.35) 55%,rgba(12,6,14,.15) 100%),linear-gradient(180deg,rgba(12,6,14,.2),rgba(12,6,14,.55))}
@@ -4336,25 +4311,11 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     "/media/walk-sidewalk.mp4",
     "/media/walk-toward.mp4",
     "/media/strip-live.mp4",
-    "/media/chase-strip.mp4",
-    "/media/strip-alt.mp4",
-    "/media/chase-wide.mp4"
+    "/media/strip-alt.mp4"
   ];
-  var CHASE_SHOTS = [
-    { src: "/media/chase-wide.mp4", loc: "OCEAN DRIVE", beat: "THE CHASE" },
-    { src: "/media/chase-fire.mp4", loc: "OCEAN DRIVE", beat: "RETURN FIRE" },
-    { src: "/media/chase-strip.mp4", loc: "THE STRIP", beat: "VICE CITY" }
-  ];
-  var CUTSCENE_KEY = "vice.cutscene.v1";
   var livingHeroCtl = null;
   function reducedMotion(){
     return !!(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
-  }
-  function cutsceneSeen(){
-    try { return sessionStorage.getItem(CUTSCENE_KEY) === "1"; } catch (e) { return true; }
-  }
-  function markCutsceneSeen(){
-    try { sessionStorage.setItem(CUTSCENE_KEY, "1"); } catch (e) {}
   }
   function stopLivingHero(){
     if (livingHeroCtl && livingHeroCtl.stop) livingHeroCtl.stop();
@@ -4366,19 +4327,9 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     if (!hero) return;
     var a = $("#strip-vid-a");
     var b = $("#strip-vid-b");
-    var chaseBox = $("#chase-cutscene");
-    var ca = $("#chase-vid-a");
-    var cb = $("#chase-vid-b");
-    var replay = hero.querySelector("[data-cutscene-replay]");
-    var beatEl = $("#chase-beat");
-    var placeEl = $("#chase-place");
     var clip = 0;
     var front = 0;
     var fading = false;
-    var shot = 0;
-    var chaseFront = 0;
-    var chaseFading = false;
-    var chaseOn = false;
     var timers = [];
     var listeners = [];
     function on(el, ev, fn){
@@ -4404,7 +4355,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       if (b) b.style.opacity = which === 1 ? "1" : "0";
     }
     function cutReel(fromA){
-      if (fading || chaseOn) return;
+      if (fading) return;
       if ((fromA && front !== 0) || (!fromA && front !== 1)) return;
       var next = (clip + 1) % STRIP_CLIPS.length;
       var back = fromA ? b : a;
@@ -4423,67 +4374,6 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       if (!el || !el.duration) return;
       if (el.duration - el.currentTime < 0.8) cutReel(fromA);
     }
-    function paintShot(){
-      var meta = CHASE_SHOTS[shot];
-      if (!meta) return;
-      if (beatEl) beatEl.textContent = meta.beat;
-      if (placeEl) placeEl.textContent = meta.loc;
-    }
-    function setChaseFront(which){
-      chaseFront = which;
-      if (ca) ca.style.opacity = which === 0 ? "1" : "0";
-      if (cb) cb.style.opacity = which === 1 ? "1" : "0";
-    }
-    function endChase(){
-      if (!chaseOn) return;
-      chaseOn = false;
-      chaseFading = true;
-      markCutsceneSeen();
-      hero.setAttribute("data-cutscene", "off");
-      if (chaseBox) chaseBox.hidden = true;
-      if (ca) { ca.pause(); ca.removeAttribute("src"); ca.load(); }
-      if (cb) { cb.pause(); cb.removeAttribute("src"); cb.load(); }
-      if (replay) replay.hidden = false;
-      playEl(front === 0 ? a : b);
-      later(function(){ chaseFading = false; }, 80);
-    }
-    function cutChase(fromA){
-      if (chaseFading || !chaseOn) return;
-      if ((fromA && chaseFront !== 0) || (!fromA && chaseFront !== 1)) return;
-      var next = shot + 1;
-      if (next >= CHASE_SHOTS.length){ endChase(); return; }
-      var back = fromA ? cb : ca;
-      if (!back) return;
-      chaseFading = true;
-      back.src = CHASE_SHOTS[next].src;
-      back.currentTime = 0;
-      playEl(back);
-      later(function(){
-        shot = next;
-        paintShot();
-        setChaseFront(fromA ? 1 : 0);
-        chaseFading = false;
-      }, 280);
-    }
-    function startChase(){
-      if (reducedMotion()) return;
-      chaseOn = true;
-      chaseFading = false;
-      shot = 0;
-      chaseFront = 0;
-      hero.setAttribute("data-cutscene", "on");
-      if (chaseBox) chaseBox.hidden = false;
-      if (replay) replay.hidden = true;
-      paintShot();
-      if (ca){
-        ca.src = CHASE_SHOTS[0].src;
-        ca.currentTime = 0;
-        setChaseFront(0);
-        playEl(ca);
-      }
-      if (a) a.pause();
-      if (b) b.pause();
-    }
     if (a){
       a.src = STRIP_CLIPS[0];
       playEl(a);
@@ -4495,27 +4385,13 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       on(a, "ended", function(){ cutReel(true); });
       on(b, "timeupdate", function(){ nearEnd(b, false); });
       on(b, "ended", function(){ cutReel(false); });
-      on(ca, "timeupdate", function(){
-        if (!ca || !ca.duration) return;
-        if (ca.duration - ca.currentTime < 0.5) cutChase(true);
-      });
-      on(ca, "ended", function(){ cutChase(true); });
-      on(cb, "timeupdate", function(){
-        if (!cb || !cb.duration) return;
-        if (cb.duration - cb.currentTime < 0.5) cutChase(false);
-      });
-      on(cb, "ended", function(){ cutChase(false); });
-      if (!cutsceneSeen()) later(startChase, 900);
-      else if (replay) replay.hidden = false;
-    } else if (replay) replay.hidden = true;
+    }
 
     livingHeroCtl = {
-      startChase: startChase,
-      endChase: endChase,
       stop: function(){
         timers.forEach(function(id){ window.clearTimeout(id); });
         listeners.forEach(function(row){ row[0].removeEventListener(row[1], row[2]); });
-        [a,b,ca,cb].forEach(function(el){ if (el){ el.pause(); } });
+        [a,b].forEach(function(el){ if (el){ el.pause(); } });
       }
     };
   }
@@ -4783,19 +4659,11 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     if (!cards) cards = '<div class="empty card" style="grid-column:1/-1">No launches match.</div>';
     const count = pool.length;
     return '<div data-screen-label="The Strip">'+
-      '<section class="living-hero" data-cutscene="off">'+
+      '<section class="living-hero">'+
         '<div class="hero-reel" aria-hidden="true">'+
           '<video class="hero-video" id="strip-vid-a" muted playsinline preload="auto" poster="/media/strip-poster.jpg"></video>'+
           '<video class="hero-video" id="strip-vid-b" muted playsinline preload="metadata" poster="/media/strip-poster.jpg" style="opacity:0"></video>'+
         '</div>'+
-        '<div class="cutscene" id="chase-cutscene" hidden>'+
-          '<video class="hero-video" id="chase-vid-a" muted playsinline preload="auto" poster="/media/chase-poster.jpg"></video>'+
-          '<video class="hero-video" id="chase-vid-b" muted playsinline preload="auto" poster="/media/chase-poster.jpg" style="opacity:0"></video>'+
-          '<div class="cutscene-hud">'+
-            '<div class="wanted"><span class="wanted-k">Wanted</span><span class="wanted-stars" aria-hidden><i></i><i></i><i></i><i></i><i></i></span></div>'+
-            '<div class="cutscene-loc"><div class="cutscene-beat" id="chase-beat"></div><div class="cutscene-place" id="chase-place"></div></div>'+
-            '<button type="button" class="cutscene-skip" data-cutscene-skip>Skip ›</button>'+
-          '</div></div>'+
         '<div class="hero-shade"></div><div class="hero-grain"></div>'+
         '<div class="hero-copy">'+
           '<div class="strip-logo">vice.</div>'+
@@ -4806,9 +4674,6 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
           '</div>'+
           leaderTileHTML(leader)+
         '</div>'+
-        '<div class="letterbox letterbox-top" aria-hidden="true"></div>'+
-        '<div class="letterbox letterbox-bot" aria-hidden="true"></div>'+
-        '<button type="button" class="cutscene-replay" data-cutscene-replay hidden>Replay chase</button>'+
       '</section>'+
       '<div class="shell strip-body">'+
         '<div class="pit-strip" data-go="pit">'+
@@ -9559,14 +9424,6 @@ async function doBridgeDeposit(){
       if (state.route === "portfolio") renderScreen();
       return;
     }
-    if (e.target.closest("[data-cutscene-skip]")){
-      if (livingHeroCtl && livingHeroCtl.endChase) livingHeroCtl.endChase();
-      return;
-    }
-    if (e.target.closest("[data-cutscene-replay]")){
-      if (livingHeroCtl && livingHeroCtl.startChase) livingHeroCtl.startChase();
-      return;
-    }
     const scrollEl = e.target.closest("[data-scroll]");
     if (scrollEl){
       const id = scrollEl.getAttribute("data-scroll");
@@ -9713,11 +9570,6 @@ async function doBridgeDeposit(){
   });
   document.addEventListener("keydown", function(e){
     if (e.key === "Escape"){
-      if (livingHeroCtl && document.querySelector('.living-hero[data-cutscene="on"]')){
-        e.preventDefault();
-        livingHeroCtl.endChase();
-        return;
-      }
       closeWalletPicker();
       if (!metaEdit.saving) closeMetaEditor();
     }
