@@ -331,7 +331,7 @@ a.btn-trade{display:block;text-align:center;text-decoration:none;box-sizing:bord
 .quote-dd{position:relative;max-width:320px}
 .quote-dd-btn{width:100%;display:flex;align-items:center;gap:10px;background:#140e14;border:1px solid var(--line);border-radius:12px;padding:10px 12px;color:var(--ink);font:inherit;font-weight:650;cursor:pointer;text-align:left}
 .quote-dd-btn:hover{border-color:#5a3a56}
-.quote-dd-btn .q-logo{width:22px;height:22px;border-radius:7px;object-fit:contain;flex:none;background:#1c101c;padding:2px;box-sizing:border-box}
+.quote-dd-btn .q-logo{width:22px;height:22px;border-radius:7px;object-fit:cover;flex:none;background:#F4EEF2;box-sizing:border-box}
 .quote-dd-btn .q-meta{flex:1;min-width:0}
 .quote-dd-btn .q-meta small{display:block;font-size:11px;font-weight:500;color:var(--muted);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .quote-dd-btn .q-chev{color:var(--muted);font-size:12px;margin-left:auto}
@@ -339,7 +339,7 @@ a.btn-trade{display:block;text-align:center;text-decoration:none;box-sizing:bord
 .quote-dd.open .quote-dd-menu{display:block}
 .quote-dd-item{width:100%;display:flex;align-items:center;gap:10px;border:0;background:transparent;color:var(--ink);border-radius:10px;padding:9px 10px;font:inherit;font-weight:600;cursor:pointer;text-align:left}
 .quote-dd-item:hover,.quote-dd-item.on{background:var(--lift)}
-.quote-dd-item .q-logo{width:22px;height:22px;border-radius:7px;object-fit:contain;flex:none;background:#1c101c;padding:2px;box-sizing:border-box}
+.quote-dd-item .q-logo{width:22px;height:22px;border-radius:7px;object-fit:cover;flex:none;background:#F4EEF2;box-sizing:border-box}
 .quote-dd-item .q-meta{flex:1;min-width:0}
 .quote-dd-item .q-meta small{display:block;font-size:11px;font-weight:500;color:var(--muted);margin-top:1px}
 .quote-dd-item .q-check{color:var(--sui);font-size:12px;opacity:0}
@@ -422,7 +422,7 @@ a.btn-trade{display:block;text-align:center;text-decoration:none;box-sizing:bord
 .rewards-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:0 0 22px}
 .rewards-card{background:var(--card);border:1px solid rgba(244,238,242,.08);border-radius:22px;padding:18px 20px}
 .rewards-card .rw-top{display:flex;align-items:center;gap:10px}
-.rewards-card .rw-logo{width:28px;height:28px;border-radius:9px;object-fit:contain;background:#161018;padding:3px;box-sizing:border-box}
+.rewards-card .rw-logo{width:28px;height:28px;border-radius:9px;object-fit:cover;background:#F4EEF2;box-sizing:border-box}
 .rewards-card .rw-lab{font-size:11px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
 .rewards-card .rw-name{font-weight:650;font-size:15px;letter-spacing:-.02em}
 .rewards-card .rw-amt{font-size:clamp(22px,2.6vw,28px);font-weight:600;letter-spacing:-.04em;margin-top:16px;font-variant-numeric:tabular-nums}
@@ -922,7 +922,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   var INSTANT_START_USD = 3500;
   var QUOTES = {
     SUI: { label:"SUI", type:SUI_TYPE, metadata:window.ARENA_SUI_METADATA, decimals:9, name:"Sui", what:"Native Sui", create:true, chips:["0.5","1","5","10","Max"], virtualHuman:"≈ $3.5k", pit:window.ARENA_PIT_SUI, color:"#4DA2FF", logo:"/brand/quotes/sui.svg" },
-    USDY: { label:"USDY", type:window.ARENA_USDY_TYPE, metadata:window.ARENA_USDY_METADATA, decimals:6, name:"Ondo US Dollar Yield", what:"Ondo tokenized US Treasury bills", create:true, chips:["1","5","10","25","Max"], virtualHuman:"≈ $3.5k", pit:window.ARENA_PIT_USDY, color:"#3ECF8E", logo:"/brand/quotes/usdy.png" },
+    USDY: { label:"USDY", type:window.ARENA_USDY_TYPE, metadata:window.ARENA_USDY_METADATA, decimals:6, name:"Ondo US Dollar Yield", what:"Ondo tokenized US Treasury bills", create:true, chips:["1","5","10","25","Max"], virtualHuman:"≈ $3.5k", pit:window.ARENA_PIT_USDY, color:"#3ECF8E", logo:"/brand/quotes/usdy.png?v=2" },
     XAGM: { label:"XAGM", type:window.ARENA_XAGM_TYPE, metadata:window.ARENA_XAGM_METADATA, decimals:9, name:"Matrixdock Silver", what:"Matrixdock silver, 1 oz", create:true, chips:["0.01","0.05","0.1","0.25","Max"], virtualHuman:"≈ $3.5k", pit:window.ARENA_PIT_XAGM, color:"#C0C7D1", logo:"/brand/quotes/xagm.png" },
     XAUM: { label:"XAUM", type:window.ARENA_XAUM_TYPE, metadata:window.ARENA_XAUM_METADATA, decimals:9, name:"Matrixdock Gold", what:"Matrixdock gold, 1 oz", create:true, chips:["0.01","0.05","0.1","0.25","Max"], virtualHuman:"≈ $3.5k", pit:window.ARENA_PIT_XAUM, color:"#C9A97E", logo:"/brand/quotes/xaum.png" },
     NVDA: { label:"NVDA", type:window.ARENA_STOCK_NVDA_TYPE, metadata:window.ARENA_STOCK_NVDA_METADATA, decimals:18, name:"NVIDIA wrap", what:"RH→Sui stock wrap (NVDA)", create:false, soon:true, stock:true, chips:["0.01","0.1","1","5","Max"], virtualHuman:"≈ $3.5k", pit:"", color:"#76B900", logo:"/brand/quotes/nvda.png" },
@@ -935,7 +935,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   var REWARDS_CATS = [
     { id:"gold", label:"Gold", quote:"XAUM", unit:"XAUM", blurb:"Matrixdock gold · Instant quote-fee share", color:"#C9A97E", logo:"/brand/quotes/xaum.png" },
     { id:"silver", label:"Silver", quote:"XAGM", unit:"XAGM", blurb:"Matrixdock silver · Instant quote-fee share", color:"#C0C7D1", logo:"/brand/quotes/xagm.png" },
-    { id:"tbills", label:"T-bills", quote:"USDY", unit:"USDY", blurb:"Ondo USDY · Instant quote-fee share", color:"#3ECF8E", logo:"/brand/quotes/usdy.png" }
+    { id:"tbills", label:"T-bills", quote:"USDY", unit:"USDY", blurb:"Ondo USDY · Instant quote-fee share", color:"#3ECF8E", logo:"/brand/quotes/usdy.png?v=2" }
   ];
   // Populated once Arena Move emits claim / distribution events. Scaffold only for now.
   var rewardsLedger = { updatedMs: 0, byCat: { gold:{ total:"0", claimable:"0", distributed:"0" }, silver:{ total:"0", claimable:"0", distributed:"0" }, tbills:{ total:"0", claimable:"0", distributed:"0" } }, distributions: [], claims: [] };
@@ -6041,8 +6041,8 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
         });
       }
       pull([], 0, 4).then(function(trades){
+        tk.booksTape = trades || [];
         if (trades && trades.length) tk.tapeRows = trades;
-        tk.booksVolUsd = quoteRowsVolUsd(tk, trades || []);
         tk.booksVolAt = Date.now();
         done();
       }).catch(function(){ done(); });
@@ -6050,8 +6050,10 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   }
   function booksVolUsdOf(tk){
     if (!tk) return 0;
-    if (typeof tk.booksVolUsd === "number") return tk.booksVolUsd;
-    return quoteRowsVolUsd(tk, tk.tapeRows || []);
+    var rows = (tk.booksTape && tk.booksTape.length) ? tk.booksTape : (tk.tapeRows || []);
+    var n = quoteRowsVolUsd(tk, rows);
+    if (typeof tk.booksVolUsd === "number" && tk.booksVolUsd > n) return tk.booksVolUsd;
+    return n;
   }
   function booksAllVolUsd(){
     var n = 0;
@@ -6063,7 +6065,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   }
   function metricsRollup(){
     const rows = (bus.trades || []).slice();
-    const out = {fills:rows.length, suiVol:0, rwaVol:0, rwaVolUsd:0, suiFee:0, rwaFee:0, refl:0, creator:0, pit:0, plat:0, byPool:{}, hours:[]};
+    const out = {fills:rows.length, suiVol:0, rwaVol:0, rwaVolUsd:0, volUsd:0, suiFee:0, rwaFee:0, refl:0, creator:0, pit:0, plat:0, byPool:{}, hours:[]};
     const hourMap = {};
     rows.forEach(function(t){
       const q = poolQuote(t.pool_id);
@@ -6082,18 +6084,18 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
         out.plat += fromMist(t.platform_fee);
       }
       const f = t.bluefin ? instaLp : (fromMist(t.creator_fee)+fromMist(t.pit_fee)+fromMist(t.platform_fee));
+      var usd = amt * (quoteUsd(q) || 0);
+      if (!(usd > 0) && hop.suiUsd > 0) usd = quoteSuiAmt(amt, q) * hop.suiUsd;
+      out.volUsd += usd;
       if (q === "SUI"){ out.suiVol += amt; out.suiFee += f; }
       else {
         out.rwaVol += quoteSuiAmt(amt, q);
-        var usd = amt * (quoteUsd(q) || 0);
-        if (!(usd > 0) && hop.suiUsd > 0) usd = quoteSuiAmt(amt, q) * hop.suiUsd;
         out.rwaVolUsd += usd;
         out.rwaFee += f;
       }
       const tk = listedTok(t.pool_id);
       if (tk){
         const key = tk.t;
-        const usd = amt * (quoteUsd(q) || 0);
         if (!out.byPool[key]) out.byPool[key] = {id:key, vol:0, volUsd:0, fills:0, q:q};
         out.byPool[key].vol += amt;
         out.byPool[key].volUsd += usd;
@@ -6119,7 +6121,9 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       return { id: tk.t, volUsd: booksVolUsdOf(tk), q: poolQuote(tk) };
     }).sort(function(a,b){ return (b.volUsd || 0) - (a.volUsd || 0); }).slice(0,8);
     var allUsd = booksAllVolUsd();
-    if (!(allUsd > 0)) allUsd = (m.rwaVolUsd || 0) + (m.suiVol || 0) * (hop.suiUsd || 0);
+    var rollupUsd = Number(m.volUsd) || 0;
+    if (!(rollupUsd > 0)) rollupUsd = (m.rwaVolUsd || 0) + (m.suiVol || 0) * (hop.suiUsd || 0);
+    if (rollupUsd > allUsd) allUsd = rollupUsd;
     const feeTotal = m.creator+m.plat+m.pit;
     function feeBar(label, n, color){
       const pct = feeTotal>0 ? (n/feeTotal*100) : 0;
