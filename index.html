@@ -1969,13 +1969,11 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   function padType(t){
     t = String(t || "").trim();
     var i = t.indexOf("::");
-    if (i < 2) return t;
-    var pkg = t.slice(0, i).toLowerCase();
+    if (i < 1) return t;
+    var pkg = t.slice(0, i).toLowerCase().replace(/^0x/, "");
     var rest = t.slice(i);
-    if (pkg.indexOf("0x") !== 0) return t;
-    var hex = pkg.slice(2);
-    if (!/^[0-9a-f]*$/.test(hex) || !hex) return t;
-    return "0x" + hex.padStart(64, "0") + rest;
+    if (!/^[0-9a-f]+$/.test(pkg) || !pkg) return t;
+    return "0x" + pkg.padStart(64, "0") + rest;
   }
   function normType(t){
     if (t == null || t === "") return "";
@@ -5569,6 +5567,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
         cat: ev.cat || ""
       };
     }
+    rewardsVaults[ev.basket_id].hasConverted = true;
     ensureVaultAsset(rewardsVaults[ev.basket_id], ev.to_asset);
     if (!ev.cat) return;
     var key = String(ev.digest || "") + ":byc:" + String(ev.basket_id) + ":" + String(ev.to_amount) + ":" + String(ev.to_asset || "");
@@ -5658,44 +5657,42 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       for (var i = 0; i < vaults.length && calls < 8; i++){
         var v = vaults[i];
         var vaultId = v.basket_id || v.yield_id;
+        var Ttype = padType(normType(v.token));
+        var Qtype = padType(normType(typeof v.quote === "string" ? v.quote : String(v.quote || "0x2::sui::SUI")));
         var coins = [];
-        try { coins = await coinsOfExact(suiSession.address, v.token); } catch (e) { coins = []; }
+        try { coins = await coinsOfExact(suiSession.address, Ttype); } catch (e) { coins = []; }
         if (!coins.length) continue;
         var coinArg = tx.object(coins[0].id);
         if (coins.length > 1){
           tx.mergeCoins(coinArg, coins.slice(1, 8).map(function(c){ return tx.object(c.id); }));
         }
-        var Q = typeof v.quote === "string" ? v.quote : String(v.quote);
         if (v.kind === "basket"){
-          // Convert MVP (not in claim PTB): take_quote_for_convert → off-module DEX hop → deposit_converted_asset.
           tx.moveCall({
             target: CALL + "::basket_yield::sync_registration",
-            typeArguments: [v.token, Q],
+            typeArguments: [Ttype, Qtype],
             arguments: [tx.object(vaultId), coinArg]
           });
-          var assets = await resolveBasketAssets(v);
-          if (!assets.length){
-            // Need Converted events or on-chain vault config before claiming legs.
-            continue;
-          }
+          calls++;
+          var assets = v.hasConverted ? (await resolveBasketAssets(v)) : [];
           var mode = Number(v.payout_mode) || 0;
           if (mode === 1){
             var idx = Number(v.rotate_index) || 0;
-            var Arot = assets[idx] || assets[0];
-            if (!Arot) continue;
-            var gotR = tx.moveCall({
-              target: CALL + "::basket_yield::claim_rotating",
-              typeArguments: [v.token, Q, Arot],
-              arguments: [tx.object(vaultId), tx.object(window.ARENA_CLOCK || "0x6")]
-            });
-            if (tx.transferObjects) tx.transferObjects([gotR], tx.pure.address(suiSession.address));
-            calls++;
+            var Arot = padType(normType(assets[idx] || assets[0] || ""));
+            if (Arot){
+              var gotR = tx.moveCall({
+                target: CALL + "::basket_yield::claim_rotating",
+                typeArguments: [Ttype, Qtype, Arot],
+                arguments: [tx.object(vaultId), tx.object(window.ARENA_CLOCK || "0x6")]
+              });
+              if (tx.transferObjects) tx.transferObjects([gotR], tx.pure.address(suiSession.address));
+            }
           } else {
             for (var ai = 0; ai < assets.length && calls < 8; ai++){
-              var A = assets[ai];
+              var A = padType(normType(assets[ai]));
+              if (!A) continue;
               var gotA = tx.moveCall({
                 target: CALL + "::basket_yield::claim_all",
-                typeArguments: [v.token, Q, A],
+                typeArguments: [Ttype, Qtype, A],
                 arguments: [tx.object(vaultId)]
               });
               if (tx.transferObjects) tx.transferObjects([gotA], tx.pure.address(suiSession.address));
@@ -5703,15 +5700,14 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
             }
           }
         } else {
-          // holder_yield path (kind holder / missing)
           tx.moveCall({
             target: CALL + "::holder_yield::sync_registration",
-            typeArguments: [v.token, Q],
+            typeArguments: [Ttype, Qtype],
             arguments: [tx.object(vaultId), coinArg]
           });
           var got = tx.moveCall({
             target: CALL + "::holder_yield::claim",
-            typeArguments: [v.token, Q],
+            typeArguments: [Ttype, Qtype],
             arguments: [tx.object(vaultId)]
           });
           if (tx.transferObjects) tx.transferObjects([got], tx.pure.address(suiSession.address));
