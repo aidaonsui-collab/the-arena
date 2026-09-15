@@ -3728,12 +3728,12 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     }).catch(function(){ tk.statsBusy = false; });
   }
   function hydrateTokenBurns(tk, attempt){
-    if (!tk || tk.missing || !tk.lockId || tk.burnBusy) return;
-    if (tk.statsHydrated && (Number(tk.burnFloor) || Number(tk.instadexBurn) || 0) > 0) return;
-    if (tk.burnHydrated && (Number(tk.instadexBurn) || 0) > 0) return;
+    if (!tk || tk.missing || tk.burnBusy) return;
+    if (!tk.lockId && !tk.mintLock && String(tk.t || "").toUpperCase() !== "VICEFUN") return;
+    if (tk.burnEventsAt && Date.now() - tk.burnEventsAt < 20000 && (Number(tk.instadexBurn) || 0) > 0) return;
     tk.burnBusy = true;
     attempt = Number(attempt) || 0;
-    var lock = padAddr(tk.lockId) || tk.lockId;
+    var prev = Number(tk.instadexBurn) || Number(tk.burnFloor) || 0;
     var sum = 0;
     var before = "";
     var pages = 0;
@@ -3749,7 +3749,9 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     }
     function done(ok){
       tk.burnBusy = false;
+      tk.burnEventsAt = Date.now();
       if (sum > 0){
+        if (sum < prev) sum = prev;
         tk.instadexBurn = sum;
         tk.burnFloor = sum;
         tk.burnHydrated = true;
@@ -3782,10 +3784,11 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
             digest: (n.transaction && n.transaction.digest) || ""
           };
           var key = burnEventKey(row);
-          if (seenBurns[key]) continue;
-          seenBurns[key] = 1;
-          if (row.lock_id && sameAddr(row.lock_id, lock)){
-            sum += Number(row.amount) || 0;
+          if (row.lock_id && burnMatchesTk(tk, row.lock_id)){
+            if (!seenBurns[key]){
+              seenBurns[key] = 1;
+              sum += Number(row.amount) || 0;
+            }
             hit++;
           }
         }
@@ -6237,6 +6240,30 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     return n;
   }
   var VICEFUN_BURN_LOCK = "0xf38be874fd17488c028ed810085d987862f158d0f8c7c06bf745823163821bf7";
+  var VICEFUN_MINT_LOCK = "0x9b4320cd6bb5051abe11339e6b343f20c258a51b759f62d9ee8142028f855a4e";
+  function burnIdsOf(tk){
+    var ids = [];
+    function add(id){
+      id = padAddr(id) || String(id || "");
+      if (id && ids.indexOf(id) < 0) ids.push(id);
+    }
+    if (!tk) return ids;
+    add(tk.lockId);
+    add(tk.mintLock);
+    if (String(tk.t || "").toUpperCase() === "VICEFUN"){
+      add(VICEFUN_BURN_LOCK);
+      add(VICEFUN_MINT_LOCK);
+    }
+    return ids;
+  }
+  function burnMatchesTk(tk, lockId){
+    if (!tk || !lockId) return false;
+    var ids = burnIdsOf(tk);
+    for (var i = 0; i < ids.length; i++){
+      if (sameAddr(ids[i], lockId)) return true;
+    }
+    return false;
+  }
   var _vicefunTkCache = null;
   function vicefunTk(){
     var tk = T.find(function(k){
@@ -6244,6 +6271,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     });
     if (tk){
       if (!tk.lockId) tk.lockId = VICEFUN_BURN_LOCK;
+      if (!tk.mintLock) tk.mintLock = VICEFUN_MINT_LOCK;
       if (!tk.bluefinPool && window.ARENA_VICEFUN_SUI_POOL) tk.bluefinPool = window.ARENA_VICEFUN_SUI_POOL;
       if (!tk.token && window.ARENA_VICEFUN_TYPE) tk.token = window.ARENA_VICEFUN_TYPE;
       _vicefunTkCache = tk;
@@ -6254,6 +6282,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       t: "VICEFUN",
       n: "Vicefun",
       lockId: VICEFUN_BURN_LOCK,
+      mintLock: VICEFUN_MINT_LOCK,
       bluefinPool: window.ARENA_VICEFUN_SUI_POOL || "",
       token: window.ARENA_VICEFUN_TYPE || "",
       instadexBurn: 0,
@@ -8040,9 +8069,7 @@ async function doBridgeDeposit(){
     if (seenBurns[key]) return;
     seenBurns[key] = 1;
     const n = Number(b.amount) || 0;
-    const tk = T.find(function(k){
-      return (k.lockId && sameAddr(k.lockId, b.lock_id)) || (k.mintLock && sameAddr(k.mintLock, b.lock_id));
-    });
+    const tk = T.find(function(k){ return burnMatchesTk(k, b.lock_id); });
     if (!tk){
       var pendKey = padAddr(b.lock_id) || b.lock_id;
       pendingBurns[pendKey] = (Number(pendingBurns[pendKey]) || 0) + n;
