@@ -5673,7 +5673,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
             arguments: [tx.object(vaultId), coinArg]
           });
           calls++;
-          var assets = v.hasConverted ? (await resolveBasketAssets(v)) : [];
+          var assets = await resolveBasketAssets(v);
           var mode = Number(v.payout_mode) || 0;
           if (mode === 1){
             var idx = Number(v.rotate_index) || 0;
@@ -5717,7 +5717,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       if (!calls) throw new Error("Hold launch tokens to sync registration, then claim");
       var res = await walletExec(tx);
       var digest = (res && (res.digest || (res.effects && res.effects.transactionDigest))) || "";
-      rewardsNote = digest ? ("Claim sent · " + digest.slice(0, 10) + "…") : "Claim sent";
+      rewardsNote = digest ? ("Claim sent · " + digest.slice(0, 10) + "… Check wallet for XAUM / XAGM / USDY.") : "Claim sent";
       pendingRewards.at = 0;
       if (bus.sub && typeof bus.sub.refreshInstadex === "function") setTimeout(function(){ bus.sub.refreshInstadex(); }, 1200);
     } finally {
@@ -5985,7 +5985,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
         '<h1>Distributions</h1>'+
         '<p class="dist-lede">Gold, silver, and T-bills paid from Instant quote fees. Each row links to its transaction.</p>'+
         '<div class="dist-stats">'+
-          '<div class="dist-stat"><div class="k">Cumulative distributed</div><div class="v">'+escHtml(fmtUsd(usd))+'</div><div class="s">at current prices</div>'+distBarsHTML(distUsdSeries(), "gold")+'</div>'+
+          '<div class="dist-stat"><div class="k">Converted to RWA</div><div class="v">'+escHtml(fmtUsd(usd))+'</div><div class="s">in vaults · Claim to withdraw to your wallet</div>'+distBarsHTML(distUsdSeries(), "gold")+'</div>'+
           '<div class="dist-stat"><div class="k">SUI equivalent</div><div class="v">'+escHtml(fmt(rewardsDistributedSui()))+'</div><div class="s">RWA collected at current prices</div>'+distBarsHTML(eventUsd, "sui")+'</div>'+
           '<div class="dist-stat"><div class="k">Wallets</div><div class="v">'+(elig==null?"…":elig)+'</div><div class="s">eligible (synced holders)</div>'+distBarsHTML(eligBars, "muted")+'</div>'+
         '</div>'+
@@ -8427,6 +8427,7 @@ async function doBridgeDeposit(){
   function typeNameStr(v){
     if (!v) return "";
     if (typeof v === "string") return v;
+    if (v.fields && (v.fields.name || v.fields.address)) return typeNameStr(v.fields);
     if (v.address && v.module) return String(v.address) + "::" + v.module + "::" + (v.name || "");
     if (v.name) return String(v.name);
     return String(v);
