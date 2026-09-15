@@ -1,5 +1,5 @@
 #!/bin/bash
-# One tick of home-Mac keepers. launchd calls this every 5 minutes.
+# One tick of home-Mac keepers. launchd ticks often; collect/distribute runs every ARENA_COLLECT_EVERY_S (default 30m).
 set -u
 ROOT="$(cd "$(dirname "$0")" && pwd)"
 cd "$ROOT" || exit 1
@@ -69,9 +69,9 @@ if [ "${ARENA_KEEPER_CURVE:-}" = "1" ]; then
 fi
 
 # LP collect (burn A, 60/10/30 creator/platform/pit) then AdminCap withdraw into the platform wallet.
-# Default every hour so the SUI pit and creator bags actually move. Override with ARENA_COLLECT_EVERY_S.
+# Default every 30 minutes so the SUI pit and creator bags actually move. Override with ARENA_COLLECT_EVERY_S.
 STAMP="$HOME/Library/Logs/arena-keepers-fees.stamp"
-EVERY="${ARENA_COLLECT_EVERY_S:-3600}"
+EVERY="${ARENA_COLLECT_EVERY_S:-1800}"
 now="$(date +%s)"
 last=0
 [ -f "$STAMP" ] && last="$(cat "$STAMP" 2>/dev/null || echo 0)"

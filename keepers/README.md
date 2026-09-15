@@ -11,7 +11,7 @@ Cron jobs for The Arena launchpad.
 | `* * * * *` | `/api/reflections` | Ingest `TradeEvent` + `ClaimEvent` (kind=0). Snapshot unpaid/claimed per holder. |
 | `*/5 * * * *` | `/api/ring` | Sign `config::ring_pit` when Clock >= `round_end_ms` and the previous winner is settled. |
 | `*/5 * * * *` | `/api/settle` | Only if `/api/pit-state` has an unsettled 24h MC winner. AdminCap drains `Pit<SUI>`, hops to quote, Bluefin-buys, burns. Then leftover curve `pool::settle_pit` if an on-chain winner is pending. |
-| `0 * * * *` | `/api/collect` | Poke collect on Instadex locks with accrued LP fees. Path: `HolderYieldKey` → `collect_instadex_fees_holder_yield`; `BasketYieldKey` → `collect_instadex_fees_basket_yield`; else pit `collect_instadex_fees`. Yield mode from launch/migrate events, with **lock DF fallback** so migrated Instant flips without allowlist. Burns coin A; Instant quote 60/5/25/10 creator/platform/rewards-or-vault/VICE buyback after `set_instant_lp_split`. Then `withdraw` (platform 5%; buyback bag stays until VICE burn keeper). Home Mac LaunchAgent hourly (`ARENA_COLLECT_EVERY_S=3600`). |
+| `0 * * * *` | `/api/collect` | Poke collect on Instadex locks with accrued LP fees. Path: `HolderYieldKey` → `collect_instadex_fees_holder_yield`; `BasketYieldKey` → `collect_instadex_fees_basket_yield`; else pit `collect_instadex_fees`. Yield mode from launch/migrate events, with **lock DF fallback** so migrated Instant flips without allowlist. Burns coin A; Instant quote 60/5/25/10 creator/platform/rewards-or-vault/VICE buyback after `set_instant_lp_split`. Then `withdraw` (platform 5%; buyback bag stays until VICE burn keeper). Home Mac LaunchAgent every 30m (`ARENA_COLLECT_EVERY_S=1800`). |
 | `*/15 * * * *` | `/api/convert-basket` | Discover `BasketYieldVault`s with `quote_staging` via `BasketYieldLaunch`/`Funded` GraphQL events. `take_quote_for_convert` → SUI→USDC→RWA hop (same Cetus/Bluefin pools as `settleInstadex`) → `deposit_converted_asset` per weight leg. |
 | every 5 min (Air) | `tsx src/cli.ts trades` | Index Bluefin AssetSwap per Instant pool into SQLite (`keepers/data/trades.sqlite`) and publish `/api/trades` for the token-page tape. Same job sums `InstadexBurnEvent` and pool reserves to `/api/token-stats` so About MC and Burned stay in sync. |
 
@@ -27,7 +27,7 @@ cd ~/arena-keepers/keepers
 ./install-local.sh
 ```
 
-That installs a LaunchAgent (`ai.arena.keepers`) which ticks every 5 minutes. Each tick GETs `/api/pit-state` (that write is what rings the 24h MC bell). Instant buy/burn (`instadex`) runs only when an unsettled winner bell is waiting — not every five minutes of an open round. LP `collect` plus AdminCap `withdraw` of launch fees and the 10% platform bag run once an hour into `0x92a32ac7…` (override `ARENA_COLLECT_EVERY_S`). Leftover curve `ring`/`settle` stay off unless `ARENA_KEEPER_CURVE=1` in `.env.local`. Logs: `~/Library/Logs/arena-keepers.log`.
+That installs a LaunchAgent (`ai.arena.keepers`) which ticks every 5 minutes. Each tick GETs `/api/pit-state` (that write is what rings the 24h MC bell). Instant buy/burn (`instadex`) runs only when an unsettled winner bell is waiting — not every five minutes of an open round. LP `collect` plus AdminCap `withdraw` of launch fees and the 10% platform bag run every 30 minutes into `0x92a32ac7…` (override `ARENA_COLLECT_EVERY_S`). Leftover curve `ring`/`settle` stay off unless `ARENA_KEEPER_CURVE=1` in `.env.local`. Logs: `~/Library/Logs/arena-keepers.log`.
 
 ```
 launchctl bootout gui/$(id -u)/ai.arena.keepers   # stop
@@ -42,8 +42,8 @@ Optional `keepers/.env.local` (gitignored) if you want Past-bell tx links writte
 ```
 CRON_SECRET=same-value-as-the-arena-vercel-project
 ARENA_SETTLE_SECRET=same-or-dedicated-secret
-# optional; default 3600 (hourly collect + platform withdraw)
-# ARENA_COLLECT_EVERY_S=3600
+# optional; default 1800 (30m collect + platform withdraw)
+# ARENA_COLLECT_EVERY_S=1800
 ```
 
 `ARENA_SETTLE_SECRET` (or `CRON_SECRET`) is what POSTs the buy/burn digest onto the Fight Night bell. Without it the on-chain settle still runs; Past bells just stay unmarked.
@@ -87,7 +87,7 @@ npm run convert-basket
 | `ARENA_CONVERT_WALLET_RWAS` | off | Skip DEX hop; transfer taken Q to keeper and deposit RWA coins already in the wallet |
 | `ARENA_KEEPER_PHRASE` | — | Signer (same as other keepers) |
 
-Home Mac `run-local.sh` runs `convert-basket` in the hourly collect window (after `collect`, before `withdraw`). Optional Vercel cron every 15m on `/api/convert-basket` (Bearer `CRON_SECRET`).
+Home Mac `run-local.sh` runs `convert-basket` in the 30m collect window (after `collect`, before `withdraw`). Optional Vercel cron every 15m on `/api/convert-basket` (Bearer `CRON_SECRET`).
 
 **Operator notes:** Prefer dry-run first (`ARENA_CONVERT_DRY_RUN=1`). Non-SUI quote vaults are skipped unless `ARENA_CONVERT_WALLET_RWAS=1`. Bluefin `minOut` is `1` (parity with settle). Collect must run first so staging is funded.
 
