@@ -431,6 +431,9 @@ a.btn-trade{display:block;text-align:center;text-decoration:none;box-sizing:bord
 .rewards-claim{margin:4px 0 28px;display:flex;flex-wrap:wrap;gap:14px;align-items:center}
 .rewards-claim .btn{border:0;background:var(--pink);color:#fff;border-radius:14px;padding:12px 20px;min-height:44px;font-weight:650;font-size:15px;cursor:pointer}
 .rewards-claim .btn:disabled{opacity:.4;cursor:not-allowed}
+.claim-pill{border:1px solid var(--line);background:rgba(244,238,242,.06);color:var(--ink);border-radius:999px;padding:10px 16px;min-height:44px;font-weight:650;font-size:13px;letter-spacing:.02em}
+.claim-pill.has{background:rgba(255,46,166,.18);border-color:rgba(255,46,166,.5);color:#fff}
+.claim-pill:disabled{opacity:.45;cursor:not-allowed}
 .rewards-claim .note{color:var(--muted);font-size:13px;max-width:46ch;line-height:1.4}
 .dist-split{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(280px,.9fr);gap:14px;align-items:start}
 .dist-panel{background:var(--card);border:1px solid rgba(244,238,242,.08);border-radius:22px;padding:22px 22px 12px}
@@ -453,10 +456,9 @@ a.btn-trade{display:block;text-align:center;text-decoration:none;box-sizing:bord
   .dist-stats,.dist-split,.rewards-grid{grid-template-columns:1fr}
 }
 
-html[data-route="explore"] .search-row,html[data-route="pit"] .search-row,html[data-route="launch"] .search-row,html[data-route="token"] .search-row,html[data-route="metrics"] .search-row,html[data-route="portfolio"] .search-row{display:none}
+html[data-route="explore"] .search-row,html[data-route="pit"] .search-row,html[data-route="launch"] .search-row,html[data-route="token"] .search-row,html[data-route="metrics"] .search-row{display:none}
 html[data-route="explore"] main,html[data-route="pit"] main{padding:0 0 72px}
 html[data-route="launch"] main,html[data-route="token"] main,html[data-route="metrics"] main{width:min(1180px,calc(100% - 32px));margin:0 auto;padding:18px 0 72px}
-html[data-route="portfolio"] main{padding:0 0 72px}
 .living-hero{position:relative;min-height:min(92vh,920px);overflow:hidden;display:flex;align-items:flex-end}
 .hero-reel{position:absolute;inset:0;overflow:hidden;pointer-events:none}
 .hero-video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transform:scale(1.04);transition:opacity .7s ease}
@@ -940,6 +942,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   var rewardsVaults = {}; // yield_id -> launch meta
   var rewardsBusy = false;
   var rewardsNote = "";
+  var pendingRewards = { addr: "", at: 0, usd: 0, parts: [], busy: false };
 
 
   // Secondary wrap only: RH stock → vault lock → 1:1 Sui mint. Not RH primary mint.
@@ -4422,7 +4425,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     return '<footer class="footer">'+
       '<div><div class="brand-name" style="margin-bottom:8px">vice.</div>'+
         '<p style="margin:0;max-width:42ch">Fair launches on Sui. Instant seeds Bluefin in block one. T-bills hop Cetus. Quote is SUI, USDY, XAGM, or XAUM. LP locked forever.</p></div>'+
-      '<div><h4>Product</h4><div data-go="explore">The Strip</div><div data-go="pit">Distributions</div><div data-go="portfolio">Portfolio</div><div data-go="metrics">Books</div><div data-go="bridge">Bridge</div><div data-go="launch">Create</div><a href="https://x.com/ViceFun" target="_blank" rel="noopener">X</a></div>'+
+      '<div><h4>Product</h4><div data-go="explore">The Strip</div><div data-go="pit">Distributions</div><div data-go="metrics">Books</div><div data-go="bridge">Bridge</div><div data-go="launch">Create</div><a href="https://x.com/ViceFun" target="_blank" rel="noopener">X</a></div>'+
       '<div><h4>Fees</h4>Bluefin 2% on the pair (keeps 20%).<br>Our 80% quote split 60/5/25/10 creator/platform/rewards/VICE buyback.<br>Token-side LP fees burn.</div></footer>';
   }
   var pfCache = { addr: "", rows: [], at: 0 };
@@ -5709,6 +5712,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       var res = await walletExec(tx);
       var digest = (res && (res.digest || (res.effects && res.effects.transactionDigest))) || "";
       rewardsNote = digest ? ("Claim sent · " + digest.slice(0, 10) + "…") : "Claim sent";
+      pendingRewards.at = 0;
       if (bus.sub && typeof bus.sub.refreshInstadex === "function") setTimeout(function(){ bus.sub.refreshInstadex(); }, 1200);
     } finally {
       rewardsBusy = false;
@@ -5767,6 +5771,94 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     var id = f.id;
     if (id && typeof id === "object") id = id.id || "";
     return { id: String(id || ""), size: Number(f.size) || 0 };
+  }
+  var YIELD_MAG = 1000000000000n;
+  function asBigInt(x){
+    try { return BigInt(String(x == null ? "0" : x).split(".")[0] || "0"); } catch (e) { return 0n; }
+  }
+  function dfValueFields(res){
+    var c = res && res.data && res.data.content;
+    var f = c && c.fields;
+    if (!f) return null;
+    var v = f.value;
+    if (v && v.fields) return v.fields;
+    if (v && typeof v === "object" && (v.amount != null || v.unpaid != null)) return v;
+    if (f.amount != null || f.unpaid != null) return f;
+    return null;
+  }
+  function holderPendingFromFields(h, mps){
+    if (!h) return 0;
+    var amount = asBigInt(h.amount);
+    var unpaid = asBigInt(h.unpaid);
+    var debt = asBigInt(h.debt);
+    var accum = amount * asBigInt(mps);
+    var extra = accum > debt ? (accum - debt) / YIELD_MAG : 0n;
+    var n = unpaid + extra;
+    if (n > 9007199254740991n) return Number(9007199254740991n);
+    return Number(n);
+  }
+  async function readHolderPending(vaultId, addr){
+    addr = padAddr(addr) || addr;
+    var obj = await suiJson("sui_getObject", [vaultId, { showContent: true }]);
+    var fields = obj && obj.data && obj.data.content && obj.data.content.fields;
+    if (!fields) return 0;
+    var tab = vaultHoldersTable(fields);
+    if (!tab.id) return 0;
+    var df;
+    try {
+      df = await suiJson("suix_getDynamicFieldObject", [tab.id, { type: "address", value: addr }]);
+    } catch (e) { return 0; }
+    return holderPendingFromFields(dfValueFields(df), fields.mps);
+  }
+  function pendingPillHTML(){
+    if (!suiSession.address) return "";
+    var mine = pendingRewards.addr === suiSession.address;
+    var loading = pendingRewards.busy || !mine || !pendingRewards.at;
+    var usd = mine ? (pendingRewards.usd || 0) : 0;
+    var has = usd > 0.005;
+    var amt = usd >= 1000 ? fmtUsd(usd) : ("$" + usd.toFixed(2));
+    var label = loading ? "Pending…" : (has ? ("Claim all · " + amt) : "No pending");
+    var dis = rewardsBusy || loading || !has;
+    return '<button type="button" class="claim-pill'+(has?" has":"")+'" data-rewards-claim'+(dis?" disabled":"")+'>'+escHtml(label)+'</button>';
+  }
+  async function loadPendingRewards(){
+    var addr = suiSession.address;
+    if (!addr){
+      pendingRewards = { addr: "", at: 0, usd: 0, parts: [], busy: false };
+      return pendingRewards;
+    }
+    if (pendingRewards.addr === addr && pendingRewards.at && Date.now() - pendingRewards.at < 20000 && !pendingRewards.busy) {
+      return pendingRewards;
+    }
+    pendingRewards.busy = true;
+    pendingRewards.addr = addr;
+    var usd = 0;
+    var parts = [];
+    var ids = Object.keys(rewardsVaults);
+    for (var i = 0; i < ids.length && i < 16; i++){
+      var v = rewardsVaults[ids[i]];
+      if (!v || v.kind === "basket") continue;
+      var vaultId = v.yield_id || ids[i];
+      var raw = 0;
+      try { raw = await readHolderPending(vaultId, addr); } catch (e) { raw = 0; }
+      if (!(raw > 0)) continue;
+      var cat = v.cat ? rewardsCat(v.cat) : null;
+      var u = cat ? rewardUsd(raw, cat) : 0;
+      usd += u;
+      parts.push({ cat: v.cat, raw: raw, usd: u });
+    }
+    pendingRewards = { addr: addr, at: Date.now(), usd: usd, parts: parts, busy: false };
+    return pendingRewards;
+  }
+  function refreshPendingRewards(){
+    if (state.route !== "pit" || !suiSession.address) return;
+    if (pendingRewards.busy) return;
+    if (pendingRewards.addr === suiSession.address && pendingRewards.at && Date.now() - pendingRewards.at < 20000) return;
+    loadPendingRewards().then(function(){
+      if (state.route === "pit") renderScreen();
+    }).catch(function(){
+      pendingRewards.busy = false;
+    });
   }
   async function listTableAddresses(tableId){
     var addrs = [];
@@ -5894,6 +5986,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
         '<div class="rewards-grid">'+cards+'</div>'+
         '<div class="rewards-claim">'+
           '<button type="button" class="btn" data-rewards-claim'+(rewardsBusy || !suiSession.address ? " disabled" : "")+'>'+escHtml(claimLabel)+'</button>'+
+          pendingPillHTML()+
           '<div class="note">'+escHtml(claimNote)+'</div>'+
         '</div>'+
         '<div class="dist-split">'+
@@ -6735,7 +6828,7 @@ async function doBridgeDeposit(){
     }
     const r = parts[0];
     if (r === "discover" || r === "floor" || r === "home" || r === "explore" || r === "strip") return {route:"explore", sym:state.sym};
-    if (r === "portfolio") return {route:"portfolio", sym:state.sym};
+    if (r === "portfolio") return {route:"pit", sym:state.sym};
     if (r === "pit" || r === "pot" || r === "night" || r === "fight" || r === "rewards" || r === "distributions") return {route:"pit", sym:state.sym};
     if (r === "books") return {route:"metrics", sym:state.sym};
     if (r === "launch" || r === "metrics" || r === "analytics") return {route: r==="analytics"?"metrics":r, sym:state.sym};
@@ -6782,7 +6875,7 @@ async function doBridgeDeposit(){
     if (can) can.setAttribute("href", url);
   }
   function paintNav(){
-    const nav = [["The Strip","explore"],["Distributions","pit"],["Portfolio","portfolio"],["Books","metrics"],["Bridge","bridge"]];
+    const nav = [["The Strip","explore"],["Distributions","pit"],["Books","metrics"],["Bridge","bridge"]];
     $("#nav-pill").innerHTML = nav.map(function(n){
       const on = state.route === n[1] || (n[1]==="explore" && state.route==="token");
       return '<div class="nav-item'+(on?" on":"")+'" data-go="'+n[1]+'">'+n[0]+'</div>';
@@ -7538,7 +7631,7 @@ async function doBridgeDeposit(){
     var keepSwapSym = keepTicket ? (keepTicket.getAttribute("data-swap-sym") || "") : "";
     var keepHero = (state.route === "explore" && host) ? host.querySelector(".living-hero") : null;
     dropTv();
-    const map = {explore:exploreHTML, pit:pitHTML, token:tokenHTML, launch:launchHTML, metrics:metricsHTML, bridge:bridgeHTML, portfolio:portfolioHTML};
+    const map = {explore:exploreHTML, pit:pitHTML, token:tokenHTML, launch:launchHTML, metrics:metricsHTML, bridge:bridgeHTML};
     host.innerHTML = (map[state.route] || exploreHTML)();
     if (state.route === "explore"){
       var heroSlot = host.querySelector(".living-hero");
@@ -7571,9 +7664,11 @@ async function doBridgeDeposit(){
     document.documentElement.setAttribute("data-route", state.route);
     paintNav();
     paintWallet();
-    if (state.route === "portfolio") refreshPortfolio();
     if (state.route === "metrics") refreshBooksVol();
-    if (state.route === "pit") refreshEligible();
+    if (state.route === "pit"){
+      refreshEligible();
+      refreshPendingRewards();
+    }
     if (state.route === "bridge") refreshBridgeBal();
     const q = $("#q");
     if (q) q.value = state.search;
@@ -7610,6 +7705,7 @@ async function doBridgeDeposit(){
     } catch (e) {}
   }
   function go(route, sym){
+    if (route === "portfolio") route = "pit";
     const nextSym = sym || state.sym;
     if (route === state.route && (!sym || nextSym === state.sym)) return;
     window.scrollTo(0,0);
