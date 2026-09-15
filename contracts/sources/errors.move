@@ -67,6 +67,10 @@ const E_USE_BASKET_YIELD_COLLECT: u64 = 43;
 const E_YIELD_MODE_CONFLICT: u64 = 44;
 /// admin_detach_yield called on a lock with no HolderYieldKey / BasketYieldKey DF.
 const E_NO_YIELD_TO_DETACH: u64 = 45;
+/// Vault is in push-distribute mode — call keeper push_payout, not claim/sync.
+const E_USE_PUSH_DISTRIBUTE: u64 = 46;
+/// Nothing to push (zero amount or pot too small).
+const E_NOTHING_TO_PUSH: u64 = 47;
 
 public fun paused(): u64 { E_PAUSED }
 public fun invalid_fee(): u64 { E_INVALID_FEE }
@@ -113,4 +117,6 @@ public fun basket_mode(): u64 { E_BASKET_MODE }
 public fun use_basket_yield_collect(): u64 { E_USE_BASKET_YIELD_COLLECT }
 public fun yield_mode_conflict(): u64 { E_YIELD_MODE_CONFLICT }
 public fun no_yield_to_detach(): u64 { E_NO_YIELD_TO_DETACH }
+public fun use_push_distribute(): u64 { E_USE_PUSH_DISTRIBUTE }
+public fun nothing_to_push(): u64 { E_NOTHING_TO_PUSH }
 

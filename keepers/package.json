@@ -11,6 +11,7 @@
     "trades": "npx tsx src/cli.ts trades",
     "pit": "npx tsx src/cli.ts pit",
     "convert-basket": "npx tsx src/cli.ts convert-basket",
+    "push-yield": "npx tsx src/cli.ts push-yield",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

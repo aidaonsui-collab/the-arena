@@ -11,16 +11,23 @@
 /// weight). External transfers do not update the registry — same caveat as the
 /// curve pool registry.
 ///
+/// **Push distribute (option A):** vaults with `PushDistributeKey` DF park the fee
+/// pot absolutely (no mps bump); keeper calls `push_payout` with AdminCap. Claim /
+/// sync abort in push mode. New vaults enable push by default; existing vaults
+/// opt in via `enable_push_distribute`.
+///
 /// Default Instant / curve pit launches stay on the pit path; only locks with the
 /// `HolderYieldKey` DF (set at launch) use this vault.
 module arena::holder_yield;
 
+use arena::config::AdminCap;
 use arena::errors;
 use arena::events;
 use std::type_name;
 use sui::balance::{Self, Balance};
 use sui::clock::Clock;
 use sui::coin::{Self, Coin};
+use sui::dynamic_field as df;
 use sui::object::{Self, ID, UID};
 use sui::table::{Self, Table};
 use sui::transfer;
@@ -28,6 +35,10 @@ use sui::tx_context::TxContext;
 
 /// Magnified-dividend scalar (1e12). Same as `pool::MAG`.
 const MAG: u256 = 1_000_000_000_000;
+
+/// DF on vault `id`: when present, fee parks in `reward_pot` for keeper push
+/// (absolute pot; no mps). Compatible — no layout change on the vault struct.
+public struct PushDistributeKey has copy, drop, store {}
 
 /// Per-address weight + unpaid claimable quote. Same shape as the pit half of
 /// `pool::Holder` (single reward stream).
@@ -50,27 +61,17 @@ public struct HolderYieldVault<phantom T, phantom Q> has key {
 
 /// Create and share a vault for `lock_id` / Bluefin pool. Called once at Instant
 /// holder-yield launch (before the lock is shared, DF points here).
+/// New vaults enable push distribute by default.
 public(package) fun create_and_share<T, Q>(
     lock_id: ID,
     bluefin_pool_id: ID,
     ctx: &mut TxContext,
 ): ID {
-    let vault = HolderYieldVault<T, Q> {
-        id: object::new(ctx),
-        lock_id,
-        bluefin_pool_id,
-        holders: table::new(ctx),
-        total_registered: 0,
-        reward_pot: balance::zero<Q>(),
-        mps: 0,
-    };
-    let id = object::id(&vault);
-    transfer::share_object(vault);
-    id
+    create_vault_inner<T, Q>(lock_id, bluefin_pool_id, /* push */ true, ctx)
 }
 
 /// Alias for migrate / launch: vault bound to an existing Instant lock
-/// (no Bluefin reseed). Same as `create_and_share`.
+/// (no Bluefin reseed). Same as `create_and_share` (push on by default).
 public(package) fun create_vault_for_lock<T, Q>(
     lock_id: ID,
     bluefin_pool_id: ID,
@@ -79,17 +80,72 @@ public(package) fun create_vault_for_lock<T, Q>(
     create_and_share<T, Q>(lock_id, bluefin_pool_id, ctx)
 }
 
+fun create_vault_inner<T, Q>(
+    lock_id: ID,
+    bluefin_pool_id: ID,
+    push: bool,
+    ctx: &mut TxContext,
+): ID {
+    let mut vault = HolderYieldVault<T, Q> {
+        id: object::new(ctx),
+        lock_id,
+        bluefin_pool_id,
+        holders: table::new(ctx),
+        total_registered: 0,
+        reward_pot: balance::zero<Q>(),
+        mps: 0,
+    };
+    if (push) {
+        df::add(&mut vault.id, PushDistributeKey {}, true);
+    };
+    let id = object::id(&vault);
+    transfer::share_object(vault);
+    id
+}
+
+/// True when vault has `PushDistributeKey` (keeper push; claim/sync disabled).
+public fun is_push_mode<T, Q>(vault: &HolderYieldVault<T, Q>): bool {
+    df::exists(&vault.id, PushDistributeKey {})
+}
+
+/// Opt an existing (claim-mode) vault into push distribute. Idempotent.
+public fun enable_push_distribute<T, Q>(
+    vault: &mut HolderYieldVault<T, Q>,
+    _: &AdminCap,
+) {
+    if (!df::exists(&vault.id, PushDistributeKey {})) {
+        df::add(&mut vault.id, PushDistributeKey {}, true);
+    }
+}
+
 /// Route the pit-bps quote slice into claimable holder rewards.
-/// Joins the pot when distribution succeeds. On failure (no holders / zero),
-/// returns the balance for the caller to send to the creator residual — same
-/// rescue pattern as `pool::distribute_reflection`.
+/// Joins the pot when distribution succeeds. On failure (no holders / zero) in
+/// claim mode, returns the balance for the caller to send to the creator
+/// residual — same rescue pattern as `pool::distribute_reflection`.
+/// Push mode: park even when `total_registered == 0`; do not bump mps.
 public(package) fun try_fund<T, Q>(
     vault: &mut HolderYieldVault<T, Q>,
     fee: Balance<Q>,
     clock: &Clock,
 ): Balance<Q> {
     let amount = fee.value();
-    if (amount == 0 || vault.total_registered == 0) {
+    if (amount == 0) {
+        return fee
+    };
+    if (is_push_mode(vault)) {
+        // Absolute pot for keeper pro-rata push — no mps accounting.
+        vault.reward_pot.join(fee);
+        events::emit_holder_yield_funded(
+            vault.lock_id,
+            object::id(vault),
+            vault.bluefin_pool_id,
+            type_name::with_defining_ids<Q>(),
+            amount,
+            clock.timestamp_ms(),
+        );
+        return balance::zero<Q>()
+    };
+    if (vault.total_registered == 0) {
         return fee
     };
     vault.mps = vault.mps + (amount as u256) * MAG / (vault.total_registered as u256);
@@ -105,13 +161,40 @@ public(package) fun try_fund<T, Q>(
     balance::zero<Q>()
 }
 
+/// Admin/keeper: split `amount` from `reward_pot` and transfer `Coin<Q>` to
+/// `recipient`. Push-mode only.
+public fun push_payout<T, Q>(
+    vault: &mut HolderYieldVault<T, Q>,
+    _: &AdminCap,
+    recipient: address,
+    amount: u64,
+    clock: &Clock,
+    ctx: &mut TxContext,
+) {
+    assert!(is_push_mode(vault), errors::nothing_to_push());
+    assert!(amount > 0, errors::nothing_to_push());
+    assert!(vault.reward_pot.value() >= amount, errors::nothing_to_push());
+    let c = coin::from_balance(vault.reward_pot.split(amount), ctx);
+    events::emit_holder_yield_push(
+        vault.lock_id,
+        object::id(vault),
+        recipient,
+        amount,
+        type_name::with_defining_ids<Q>(),
+        clock.timestamp_ms(),
+    );
+    transfer::public_transfer(c, recipient);
+}
+
 /// Set registry weight to `coin.value()`. Accrues unpaid before the update.
 /// Merge wallet coins first if you want the full balance to count.
+/// Aborts in push mode — use keeper `push_payout` instead.
 public fun sync_registration<T, Q>(
     vault: &mut HolderYieldVault<T, Q>,
     coin: &Coin<T>,
     ctx: &TxContext,
 ) {
+    assert!(!is_push_mode(vault), errors::use_push_distribute());
     let who = ctx.sender();
     let new_amt = coin.value();
     let mps = vault.mps;
@@ -128,11 +211,12 @@ public fun sync_registration<T, Q>(
     h.debt = (new_amt as u256) * mps;
 }
 
-/// Claim accrued quote rewards (pull model).
+/// Claim accrued quote rewards (pull model). Aborts in push mode.
 public fun claim<T, Q>(
     vault: &mut HolderYieldVault<T, Q>,
     ctx: &mut TxContext,
 ): Coin<Q> {
+    assert!(!is_push_mode(vault), errors::use_push_distribute());
     let who = ctx.sender();
     assert!(vault.holders.contains(who), errors::nothing_to_claim());
     let mps = vault.mps;
@@ -203,12 +287,23 @@ fun u256_to_u64(x: u256): u64 {
 }
 
 #[test_only]
+/// Claim-mode vault (no PushDistributeKey) for legacy unit tests.
 public fun create_for_testing<T, Q>(
     lock_id: ID,
     bluefin_pool_id: ID,
     ctx: &mut TxContext,
 ): ID {
-    create_and_share<T, Q>(lock_id, bluefin_pool_id, ctx)
+    create_vault_inner<T, Q>(lock_id, bluefin_pool_id, /* push */ false, ctx)
+}
+
+#[test_only]
+/// Push-mode vault (same as production `create_and_share`).
+public fun create_push_for_testing<T, Q>(
+    lock_id: ID,
+    bluefin_pool_id: ID,
+    ctx: &mut TxContext,
+): ID {
+    create_vault_inner<T, Q>(lock_id, bluefin_pool_id, /* push */ true, ctx)
 }
 
 #[test_only]

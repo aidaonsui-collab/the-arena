@@ -1557,6 +1557,152 @@ fun test_holder_yield_no_holders_returns_fee() {
 }
 
 #[test]
+fun test_holder_yield_push_fund_zero_registered() {
+    let mut scenario = ts::begin(ADMIN);
+    let mut clock = clock::create_for_testing(scenario.ctx());
+    clock.set_for_testing(2_000);
+    holder_yield::create_push_for_testing<TCOIN, SUI>(
+        sui::object::id_from_address(@0xB101),
+        sui::object::id_from_address(@0xB102),
+        scenario.ctx(),
+    );
+    clock.share_for_testing();
+    scenario.next_tx(ADMIN);
+    {
+        let mut vault = scenario.take_shared<HolderYieldVault<TCOIN, SUI>>();
+        let clock = scenario.take_shared<Clock>();
+        assert!(holder_yield::is_push_mode(&vault), 0);
+        assert!(holder_yield::total_registered(&vault) == 0, 1);
+        let leftover = holder_yield::fund_for_testing(
+            &mut vault,
+            coin::mint_for_testing<SUI>(50, scenario.ctx()).into_balance(),
+            &clock,
+        );
+        assert!(leftover.value() == 0, 2);
+        leftover.destroy_zero();
+        assert!(holder_yield::reward_pot_value(&vault) == 50, 3);
+        assert!(holder_yield::mps(&vault) == 0, 4);
+        ts::return_shared(vault);
+        ts::return_shared(clock);
+    };
+    scenario.end();
+}
+
+#[test]
+fun test_holder_yield_push_payout() {
+    let mut scenario = ts::begin(ADMIN);
+    config::init_for_testing(scenario.ctx());
+    let mut clock = clock::create_for_testing(scenario.ctx());
+    clock.set_for_testing(3_000);
+    holder_yield::create_push_for_testing<TCOIN, SUI>(
+        sui::object::id_from_address(@0xB103),
+        sui::object::id_from_address(@0xB104),
+        scenario.ctx(),
+    );
+    clock.share_for_testing();
+
+    scenario.next_tx(config::platform_wallet());
+    {
+        let mut vault = scenario.take_shared<HolderYieldVault<TCOIN, SUI>>();
+        let clock = scenario.take_shared<Clock>();
+        let cap = scenario.take_from_sender<AdminCap>();
+        let leftover = holder_yield::fund_for_testing(
+            &mut vault,
+            coin::mint_for_testing<SUI>(100, scenario.ctx()).into_balance(),
+            &clock,
+        );
+        leftover.destroy_zero();
+        holder_yield::push_payout(&mut vault, &cap, USER1, 40, &clock, scenario.ctx());
+        assert!(holder_yield::reward_pot_value(&vault) == 60, 0);
+        scenario.return_to_sender(cap);
+        ts::return_shared(vault);
+        ts::return_shared(clock);
+    };
+    scenario.next_tx(USER1);
+    {
+        let c = scenario.take_from_sender<coin::Coin<SUI>>();
+        assert!(c.value() == 40, 1);
+        coin::burn_for_testing(c);
+    };
+    scenario.end();
+}
+
+#[test]
+#[expected_failure(abort_code = 46)]
+fun test_holder_yield_claim_aborts_in_push_mode() {
+    let mut scenario = ts::begin(ADMIN);
+    let mut clock = clock::create_for_testing(scenario.ctx());
+    clock.set_for_testing(4_000);
+    holder_yield::create_push_for_testing<TCOIN, SUI>(
+        sui::object::id_from_address(@0xB105),
+        sui::object::id_from_address(@0xB106),
+        scenario.ctx(),
+    );
+    clock.share_for_testing();
+    scenario.next_tx(ADMIN);
+    {
+        let mut vault = scenario.take_shared<HolderYieldVault<TCOIN, SUI>>();
+        let clock = scenario.take_shared<Clock>();
+        let leftover = holder_yield::fund_for_testing(
+            &mut vault,
+            coin::mint_for_testing<SUI>(10, scenario.ctx()).into_balance(),
+            &clock,
+        );
+        leftover.destroy_zero();
+        let c = holder_yield::claim(&mut vault, scenario.ctx());
+        coin::burn_for_testing(c);
+        ts::return_shared(vault);
+        ts::return_shared(clock);
+    };
+    scenario.end();
+}
+
+#[test]
+#[expected_failure(abort_code = 46)]
+fun test_holder_yield_sync_aborts_in_push_mode() {
+    let mut scenario = ts::begin(ADMIN);
+    holder_yield::create_push_for_testing<TCOIN, SUI>(
+        sui::object::id_from_address(@0xB107),
+        sui::object::id_from_address(@0xB108),
+        scenario.ctx(),
+    );
+    scenario.next_tx(USER1);
+    {
+        let mut vault = scenario.take_shared<HolderYieldVault<TCOIN, SUI>>();
+        let c = coin::mint_for_testing<TCOIN>(100, scenario.ctx());
+        holder_yield::sync_registration(&mut vault, &c, scenario.ctx());
+        coin::burn_for_testing(c);
+        ts::return_shared(vault);
+    };
+    scenario.end();
+}
+
+#[test]
+fun test_holder_yield_enable_push_distribute() {
+    let mut scenario = ts::begin(ADMIN);
+    config::init_for_testing(scenario.ctx());
+    holder_yield::create_for_testing<TCOIN, SUI>(
+        sui::object::id_from_address(@0xB109),
+        sui::object::id_from_address(@0xB10A),
+        scenario.ctx(),
+    );
+    scenario.next_tx(config::platform_wallet());
+    {
+        let mut vault = scenario.take_shared<HolderYieldVault<TCOIN, SUI>>();
+        let cap = scenario.take_from_sender<AdminCap>();
+        assert!(!holder_yield::is_push_mode(&vault), 0);
+        holder_yield::enable_push_distribute(&mut vault, &cap);
+        assert!(holder_yield::is_push_mode(&vault), 1);
+        // idempotent
+        holder_yield::enable_push_distribute(&mut vault, &cap);
+        assert!(holder_yield::is_push_mode(&vault), 2);
+        scenario.return_to_sender(cap);
+        ts::return_shared(vault);
+    };
+    scenario.end();
+}
+
+#[test]
 fun test_holder_yield_lock_df_helpers() {
     let mut scenario = ts::begin(ADMIN);
     let yield_id = sui::object::id_from_address(@0xE1);

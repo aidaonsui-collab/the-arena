@@ -79,6 +79,10 @@ if [ $((now - last)) -ge "$EVERY" ]; then
   run_job collect
   # Convert staged basket-yield quote (SUI) → RWAs after collect funds staging.
   run_job convert-basket || true
+  # Push holder-yield pot to coin holders (option A). Off unless ARENA_YIELD_PUSH=1.
+  if [ "${ARENA_YIELD_PUSH:-}" = "1" ]; then
+    run_job push-yield || true
+  fi
   if run_job withdraw; then
     echo "$now" > "$STAMP"
   fi

@@ -171,6 +171,16 @@ public struct HolderYieldClaimEvent has copy, drop {
     quote: TypeName,
 }
 
+/// Keeper pushed quote from a push-mode holder-yield vault to a coin holder.
+public struct HolderYieldPushEvent has copy, drop {
+    lock_id: ID,
+    yield_id: ID,
+    recipient: address,
+    amount: u64,
+    quote: TypeName,
+    timestamp_ms: u64,
+}
+
 /// Parallel to InstadexMintLockEvent: Instant launch opted into holder-yield.
 public struct HolderYieldLaunchEvent has copy, drop {
     lock_id: ID,
@@ -497,6 +507,24 @@ public fun emit_holder_yield_claim(
         who,
         amount,
         quote,
+    })
+}
+
+public fun emit_holder_yield_push(
+    lock_id: ID,
+    yield_id: ID,
+    recipient: address,
+    amount: u64,
+    quote: TypeName,
+    timestamp_ms: u64,
+) {
+    sui::event::emit(HolderYieldPushEvent {
+        lock_id,
+        yield_id,
+        recipient,
+        amount,
+        quote,
+        timestamp_ms,
     })
 }
 
