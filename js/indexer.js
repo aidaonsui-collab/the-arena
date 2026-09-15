@@ -22,6 +22,8 @@
     "0x960b531667636f39e85867775f52f6b1f220a058c4de786905bdf761e06a56bb::usdy::USDY";
   var XAGM_TYPE =
     "0x64bddec0f898ccaa022b8a6e0a5f75d80f53177b87a9795dd15aefe9ac12ee6c::xagm::XAGM";
+  var VICEFUN_TYPE =
+    "0x4a6d6f56100e08f8f433fdc62760259e8d7ab91b476a42e138883dfc35ea80ab::vicefun::VICEFUN";
   var SUI_TYPE = "0x2::sui::SUI";
   var CLAIM_REFLECTION = 0;
   var CLAIM_PIT = 1;
@@ -49,6 +51,7 @@
     if (s === "USDY" || s === USDY_TYPE || /usdy/i.test(s)) return "USDY";
     if (s === "XAGM" || s === XAGM_TYPE || /xagm/i.test(s)) return "XAGM";
     if (s === "XAUM" || s === XAUM_TYPE || /xaum/i.test(s)) return "XAUM";
+    if (s === "VICEFUN" || s === VICEFUN_TYPE || /vicefun/i.test(s)) return "VICEFUN";
     if (/::nvda::NVDA$/i.test(s) || s === "NVDA") return "NVDA";
     if (/::amc::AMC$/i.test(s) || s === "AMC") return "AMC";
     if (/::gme::GME$/i.test(s) || s === "GME") return "GME";
@@ -73,6 +76,7 @@
     if (lab === "USDY") return USDY_TYPE;
     if (lab === "XAGM") return XAGM_TYPE;
     if (lab === "XAUM") return XAUM_TYPE;
+    if (lab === "VICEFUN") return VICEFUN_TYPE;
     if (typeof window !== "undefined") {
       if (lab === "NVDA" && window.ARENA_STOCK_NVDA_TYPE) return window.ARENA_STOCK_NVDA_TYPE;
       if (lab === "AMC" && window.ARENA_STOCK_AMC_TYPE) return window.ARENA_STOCK_AMC_TYPE;
@@ -1286,6 +1290,7 @@
     XAUM_TYPE: XAUM_TYPE,
     USDY_TYPE: USDY_TYPE,
     XAGM_TYPE: XAGM_TYPE,
+    VICEFUN_TYPE: VICEFUN_TYPE,
     SUI_TYPE: SUI_TYPE,
     CLAIM_REFLECTION: CLAIM_REFLECTION,
     CLAIM_PIT: CLAIM_PIT,

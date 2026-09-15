@@ -769,6 +769,10 @@ window.ARENA_XAGM_METADATA = "0xd50657ed786b220c4bcf558cdd0ef94be77b3cf2e097642e
 window.ARENA_USDC_TYPE = "0xdba34672e30cb065b1f93e3ab55318768fd6fef66c15942c9f7cb846e2f900e7::usdc::USDC";
 window.ARENA_USDY_USDC_POOL = "0xdcd762ad374686fa890fc4f3b9bbfe2a244e713d7bffbfbd1b9221cb290da2ed";
 window.ARENA_XAGM_USDC_POOL = "0x4d3cc875e334440ad3485d4455d7ee072ea01b18c526ad64f9ebe2aa0a4f01b9";
+window.ARENA_VICEFUN_TYPE = "0x4a6d6f56100e08f8f433fdc62760259e8d7ab91b476a42e138883dfc35ea80ab::vicefun::VICEFUN";
+window.ARENA_VICEFUN_METADATA = "0x6edbf048a9d7d9291328dd8c39d987895ec3e027aecc7ebb7349894bd02a9567";
+// No VICEFUN/USDC pool exists — priced via VICEFUN/SUI (Bluefin) hopped through SUI/USD.
+window.ARENA_VICEFUN_SUI_POOL = "0xcae6fe00841fbccb44fbe8128a7c4b2e8800e87c7952af8444d24d0e76eb31c5";
 window.ARENA_USDC_SUI_POOL = "0x51e883ba7c0b566a26cbc8a94cd33eb0abd418a77cc1e60ad22fd9b1f29cd2ab";
 window.ARENA_CETUS_CLMM = "0x25ebb9a7c50eb17b3fa9c5a30fb8b5ad8f97caaf4928943acbcff7153dfee5e3";
 window.ARENA_CETUS_CONFIG = "0xdaa46292632c3c4d8f31f23ea0f9b36a28ff3677e9684980e4438403a67a3d8f";
@@ -888,7 +892,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   const state = {route:"explore", sym:"VOLT", filter:"All", sort:"Market cap", time:"All", side:"Buy", amt:"1", connected:false, search:"", lName:"", lTick:"", lQuote:"SUI", lPath:"instadex", lMode:"Holders", lTokenAmt:"", lQuoteAmt:"", lFirstBuy:"1", lCap:"", lTokenCoin:"", lQuoteCoin:"", lCoinMode:"create", lDecimals:"9", lSupply:"1000000000", lDesc:"", lX:"", lTg:"", lWeb:"", lPublishedType:"", metricsWindow:"All", tapeTab:"trades", tapeOpen:"", tapePage:0, tapeAge:"age", tapeWallet:"", tapeFilterOpen:false, lFile:null, lArtUrl:"", lArtPreview:"", payWith:"SUI", lNote:"", lNoteErr:false, chartTf:900, chartInd:{vol:true,ma7:false,ma25:false,ma99:false,ema:false}, bridgeTick:"NVDA", bridgeAmt:"", bridgeDir:"in", bridgeRhDest:"", bridgeNote:"", bridgeBusy:false, quoteOpen:false, rewardsTab:"all", lBasket:false, lBasketEqual:true, lBasketMode:0, lBasketOn:{XAUM:true,XAGM:true,USDY:true}, lBasketBps:{XAUM:3334,XAGM:3333,USDY:3333}, lSplitPreset:"vice", lSplit:{creator:6000,platform:500,rewards:2500,buyback:1000}, pfRange:"1M", pfFlash:""};
   var metaEdit = { open: false, saving: false, file: null, preview: "", artUrl: "", note: "", err: false, name: "", desc: "", x: "", tg: "", web: "", creator: "", openedCreator: "" };
   let hashLock = false;
-  const hop = { suiPerXaum: null, suiPerUsdy: null, suiPerXagm: null, usd: null, suiUsd: null, usdyUsd: null, xagmUsd: null, xaumUsd: null, source: "" };
+  const hop = { suiPerXaum: null, suiPerUsdy: null, suiPerXagm: null, suiPerVicefun: null, usd: null, suiUsd: null, usdyUsd: null, xagmUsd: null, xaumUsd: null, vicefunUsd: null, source: "" };
 
   const SHOT = /Headless/i.test(String(navigator.userAgent||"")) || /(?:^|[?&])shot=1(?:&|$)/.test(location.search);
   if (SHOT) document.documentElement.classList.add("shot");
@@ -925,12 +929,13 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     USDY: { label:"USDY", type:window.ARENA_USDY_TYPE, metadata:window.ARENA_USDY_METADATA, decimals:6, name:"Ondo US Dollar Yield", what:"Ondo tokenized US Treasury bills", create:true, chips:["1","5","10","25","Max"], virtualHuman:"≈ $4.5k", pit:window.ARENA_PIT_USDY, color:"#3ECF8E", logo:"/brand/quotes/usdy.png?v=2" },
     XAGM: { label:"XAGM", type:window.ARENA_XAGM_TYPE, metadata:window.ARENA_XAGM_METADATA, decimals:9, name:"Matrixdock Silver", what:"Matrixdock silver, 1 oz", create:true, chips:["0.01","0.05","0.1","0.25","Max"], virtualHuman:"≈ $4.5k", pit:window.ARENA_PIT_XAGM, color:"#C0C7D1", logo:"/brand/quotes/xagm.png" },
     XAUM: { label:"XAUM", type:window.ARENA_XAUM_TYPE, metadata:window.ARENA_XAUM_METADATA, decimals:9, name:"Matrixdock Gold", what:"Matrixdock gold, 1 oz", create:true, chips:["0.01","0.05","0.1","0.25","Max"], virtualHuman:"≈ $4.5k", pit:window.ARENA_PIT_XAUM, color:"#C9A97E", logo:"/brand/quotes/xaum.png" },
+    VICEFUN: { label:"VICEFUN", type:window.ARENA_VICEFUN_TYPE, metadata:window.ARENA_VICEFUN_METADATA, decimals:9, name:"Vicefun", what:"Vice's own token", create:true, chips:["10k","50k","100k","250k","Max"], virtualHuman:"≈ $4.5k", pit:"", color:"#FF2EA6", logo:"/brand/quotes/vicefun.png" },
     NVDA: { label:"NVDA", type:window.ARENA_STOCK_NVDA_TYPE, metadata:window.ARENA_STOCK_NVDA_METADATA, decimals:18, name:"NVIDIA wrap", what:"RH→Sui stock wrap (NVDA)", create:false, soon:true, stock:true, chips:["0.01","0.1","1","5","Max"], virtualHuman:"≈ $4.5k", pit:"", color:"#76B900", logo:"/brand/quotes/nvda.png" },
     AMC:  { label:"AMC",  type:window.ARENA_STOCK_AMC_TYPE,  metadata:window.ARENA_STOCK_AMC_METADATA,  decimals:18, name:"AMC wrap", what:"RH→Sui stock wrap (AMC)", create:false, soon:true, stock:true, chips:["0.01","0.1","1","5","Max"], virtualHuman:"≈ $4.5k", pit:"", color:"#E11D2E", logo:"/brand/quotes/amc.png" },
     GME:  { label:"GME",  type:window.ARENA_STOCK_GME_TYPE,  metadata:window.ARENA_STOCK_GME_METADATA,  decimals:18, name:"GME wrap", what:"RH→Sui stock wrap (GME)", create:false, soon:true, stock:true, chips:["0.01","0.1","1","5","Max"], virtualHuman:"≈ $4.5k", pit:"", color:"#EF4444", logo:"/brand/quotes/gme.png" },
     TSLA: { label:"TSLA", type:window.ARENA_STOCK_TSLA_TYPE, metadata:window.ARENA_STOCK_TSLA_METADATA, decimals:18, name:"Tesla wrap", what:"RH→Sui stock wrap (TSLA)", create:false, soon:true, stock:true, chips:["0.01","0.1","1","5","Max"], virtualHuman:"≈ $4.5k", pit:"", color:"#CC0000", logo:"/brand/quotes/tsla.png" }
   };
-  var CREATE_QUOTES = ["SUI","USDY","XAGM","XAUM","NVDA","AMC","GME","TSLA"];
+  var CREATE_QUOTES = ["SUI","USDY","XAGM","XAUM","VICEFUN","NVDA","AMC","GME","TSLA"];
   // Pit → RWA rewards dashboard (v1 holder-yield). Stocks wraps intentionally omitted.
   var REWARDS_CATS = [
     { id:"gold", label:"Gold", quote:"XAUM", unit:"XAUM", blurb:"Matrixdock gold · Instant quote-fee share", color:"#C9A97E", logo:"/brand/quotes/xaum.png" },
@@ -2083,6 +2088,9 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     if (t === window.ARENA_XAGM_TYPE){
       return { id: window.ARENA_XAGM_METADATA, name: "Matrixdock Silver", symbol: "XAGM", decimals: 9, type: t };
     }
+    if (t === window.ARENA_VICEFUN_TYPE){
+      return { id: window.ARENA_VICEFUN_METADATA, name: "Vicefun", symbol: "VICEFUN", decimals: 9, type: t };
+    }
     try {
       var rpcMeta = await rpcJson("suix_getCoinMetadata", [t]);
       if (rpcMeta && rpcMeta.id){
@@ -2549,6 +2557,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     if (q === "USDY") return hop.usdyUsd > 0 ? hop.usdyUsd : 1;
     if (q === "XAGM") return hop.xagmUsd || 0;
     if (q === "XAUM") return hop.xaumUsd || hop.usd || 0;
+    if (q === "VICEFUN") return hop.vicefunUsd || 0;
     return hop.suiUsd || 0;
   }
   function quoteMark(q){
@@ -3219,6 +3228,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     if (!(u > 0) && q === "XAUM" && hop.suiPerXaum > 0 && hop.suiUsd > 0) u = hop.suiPerXaum * hop.suiUsd;
     if (!(u > 0) && q === "XAGM" && hop.suiPerXagm > 0 && hop.suiUsd > 0) u = hop.suiPerXagm * hop.suiUsd;
     if (!(u > 0) && q === "USDY" && hop.suiPerUsdy > 0 && hop.suiUsd > 0) u = hop.suiPerUsdy * hop.suiUsd;
+    if (!(u > 0) && q === "VICEFUN" && hop.suiPerVicefun > 0 && hop.suiUsd > 0) u = hop.suiPerVicefun * hop.suiUsd;
     if (!(u > 0)) return 0;
     return VIRTUAL_SUPPLY * u;
   }
@@ -3387,6 +3397,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     if (q === "XAUM" && hop.suiPerXaum > 0) return amt * hop.suiPerXaum;
     if (q === "USDY" && hop.suiPerUsdy > 0) return amt * hop.suiPerUsdy;
     if (q === "XAGM" && hop.suiPerXagm > 0) return amt * hop.suiPerXagm;
+    if (q === "VICEFUN" && hop.suiPerVicefun > 0) return amt * hop.suiPerVicefun;
     const u = quoteUsd(q);
     if (u > 0 && hop.suiUsd > 0) return amt * u / hop.suiUsd;
     return 0;
@@ -9988,9 +9999,14 @@ async function doBridgeDeposit(){
       const perXagm = Number(d.suiPerXagm);
       if (perXagm > 0) hop.suiPerXagm = perXagm;
       else if (hop.xagmUsd > 0 && hop.suiUsd > 0) hop.suiPerXagm = hop.xagmUsd / hop.suiUsd;
+      const vicefunUsd = Number(d.vicefunUsd);
+      if (vicefunUsd > 0) hop.vicefunUsd = vicefunUsd;
+      const perVicefun = Number(d.suiPerVicefun);
+      if (perVicefun > 0) hop.suiPerVicefun = perVicefun;
+      else if (hop.vicefunUsd > 0 && hop.suiUsd > 0) hop.suiPerVicefun = hop.vicefunUsd / hop.suiUsd;
       if (!(hop.suiPerXaum > 0) && hop.xaumUsd > 0 && hop.suiUsd > 0) hop.suiPerXaum = hop.xaumUsd / hop.suiUsd;
       if (!(hop.suiUsd > 0) && hop.xaumUsd > 0 && hop.suiPerXaum > 0) hop.suiUsd = hop.xaumUsd / hop.suiPerXaum;
-      hop.source = d.source || "Cetus USDY/USDC · Bluefin XAGM/USDC · Bluefin XAUM/USDC";
+      hop.source = d.source || "Cetus USDY/USDC · Bluefin XAGM/USDC · Bluefin XAUM/USDC · Dexscreener VICEFUN/SUI";
       paintTicket();
       paintCaps();
       paintFirstBuyPreview();
@@ -10004,19 +10020,23 @@ async function doBridgeDeposit(){
         fetch("https://api.dexpaprika.com/networks/sui/pools/0x4d3cc875e334440ad3485d4455d7ee072ea01b18c526ad64f9ebe2aa0a4f01b9").then(function(r){ return r.json(); }),
         fetch("https://api.dexpaprika.com/networks/sui/pools/0x458fc3722cc88babd7cbe78273aa5e4ecbdff75c76a2ad14cd1f75418b569649").then(function(r){ return r.json(); }),
         fetch("https://api.dexpaprika.com/networks/sui/pools/0x51e883ba7c0b566a26cbc8a94cd33eb0abd418a77cc1e60ad22fd9b1f29cd2ab").then(function(r){ return r.json(); }),
-        fetch("https://api.coingecko.com/api/v3/simple/price?ids=sui&vs_currencies=usd").then(function(r){ return r.json(); }).catch(function(){ return {}; })
+        fetch("https://api.coingecko.com/api/v3/simple/price?ids=sui&vs_currencies=usd").then(function(r){ return r.json(); }).catch(function(){ return {}; }),
+        fetch("https://api.dexscreener.com/latest/dex/pairs/sui/0xcae6fe00841fbccb44fbe8128a7c4b2e8800e87c7952af8444d24d0e76eb31c5").then(function(r){ return r.json(); }).catch(function(){ return {}; })
       ]).then(function(quad){
         const usdy = quad[0] || {};
         const xagm = quad[1] || {};
         const xaum = quad[2] || {};
         const suiUsdc = quad[3] || {};
         const g = quad[4] || {};
+        const vicefunPair = (quad[5] && quad[5].pairs && quad[5].pairs[0]) || {};
         apply({
           usdyUsd: usdy.last_price_usd,
           xagmUsd: xagm.last_price_usd,
           xaumUsd: xaum.last_price_usd,
           suiUsd: suiUsdc.last_price_usd || (g.sui && g.sui.usd),
-          source: "DexPaprika SUI/USDC"
+          vicefunUsd: vicefunPair.priceUsd,
+          suiPerVicefun: vicefunPair.priceNative,
+          source: "DexPaprika SUI/USDC · Dexscreener VICEFUN/SUI"
         });
       }).catch(function(){});
     });

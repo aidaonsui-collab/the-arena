@@ -8,6 +8,10 @@ const XAGM_USDC =
   "https://api.dexpaprika.com/networks/sui/pools/0x4d3cc875e334440ad3485d4455d7ee072ea01b18c526ad64f9ebe2aa0a4f01b9";
 const XAUM_USDC =
   "https://api.dexpaprika.com/networks/sui/pools/0x458fc3722cc88babd7cbe78273aa5e4ecbdff75c76a2ad14cd1f75418b569649";
+// VICEFUN/SUI isn't indexed on DexPaprika (low-volume, community pool) — Dexscreener has it,
+// and hands back priceUsd/priceNative directly so no on-chain sqrt-price decoding is needed.
+const VICEFUN_SUI_DEXSCREENER =
+  "https://api.dexscreener.com/latest/dex/pairs/sui/0xcae6fe00841fbccb44fbe8128a7c4b2e8800e87c7952af8444d24d0e76eb31c5";
 
 async function poolJson(url) {
   const r = await fetch(url, { cache: "no-store" });
@@ -25,12 +29,13 @@ function perSui(usd, suiUsd) {
 }
 
 export async function GET() {
-  const [usdy, xagm, xaum, suiUsdc, suiRes] = await Promise.all([
+  const [usdy, xagm, xaum, suiUsdc, suiRes, vicefunPair] = await Promise.all([
     poolJson(USDY_USDC),
     poolJson(XAGM_USDC),
     poolJson(XAUM_USDC),
     poolJson(SUI_USDC),
-    fetch(SUI_USD, { cache: "no-store" }).catch(function () { return null; })
+    fetch(SUI_USD, { cache: "no-store" }).catch(function () { return null; }),
+    poolJson(VICEFUN_SUI_DEXSCREENER)
   ]);
   let suiUsd = num(suiUsdc && (suiUsdc.last_price_usd || suiUsdc.last_price));
   if (!(suiUsd > 0) && suiRes && suiRes.ok) {
@@ -43,6 +48,11 @@ export async function GET() {
   const xagmUsd = num(xagm && (xagm.last_price_usd || xagm.last_price));
   const xaumUsd = num(xaum && (xaum.last_price_usd || xaum.last_price));
   const suiPerXaum = perSui(xaumUsd, suiUsd);
+  const vicefunPairData = vicefunPair && vicefunPair.pairs && vicefunPair.pairs[0];
+  let vicefunUsd = num(vicefunPairData && vicefunPairData.priceUsd);
+  let suiPerVicefun = num(vicefunPairData && vicefunPairData.priceNative);
+  if (!(suiPerVicefun > 0) && vicefunUsd > 0 && suiUsd > 0) suiPerVicefun = vicefunUsd / suiUsd;
+  if (!(vicefunUsd > 0) && suiPerVicefun > 0 && suiUsd > 0) vicefunUsd = suiPerVicefun * suiUsd;
   if (!(usdyUsd > 0) && !(xagmUsd > 0) && !(xaumUsd > 0) && !(suiUsd > 0)) {
     return Response.json({ error: "hop unavailable" }, { status: 502 });
   }
@@ -51,10 +61,12 @@ export async function GET() {
     usdyUsd,
     xagmUsd,
     xaumUsd,
+    vicefunUsd,
     usd: xaumUsd || usdyUsd || xagmUsd,
     suiPerXaum,
     suiPerUsdy: perSui(usdyUsd, suiUsd),
     suiPerXagm: perSui(xagmUsd, suiUsd),
-    source: "Cetus USDY/USDC · Bluefin XAGM/USDC · Bluefin XAUM/USDC · DexPaprika SUI/USDC"
+    suiPerVicefun,
+    source: "Cetus USDY/USDC · Bluefin XAGM/USDC · Bluefin XAUM/USDC · Dexscreener VICEFUN/SUI · DexPaprika SUI/USDC"
   });
 }
