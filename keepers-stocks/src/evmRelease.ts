@@ -11,11 +11,15 @@ import { keccak_256 } from "@noble/hashes/sha3";
 import { RH_CHAIN_ID } from "./config.ts";
 import {
   encodeReleaseCalldata,
+  encodeReleaseV2Calldata,
   rpc,
   toQuantity,
+  waitForReceipt,
 } from "./rhRpc.ts";
 
 const ZERO_ADDR = "0x0000000000000000000000000000000000000000";
+/** 500 gwei — far above any sane RH gas price, low enough to bound a bad RPC. */
+const DEFAULT_MAX_GAS_PRICE_WEI = 500_000_000_000n;
 
 function strip0x(hex: string): string {
   return hex.startsWith("0x") || hex.startsWith("0X") ? hex.slice(2) : hex;
@@ -184,6 +188,116 @@ export async function sendRelease(opts: {
   );
   const txHash = await rpc<string>(opts.rpcUrl, "eth_sendRawTransaction", [raw]);
   return { txHash, from };
+}
+
+/**
+ * Derive the on-chain settlement key for a Sui RedeemBurned event.
+ *
+ * v2 identifies a payout by the burn it settles rather than by a depositId, so
+ * this must be stable and unique per burn. `(txDigest, eventSeq)` is exactly
+ * that: one Sui transaction can emit several burns, and eventSeq separates them.
+ */
+export function suiBurnRef(digest: string, eventSeq: string | number): string {
+  const d = String(digest).trim();
+  if (!d) throw new Error("suiBurnRef: digest is required");
+  const key = `${d}:${String(eventSeq)}`;
+  return bytesToHex(keccak(new TextEncoder().encode(key)));
+}
+
+/**
+ * Sequenced nonce source for a batch of releases.
+ *
+ * Fetching `eth_getTransactionCount(from, "pending")` per transaction is not
+ * safe back-to-back: many nodes do not reflect a just-accepted transaction in
+ * the pending count immediately, so two sends in the same batch sign the same
+ * nonce and one silently replaces the other. Fetch once, then increment.
+ */
+export async function nonceSequencer(rpcUrl: string, from: string) {
+  let next = BigInt(await rpc<string>(rpcUrl, "eth_getTransactionCount", [from, "pending"]));
+  return {
+    take(): bigint {
+      const n = next;
+      next += 1n;
+      return n;
+    },
+    /** Re-read from the node, e.g. after a send failed and was not accepted. */
+    async resync(): Promise<void> {
+      next = BigInt(await rpc<string>(rpcUrl, "eth_getTransactionCount", [from, "pending"]));
+    },
+  };
+}
+
+export type NonceSource = Awaited<ReturnType<typeof nonceSequencer>>;
+
+/**
+ * v2 release: pay `amount` of `token` to `to`, settling Sui burn `suiBurnRefHex`.
+ *
+ * Waits for the receipt before returning, so callers may only mark a burn
+ * settled once it is actually mined and successful.
+ */
+export async function sendReleaseV2(opts: {
+  rpcUrl: string;
+  vault: string;
+  token: string;
+  amount: bigint;
+  to: string;
+  suiBurnRefHex: string;
+  chainId?: number;
+  gasLimit?: bigint;
+  maxGasPriceWei?: bigint;
+  nonces?: NonceSource;
+  confirmations?: number;
+  receiptTimeoutMs?: number;
+}): Promise<{ txHash: string; from: string; blockNumber: bigint }> {
+  const to = opts.to.trim().toLowerCase();
+  if (!/^0x[0-9a-f]{40}$/.test(to) || to === ZERO_ADDR) {
+    throw new Error(`invalid release destination ${opts.to}`);
+  }
+  if (opts.amount <= 0n) throw new Error("release amount must be > 0");
+
+  const key = readReleaserKey();
+  const from = addressFromPrivateKey(key);
+  const chainId = opts.chainId ?? RH_CHAIN_ID;
+  const dataHex = encodeReleaseV2Calldata(opts.token, opts.amount, to, opts.suiBurnRefHex);
+
+  const nonces = opts.nonces ?? (await nonceSequencer(opts.rpcUrl, from));
+  const nonce = nonces.take();
+
+  const gasPrice = BigInt(await rpc<string>(opts.rpcUrl, "eth_gasPrice", []));
+  // A misreporting or hostile RPC should not be able to drain the releaser's
+  // gas balance through an absurd gasPrice.
+  const cap = opts.maxGasPriceWei ?? DEFAULT_MAX_GAS_PRICE_WEI;
+  if (gasPrice > cap) {
+    throw new Error(`RH gasPrice ${gasPrice} exceeds cap ${cap}; refusing to send`);
+  }
+
+  const raw = signLegacyTx(
+    {
+      nonce,
+      gasPrice,
+      gas: opts.gasLimit ?? 200000n,
+      to: opts.vault,
+      value: 0n,
+      data: hexToBytes(dataHex),
+      chainId,
+    },
+    key,
+  );
+
+  let txHash: string;
+  try {
+    txHash = await rpc<string>(opts.rpcUrl, "eth_sendRawTransaction", [raw]);
+  } catch (e) {
+    // The node did not accept it, so our local nonce ran ahead of reality.
+    await nonces.resync();
+    throw e;
+  }
+
+  const receipt = await waitForReceipt(opts.rpcUrl, txHash, {
+    confirmations: opts.confirmations ?? 1,
+    timeoutMs: opts.receiptTimeoutMs,
+  });
+  return { txHash, from, blockNumber: receipt.blockNumber };
 }
 
 export { toQuantity };

@@ -8124,12 +8124,47 @@ async function doBridgeDeposit(){
     try { return fromBaseStr(v, dec); } catch (e) { return String(v); }
   }
 
+  /**
+   * v2 vaults expose backingOf(address) and pay any amount out of a pool, so
+   * the whole-deposit restriction does not apply to them. Returns the pooled
+   * backing (18dp) or null when the vault is v1 (selector absent → revert).
+   */
+  async function rhPooledBacking(vaultAddr, rhToken){
+    try {
+      var res = await rhEthCall(vaultAddr, "0xef961d97" + rhWordPadAddr(rhToken)); // backingOf(address)
+      if (!res || res === "0x") return null;
+      return BigInt(res);
+    } catch (e) {
+      return null;
+    }
+  }
+  function rhWordPadAddr(addr){
+    var body = String(addr || "").trim().toLowerCase().replace(/^0x/, "");
+    if (!/^[0-9a-f]{40}$/.test(body)) throw new Error("bad address "+addr);
+    return body.padStart(64, "0");
+  }
+
   /** Throws with an actionable message when `amount` is not fully payable. */
   async function assertRedeemable(st, amount){
     var vaultAddr = st.rhVault || window.ARENA_RH_VAULT;
     if (!vaultAddr) throw new Error("ARENA_RH_VAULT missing");
     if (!st.rhToken) throw new Error("RH token missing for "+st.ticker);
-    var locks = await rhUnreleasedLocks(vaultAddr, st.rhToken, rhToSuiScale(st));
+    var scale = rhToSuiScale(st);
+
+    // Pooled (v2) vault: any amount is payable up to the backing, so only check
+    // that the pool actually covers it.
+    var pooled = await rhPooledBacking(vaultAddr, st.rhToken);
+    if (pooled !== null){
+      if (amount * scale > pooled){
+        throw new Error(
+          "Only "+fmtWrap(pooled / scale, stockBridgeDecimals(st, true))+" "+st.ticker+
+          " is currently backed on Robinhood Chain, less than this redeem. Nothing was burned."
+        );
+      }
+      return true;
+    }
+
+    var locks = await rhUnreleasedLocks(vaultAddr, st.rhToken, scale);
     var sums = rhRedeemableAmounts(locks);
     var dec = stockBridgeDecimals(st, true);
     if (!sums.length){
