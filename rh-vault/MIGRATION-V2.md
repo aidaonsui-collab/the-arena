@@ -1,21 +1,27 @@
 # StockLockVault → StockLockVaultV2 migration
 
+> **DONE — 2026-09-17. Do not re-run any step here.**
+>
+> v2 is live at `0x3870B3B4767bF96c88828A992448ccF55530f0c9`, unpaused, all four
+> tokens allowlisted, backing synced. v1 is drained and delisted (`deposit`
+> reverts). Figures are in [`PUBLISHED.md`](./PUBLISHED.md).
+>
+> Steps 2 and 3 are destructive and must not be repeated: step 2 revokes the
+> allowlist, step 3 releases locks that no longer exist.
+
 Why: v1's `release(depositId, to)` pays **whole deposits only**, so a Sui burn
 that isn't an exact FIFO prefix-sum of unreleased locks can't be paid in full.
 `bridge::burn` destroys the wrapper unconditionally, so the shortfall was simply
 lost by the redeemer, and the keeper never retried it. v2 pays any amount out of
 pooled backing.
 
-**Nothing in this document has been broadcast.** Every step is for the operator
-holding the admin / releaser keys.
-
 ## Addresses
 
 | What | Address |
 |------|---------|
-| v1 vault (live) | `0xB0DbeAa279A4D1c5BBB67f7083a3C5445Af3c058` |
+| v1 vault (retired) | `0xB0DbeAa279A4D1c5BBB67f7083a3C5445Af3c058` |
 | v1 admin + releaser | `0xDE0d5aea396D5b937149E36ddBfd6b49f26f19bc` |
-| v2 vault | _(filled in after step 1)_ |
+| v2 vault | `0x3870B3B4767bF96c88828A992448ccF55530f0c9` |
 | RH chain | 4663 · `https://rpc.mainnet.chain.robinhood.com` |
 
 ## State to migrate (verified 2026-09-16)

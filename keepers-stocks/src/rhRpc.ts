@@ -111,6 +111,19 @@ export async function backingOf(rpcUrl: string, vault: string, token: string): P
   return hexToBigInt(data);
 }
 
+/** v1 vaults revert on backingOf; treat that as "not pooled". */
+export async function tryBackingOf(
+  rpcUrl: string,
+  vault: string,
+  token: string,
+): Promise<bigint | null> {
+  try {
+    return await backingOf(rpcUrl, vault, token);
+  } catch {
+    return null;
+  }
+}
+
 export async function isSettled(
   rpcUrl: string,
   vault: string,
@@ -258,6 +271,27 @@ export async function simulateRelease(
       to: vault,
       from,
       data: encodeReleaseCalldata(depositId, to),
+    });
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
+}
+
+export async function simulateReleaseV2(
+  rpcUrl: string,
+  vault: string,
+  from: string,
+  token: string,
+  amount: bigint,
+  to: string,
+  suiBurnRef: string,
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    await ethCall(rpcUrl, {
+      to: vault,
+      from,
+      data: encodeReleaseV2Calldata(token, amount, to, suiBurnRef),
     });
     return { ok: true };
   } catch (e) {

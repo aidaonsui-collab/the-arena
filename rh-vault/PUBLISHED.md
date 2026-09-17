@@ -1,13 +1,19 @@
 # StockLockVault — published (RH Chain mainnet)
 
+Live vault is **V2** (pooled `release(token, amount, to, suiBurnRef)`). v1 no longer accepts deposits.
+
 | Field | Value |
 |-------|-------|
 | Network | Robinhood Chain mainnet |
 | chainId | `4663` |
-| `RH_VAULT_ADDRESS` / StockLockVault | [`0xB0DbeAa279A4D1c5BBB67f7083a3C5445Af3c058`](https://robinhoodchain.blockscout.com/address/0xB0DbeAa279A4D1c5BBB67f7083a3C5445Af3c058) |
-| Deployer (admin + releaser) | `0xDE0d5aea396D5b937149E36ddBfd6b49f26f19bc` |
-| Create tx | [`0x971feabc20d09c63cbb738226a234aa48f48aad84dc094b2b99cc02b2e95d27d`](https://robinhoodchain.blockscout.com/tx/0x971feabc20d09c63cbb738226a234aa48f48aad84dc094b2b99cc02b2e95d27d) |
-| Allowlist tx (`setTokensAllowed`) | [`0x52ed7aa71fddb7637014171dda360bcd3511bebc69f2d8b0f27c3815d87cde1d`](https://robinhoodchain.blockscout.com/tx/0x52ed7aa71fddb7637014171dda360bcd3511bebc69f2d8b0f27c3815d87cde1d) |
+| **`RH_VAULT_ADDRESS` / StockLockVaultV2** | [`0x3870B3B4767bF96c88828A992448ccF55530f0c9`](https://robinhoodchain.blockscout.com/address/0x3870B3B4767bF96c88828A992448ccF55530f0c9) |
+| v1 (retired deposits) | [`0xB0DbeAa279A4D1c5BBB67f7083a3C5445Af3c058`](https://robinhoodchain.blockscout.com/address/0xB0DbeAa279A4D1c5BBB67f7083a3C5445Af3c058) |
+| Deployer (admin + releaser + guardian) | `0xDE0d5aea396D5b937149E36ddBfd6b49f26f19bc` |
+
+> **Open risk (H-4).** All three roles sit on one EOA. `GUARDIAN_ROLE` exists so a
+> separate key can trip the circuit breaker without holding spending power;
+> granting it to the releaser defeats that. Not required to keep the bridge up.
+| V2 create | see `broadcast/DeployV2.s.sol/4663/run-latest.json` |
 | RPC | `https://rpc.mainnet.chain.robinhood.com` |
 | Explorer | https://robinhoodchain.blockscout.com |
 
@@ -24,5 +30,5 @@
 
 ```bash
 export RH_RPC=https://rpc.mainnet.chain.robinhood.com
-export RH_VAULT_ADDRESS=0xB0DbeAa279A4D1c5BBB67f7083a3C5445Af3c058
+export RH_VAULT_ADDRESS=0x3870B3B4767bF96c88828A992448ccF55530f0c9
 ```

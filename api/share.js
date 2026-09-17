@@ -54,10 +54,22 @@ async function gql(query, variables) {
 }
 
 const HIDE = new Set(["BFLN", "GRAD", "SMOKE", "IDEX", "SILVER"]);
+const HIDE_TYPES = new Set([
+  "0xa0b937f9f6c7cd7e865b3c5bde42dc21dee8e847a7226e6de3aa9af4f64059b4::ncat::ncat",
+]);
+
+function normType(s) {
+  s = String(s || "").trim();
+  if (!s) return "";
+  if (s.startsWith("0X")) s = "0x" + s.slice(2);
+  return s;
+}
 
 async function findLaunch(sym) {
-  const want = String(sym || "").toUpperCase();
-  if (HIDE.has(want)) return null;
+  const raw = String(sym || "").trim();
+  const want = raw.toUpperCase();
+  const wantType = normType(raw).toLowerCase();
+  if (HIDE.has(want) || HIDE_TYPES.has(wantType)) return null;
   const q =
     "query($t:String!){ events(first:50, filter:{ type:$t }){ nodes { timestamp contents { json } } } }";
   for (const pkg of EVENT_PKGS) {
@@ -67,11 +79,16 @@ async function findLaunch(sym) {
       for (const n of nodes) {
         const p = (n.contents && n.contents.json) || {};
         const ticker = String(p.symbol || "").toUpperCase();
-        if (ticker === want) {
+        const token = typeNameOf(p.token);
+        const tokenKey = normType(token).toLowerCase();
+        if (HIDE_TYPES.has(tokenKey)) continue;
+        const typeHit = wantType.includes("::") && tokenKey === wantType;
+        const pkgHit = /^0x[0-9a-f]+$/i.test(raw) && tokenKey.split("::")[0] === wantType;
+        if (ticker === want || typeHit || pkgHit) {
           return {
             symbol: ticker,
             name: p.name || ticker,
-            token: typeNameOf(p.token),
+            token: token,
             quote: quoteLabel(p.quote),
             pool: String(p.bluefin_pool_id || ""),
           };
@@ -126,7 +143,9 @@ function htmlPage({ origin, title, description, image, url, dest, imageType }) {
 async function page(request) {
   const origin = originOf(request);
   const t = new URL(request.url).searchParams.get("t") || "";
-  const sym = String(t).trim().toUpperCase().slice(0, 12);
+  const raw = String(t).trim();
+  const isType = raw.includes("::") || /^0x[0-9a-fA-F]{40,}$/i.test(raw);
+  const sym = isType ? raw : raw.toUpperCase().slice(0, 12);
   if (!sym) {
     return htmlPage({
       origin,
@@ -139,19 +158,22 @@ async function page(request) {
     });
   }
   const launch = await findLaunch(sym);
-  const overlay = await loadTokenOverlay(sym);
-  const name = (overlay && overlay.name) || (launch && launch.name) || sym;
+  const overlay = await loadTokenOverlay((launch && launch.symbol) || (!isType ? sym : ""));
+  const name = (overlay && overlay.name) || (launch && launch.name) || (launch && launch.symbol) || sym;
   const quote = (launch && launch.quote) || "SUI";
+  const tick = (launch && launch.symbol) || (!isType ? sym : name);
+  const pkg = launch && launch.token ? String(launch.token).split("::")[0] : "";
+  const slug = pkg || (launch && launch.token) || tick;
   const desc = (overlay && overlay.description)
     ? String(overlay.description).split(/\n/)[0].slice(0, 160)
     : ("Instant · Trade in " + quote + " · vicefun.com");
   return htmlPage({
     origin,
-    title: "$" + sym + " — " + name + " | Vice",
+    title: "$" + tick + " — " + name + " | Vice",
     description: desc,
-    image: origin + "/card/" + encodeURIComponent(sym) + ".jpg",
-    url: origin + "/t/" + encodeURIComponent(sym),
-    dest: "/t/" + encodeURIComponent(sym),
+    image: origin + "/card/" + encodeURIComponent(tick) + ".jpg",
+    url: origin + "/t/" + encodeURIComponent(slug),
+    dest: "/t/" + encodeURIComponent(slug),
     imageType: "image/jpeg",
   });
 }
