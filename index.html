@@ -3173,7 +3173,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   }
   function isHiddenToken(k){
     const t = String((k && k.t) || "").toUpperCase();
-    if (t === "BFLN" || t === "GRAD" || t === "SMOKE" || t === "IDEX" || t === "SILVER" || t === "SSILVER") return true;
+    if (t === "BFLN" || t === "GRAD" || t === "SMOKE" || t === "IDEX" || t === "SILVER" || t === "SSILVER" || t === "NNCAT") return true;
     var ct = coinTypeOf(k).toLowerCase();
     if (ct && HIDDEN_COIN_TYPES[ct]) return true;
     var rawType = String((k && k.token) || (looksLikeCoinType(t) ? t : "") || "").toLowerCase();
