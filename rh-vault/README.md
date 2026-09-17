@@ -178,6 +178,8 @@ export RH_VAULT_ADDRESS=0xB0DbeAa279A4D1c5BBB67f7083a3C5445Af3c058
 export RH_WATCH_POLL_MS=15000       # optional
 export RH_WATCH_BLOCK_TAG=safe      # optional: latest|safe|finalized (default safe)
 export RH_WATCH_CONFIRMATIONS=0     # optional: extra blocks below that tag
+export RH_RPC_VERIFY=https://…      # optional but recommended: independent RPCs
+export RH_VERIFY_QUORUM=1           # optional: how many must confirm (default: all)
 npx tsx src/cli.ts watch-rh
 ```
 
@@ -190,6 +192,14 @@ configured finality ceiling. RH produces ~0.1s blocks and serves L1-anchored
 `safe` (trails the tip by ~12 min) and `finalized` (~19 min); the default is
 `safe`. `latest` mints at the chain tip, where a reorg would leave an unbacked
 wrapper on Sui — don't use it without a large `RH_WATCH_CONFIRMATIONS`.
+
+Every candidate deposit is proved before it is minted: the log must be emitted
+by the configured vault, and it must reappear in the transaction's receipt —
+same block, same `logIndex`, same topics and data, in a transaction that
+succeeded. Set `RH_RPC_VERIFY` to run that check against endpoints *other* than
+the one that served the log; without it the receipt check is only asking the
+same RPC to mark its own homework, and a hostile or hijacked primary could
+fabricate deposits. Any disagreement between endpoints stops the mint.
 
 The cursor and any failed mints persist to `<STOCKS_DATA_DIR>/rh-watch.json`, so
 a restart resumes where it stopped and a transient failure is retried rather
