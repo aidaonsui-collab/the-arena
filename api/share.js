@@ -59,9 +59,18 @@ const HIDE_TYPES = new Set([
   "0xbe1af5ef6e6ffa70a298947fd173932e24f98aa1488d77875bee1eff747e107c::nncat::nncat",
 ]);
 
+// Token pages are linked by bare package address as well as by symbol
+// (tokenRouteId prefers the package), so a hidden coin type has to match
+// on its package too or /t/0x<pkg> still renders a card.
+const HIDE_PKGS = new Set(
+  [...HIDE_TYPES].map((t) => String(t).split("::")[0].toLowerCase())
+);
+
 function isHiddenReq(s) {
   const raw = String(s || "").trim();
-  return HIDE.has(raw.toUpperCase()) || HIDE_TYPES.has(normType(raw).toLowerCase());
+  const key = normType(raw).toLowerCase();
+  if (HIDE.has(raw.toUpperCase()) || HIDE_TYPES.has(key)) return true;
+  return !key.includes("::") && HIDE_PKGS.has(key);
 }
 
 function normType(s) {
