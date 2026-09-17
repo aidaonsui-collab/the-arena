@@ -8998,9 +8998,19 @@ async function doBridgeDeposit(){
       // though they had plenty to actually pay for the transaction.
       var coinArg = await takeSwapCoin(tx, st.suiCoin, amount);
       if (feeParts.fee > 0n){
+        // partnerAddr() was never defined — the fee split shipped with a
+        // dangling call, so every burn threw ReferenceError before reaching
+        // bridge::burn. platformWallet() is the established Sui-side partner
+        // (ARENA_SWAP_PARTNER), the same address the swap commission uses.
+        // Not rhFeeAddr(): that is ARENA_RH_FEE, a 20-byte EVM address for the
+        // RH side, and transferObjects needs a 32-byte Sui address.
+        var feeTo = padAddr(platformWallet());
+        if (!/^0x[0-9a-f]{64}$/.test(feeTo)){
+          throw new Error("Bridge fee recipient is misconfigured — not burning.");
+        }
         var feeSplit = tx.splitCoins(coinArg, [txAmt(feeParts.fee)]);
         var feeCoin = Array.isArray(feeSplit) ? feeSplit[0] : feeSplit;
-        tx.transferObjects([feeCoin], partnerAddr());
+        tx.transferObjects([feeCoin], feeTo);
       }
       var PKG = window.ARENA_STOCKS_PACKAGE;
       if (!PKG) throw new Error("ARENA_STOCKS_PACKAGE missing");
