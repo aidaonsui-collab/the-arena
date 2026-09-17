@@ -263,12 +263,37 @@ export async function sendReleaseV2(opts: {
   const nonces = opts.nonces ?? (await nonceSequencer(opts.rpcUrl, from));
   const nonce = nonces.take();
 
-  const gasPrice = BigInt(await rpc<string>(opts.rpcUrl, "eth_gasPrice", []));
+  // RH's eth_gasPrice can sit *below* the current block base fee — measured
+  // 57168000 against a base fee of 57914000 — and a legacy transaction priced
+  // under the base fee is rejected outright with "max fee per gas less than
+  // block base fee". The base fee can also climb 12.5% per block between
+  // sampling and inclusion, so take the higher of the suggestion and twice the
+  // base fee. Still bounded by the cap below.
+  const suggested = BigInt(await rpc<string>(opts.rpcUrl, "eth_gasPrice", []));
+  let baseFee = 0n;
+  try {
+    const head = await rpc<{ baseFeePerGas?: string } | null>(
+      opts.rpcUrl,
+      "eth_getBlockByNumber",
+      ["latest", false],
+    );
+    if (head && head.baseFeePerGas) baseFee = BigInt(head.baseFeePerGas);
+  } catch {
+    // Pre-1559 chain or an unavailable head: the suggestion has to stand.
+  }
+  const floor = baseFee > 0n ? baseFee * 2n : 0n;
+  let gasPrice = suggested > floor ? suggested : floor;
+
   // A misreporting or hostile RPC should not be able to drain the releaser's
   // gas balance through an absurd gasPrice.
   const cap = opts.maxGasPriceWei ?? DEFAULT_MAX_GAS_PRICE_WEI;
   if (gasPrice > cap) {
-    throw new Error(`RH gasPrice ${gasPrice} exceeds cap ${cap}; refusing to send`);
+    // Only refuse if even the base fee is over the cap; otherwise clamp, since
+    // a sane base fee under an inflated suggestion is still payable.
+    if (baseFee > cap) {
+      throw new Error(`RH base fee ${baseFee} exceeds cap ${cap}; refusing to send`);
+    }
+    gasPrice = cap;
   }
 
   const raw = signLegacyTx(
