@@ -709,6 +709,23 @@ html.shot,html.shot *{animation:none!important;transition:none!important}
 .bridge-dirs .pill:hover{color:var(--ink);border-color:#5a3a56}
 .bridge-dirs .pill.on{background:var(--sui);color:#fff;border-color:var(--sui)}
 .bridge-dirs .pill.on:hover{color:#fff;filter:brightness(1.05)}
+.bridge-pend{margin-top:14px;border-top:1px solid var(--line);padding-top:12px}
+.bridge-pend-head{display:flex;align-items:center;justify-content:space-between;font-size:11px;font-weight:650;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:8px}
+.bridge-pend-head button{border:0;background:transparent;color:var(--muted);cursor:pointer;font-size:13px;line-height:1;padding:2px 4px}
+.bridge-pend-head button:hover{color:var(--ink)}
+.bridge-pend-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.bridge-pend-row{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;background:#140e14;border:1px solid var(--line);border-radius:12px;padding:8px 10px;font-size:12px}
+.bridge-pend-main{display:flex;align-items:center;gap:7px;min-width:0}
+.bridge-pend-main .mono{font-size:12px;font-weight:650}
+.bridge-pend-right{display:flex;align-items:center;gap:8px;margin-left:auto}
+.bridge-pend-sub{color:var(--muted);font-size:11px}
+.bridge-pend-pill{border-radius:999px;padding:3px 8px;font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;white-space:nowrap}
+.bridge-pend-pill.wait{background:rgba(255,176,32,.14);color:#FFB020}
+.bridge-pend-pill.go{background:rgba(41,141,255,.16);color:var(--sui)}
+.bridge-pend-pill.ok{background:rgba(0,200,83,.14);color:#3DDC84}
+.bridge-pend-row a{color:var(--muted);text-decoration:none}
+.bridge-pend-row a:hover{color:var(--ink)}
+.bridge-pend-foot{margin-top:8px;font-size:11px;color:var(--muted);line-height:1.45}
 .bridge-bal{margin-top:8px;font-size:12px;color:var(--muted)}
 .bridge-bal button{border:0;background:transparent;color:var(--ink);font:inherit;font-weight:700;cursor:pointer;padding:0;margin:0;letter-spacing:.04em}
 .bridge-bal button:hover{color:var(--sui)}
@@ -1106,7 +1123,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   var pitStatePollAt = 0;
   let balance = 48.60;
   let xaumBal = 2.40;
-  const state = {route:"explore", sym:"VOLT", filter:"All", sort:"Market cap", time:"All", side:"Buy", amt:"1", connected:false, search:"", lName:"", lTick:"", lQuote:"SUI", lPath:"instadex", lMode:"Holders", lTokenAmt:"", lQuoteAmt:"", lFirstBuy:"1", lCap:"", lTokenCoin:"", lQuoteCoin:"", lCoinMode:"create", lDecimals:"9", lSupply:"1000000000", lDesc:"", lX:"", lTg:"", lWeb:"", lPublishedType:"", metricsWindow:"All", tapeTab:"trades", tapeOpen:"", tapePage:0, tapeAge:"age", tapeWallet:"", tapeFilterOpen:false, lFile:null, lArtUrl:"", lArtPreview:"", payWith:"SUI", lNote:"", lNoteErr:false, chartTf:900, chartInd:{vol:true,ma7:false,ma25:false,ma99:false,ema:false}, bridgeTick:"NVDA", bridgeAmt:"", bridgeDir:"in", bridgeRhDest:"", bridgeNote:"", bridgeBusy:false, quoteOpen:false, rewardsTab:"all", lBasket:false, lBasketEqual:true, lBasketMode:0, lBasketOn:{XAUM:true,XAGM:true,USDY:true}, lBasketBps:{XAUM:3334,XAGM:3333,USDY:3333}, lSplitPreset:"vice", lSplit:{creator:6000,platform:500,rewards:2500,buyback:1000}, pfRange:"1M", pfFlash:"", lockTab:"create", lockKind:"lock", lockTok:"", lockAmt:"", lockDays:"30", lockSelf:"self", lockBen:"", lockCliff:"90", lockEnd:"365", lockNote:"", lockNoteErr:false, lockBusy:false, lockMine:[], lockAll:[], lockLoad:false, scrTab:"mcap", scrSort:"mcap", scrDir:-1, scrQuote:"All", scrBuyUsd:5, scrLiveOnly:false, scrFilters:false, watch:[]};
+  const state = {route:"explore", sym:"VOLT", filter:"All", sort:"Market cap", time:"All", side:"Buy", amt:"1", connected:false, search:"", lName:"", lTick:"", lQuote:"SUI", lPath:"instadex", lMode:"Holders", lTokenAmt:"", lQuoteAmt:"", lFirstBuy:"1", lCap:"", lTokenCoin:"", lQuoteCoin:"", lCoinMode:"create", lDecimals:"9", lSupply:"1000000000", lDesc:"", lX:"", lTg:"", lWeb:"", lPublishedType:"", metricsWindow:"All", tapeTab:"trades", tapeOpen:"", tapePage:0, tapeAge:"age", tapeWallet:"", tapeFilterOpen:false, lFile:null, lArtUrl:"", lArtPreview:"", payWith:"SUI", lNote:"", lNoteErr:false, chartTf:900, chartInd:{vol:true,ma7:false,ma25:false,ma99:false,ema:false}, bridgeTick:"NVDA", bridgeAmt:"", bridgeDir:"in", bridgeRhDest:"", bridgeNote:"", bridgeBusy:false, bridgePending:[], quoteOpen:false, rewardsTab:"all", lBasket:false, lBasketEqual:true, lBasketMode:0, lBasketOn:{XAUM:true,XAGM:true,USDY:true}, lBasketBps:{XAUM:3334,XAGM:3333,USDY:3333}, lSplitPreset:"vice", lSplit:{creator:6000,platform:500,rewards:2500,buyback:1000}, pfRange:"1M", pfFlash:"", lockTab:"create", lockKind:"lock", lockTok:"", lockAmt:"", lockDays:"30", lockSelf:"self", lockBen:"", lockCliff:"90", lockEnd:"365", lockNote:"", lockNoteErr:false, lockBusy:false, lockMine:[], lockAll:[], lockLoad:false, scrTab:"mcap", scrSort:"mcap", scrDir:-1, scrQuote:"All", scrBuyUsd:5, scrLiveOnly:false, scrFilters:false, watch:[]};
   try {
     var watchSaved = JSON.parse(localStorage.getItem("vice.watch.v1") || "[]");
     if (Array.isArray(watchSaved)) state.watch = watchSaved.map(String);
@@ -7317,7 +7334,11 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
           '<div class="bridge-meta">'+
             '<div class="kv"><span style="color:var(--muted)">Rate</span><span class="mono">1 : 1</span></div>'+
             '<div class="kv"><span style="color:var(--muted)">Protocol fee</span><span>—</span></div>'+
-            '<div class="kv"><span style="color:var(--muted)">Est. time</span><span>~1–2 min</span></div>'+
+            '<div class="kv"><span style="color:var(--muted)">Est. time</span><span>'+
+              (dirOut
+                ? "~1–2 min"
+                : escHtml((_rhFinality.lagSec != null ? fmtEta(_rhFinality.lagSec) : "a few minutes")+" (waits for RH finality)"))+
+            '</span></div>'+
             (st.rhToken
               ? '<div class="kv"><span style="color:var(--muted)">'+escHtml(tick)+' on Robinhood</span>'+
                   '<span><span class="mono">'+escHtml(shortAddr(st.rhToken))+'</span>'+
@@ -7341,9 +7362,58 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
           destRow+
           cta+
           note+
+          pendingHTML()+
         '</div>'+
       '</div>'+
       footerHTML()+'</div>';
+  }
+
+  /**
+   * Deposits locked on RH but not yet minted on Sui. Without this the wait for
+   * Robinhood Chain finality is invisible and a perfectly healthy deposit looks
+   * like it vanished.
+   */
+  function pendingHTML(){
+    var rows = state.bridgePending || [];
+    if (!rows.length) return "";
+    var pend = rows.filter(function(r){ return r.status !== "minted"; });
+    var shown = pend.length ? pend : rows.slice(0, 2);
+    var exp = (window.ARENA_RH_EXPLORER || "https://robinhoodchain.blockscout.com").replace(/\/$/, "");
+    var items = shown.map(function(r){
+      var label, cls, sub;
+      if (r.status === "minted"){
+        label = "Minted"; cls = "ok";
+        sub = r.mintedDigest ? "Sui "+String(r.mintedDigest).slice(0, 10)+"…" : "wrap delivered";
+      } else if (r.status === "awaiting-finality"){
+        label = "Finalizing"; cls = "wait";
+        sub = (r.etaSec != null ? fmtEta(r.etaSec) : "a few minutes")+
+          (r.blocksLeft != null ? " · "+r.blocksLeft.toLocaleString()+" blocks to safe" : "");
+      } else {
+        label = "Minting"; cls = "go";
+        sub = "final on RH — keeper is minting";
+      }
+      return '<li class="bridge-pend-row">'+
+        '<span class="bridge-pend-main">'+
+          stockLogoHtml(r.ticker, "bridge-tick-logo")+
+          '<span class="mono">'+escHtml(fromBaseStr(r.amount, r.decimals))+' '+escHtml(r.ticker)+'</span>'+
+        '</span>'+
+        '<span class="bridge-pend-right">'+
+          '<span class="bridge-pend-sub">'+escHtml(sub)+'</span>'+
+          '<span class="bridge-pend-pill '+cls+'">'+escHtml(label)+'</span>'+
+          '<a href="'+escAttr(exp+"/tx/"+r.txHash)+'" target="_blank" rel="noopener" title="View the RH lock">↗</a>'+
+        '</span>'+
+      '</li>';
+    }).join("");
+    return '<div class="bridge-pend">'+
+      '<div class="bridge-pend-head">'+
+        '<span>'+(pend.length ? "Pending" : "Recent")+'</span>'+
+        '<button type="button" data-bridge-refresh-pending title="Refresh">↻</button>'+
+      '</div>'+
+      '<ul class="bridge-pend-list">'+items+'</ul>'+
+      (pend.length
+        ? '<div class="bridge-pend-foot">The bridge mints only after a deposit is final on Robinhood Chain, so a reorg can’t leave a wrap with no collateral behind it.</div>'
+        : '')+
+    '</div>';
   }
 
   function lockDefaultTok(){
@@ -7880,6 +7950,9 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
         recipient: String(pj.recipient || ""),
         amount: pj.amount,
         ticker: pj.ticker,
+        // rh_ref is the keeper's exact key (txHash:depositId) — lets the
+        // pending list match a mint to a deposit without guessing.
+        rhRef: pj.rh_ref,
         ts: Number(ev.timestampMs) || 0,
         digest: (ev.id && ev.id.txDigest) || ""
       };
@@ -7911,7 +7984,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
           return r;
         }
       } catch (e) {}
-      state.bridgeNote = "Locked on RH. Waiting for keeper MintedEvent…";
+      state.bridgeNote = opts.waitingNote || "Locked on RH. Waiting for keeper MintedEvent…";
       state.bridgeNoteErr = false;
       if (state.route === "bridge"){
         var noteEl = document.querySelector(".bridge-note");
@@ -7985,22 +8058,35 @@ async function doBridgeDeposit(){
       state.bridgeAmt = "";
       if (state.route === "bridge") renderScreen();
       if (btn) btn.textContent = "Waiting for mint…";
+      // The keeper waits for Robinhood Chain's L1-anchored `safe` block before
+      // minting, since a mint on Sui cannot be undone if RH reorgs. That is
+      // normally several minutes, so do not hold the page hostage: poll
+      // briefly in case finality is already close, then hand off to the
+      // pending list rather than reporting a timeout as if it were a failure.
+      var fin = await rhFinalityInfo(true);
+      var eta = fmtEta(fin.lagSec);
+      refreshPendingDeposits();
       var minted = await waitForStockMint({
         recipient: suiSession.address,
         // Keeper mints Sui 9dp = RH 18dp / 1e9 (human shares 1:1)
         amount: amount / 1000000000n,
         ticker: st.ticker,
         sinceMs: Date.now() - 15000,
-        timeoutMs: 180000
+        timeoutMs: 60000,
+        waitingNote: "Locked on RH ✓ — minting once the deposit is final on Robinhood Chain ("+eta+")."
       });
       if (minted){
         state.bridgeNote = "Minted on Sui. Wrap balance updated."+(minted.digest ? (" "+String(minted.digest).slice(0,10)+"…") : "");
         state.bridgeNoteErr = false;
         state.bridgeDir = "out";
       } else {
-        state.bridgeNote = "Lock landed, but MintedEvent not seen yet. Keeper may still be catching up — refresh Bridge shortly.";
+        state.bridgeNote =
+          "Locked on RH ✓ — your "+st.ticker+" is in the vault. It mints automatically once the "+
+          "deposit is final on Robinhood Chain ("+eta+"); the bridge waits for finality so a reorg "+
+          "can't leave an unbacked wrap. Safe to leave this page — track it under Pending below.";
         state.bridgeNoteErr = false;
       }
+      refreshPendingDeposits();
       await refreshBridgeBal();
       if (state.route === "bridge") renderScreen();
     } catch (e) {
@@ -8040,17 +8126,44 @@ async function doBridgeDeposit(){
     return 10n ** BigInt(d);
   }
 
+  /**
+   * One RH JSON-RPC call.
+   *
+   * Goes through our own /api/rh proxy first: the public RH endpoint
+   * intermittently answers with a duplicated `Access-Control-Allow-Origin: *,*`
+   * header that browsers reject (~half of requests, measured), which would
+   * otherwise make the redeem preflight refuse legitimate burns at random.
+   * Falls back to calling RH directly so this still works when the proxy is not
+   * deployed (e.g. a static local preview).
+   */
+  async function rhRpc(method, params){
+    var body = JSON.stringify({ jsonrpc:"2.0", id:1, method: method, params: params });
+    var urls = ["/api/rh", window.ARENA_RH_RPC || "https://rpc.mainnet.chain.robinhood.com"];
+    var lastErr = null;
+    for (var i = 0; i < urls.length; i++){
+      try {
+        var res = await fetch(urls[i], {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: body
+        });
+        if (!res.ok){
+          lastErr = new Error("RH RPC HTTP "+res.status);
+          continue;
+        }
+        var j = await res.json();
+        if (j && j.error) throw new Error("RH RPC: "+(j.error.message || method+" failed"));
+        return j.result;
+      } catch (e){
+        lastErr = e;
+      }
+    }
+    throw lastErr || new Error("RH RPC unavailable");
+  }
+
   async function rhEthCall(to, data){
-    var url = window.ARENA_RH_RPC || "https://rpc.mainnet.chain.robinhood.com";
-    var res = await fetch(url, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ jsonrpc:"2.0", id:1, method:"eth_call", params:[{ to: to, data: data }, "latest"] })
-    });
-    if (!res.ok) throw new Error("RH RPC HTTP "+res.status);
-    var body = await res.json();
-    if (body && body.error) throw new Error("RH RPC: "+(body.error.message || "call failed"));
-    return String(body.result || "0x");
+    var result = await rhRpc("eth_call", [{ to: to, data: data }, "latest"]);
+    return String(result || "0x");
   }
 
   function rhWord(hex, i){
@@ -8142,6 +8255,150 @@ async function doBridgeDeposit(){
     var body = String(addr || "").trim().toLowerCase().replace(/^0x/, "");
     if (!/^[0-9a-f]{40}$/.test(body)) throw new Error("bad address "+addr);
     return body.padStart(64, "0");
+  }
+
+  // --- RH finality + pending deposits --------------------------------------
+  // The keeper only mints deposits that have reached Robinhood Chain's
+  // L1-anchored `safe` block, because minting on Sui is irreversible and a
+  // reorg would leave a wrapper with no collateral behind it. `safe` trails the
+  // tip by roughly ten minutes, so a deposit is legitimately pending for a
+  // while. Surface that honestly instead of letting the deposit look stuck.
+  var RH_DEPOSIT_TOPIC0 =
+    "0xcd369024a239038366adb9f97aeb7dc8fd7b4b4ff5aeeaf4d0717a8d4a5e0c6d";
+  var _rhFinality = { at: 0, tip: null, safeBlock: null, lagSec: null };
+
+  async function rhBlock(tagOrNumber){
+    return (await rhRpc("eth_getBlockByNumber", [tagOrNumber, false])) || null;
+  }
+
+  /** Live finality lag, cached briefly. Null fields when the RPC is unhappy. */
+  async function rhFinalityInfo(force){
+    var now = Date.now();
+    if (!force && _rhFinality.at && now - _rhFinality.at < 60000) return _rhFinality;
+    try {
+      var latest = await rhBlock("latest");
+      var safe = await rhBlock("safe");
+      if (latest && safe){
+        _rhFinality = {
+          at: now,
+          tip: Number(BigInt(latest.number)),
+          safeBlock: Number(BigInt(safe.number)),
+          lagSec: Math.max(0, Number(BigInt(latest.timestamp)) - Number(BigInt(safe.timestamp)))
+        };
+      }
+    } catch (e) { /* keep whatever we had */ }
+    return _rhFinality;
+  }
+
+  function fmtEta(sec){
+    if (!(sec > 0)) return "a few minutes";
+    if (sec < 90) return "under a minute";
+    var m = Math.round(sec / 60);
+    return "~" + m + " min";
+  }
+
+  /** vector<u8> from Sui parsedJson → string (number[], 0x-hex, or utf8). */
+  function vecU8ToStr(v){
+    try {
+      if (Array.isArray(v)) return String.fromCharCode.apply(null, v.map(Number));
+      if (typeof v === "string"){
+        if (/^0x[0-9a-fA-F]*$/.test(v) && v.length % 2 === 0){
+          var out = "";
+          for (var i = 2; i < v.length; i += 2) out += String.fromCharCode(parseInt(v.slice(i, i+2), 16));
+          return out;
+        }
+        return v;
+      }
+    } catch (e) {}
+    return "";
+  }
+
+  /** Every DepositLocked on the vault. Volume is tiny; filtered client-side. */
+  async function rhAllDeposits(vaultAddr){
+    var logs = await rhRpc("eth_getLogs", [
+      { address: vaultAddr, fromBlock:"0x0", toBlock:"latest", topics:[RH_DEPOSIT_TOPIC0] }
+    ]);
+    return (logs || []).map(function(log){
+      var data = String(log.data || "").replace(/^0x/, "");
+      if (data.length < 128) return null;
+      if (String(log.address || "").toLowerCase() !== vaultAddr.toLowerCase()) return null;
+      return {
+        txHash: String(log.transactionHash || "").toLowerCase(),
+        blockNumber: Number(BigInt(log.blockNumber)),
+        token: ("0x" + String(log.topics[1] || "").slice(-40)).toLowerCase(),
+        depositor: ("0x" + String(log.topics[2] || "").slice(-40)).toLowerCase(),
+        depositId: BigInt(log.topics[3] || "0x0").toString(),
+        amount: BigInt("0x" + data.slice(0, 64)),
+        suiRecipient: ("0x" + data.slice(64, 128)).toLowerCase()
+      };
+    }).filter(Boolean);
+  }
+
+  /**
+   * Deposits belonging to the connected wallets, with mint status.
+   * Matched to mints by rh_ref (txHash:depositId), the same key the keeper
+   * writes on-chain — exact, rather than guessing from amount and recipient.
+   */
+  async function loadPendingDeposits(){
+    var vaultAddr = window.ARENA_RH_VAULT;
+    if (!vaultAddr) return [];
+    var sui = normSuiAddr(suiSession.address || "");
+    var evm = String(evmSession.address || "").toLowerCase();
+    if (!sui && !evm) return [];
+
+    var deposits = await rhAllDeposits(vaultAddr);
+    var mine = deposits.filter(function(d){
+      return (evm && d.depositor === evm) || (sui && normSuiAddr(d.suiRecipient) === sui);
+    });
+    if (!mine.length) return [];
+
+    var mintedRefs = {};
+    try {
+      var rows = await queryStockMinted(50);
+      for (var i = 0; i < rows.length; i++){
+        var ref = vecU8ToStr(rows[i].rhRef).trim().toLowerCase();
+        if (ref) mintedRefs[ref] = rows[i].digest || true;
+      }
+    } catch (e) { /* treat as "unknown"; rows below just stay pending */ }
+
+    var fin = await rhFinalityInfo();
+    return mine.map(function(d){
+      var rec = null;
+      for (var k in STOCKS) if (STOCKS[k].rhToken && STOCKS[k].rhToken.toLowerCase() === d.token) rec = STOCKS[k];
+      var ref = d.txHash + ":" + d.depositId;
+      var mintedDigest = mintedRefs[ref];
+      var status = mintedDigest ? "minted"
+        : (fin.safeBlock != null && d.blockNumber > fin.safeBlock) ? "awaiting-finality"
+        : "minting";
+      var blocksLeft = (fin.safeBlock != null) ? Math.max(0, d.blockNumber - fin.safeBlock) : null;
+      return {
+        ref: ref,
+        txHash: d.txHash,
+        depositId: d.depositId,
+        ticker: rec ? rec.ticker : "?",
+        amount: d.amount,
+        decimals: rec ? stockBridgeDecimals(rec, false) : 18,
+        status: status,
+        mintedDigest: typeof mintedDigest === "string" ? mintedDigest : "",
+        blocksLeft: blocksLeft,
+        etaSec: (status === "awaiting-finality" && fin.lagSec != null && fin.tip != null && blocksLeft != null && fin.tip > fin.safeBlock)
+          ? Math.round(fin.lagSec * (blocksLeft / (fin.tip - fin.safeBlock)))
+          : null
+      };
+    }).sort(function(a,b){ return Number(b.depositId) - Number(a.depositId); });
+  }
+
+  async function refreshPendingDeposits(){
+    // Load the finality lag even with no wallet connected — the deposit panel
+    // quotes it as "Est. time", so it should be the live figure rather than a
+    // vague fallback for anyone just looking at the bridge.
+    try { await rhFinalityInfo(); } catch (e) {}
+    try {
+      state.bridgePending = await loadPendingDeposits();
+    } catch (e) {
+      state.bridgePending = [];
+    }
+    if (state.route === "bridge") renderScreen();
   }
 
   /** Throws with an actionable message when `amount` is not fully payable. */
@@ -9174,7 +9431,7 @@ async function doBridgeDeposit(){
       refreshEligible();
       refreshPendingRewards();
     }
-    if (state.route === "bridge") refreshBridgeBal();
+    if (state.route === "bridge"){ refreshBridgeBal(); refreshPendingDeposits(); }
     const q = $("#q");
     if (q) q.value = state.search;
     prevPot = money(pot);
@@ -11164,6 +11421,10 @@ async function doBridgeDeposit(){
     const lockClaim = e.target.closest("[data-lock-claim]");
     if (lockClaim){
       doVicelockClaim(lockClaim.getAttribute("data-lock-claim"), lockClaim.getAttribute("data-lock-type"), lockClaim.getAttribute("data-lock-token"));
+      return;
+    }
+    if (e.target.closest("[data-bridge-refresh-pending]")){
+      refreshPendingDeposits();
       return;
     }
     if (e.target.closest("[data-bridge-max]")){
