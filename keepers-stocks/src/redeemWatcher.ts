@@ -46,7 +46,14 @@ import {
   type BurnRecord,
   type ReleaseAttempt,
 } from "./redeemStore.ts";
-import { listLocks, simulateRelease, simulateReleaseV2, tryBackingOf, type VaultLock } from "./rhRpc.ts";
+import {
+  isSettled,
+  listLocks,
+  simulateRelease,
+  simulateReleaseV2,
+  tryBackingOf,
+  type VaultLock,
+} from "./rhRpc.ts";
 import { queryEvents, type EventCursor } from "./sui.ts";
 
 export type RedeemWatcherConfig = {
@@ -84,6 +91,57 @@ async function handleBurnPooled(
   const rhAmount = burn.amount * RH_TO_SUI_SCALE;
   const burnKey = suiBurnRef(burn.digest, burn.eventSeq);
   const at = new Date().toISOString();
+
+  // settledBurns on the vault is the authority on whether this burn was already
+  // paid — not our local store. A release can land on-chain and still throw here
+  // (receipt timeout, RPC 429 mid-poll), which would otherwise leave us
+  // resending a burn that is already settled forever: every resend reverts with
+  // BurnAlreadySettled, so it can never clear itself.
+  try {
+    if (await isSettled(opts.rhRpc, opts.vault, burnKey)) {
+      const settled: BurnRecord = {
+        key: burn.key,
+        digest: burn.digest,
+        eventSeq: burn.eventSeq,
+        ticker: burn.ticker,
+        amount: burn.amount.toString(),
+        burner: burn.burner,
+        rhDest: burn.rhDest,
+        status: "exact",
+        leftoverSui: "0",
+        mismatch: null,
+        consumedDepositIds: ["v2"],
+        releasedDepositIds: ["v2"],
+        releases: [
+          {
+            depositId: "v2",
+            to: burn.rhDest,
+            token,
+            rhAmount: rhAmount.toString(),
+            suiAmount: burn.amount.toString(),
+            simulatedOk: true,
+          },
+        ],
+        dryRun: false,
+        at,
+      };
+      console.log(
+        JSON.stringify({
+          event: "RedeemBurned",
+          flag: "ALREADY_SETTLED",
+          key: burn.key,
+          suiBurnRef: burnKey,
+          note: "vault reports this burn settled; recording without resending",
+        }),
+      );
+      recordBurn(settled);
+      return { burn, ok: true, record: settled };
+    }
+  } catch {
+    // Could not ask. The on-chain replay guard still makes a resend safe —
+    // it reverts rather than double-paying — so fall through.
+  }
+
   const mismatch =
     rhAmount > pooled
       ? `burn ${rhAmount.toString()} exceeds pooled backing ${pooled.toString()}`
@@ -230,6 +288,22 @@ async function broadcastPending(
       );
       continue;
     }
+    // Belt and braces: this path settles whole v1 deposits, so the id must be
+    // numeric. A pooled ("v2") record reaching here would throw inside the
+    // catch below and retry forever, which is exactly the failure this guard
+    // exists to make loud instead of silent.
+    if (!/^\d+$/.test(attempt.depositId)) {
+      attempt.error = `non-numeric depositId ${attempt.depositId}; pooled releases are not settled by broadcastPending`;
+      console.error(
+        JSON.stringify({
+          event: "releaseSkip",
+          flag: "WRONG_VAULT_GENERATION",
+          depositId: attempt.depositId,
+          error: attempt.error,
+        }),
+      );
+      continue;
+    }
     try {
       const sent = await sendRelease({
         rpcUrl: opts.rhRpc,
@@ -289,6 +363,17 @@ export async function handleBurn(
     return { burn, ok: true, skipped: "already handled" };
   }
 
+  // Decide the vault generation before the v1 retry shortcut below. A pooled
+  // burn records the sentinel depositId "v2", which broadcastPending would feed
+  // to BigInt() — a SyntaxError that the surrounding try/catch swallows into a
+  // releaseError, so a pooled release that failed once could never succeed on
+  // any later pass. handleBurnPooled does its own, idempotent retry.
+  const token = tickerToken(burn.ticker);
+  const pooled = await tryBackingOf(opts.rhRpc, opts.vault, token);
+  if (pooled !== null) {
+    return handleBurnPooled(burn, token, pooled, opts);
+  }
+
   const existing = loadRedeemStore().burns[burn.key];
   if (existing && !existing.dryRun && pendingDepositIds(existing).length > 0 && opts.live) {
     for (const id of pendingDepositIds(existing)) opts.claimed.add(id);
@@ -297,11 +382,6 @@ export async function handleBurn(
     return { burn, ok: allSent, record: rec, error: allSent ? undefined : rec.mismatch ?? undefined };
   }
 
-  const token = tickerToken(burn.ticker);
-  const pooled = await tryBackingOf(opts.rhRpc, opts.vault, token);
-  if (pooled !== null) {
-    return handleBurnPooled(burn, token, pooled, opts);
-  }
   const available = locks
     .filter((l) => l.token.toLowerCase() === token)
     .filter((l) => !l.released)
