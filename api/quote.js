@@ -216,5 +216,5 @@ export async function GET(req) {
     ok: false,
     error: "No aggregator route",
     detail: errors.slice(0, 3)
-  }, { status: 404 });
+  });
 }
