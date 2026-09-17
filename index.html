@@ -8338,6 +8338,53 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     var hex = a.slice(2).replace(/^0+/, "") || "0";
     return "0x" + hex.padStart(64, "0");
   }
+  /**
+   * Recent RedeemBurned events, for confirming a burn whose wallet response
+   * carried no digest. Same shape as queryStockMinted.
+   */
+  async function queryStockRedeemed(limit){
+    var pkg = window.ARENA_STOCKS_PACKAGE;
+    if (!pkg) return [];
+    var res = await rpcJson("suix_queryEvents", [
+      { MoveEventType: pkg + "::bridge::RedeemBurned" }, null, limit || 25, true
+    ]);
+    return ((res && res.data) || []).map(function(ev){
+      var pj = ev.parsedJson || {};
+      return {
+        burner: String(pj.burner || ""),
+        amount: pj.amount,
+        ticker: pj.ticker,
+        digest: (ev.id && ev.id.txDigest) || "",
+        ts: Number(ev.timestampMs) || 0
+      };
+    });
+  }
+  /**
+   * Did this burn actually land? Only called when the wallet returned no
+   * digest, which is not proof of failure — some wallets resolve with an empty
+   * object. Burning is irreversible, so the answer has to come from chain, not
+   * from the absence of an exception.
+   */
+  async function findRecentBurn(opts){
+    var want = normSuiAddr(opts.burner);
+    var wantAmt = BigInt(String(opts.amount));
+    var since = opts.sinceMs || (Date.now() - 60000);
+    var deadline = Date.now() + (opts.timeoutMs || 25000);
+    while (Date.now() < deadline){
+      try {
+        var rows = await queryStockRedeemed(40);
+        for (var i = 0; i < rows.length; i++){
+          var r = rows[i];
+          if (r.ts && r.ts + 5000 < since) continue;
+          if (normSuiAddr(r.burner) !== want) continue;
+          if (BigInt(String(r.amount || 0)) !== wantAmt) continue;
+          return r;
+        }
+      } catch (e) {}
+      await new Promise(function(r){ setTimeout(r, 4000); });
+    }
+    return null;
+  }
   async function queryStockMinted(limit){
     limit = limit || 50;
     var pkgs = [window.ARENA_STOCKS_PACKAGE, window.ARENA_STOCKS_PUBLISHED_AT].filter(Boolean);
@@ -9021,11 +9068,42 @@ async function doBridgeDeposit(){
         arguments: [tx.object(st.suiVault), coinArg, rhDestArg]
       });
       if (btn) btn.textContent = "Sign burn…";
+      var burnStartedMs = Date.now();
       var result = await walletExec(tx);
       var digest = txDigest(result);
-      state.bridgeNote = digest
-        ? ("Burned. RedeemBurned emitted — RH unlock watcher picks it up. "+String(digest).slice(0,10)+"…")
-        : "Burned. RedeemBurned emitted for the RH unlock watcher.";
+      if (!digest){
+        // A wallet can resolve without throwing and still not have executed
+        // anything — that is how a burn that never happened was being reported
+        // as "Burned." Burning is irreversible, so confirm against chain
+        // instead of inferring success from the absence of an exception.
+        if (btn) btn.textContent = "Confirming…";
+        var landed = await findRecentBurn({
+          burner: suiSession.address,
+          amount: feeParts.net,
+          sinceMs: burnStartedMs - 15000
+        });
+        if (landed && landed.digest){
+          digest = landed.digest;
+        } else {
+          // Name the wallet and what it actually exposes: a digest-less resolve
+          // is almost always a signing feature the wallet does not implement
+          // the way we called it, and that detail is what makes the next
+          // report diagnosable.
+          var wf = (suiSession.wallet && suiSession.wallet.features) || {};
+          var have = ["sui:signTransaction","sui:signTransactionBlock",
+                      "sui:signAndExecuteTransaction","sui:signAndExecuteTransactionBlock"]
+                     .filter(function(k){ return !!wf[k]; })
+                     .map(function(k){ return k.replace("sui:",""); });
+          throw new Error(
+            "Your wallet did not return a signed transaction, and no burn for this "+
+            "amount has appeared on Sui. Nothing was burned — your "+st.ticker+
+            " wrap is still in your wallet. Check the wallet is unlocked and connected, "+
+            "then try again. (wallet: "+(walletLabel(suiSession.wallet) || "unknown")+
+            "; signing: "+(have.length ? have.join(", ") : "none exposed")+")"
+          );
+        }
+      }
+      state.bridgeNote = "Burned. RedeemBurned emitted — RH unlock watcher picks it up. "+String(digest).slice(0,10)+"…";
       state.bridgeNoteErr = false;
       state.bridgeAmt = "";
       await refreshBridgeBal();
