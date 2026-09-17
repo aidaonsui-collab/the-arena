@@ -59,6 +59,11 @@ const HIDE_TYPES = new Set([
   "0xbe1af5ef6e6ffa70a298947fd173932e24f98aa1488d77875bee1eff747e107c::nncat::nncat",
 ]);
 
+function isHiddenReq(s) {
+  const raw = String(s || "").trim();
+  return HIDE.has(raw.toUpperCase()) || HIDE_TYPES.has(normType(raw).toLowerCase());
+}
+
 function normType(s) {
   s = String(s || "").trim();
   if (!s) return "";
@@ -147,7 +152,10 @@ async function page(request) {
   const raw = String(t).trim();
   const isType = raw.includes("::") || /^0x[0-9a-fA-F]{40,}$/i.test(raw);
   const sym = isType ? raw : raw.toUpperCase().slice(0, 12);
-  if (!sym) {
+  // A hidden token must fall back to the plain site card. findLaunch()
+  // returning null is not enough: the token branch below derives its title
+  // from `sym` itself, so it would still render "$SYM - SYM | Vice".
+  if (!sym || isHiddenReq(sym)) {
     return htmlPage({
       origin,
       title: "Vice — Fair launches on Sui",
