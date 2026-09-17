@@ -55,6 +55,11 @@ const HIDE_TYPES = new Set([
   "0xbe1af5ef6e6ffa70a298947fd173932e24f98aa1488d77875bee1eff747e107c::nncat::nncat",
 ]);
 
+function isHiddenReq(s) {
+  const raw = String(s || "").trim();
+  return HIDE.has(raw.toUpperCase()) || HIDE_TYPES.has(normTypeKey(raw));
+}
+
 function normTypeKey(s) {
   s = String(s || "").trim();
   if (s.startsWith("0X")) s = "0x" + s.slice(2);
@@ -260,7 +265,8 @@ async function render(request) {
   const raw = String(t).trim();
   const isType = raw.includes("::") || /^0x[0-9a-fA-F]{40,}$/i.test(raw);
   const sym = isType ? raw : raw.toUpperCase().slice(0, 12);
-  if (!sym) return homeJpg(origin);
+  // Hidden tokens render the generic card, not one built from `sym`.
+  if (!sym || isHiddenReq(sym)) return homeJpg(origin);
 
   const jpegMod = await import("jpeg-js");
   const jpeg = jpegMod.default && jpegMod.default.decode ? jpegMod.default : jpegMod;
