@@ -23,6 +23,7 @@ import {
   DEFAULT_RH_RPC,
   DEFAULT_RH_VAULT_ADDRESS,
   DEFAULT_RH_RELEASER_ADDRESS,
+  RH_TO_SUI_SCALE,
   STOCKS,
   env,
   redeemEventType,
@@ -30,7 +31,7 @@ import {
   stockOf,
   type Ticker,
 } from "./config.ts";
-import { releaserAddressFromEnv, sendRelease } from "./evmRelease.ts";
+import { releaserAddressFromEnv, sendRelease, sendReleaseV2, suiBurnRef } from "./evmRelease.ts";
 import { matchFifo, type RhLock } from "./matchFifo.ts";
 import { parseRedeemBurned, type RedeemBurn } from "./redeemEvent.ts";
 import {
@@ -45,7 +46,7 @@ import {
   type BurnRecord,
   type ReleaseAttempt,
 } from "./redeemStore.ts";
-import { listLocks, simulateRelease, type VaultLock } from "./rhRpc.ts";
+import { listLocks, simulateRelease, simulateReleaseV2, tryBackingOf, type VaultLock } from "./rhRpc.ts";
 import { queryEvents, type EventCursor } from "./sui.ts";
 
 export type RedeemWatcherConfig = {
@@ -66,6 +67,114 @@ export type BurnAttempt = {
 
 function tickerToken(ticker: Ticker): string {
   return stockOf(ticker).rhToken.trim().toLowerCase();
+}
+
+async function handleBurnPooled(
+  burn: RedeemBurn,
+  token: string,
+  pooled: bigint,
+  opts: {
+    live: boolean;
+    rhRpc: string;
+    vault: string;
+    simulateFrom: string;
+    claimed: Set<string>;
+  },
+): Promise<BurnAttempt> {
+  const rhAmount = burn.amount * RH_TO_SUI_SCALE;
+  const burnKey = suiBurnRef(burn.digest, burn.eventSeq);
+  const at = new Date().toISOString();
+  const mismatch =
+    rhAmount > pooled
+      ? `burn ${rhAmount.toString()} exceeds pooled backing ${pooled.toString()}`
+      : null;
+  const sim = mismatch
+    ? { ok: false, error: mismatch }
+    : await simulateReleaseV2(
+        opts.rhRpc,
+        opts.vault,
+        opts.simulateFrom,
+        token,
+        rhAmount,
+        burn.rhDest,
+        burnKey,
+      );
+  const attempt: ReleaseAttempt = {
+    depositId: "v2",
+    to: burn.rhDest,
+    token,
+    rhAmount: rhAmount.toString(),
+    suiAmount: burn.amount.toString(),
+    simulatedOk: sim.ok,
+    simulateError: sim.error,
+  };
+  const plan = {
+    event: "RedeemBurned",
+    flag: mismatch || !sim.ok ? "MISMATCH" : "PLAN",
+    mode: opts.live ? "live" : "dry-run",
+    vault: "v2-pooled",
+    key: burn.key,
+    digest: burn.digest,
+    ticker: burn.ticker,
+    amountSui: burn.amount.toString(),
+    rhAmount: rhAmount.toString(),
+    pooled: pooled.toString(),
+    rhDest: burn.rhDest,
+    suiBurnRef: burnKey,
+    simulatedOk: sim.ok,
+    simulateError: sim.error ?? null,
+  };
+  if (mismatch || !sim.ok) console.error(JSON.stringify(plan));
+  else console.log(JSON.stringify(plan));
+
+  const rec: BurnRecord = {
+    key: burn.key,
+    digest: burn.digest,
+    eventSeq: burn.eventSeq,
+    ticker: burn.ticker,
+    amount: burn.amount.toString(),
+    burner: burn.burner,
+    rhDest: burn.rhDest,
+    status: mismatch ? "unmatched" : "exact",
+    leftoverSui: mismatch ? burn.amount.toString() : "0",
+    mismatch,
+    consumedDepositIds: mismatch ? [] : ["v2"],
+    releasedDepositIds: [],
+    releases: [attempt],
+    dryRun: !opts.live,
+    at,
+  };
+  if (!opts.live) {
+    recordBurn(rec);
+    return { burn, ok: true, record: rec };
+  }
+  if (mismatch || !sim.ok) {
+    rec.dryRun = false;
+    recordBurn(rec);
+    return { burn, ok: false, skipped: mismatch ?? sim.error, record: rec };
+  }
+  try {
+    const sent = await sendReleaseV2({
+      rpcUrl: opts.rhRpc,
+      vault: opts.vault,
+      token,
+      amount: rhAmount,
+      to: burn.rhDest,
+      suiBurnRefHex: burnKey,
+    });
+    rec.releasedDepositIds = ["v2"];
+    rec.releases[0].txHash = sent.txHash;
+    rec.dryRun = false;
+    recordBurn(rec);
+    return { burn, ok: true, record: rec };
+  } catch (e) {
+    rec.dryRun = false;
+    rec.status = "error";
+    rec.mismatch = e instanceof Error ? e.message : String(e);
+    rec.releases[0].error = rec.mismatch;
+    recordBurn(rec);
+    return { burn, ok: false, record: rec, error: rec.mismatch };
+  }
 }
 
 function toRhLock(lock: VaultLock): RhLock {
@@ -189,6 +298,10 @@ export async function handleBurn(
   }
 
   const token = tickerToken(burn.ticker);
+  const pooled = await tryBackingOf(opts.rhRpc, opts.vault, token);
+  if (pooled !== null) {
+    return handleBurnPooled(burn, token, pooled, opts);
+  }
   const available = locks
     .filter((l) => l.token.toLowerCase() === token)
     .filter((l) => !l.released)

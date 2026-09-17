@@ -283,6 +283,7 @@ main{padding:18px 0 72px}
 .chips>div{flex:1;text-align:center;background:var(--well);border-radius:999px;padding:8px 0;font-size:12px;font-weight:600;cursor:pointer}
 .chips>div:hover{background:var(--lift)}
 .chips>div.on{background:var(--lift);color:var(--ink)}
+.chips>div.disabled,.chips>div.disabled:hover{opacity:.4;cursor:not-allowed;filter:grayscale(.4);background:var(--well);pointer-events:none}
 .kv{display:flex;justify-content:space-between;align-items:baseline;gap:12px;padding:10px 0;border-top:1px solid var(--line);font-size:14px;min-width:0}
 .kv>span:last-child{min-width:0;text-align:right;overflow-wrap:anywhere;word-break:break-word}
 .fee-chips{display:flex;flex-wrap:wrap;gap:6px;padding:4px 0 8px}
@@ -540,6 +541,8 @@ html[data-route="launch"] main,html[data-route="token"] main,html[data-route="me
 .split-row{display:grid;grid-template-columns:118px 1fr 44px;gap:8px;align-items:center;margin-top:8px;font-size:13px}
 .split-row input[type=range]{width:100%;accent-color:var(--pink)}
 .split-row b{font-variant-numeric:tabular-nums;text-align:right;font-size:12px;color:var(--muted)}
+.split-row.locked{opacity:.72}
+.split-row.locked input[type=range]{pointer-events:none;filter:grayscale(.35)}
 .vol-bars{display:flex;align-items:flex-end;gap:4px;height:120px;padding:8px 0 0}
 .vol-bars i{flex:1;background:var(--pink);border-radius:4px 4px 0 0;min-height:2px;opacity:.85}
 .fee-rows{display:grid;gap:10px}
@@ -679,7 +682,17 @@ html.shot,html.shot *{animation:none!important;transition:none!important}
 .bridge-hero h1{font-size:clamp(28px,5vw,44px);font-weight:700;letter-spacing:-.03em;margin:0;line-height:1.1}
 .bridge-hero h1 em{font-style:normal;color:var(--sui)}
 .bridge-hero p{margin:10px auto 0;color:var(--muted);font-size:14px;max-width:46ch;line-height:1.45}
-.bridge-wrap{max-width:440px;margin:0 auto}
+.bridge-layout{display:grid;grid-template-columns:minmax(240px,300px) 440px;gap:28px 56px;align-items:start;justify-content:center;max-width:920px;margin:0 auto;padding:0 8px}
+.bridge-wrap{max-width:440px;margin:0;width:100%}
+.bridge-howto{padding:6px 4px 0}
+.bridge-howto-kicker{font-size:11px;font-weight:650;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin:0 0 16px}
+.bridge-steps{list-style:none;margin:0;padding:0}
+.bridge-step{display:grid;grid-template-columns:36px 1fr;gap:2px 14px;position:relative;padding:0 0 22px}
+.bridge-step:last-child{padding-bottom:0}
+.bridge-step:not(:last-child)::before{content:"";position:absolute;left:17px;top:36px;bottom:4px;width:1px;background:var(--line)}
+.bridge-step-n{width:36px;height:36px;border-radius:99px;display:grid;place-items:center;font-size:13px;font-weight:700;color:var(--sui);background:var(--lift);border:1px solid var(--line);position:relative;z-index:1}
+.bridge-step h3{margin:6px 0 4px;font-size:15px;font-weight:650;letter-spacing:-.02em;line-height:1.25}
+.bridge-step p{margin:0;font-size:13px;color:var(--muted);line-height:1.5}
 .bridge-card{background:var(--card);border-radius:24px;padding:18px 16px 16px;box-shadow:var(--shadow);border:1px solid rgba(255,255,255,.04)}
 .bridge-panel{background:var(--well);border:1px solid var(--line);border-radius:16px;padding:12px 14px 14px;position:relative}
 .bridge-panel + .bridge-arrow{display:flex;justify-content:center;margin:-6px 0;position:relative;z-index:1}
@@ -704,6 +717,7 @@ html.shot,html.shot *{animation:none!important;transition:none!important}
 .bridge-tick{border:1px solid var(--line);background:var(--bg);color:var(--muted);border-radius:999px;padding:5px 9px;font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:11px;font-weight:600;letter-spacing:.03em;cursor:pointer}
 .bridge-tick:hover{color:var(--ink);border-color:#5a3a56}
 .bridge-tick.on{background:var(--sui);color:#fff;border-color:var(--sui)}
+.bridge-dirs,.bridge-ticks,.bridge-bal,.bridge-asset{position:relative;z-index:2}
 .bridge-dirs{display:flex;gap:8px;margin:0 0 12px}
 .bridge-dirs .pill{flex:1;text-align:center;padding:10px 12px;border-radius:12px;background:var(--well);border-color:var(--line);color:var(--muted);font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:none}
 .bridge-dirs .pill:hover{color:var(--ink);border-color:#5a3a56}
@@ -752,10 +766,19 @@ html.shot,html.shot *{animation:none!important;transition:none!important}
 .bridge-dest-input{width:100%;box-sizing:border-box;background:var(--well);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:13px;color:var(--ink);outline:none}
 .bridge-dest-input::placeholder{color:var(--muted);opacity:.8}
 .bridge-dest-input:focus{border-color:var(--sui)}
+.bridge-legal{max-width:640px;margin:28px auto 4px;padding:0 12px 8px;font-size:12.5px;line-height:1.6;color:var(--muted)}
+.bridge-legal h2{margin:0 0 10px;font-size:13px;font-weight:650;letter-spacing:.01em;color:var(--muted)}
+.bridge-legal p{margin:0}
 .bridge-dest-input.bad{border-color:var(--pink)}
 .bridge-dest-hint{margin:6px 0 0;font-size:12px;color:var(--muted);line-height:1.4}
+@media (max-width:860px){
+  .bridge-layout{grid-template-columns:1fr;gap:22px;max-width:440px}
+  .bridge-howto{padding:0 2px 4px}
+  .bridge-step{padding-bottom:16px}
+}
 @media (max-width:720px){
   .bridge-wrap{max-width:none}
+  .bridge-layout{max-width:none}
   .bridge-card{padding:14px 12px 12px;border-radius:20px}
   .bridge-panel-body{flex-direction:column;align-items:stretch}
   .bridge-asset{align-items:flex-start}
@@ -851,6 +874,12 @@ html[data-route="explore"] main{padding-top:10px;padding-bottom:24px}
 .scr-coin-name{display:flex;align-items:center;gap:6px;font-family:"Instrument Sans",ui-sans-serif,sans-serif;font-size:14px;font-weight:650;letter-spacing:-.02em}
 .scr-hot{font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--bg);background:var(--pink);border-radius:999px;padding:2px 6px}
 .scr-coin-meta{display:flex;align-items:center;flex-wrap:wrap;gap:6px;color:var(--muted);font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:11px;font-weight:500}
+.scr-quote-logo{width:14px;height:14px;border-radius:50%;object-fit:cover;flex:none;display:block;background:color-mix(in srgb,var(--ink) 8%,transparent)}
+.col-rew{width:92px;min-width:80px}
+.scr-rew{display:inline-flex;align-items:center;justify-content:flex-end}
+.scr-rew-logo{width:18px;height:18px;border-radius:50%;object-fit:cover;display:block;flex:none;border:1.5px solid var(--card);background:var(--lift)}
+.scr-rew-logo + .scr-rew-logo{margin-left:-7px}
+.scr-rew-none{color:var(--muted)}
 .scr-coin-tag{flex-basis:100%;margin-top:1px;font-size:10px;font-weight:650;letter-spacing:.08em;text-transform:uppercase;color:var(--pink)}
 .scr .chg,.scr .tx-split,.scr .sub{font-size:11px;margin-top:2px}
 .scr .sub{color:var(--muted)}
@@ -910,7 +939,8 @@ html[data-route="explore"] main{padding-top:10px;padding-bottom:24px}
   .mrow-buy{width:80px;display:grid;place-items:center}
   .dock-wrap{display:block;position:fixed;left:12px;right:12px;bottom:max(10px,env(safe-area-inset-bottom));z-index:45;pointer-events:none}
   .dock,.dock-sheet{pointer-events:auto}
-  .dock-backdrop{display:block;position:fixed;inset:0;z-index:44;background:transparent;pointer-events:auto}
+  .dock-backdrop{display:none;position:fixed;inset:0;z-index:44;background:transparent;pointer-events:none}
+  html.dock-open .dock-backdrop{display:block;pointer-events:auto}
   .dock-sheet[hidden],.dock-backdrop[hidden]{display:none!important}
   .dock{display:flex;align-items:stretch;justify-content:space-around;gap:2px;background:color-mix(in srgb,var(--card) 92%,transparent);backdrop-filter:blur(18px);border:1px solid color-mix(in srgb,var(--ink) 10%,transparent);border-radius:22px;padding:6px 6px 8px;min-height:64px;box-shadow:0 12px 40px rgba(8,2,10,.45)}
   .dock-item{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;min-height:52px;border:0;background:transparent;color:var(--muted);font-size:10px;font-weight:650;border-radius:16px;padding:6px 2px}
@@ -976,7 +1006,8 @@ window.ARENA_COLLECT_PACKAGE = "0x1c808e5fe7f14703a72cae3cd71ebba98b3a9a97dc530f
 window.ARENA_CALL_PACKAGE = window.ARENA_COLLECT_PACKAGE;
 // Compatible-upgrade event types keep the package id that first defined them.
 window.ARENA_HOLDER_YIELD_EVENT_PACKAGE = "0xe2dee7a21e382d47d8f13e39801c86987a88e9ebd5fb8801efd1b974e4e4d9a2"; // v11
-window.ARENA_BASKET_YIELD_EVENT_PACKAGE = "0x1710adbe0293015cac7492b6db0cf871a7af81c5a51cd9d5d99d3aadf9fea161"; // v12
+window.ARENA_BASKET_YIELD_EVENT_PACKAGE = "0x1710adbe0293015cac7492b6db0cf871a7af81c5a51cd9d5d99d3aadf9fea161"; // v12 launch/fund/claim
+window.ARENA_BASKET_YIELD_PUSH_EVENT_PACKAGE = "0x3ccc57531949d6f24178bd57fe20496ee4ff515e26c280f1b80f658bc020bcbe"; // v22 BasketYieldPushEvent origin
 window.ARENA_COLLECT_LP_EVENT_PACKAGE = "0x68e178d50276b3bcbce11a136df48909aceff1f2a8ee8a45483e9f128e989972"; // v5 CollectLpFeesEvent
 window.ARENA_LOCK_PACKAGE = "0x067136624c5bec5221247e9b0a0a1afbd77a79aadbabdac18a95a10bc186cc74";
 window.ARENA_BLUEFIN_EVENT_PACKAGE = "0x8e28ff4116a8c9025b5d615b0b0a7bc45f4f543120f30a9d226e5b94c7277b79";
@@ -1023,7 +1054,9 @@ window.ARENA_STOCK_NVDA_METADATA = "0x516c4a864e787ac6a0ba5c0daef5ec3149dd2b47d5
 window.ARENA_STOCK_AMC_METADATA = "0x10c505d214b92e25fb2b93dff0cf303ec6799a915c521bf525f18a496f6882a2";
 window.ARENA_STOCK_GME_METADATA = "0x4837967923626e9b625c33a119166638d4668fe500a4f4ed0d2bb20abfa7f54a";
 window.ARENA_STOCK_TSLA_METADATA = "0xe088b2a8e8b87df689d09cc0dfdea9eb62e1d49fac83a9420fbe36a509077943";
-window.ARENA_RH_VAULT = "0xB0DbeAa279A4D1c5BBB67f7083a3C5445Af3c058";
+window.ARENA_RH_VAULT = "0x3870B3B4767bF96c88828A992448ccF55530f0c9";
+window.ARENA_RH_FEE = "0xDE0d5aea396D5b937149E36ddBfd6b49f26f19bc";
+window.ARENA_BRIDGE_FEE_BPS = 100;
 window.ARENA_RH_CHAIN_ID = 4663;
 window.ARENA_RH_RPC = "https://rpc.mainnet.chain.robinhood.com";
 window.ARENA_RH_EXPLORER = "https://robinhoodchain.blockscout.com";
@@ -1087,7 +1120,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
         var tick = safeSym(l.t);
         if (!tick) return;
         if (T.some(function(k){ return k.t === tick; })) return;
-        if (l.mode === "AMC" || l.vaultId || l.q === "AMC") return;
+        if (l.mode === "AMC") return;
         T.push({
           t: tick, n: safeName(l.n) || tick, b: l.b || "", cap: 0, ch: 0, h: 1,
           st: "Instadex",
@@ -1123,14 +1156,16 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   var pitStatePollAt = 0;
   let balance = 48.60;
   let xaumBal = 2.40;
-  const state = {route:"explore", sym:"VOLT", filter:"All", sort:"Market cap", time:"All", side:"Buy", amt:"1", connected:false, search:"", lName:"", lTick:"", lQuote:"SUI", lPath:"instadex", lMode:"Holders", lTokenAmt:"", lQuoteAmt:"", lFirstBuy:"1", lCap:"", lTokenCoin:"", lQuoteCoin:"", lCoinMode:"create", lDecimals:"9", lSupply:"1000000000", lDesc:"", lX:"", lTg:"", lWeb:"", lPublishedType:"", metricsWindow:"All", tapeTab:"trades", tapeOpen:"", tapePage:0, tapeAge:"age", tapeWallet:"", tapeFilterOpen:false, lFile:null, lArtUrl:"", lArtPreview:"", payWith:"SUI", lNote:"", lNoteErr:false, chartTf:900, chartInd:{vol:true,ma7:false,ma25:false,ma99:false,ema:false}, bridgeTick:"NVDA", bridgeAmt:"", bridgeDir:"in", bridgeRhDest:"", bridgeNote:"", bridgeBusy:false, bridgePending:[], quoteOpen:false, rewardsTab:"all", lBasket:false, lBasketEqual:true, lBasketMode:0, lBasketOn:{XAUM:true,XAGM:true,USDY:true}, lBasketBps:{XAUM:3334,XAGM:3333,USDY:3333}, lSplitPreset:"vice", lSplit:{creator:6000,platform:500,rewards:2500,buyback:1000}, pfRange:"1M", pfFlash:"", lockTab:"create", lockKind:"lock", lockTok:"", lockAmt:"", lockDays:"30", lockSelf:"self", lockBen:"", lockCliff:"90", lockEnd:"365", lockNote:"", lockNoteErr:false, lockBusy:false, lockMine:[], lockAll:[], lockLoad:false, scrTab:"mcap", scrSort:"mcap", scrDir:-1, scrQuote:"All", scrBuyUsd:5, scrLiveOnly:false, scrFilters:false, watch:[]};
+
+  const state = {route:"explore", sym:"VOLT", filter:"All", sort:"Market cap", time:"All", side:"Buy", amt:"1", connected:false, search:"", lName:"", lTick:"", lQuote:"SUI", lPath:"instadex", lMode:"Holders", lTokenAmt:"", lQuoteAmt:"", lFirstBuy:"1", lCap:"", lTokenCoin:"", lQuoteCoin:"", lCoinMode:"create", lDecimals:"9", lSupply:"1000000000", lDesc:"", lX:"", lTg:"", lWeb:"", lPublishedType:"", metricsWindow:"All", tapeTab:"trades", tapeOpen:"", tapePage:0, tapeAge:"age", tapeWallet:"", tapeFilterOpen:false, lFile:null, lArtUrl:"", lArtPreview:"", payWith:"", lNote:"", lNoteErr:false, chartTf:900, chartInd:{vol:true,ma7:false,ma25:false,ma99:false,ema:false}, bridgeTick:"NVDA", bridgeAmt:"", bridgeDir:"in", bridgeRhDest:"", bridgeNote:"", bridgeBusy:false, bridgePending:[], quoteOpen:false, rewardsTab:"all", lBasket:false, lBasketEqual:true, lBasketMode:0, lBasketOn:{XAUM:true,XAGM:true,USDY:true}, lBasketBps:{XAUM:3334,XAGM:3333,USDY:3333}, lSplitPreset:"vice", lSplit:{creator:6000,platform:500,rewards:3000,buyback:500}, pfRange:"1M", pfFlash:"", lockTab:"create", lockKind:"lock", lockTok:"", lockAmt:"", lockDays:"30", lockSelf:"self", lockBen:"", lockCliff:"90", lockEnd:"365", lockNote:"", lockNoteErr:false, lockBusy:false, lockMine:[], lockAll:[], lockLoad:false, scrTab:"mcap", scrSort:"mcap", scrDir:-1, scrQuote:"All", scrBuyUsd:5, scrLiveOnly:false, scrFilters:false, watch:[]};
+
   try {
     var watchSaved = JSON.parse(localStorage.getItem("vice.watch.v1") || "[]");
     if (Array.isArray(watchSaved)) state.watch = watchSaved.map(String);
   } catch (e) { state.watch = []; }
   var metaEdit = { open: false, saving: false, file: null, preview: "", artUrl: "", note: "", err: false, name: "", desc: "", x: "", tg: "", web: "", creator: "", openedCreator: "" };
   let hashLock = false;
-  const hop = { suiPerXaum: null, suiPerUsdy: null, suiPerXagm: null, suiPerVicefun: null, usd: null, suiUsd: null, usdyUsd: null, xagmUsd: null, xaumUsd: null, vicefunUsd: null, source: "" };
+  const hop = { suiPerXaum: null, suiPerUsdy: null, suiPerXagm: null, suiPerVicefun: null, usd: null, suiUsd: null, usdyUsd: null, xagmUsd: null, xaumUsd: null, vicefunUsd: null, nvdaUsd: null, amcUsd: null, gmeUsd: null, tslaUsd: null, source: "" };
 
   const SHOT = /Headless/i.test(String(navigator.userAgent||"")) || /(?:^|[?&])shot=1(?:&|$)/.test(location.search);
   if (SHOT) document.documentElement.classList.add("shot");
@@ -1174,14 +1209,32 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     TSLA: { label:"TSLA", type:window.ARENA_STOCK_TSLA_TYPE, metadata:window.ARENA_STOCK_TSLA_METADATA, decimals:9, name:"Tesla wrap", what:"RH→Sui stock wrap (TSLA)", create:false, soon:true, stock:true, chips:["0.01","0.1","1","5","Max"], virtualHuman:"≈ $4.5k", pit:"", color:"#CC0000", logo:"/brand/quotes/tsla.png" }
   };
   var CREATE_QUOTES = ["SUI","USDY","XAGM","XAUM","VICEFUN","NVDA","AMC","GME","TSLA"];
-  // Pit → RWA rewards dashboard (v1 holder-yield). Stocks wraps intentionally omitted.
+  // Holder-yield / basket dashboard. Pit path is sunset for Rewards > 0.
   var REWARDS_CATS = [
-    { id:"gold", label:"Gold", quote:"XAUM", unit:"XAUM", blurb:"Matrixdock gold · Instant quote-fee share", color:"#C9A97E", logo:"/brand/quotes/xaum.png" },
-    { id:"silver", label:"Silver", quote:"XAGM", unit:"XAGM", blurb:"Matrixdock silver · Instant quote-fee share", color:"#C0C7D1", logo:"/brand/quotes/xagm.png" },
-    { id:"tbills", label:"T-bills", quote:"USDY", unit:"USDY", blurb:"Ondo USDY · Instant quote-fee share", color:"#3ECF8E", logo:"/brand/quotes/usdy.png?v=2" }
+    { id:"gold", label:"Gold", quote:"XAUM", unit:"XAUM", blurb:"Matrixdock gold · Instant holder rewards", color:"#C9A97E", logo:"/brand/quotes/xaum.png" },
+    { id:"silver", label:"Silver", quote:"XAGM", unit:"XAGM", blurb:"Matrixdock silver · Instant holder rewards", color:"#C0C7D1", logo:"/brand/quotes/xagm.png" },
+    { id:"tbills", label:"T-bills", quote:"USDY", unit:"USDY", blurb:"Ondo USDY · Instant holder rewards", color:"#3ECF8E", logo:"/brand/quotes/usdy.png?v=2" },
+    { id:"nvda", label:"NVIDIA", quote:"NVDA", unit:"NVDA", blurb:"Arena wrapped NVDA · Instant holder rewards", color:"#76B900", logo:"/brand/quotes/nvda.png" },
+    { id:"amc", label:"AMC", quote:"AMC", unit:"AMC", blurb:"Arena wrapped AMC · Instant holder rewards", color:"#E11D2E", logo:"/brand/quotes/amc.png" },
+    { id:"gme", label:"GME", quote:"GME", unit:"GME", blurb:"Arena wrapped GME · Instant holder rewards", color:"#EF4444", logo:"/brand/quotes/gme.png" },
+    { id:"tsla", label:"Tesla", quote:"TSLA", unit:"TSLA", blurb:"Arena wrapped TSLA · Instant holder rewards", color:"#CC0000", logo:"/brand/quotes/tsla.png" },
+    { id:"vicefun", label:"VICEFUN", quote:"VICEFUN", unit:"VICEFUN", blurb:"$VICEFUN · Instant holder rewards", color:"#FF2EA6", logo:"/brand/quotes/vicefun.png" }
   ];
   // Populated once Arena Move emits claim / distribution events. Scaffold only for now.
-  var rewardsLedger = { updatedMs: 0, byCat: { gold:{ total:"0", claimable:"0", distributed:"0" }, silver:{ total:"0", claimable:"0", distributed:"0" }, tbills:{ total:"0", claimable:"0", distributed:"0" } }, distributions: [], claims: [] };
+  var rewardsLedger = { updatedMs: 0, byCat: {}, distributions: [], claims: [] };
+  var paidAirdropWallets = {};
+  var paidWalletSeries = [];
+  function notePaidWallet(addr){
+    addr = String(padAddr(addr) || addr || "").toLowerCase();
+    if (!addr || addr === "0x" || addr.length < 20) return;
+    if (paidAirdropWallets[addr]) return;
+    paidAirdropWallets[addr] = 1;
+    paidWalletSeries.push(Object.keys(paidAirdropWallets).length);
+    if (paidWalletSeries.length > 24) paidWalletSeries = paidWalletSeries.slice(-24);
+  }
+  function distPaidWalletCount(){
+    return Object.keys(paidAirdropWallets).length;
+  }
   var rewardsVaults = {}; // yield_id -> launch meta
   var rewardsBusy = false;
   var rewardsNote = "";
@@ -1236,6 +1289,28 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     if (dirOut) return Number(st.decimals != null ? st.decimals : 9);
     return Number(st.rhDecimals != null ? st.rhDecimals : 18);
   }
+  function bridgeFeeBps(){
+    var n = Number(window.ARENA_BRIDGE_FEE_BPS);
+    return Number.isFinite(n) && n >= 0 ? Math.min(10000, Math.floor(n)) : 100;
+  }
+  function bridgeFeeParts(amount){
+    amount = BigInt(amount || 0);
+    var bps = BigInt(bridgeFeeBps());
+    var fee = (amount * bps) / 10000n;
+    if (fee >= amount && amount > 0n) fee = amount - 1n;
+    if (fee < 0n) fee = 0n;
+    return { fee: fee, net: amount - fee, bps: Number(bps) };
+  }
+  function bridgeNetHuman(human, dec){
+    if (!String(human || "").trim()) return "0.0";
+    try {
+      var raw = toSmallestBig(human, dec);
+      return fromBaseStr(bridgeFeeParts(raw).net, dec);
+    } catch (e) { return String(human); }
+  }
+  function rhFeeAddr(){
+    return String(window.ARENA_RH_FEE || "").trim() || "0xDE0d5aea396D5b937149E36ddBfd6b49f26f19bc";
+  }
   function quoteLogoUrl(q){
     var rec = quoteRec(q);
     return (rec && rec.logo) || "";
@@ -1243,7 +1318,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   function quoteLogoHtml(q, cls){
     var url = quoteLogoUrl(q);
     var rec = quoteRec(q);
-    if (url) return '<img class="'+(cls||"q-logo")+'" src="'+escAttr(url)+'" alt="" width="22" height="22" loading="lazy">';
+    if (url) return '<img class="'+(cls||"q-logo")+'" src="'+escAttr(url)+'" alt="'+escAttr((rec && rec.label) || q || "")+'" width="22" height="22" loading="lazy">';
     return '<span class="'+(cls||"q-logo")+'" style="display:inline-grid;place-items:center;background:'+escAttr(rec.color||"#4DA2FF")+';color:#fff;font-size:9px;font-weight:800">'+(rec.label||"?").slice(0,1)+'</span>';
   }
   function quoteSoon(q){
@@ -1388,23 +1463,34 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     return QUOTES[lab] || QUOTES.SUI;
   }
   function quoteDecimalsOf(q){ return quoteRec(q).decimals; }
+  function isStockQuote(q){
+    return !!(quoteRec(q).stock);
+  }
   function firstBuyPreview(){
     var buy = Number(state.lFirstBuy);
     if (!(buy > 0)) return "0 skips the first buy.";
-    var suiUsd = hop.suiUsd;
-    if (!(suiUsd > 0)) return "Estimate loads with SUI price…";
-    var buyUsd = buy * suiUsd * 0.98;
+    var q = isStockQuote(state.lQuote) ? quoteRec(state.lQuote).label : "SUI";
+    var u = quoteUsd(q);
+    if (!(u > 0)) return "Estimate loads with "+q+" price…";
+    var buyUsd = buy * u * 0.98;
     var start = INSTANT_START_USD;
     var supply = Number(TOKEN_SUPPLY) || 1e9;
     var got = supply * buyUsd / (start + buyUsd);
     var pct = got / supply * 100;
     var tick = String(state.lTick || "TOKEN").toUpperCase() || "TOKEN";
     var pctTxt = pct >= 1 ? pct.toFixed(2) : (pct >= 0.1 ? pct.toFixed(2) : pct.toFixed(3));
-    return "≈ " + fmtAmt(got) + " " + tick + " · " + pctTxt + "% of supply (est. after 2% fee)";
+    return fmtUsd(buy * u) + " · ≈ " + fmtAmt(got) + " " + tick + " · " + pctTxt + "% of supply (est. after 2% fee)";
   }
   function paintFirstBuyPreview(){
     var el = $("#l-first-buy-preview");
     if (el) el.textContent = firstBuyPreview();
+  }
+  function firstBuyHint(){
+    var q = quoteRec(state.lQuote).label;
+    if (q === "SUI") return "SUI swapped into TOKEN/SUI in the same transaction as seed, before the pool is public. 0 skips.";
+    if (isStockQuote(q)) return "Spend "+q+" wrap from this wallet on TOKEN/"+q+" before the pool is public. Launch fee is still 1 SUI. 0 skips.";
+    if (q === "USDY") return "Paid in SUI. Same tx hops SUI → USDC → USDY on Cetus, then buys TOKEN/USDY on Bluefin before the pool is public. 0 skips.";
+    return "Paid in SUI. Same tx hops SUI → "+q+", then buys TOKEN on Bluefin before the pool is public. 0 skips.";
   }
   function lpBlurb(){
     var q = quoteRec(state.lQuote).label;
@@ -1417,7 +1503,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       '<li>Indefinite LP lock</li>'+
       '<li>TOKEN/'+q+' · ≈ $4.5k start</li>'+
       '<li>1 SUI launch fee</li>'+
-      '<li>First buy in SUI</li>'+
+      '<li>First buy in '+(quoteRec(q).stock ? q : "SUI")+'</li>'+
     '</ul>';
   }
   var SDK_URLS = [
@@ -2321,33 +2407,35 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   }
   async function metadataFor(coinType){
     var t = normType(coinType);
+    var labs = Object.keys(QUOTES);
+    for (var qi = 0; qi < labs.length; qi++){
+      var rec = QUOTES[labs[qi]];
+      if (rec && rec.metadata && normType(rec.type) === t){
+        return { id: rec.metadata, name: rec.name || "", symbol: rec.label || "", decimals: rec.decimals != null ? rec.decimals : 9, type: t };
+      }
+    }
     if (t === SUI_TYPE){
       return { id: window.ARENA_SUI_METADATA, name: "Sui", symbol: "SUI", decimals: 9, type: t };
-    }
-    if (t === window.ARENA_XAUM_TYPE){
-      return { id: window.ARENA_XAUM_METADATA, name: "Matrixdock Gold", symbol: "XAUM", decimals: 9, type: t };
-    }
-    if (t === window.ARENA_USDY_TYPE){
-      return { id: window.ARENA_USDY_METADATA, name: "Ondo US Dollar Yield", symbol: "USDY", decimals: 6, type: t };
-    }
-    if (t === window.ARENA_XAGM_TYPE){
-      return { id: window.ARENA_XAGM_METADATA, name: "Matrixdock Silver", symbol: "XAGM", decimals: 9, type: t };
-    }
-    if (t === window.ARENA_VICEFUN_TYPE){
-      return { id: window.ARENA_VICEFUN_METADATA, name: "Vicefun", symbol: "VICEFUN", decimals: 9, type: t };
     }
     try {
       var rpcMeta = await rpcJson("suix_getCoinMetadata", [t]);
       if (rpcMeta && rpcMeta.id){
-        return {
-          id: rpcMeta.id,
-          name: rpcMeta.name || "",
-          symbol: rpcMeta.symbol || "",
-          decimals: rpcMeta.decimals != null ? rpcMeta.decimals : 9,
-          type: t,
-          description: rpcMeta.description || "",
-          icon: rpcMeta.iconUrl || rpcMeta.icon_url || ""
-        };
+        var rpcIdOk = false;
+        try {
+          var rpcObj = await moveObject(rpcMeta.id);
+          rpcIdOk = String(rpcObj.type || "").indexOf("::coin::CoinMetadata<") >= 0;
+        } catch (e) {}
+        if (rpcIdOk){
+          return {
+            id: rpcMeta.id,
+            name: rpcMeta.name || "",
+            symbol: rpcMeta.symbol || "",
+            decimals: rpcMeta.decimals != null ? rpcMeta.decimals : 9,
+            type: t,
+            description: rpcMeta.description || "",
+            icon: rpcMeta.iconUrl || rpcMeta.icon_url || ""
+          };
+        }
       }
     } catch (e) {}
     var data = await gql(
@@ -2448,14 +2536,27 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   }
   async function coinBalanceOf(owner, coinType){
     var t = normType(coinType);
+    var best = 0n;
+    try {
+      var rpc = await rpcJson("suix_getBalance", [owner, t]);
+      if (rpc && rpc.totalBalance != null && String(rpc.totalBalance) !== ""){
+        var n = BigInt(String(rpc.totalBalance));
+        if (n > best) best = n;
+      }
+    } catch (e) {}
+    if (best > 0n) return best;
     try {
       var data = await gql(
         "query($o:SuiAddress!,$t:String!){ address(address:$o){ balance(coinType:$t){ totalBalance } } }",
         { o: owner, t: t }
       );
       var raw = data && data.address && data.address.balance && data.address.balance.totalBalance;
-      if (raw != null && String(raw) !== "") return BigInt(String(raw));
+      if (raw != null && String(raw) !== ""){
+        var g = BigInt(String(raw));
+        if (g > best) best = g;
+      }
     } catch (e) {}
+    if (best > 0n) return best;
     var coins = await coinsOfExact(owner, coinType);
     return (coins || []).reduce(function(a,c){ return a + c.valueBig; }, 0n);
   }
@@ -2829,10 +2930,15 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     return tr > 0 ? Number(r.quote_real) / tr : 0;
   }
   function quoteUsd(q){
+    q = String(q || "").toUpperCase();
     if (q === "USDY") return hop.usdyUsd > 0 ? hop.usdyUsd : 1;
     if (q === "XAGM") return hop.xagmUsd || 0;
     if (q === "XAUM") return hop.xaumUsd || hop.usd || 0;
     if (q === "VICEFUN") return hop.vicefunUsd || 0;
+    if (q === "NVDA") return hop.nvdaUsd || 0;
+    if (q === "AMC") return hop.amcUsd || 0;
+    if (q === "GME") return hop.gmeUsd || 0;
+    if (q === "TSLA") return hop.tslaUsd || 0;
     return hop.suiUsd || 0;
   }
   function quoteMark(q){
@@ -2979,10 +3085,37 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   function chText(k){ return (k.ch>=0?"+":"")+k.ch.toFixed(1)+"%"; }
   function chColor(k){ return k.ch>=0 ? "#298DFF" : "#FF6640"; }
   function rank(i){ return String(i+1).padStart(2,"0"); }
+  var HIDDEN_COIN_TYPES = {
+    "0xa0b937f9f6c7cd7e865b3c5bde42dc21dee8e847a7226e6de3aa9af4f64059b4::ncat::ncat": true
+  };
+  function looksLikeCoinType(s){
+    s = String(s || "");
+    return s.indexOf("::") >= 0 || /^0x[0-9a-fA-F]{40,}$/i.test(s);
+  }
+  function coinTypeOf(tk){
+    if (!tk) return "";
+    var raw = typeNameStr(tk.token) || (tk.t ? demoTypeId(tk) : "") || "";
+    return raw ? normType(raw) : "";
+  }
+  function coinPackageOf(type){
+    var ct = normType(type || "");
+    if (!ct || /0xarena::/i.test(ct)) return "";
+    var pkg = ct.split("::")[0];
+    return /^0x[0-9a-fA-F]{40,}$/i.test(pkg) ? pkg : "";
+  }
+  function tokenRouteId(tk){
+    var pkg = coinPackageOf(coinTypeOf(tk));
+    if (pkg) return pkg;
+    return String((tk && tk.t) || "").toUpperCase();
+  }
   function isHiddenToken(k){
     const t = String((k && k.t) || "").toUpperCase();
     if (t === "BFLN" || t === "GRAD" || t === "SMOKE" || t === "IDEX" || t === "SILVER" || t === "SSILVER") return true;
-    if (k && (k.mode === "AMC" || k.q === "AMC" || k.vaultId)) return true;
+    var ct = coinTypeOf(k).toLowerCase();
+    if (ct && HIDDEN_COIN_TYPES[ct]) return true;
+    var rawType = String((k && k.token) || (looksLikeCoinType(t) ? t : "") || "").toLowerCase();
+    if (rawType && HIDDEN_COIN_TYPES[normType(rawType).toLowerCase()]) return true;
+    if (k && k.mode === "AMC") return true;
     const n = String((k && k.n) || "");
     return /^Arena (Bluefin|Grad|Smoke)$/i.test(n) || /^INSTA$/i.test(n);
   }
@@ -2994,6 +3127,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     return T.find(function(k){
       if (!k || isHiddenToken(k)) return false;
       if (k.t === up) return true;
+      if (looksLikeCoinType(raw) && coinTypeOf(k).toLowerCase() === normType(raw).toLowerCase()) return true;
       return poolKeys(k).indexOf(low) >= 0;
     }) || null;
   }
@@ -3055,6 +3189,18 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     const raw = (sym && sym.t) ? sym.t : String(sym || "");
     const up = raw.toUpperCase();
     const low = raw.toLowerCase();
+    if (looksLikeCoinType(raw)){
+      var want = normType(raw).toLowerCase();
+      var pkg = want.split("::")[0];
+      var byType = T.find(function(k){
+        var ct = coinTypeOf(k).toLowerCase();
+        if (!ct) return false;
+        if (ct === want) return true;
+        if (want.indexOf("::") < 0 && ct.split("::")[0] === pkg) return true;
+        return false;
+      });
+      if (byType) return byType;
+    }
     const found = T.find(function(k){
       return k.t === up || (k.pool && k.pool.toLowerCase() === low) || (k.bluefinPool && k.bluefinPool.toLowerCase() === low);
     });
@@ -4763,7 +4909,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       '<div><div class="brand-name" style="margin-bottom:8px">vice.</div>'+
         '<p style="margin:0;max-width:42ch">Fair launches on Sui. Instant seeds Bluefin in block one. T-bills hop Cetus. Quote is SUI, USDY, XAGM, or XAUM. LP locked forever.</p></div>'+
       '<div><h4>Product</h4><div data-go="explore">The Strip</div><div data-go="pit">Distributions</div><div data-go="metrics">Books</div><div data-go="bridge">Bridge</div><div data-go="lock">Vicelock</div><div data-go="launch">Create</div><a href="https://x.com/ViceFun" target="_blank" rel="noopener">X</a></div>'+
-      '<div><h4>Fees</h4>Bluefin 2% on the pair (keeps 20%).<br>Our 80% quote split 60/5/25/10 creator/platform/rewards/VICE buyback.<br>Token-side LP fees burn.</div></footer>';
+      '<div><h4>Fees</h4>Bluefin 2% on the pair (keeps 20%).<br>Our 80% quote split: 5% platform + 5% VICE buyback minimum, rest creator/rewards. Rewards go to holders on Collect LP.<br>Bridge 1%. Token-side LP fees burn.</div></footer>';
   }
   var pfCache = { addr: "", rows: [], at: 0 };
   var PF_RANGES = ["1D","1W","1M","1Y","All"];
@@ -5011,7 +5157,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     {id:"holders", label:"Holders", cls:"col-holders"},
     {id:"vol", label:"24h vol", cls:"col-vol"},
     {id:"liq", label:"Liquidity", cls:"col-liq"},
-    {id:"price", label:"Price", cls:"col-price"}
+    {id:"rewards", label:"Rewards", cls:"col-rew"}
   ];
   function scrFmtCompact(n){
     if (!Number.isFinite(n)) return "$0";
@@ -5178,10 +5324,19 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       buys: buys,
       sells: sells,
       price: px,
+      rewards: rwaLabsOf(rewardAssetsOf(k)),
       ageH: scrAgeH(k),
       pts: scrPts(k),
       watched: (state.watch || []).indexOf(k.t) >= 0
     };
+  }
+  function scrRewardsHTML(r){
+    var labs = (r && r.rewards) || [];
+    if (!labs.length) return '<span class="scr-rew-none">—</span>';
+    var title = labs.map(function(l){ var rec = quoteRec(l); return (rec && rec.name) || l; }).join(" · ");
+    return '<span class="scr-rew" title="'+escAttr(title)+'">'+labs.map(function(lab){
+      return quoteLogoHtml(lab, "scr-rew-logo");
+    }).join("")+'</span>';
   }
   function scrFilterRows(rows){
     var needle = String(state.search || "").trim().toLowerCase();
@@ -5211,7 +5366,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       else if (sort === "holders"){ av = a.holders; bv = b.holders; }
       else if (sort === "vol"){ av = a.vol; bv = b.vol; }
       else if (sort === "liq"){ av = a.liq; bv = b.liq; }
-      else if (sort === "price"){ av = a.price; bv = b.price; }
+      else if (sort === "rewards"){ av = (a.rewards && a.rewards.length) || 0; bv = (b.rewards && b.rewards.length) || 0; }
       else { av = a.mcap; bv = b.mcap; }
       if (av === bv) return a.ticker.localeCompare(b.ticker);
       return (av - bv) * dir;
@@ -5268,7 +5423,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       '<td class="col-rank">'+rank+'</td>'+
       '<td class="col-coin"><div class="scr-coin">'+scrStarBtn(r.ticker, r.watched)+scrAv(r.k, 32)+
         '<div class="scr-coin-copy"><div class="scr-coin-name">'+escHtml(r.name)+hot+'</div>'+
-        '<div class="scr-coin-meta">$'+escHtml(r.ticker)+'<span>'+escHtml(r.quote)+'</span>'+(String(r.ticker).toUpperCase()==="VICEFUN"?'<span class="scr-coin-tag">platform token</span>':'')+'</div></div></div></td>'+
+        '<div class="scr-coin-meta">$'+escHtml(r.ticker)+'<span title="'+escAttr(r.quote)+'">'+quoteLogoHtml(r.quote, "scr-quote-logo")+'</span>'+(String(r.ticker).toUpperCase()==="VICEFUN"?'<span class="scr-coin-tag">platform token</span>':'')+'</div></div></div></td>'+
       '<td class="col-tape">'+scrSpark(r.pts, up)+'</td>'+
       '<td class="col-mcap">'+scrFmtCompact(r.mcap)+'<div class="chg '+(up?"up":"down")+'">'+scrChgText(r.ch)+'</div></td>'+
       '<td class="col-age">'+scrFmtAgeH(r.ageH)+'</td>'+
@@ -5277,7 +5432,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       '<td class="col-holders">'+scrFmtMaybe(r.holders, scrFmtCount)+'</td>'+
       '<td class="col-vol">'+scrFmtMaybe(r.vol, scrFmtCompact)+'</td>'+
       '<td class="col-liq">'+scrFmtMaybe(r.liq, scrFmtCompact)+'</td>'+
-      '<td class="col-price">'+scrFmtPrice(r.price)+'</td>'+
+      '<td class="col-rew">'+scrRewardsHTML(r)+'</td>'+
     '</tr>';
   }
   function scrMobRow(r, rank){
@@ -5285,7 +5440,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     var hot = r.status === "Graduating" ? '<span class="scr-hot">Hot</span>' : "";
     return '<article class="mrow" data-go="token:'+escAttr(r.ticker)+'">'+
       '<div class="mrow-id"><span class="mrow-rank">'+rank+'</span>'+scrAv(r.k, 44)+
-        '<div class="mrow-copy"><div class="mrow-tick">'+escHtml(r.ticker)+hot+'</div><div class="mrow-name">'+(String(r.ticker).toUpperCase()==="VICEFUN"?"platform token":escHtml(r.name))+'</div></div>'+
+        '<div class="mrow-copy"><div class="mrow-tick">'+escHtml(r.ticker)+'<span title="'+escAttr(r.quote)+'">'+quoteLogoHtml(r.quote, "scr-quote-logo")+'</span>'+hot+'</div><div class="mrow-name">'+(String(r.ticker).toUpperCase()==="VICEFUN"?"platform token":escHtml(r.name))+'</div></div>'+
         scrStarBtn(r.ticker, r.watched)+'</div>'+
       '<div class="mrow-spark">'+scrSpark(r.pts, up, 108, 44)+'</div>'+
       '<div class="mrow-cell"><span class="mrow-k">Mcap</span>'+scrFmtCompact(r.mcap)+'<span class="chg '+(up?"up":"down")+'">'+scrChgText(r.ch)+'</span></div>'+
@@ -5293,7 +5448,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       '<div class="mrow-cell"><span class="mrow-k">Txns</span>'+scrFmtCount(r.txns)+'<span class="tx-split"><span class="up">'+scrFmtCount(r.buys)+'</span><span class="down">'+scrFmtCount(r.sells)+'</span></span></div>'+
       '<div class="mrow-cell"><span class="mrow-k">24h vol</span>'+scrFmtMaybe(r.vol, scrFmtCompact)+'</div>'+
       '<div class="mrow-cell"><span class="mrow-k">Liq</span>'+scrFmtMaybe(r.liq, scrFmtCompact)+'</div>'+
-      '<div class="mrow-cell"><span class="mrow-k">Price</span>'+scrFmtPrice(r.price)+'</div>'+
+      '<div class="mrow-cell"><span class="mrow-k">Rewards</span>'+scrRewardsHTML(r)+'</div>'+
     '</article>';
   }
   function scrIco(id){
@@ -5546,6 +5701,11 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     if (lab === "XAUM") return "gold";
     if (lab === "XAGM") return "silver";
     if (lab === "USDY") return "tbills";
+    if (lab === "NVDA") return "nvda";
+    if (lab === "AMC") return "amc";
+    if (lab === "GME") return "gme";
+    if (lab === "TSLA") return "tsla";
+    if (lab === "VICEFUN") return "vicefun";
     return "";
   }
   function rewardsDec(unit){
@@ -5579,27 +5739,19 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     return fmtUsd(u);
   }
   function rebuildRewardsLedger(){
-    var by = {
-      gold:{ total:"0", claimable:"0", distributed:"0" },
-      silver:{ total:"0", claimable:"0", distributed:"0" },
-      tbills:{ total:"0", claimable:"0", distributed:"0" }
-    };
+    var by = {};
+    REWARDS_CATS.forEach(function(c){
+      by[c.id] = { total:"0", claimable:"0", distributed:"0" };
+    });
     var funded = {};
     (rewardsLedger.distributions || []).forEach(function(d){
       if (!d || !d.cat || !by[d.cat]) return;
       funded[d.cat] = (funded[d.cat] || 0) + (Number(d.amount) || 0);
     });
-    var claimed = { gold:0, silver:0, tbills:0 };
-    var me = String(suiSession.address || "").toLowerCase();
-    (rewardsLedger.claims || []).forEach(function(c){
-      if (!c || !c.cat || claimed[c.cat] == null) return;
-      claimed[c.cat] += Number(c.amount) || 0;
-    });
     Object.keys(by).forEach(function(cat){
       var dist = funded[cat] || 0;
       by[cat].distributed = String(dist);
       by[cat].total = String(dist);
-      // Wallet claimable needs on-chain pending(); until then show 0 and rely on claim PTB.
       by[cat].claimable = "0";
     });
     rewardsLedger.byCat = by;
@@ -5659,11 +5811,20 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     });
     return legs;
   }
+  function launchRewardsOn(){
+    return launchSplit().rewards > 0;
+  }
   function basketPanelHTML(opts){
-    if (isRwaQuote(state.lQuote)){
-      return '<div style="font-size:12px;color:var(--muted);margin-top:8px">v1 holder-yield · quote is the reward asset. Basket picker is off on this path.</div>';
+    var q = String(state.lQuote || "").toUpperCase();
+    var force = !!(opts && opts.forceOn);
+    var want = launchRewardsOn();
+    if (!force && !want){
+      return '<div style="font-size:12px;color:var(--muted);margin-top:8px">Rewards is 0% — no holder payout. Raise Rewards to send Collect LP fees to holders.</div>';
     }
-    var on = !!(opts && opts.forceOn) || !!state.lBasket;
+    if (!force && q !== "SUI"){
+      return '<div style="font-size:12px;color:var(--muted);margin-top:8px">Holder yield · Collect LP sends the Rewards slice in '+escHtml(q)+' wrap to holders of this token. The pit is sunset.</div>';
+    }
+    var on = true;
     var equal = state.lBasketEqual !== false;
     var mode = Number(state.lBasketMode) || 0;
     var chips = BASKET_RWA.map(function(lab){
@@ -5683,7 +5844,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     return '<div style="margin-top:10px">'+
       '<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between">'+
         '<label style="margin:0">Basket rewards</label>'+
-        '<button type="button" class="pill'+(on?" on":"")+'" data-basket-toggle="1">'+(on?"On":"Off")+'</button>'+
+        '<button type="button" class="pill on" disabled>On</button>'+
       '</div>'+
       (on
         ? ('<div style="font-size:12px;color:var(--muted);margin-top:6px">Holders earn selected RWAs from Instant pit-bps (SUI quote stays). New baskets <strong style="color:var(--ink);font-weight:650">auto-distribute</strong> (push-mode) — no Claim. Pick 1–3 · equal or custom. All-at-once / rotating apply only if a vault is claim-mode.</div>'+
@@ -5701,19 +5862,39 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     '</div>';
   }
   var SPLIT_PRESETS = {
-    vice: { creator: 6000, platform: 500, rewards: 2500, buyback: 1000 },
+    vice: { creator: 6000, platform: 500, rewards: 3000, buyback: 500 },
     creator: { creator: 8000, platform: 500, rewards: 1000, buyback: 500 },
-    holders: { creator: 4000, platform: 500, rewards: 4500, buyback: 1000 },
-    buyback: { creator: 4000, platform: 500, rewards: 1500, buyback: 4000 }
+    holders: { creator: 4000, platform: 500, rewards: 5000, buyback: 500 },
+    buyback: { creator: 5000, platform: 500, rewards: 4000, buyback: 500 }
   };
+  var SPLIT_TOTAL = 10000;
+  var SPLIT_MIN_PLATFORM = 500;
+  var SPLIT_MIN_BUYBACK = 500;
+  function splitMinBps(key){
+    if (key === "platform") return SPLIT_MIN_PLATFORM;
+    if (key === "buyback") return SPLIT_MIN_BUYBACK;
+    return 0;
+  }
   function launchSplit(){
     var s = state.lSplit || SPLIT_PRESETS.vice;
-    return {
-      creator: Number(s.creator) || 0,
-      platform: Number(s.platform) || 0,
-      rewards: Number(s.rewards) || 0,
-      buyback: Number(s.buyback) || 0
-    };
+    var platform = Math.max(SPLIT_MIN_PLATFORM, Math.round(Number(s.platform) || 0));
+    var buyback = Math.max(SPLIT_MIN_BUYBACK, Math.round(Number(s.buyback) || 0));
+    if (platform + buyback > SPLIT_TOTAL){
+      var extraP = platform - SPLIT_MIN_PLATFORM;
+      var extraB = buyback - SPLIT_MIN_BUYBACK;
+      var room = SPLIT_TOTAL - SPLIT_MIN_PLATFORM - SPLIT_MIN_BUYBACK;
+      if (extraP + extraB <= 0){
+        platform = SPLIT_MIN_PLATFORM;
+        buyback = SPLIT_MIN_BUYBACK;
+      } else {
+        platform = SPLIT_MIN_PLATFORM + Math.floor(room * extraP / (extraP + extraB));
+        buyback = SPLIT_TOTAL - platform;
+      }
+    }
+    var flex = SPLIT_TOTAL - platform - buyback;
+    var creator = Math.max(0, Math.round(Number(s.creator) || 0));
+    if (creator > flex) creator = flex;
+    return { creator: creator, platform: platform, rewards: flex - creator, buyback: buyback };
   }
   function launchSplitArgs(tx){
     var s = launchSplit();
@@ -5721,37 +5902,51 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   }
   function splitOk(){
     var s = launchSplit();
-    return s.platform >= 500 && (s.creator + s.platform + s.rewards + s.buyback) === 10000;
+    return s.platform >= SPLIT_MIN_PLATFORM && s.buyback >= SPLIT_MIN_BUYBACK
+      && s.creator >= 0 && s.rewards >= 0
+      && (s.creator + s.platform + s.rewards + s.buyback) === SPLIT_TOTAL;
   }
   function applySplitLeg(key, pct){
     var s = launchSplit();
     var bps = Math.round(Number(pct) || 0) * 100;
-    if (key === "platform") bps = Math.max(500, Math.min(9500, bps));
-    else bps = Math.max(0, Math.min(9500, bps));
-    var old = s[key];
-    s[key] = bps;
-    var delta = bps - old;
-    var order = key === "creator" ? ["rewards", "buyback"] : ["creator", "rewards", "buyback"].filter(function(k){ return k !== key; });
-    for (var i = 0; i < order.length && delta !== 0; i++){
-      var k = order[i];
-      var min = 0;
-      var next = s[k] - delta;
-      if (next < min){ delta -= (s[k] - min); s[k] = min; }
-      else { s[k] = next; delta = 0; }
+    var othersMin = 0;
+    ["creator","platform","rewards","buyback"].forEach(function(k){
+      if (k !== key) othersMin += splitMinBps(k);
+    });
+    bps = Math.max(splitMinBps(key), Math.min(SPLIT_TOTAL - othersMin, bps));
+    if (key === "platform" || key === "buyback"){
+      s[key] = bps;
+      var flex = SPLIT_TOTAL - s.platform - s.buyback;
+      var oldFlex = s.creator + s.rewards;
+      if (flex <= 0){ s.creator = 0; s.rewards = 0; }
+      else if (oldFlex <= 0){ s.creator = flex; s.rewards = 0; }
+      else {
+        s.creator = Math.round(flex * s.creator / oldFlex);
+        if (s.creator > flex) s.creator = flex;
+        s.rewards = flex - s.creator;
+      }
+    } else {
+      var flexCR = SPLIT_TOTAL - s.platform - s.buyback;
+      bps = Math.max(0, Math.min(flexCR, bps));
+      if (key === "creator"){ s.creator = bps; s.rewards = flexCR - bps; }
+      else { s.rewards = bps; s.creator = flexCR - bps; }
     }
-    s.platform = Math.max(500, s.platform);
-    s.creator += 10000 - (s.creator + s.platform + s.rewards + s.buyback);
-    if (s.creator < 0){ s.rewards = Math.max(0, s.rewards + s.creator); s.creator = 0; }
-    s.creator += 10000 - (s.creator + s.platform + s.rewards + s.buyback);
     state.lSplit = s;
     state.lSplitPreset = "custom";
     paintSplitPercents();
   }
   function paintSplitPercents(){
     var s = launchSplit();
+    var platPct = Math.round(s.platform / 100);
+    var bbPct = Math.round(s.buyback / 100);
     $$("[data-split-leg]").forEach(function(el){
       var k = el.getAttribute("data-split-leg");
       var pct = Math.round((s[k] || 0) / 100);
+      var min = (k === "platform" || k === "buyback") ? 5 : 0;
+      var max = k === "platform" ? (100 - bbPct) : (k === "buyback" ? (100 - platPct) : (100 - platPct - bbPct));
+      if (max < min) max = min;
+      el.min = String(min);
+      el.max = String(max);
       if (el.value !== String(pct)) el.value = String(pct);
       var lab = el.parentNode && el.parentNode.querySelector("b");
       if (lab) lab.textContent = pct + "%";
@@ -5760,23 +5955,29 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   function splitPanelHTML(){
     var s = launchSplit();
     var pre = state.lSplitPreset || "vice";
+    var platPct = Math.round(s.platform / 100);
+    var bbPct = Math.round(s.buyback / 100);
     function pill(id, lab){
       return '<button type="button" class="pill'+(pre===id?" on":"")+'" data-split-preset="'+id+'">'+escHtml(lab)+'</button>';
     }
-    function row(key, lab, min){
+    function row(key, lab, minPct){
       var pct = Math.round((s[key] || 0) / 100);
-      return '<div class="split-row"><span>'+lab+'</span><input type="range" min="'+(min||0)+'" max="95" step="1" value="'+pct+'" data-split-leg="'+key+'"><b>'+pct+'%</b></div>';
+      var min = minPct || 0;
+      var max = key === "platform" ? (100 - bbPct) : (key === "buyback" ? (100 - platPct) : (100 - platPct - bbPct));
+      if (max < min) max = min;
+      var hint = min ? (" · min "+min+"%") : "";
+      return '<div class="split-row"><span>'+lab+hint+'</span><input type="range" min="'+min+'" max="'+max+'" step="1" value="'+pct+'" data-split-leg="'+key+'"><b>'+pct+'%</b></div>';
     }
     return '<div class="split-panel">'+
       '<label>Fee split</label>'+
-      '<div style="font-size:12px;color:var(--muted);margin-top:6px">Of our 80% of the 2% pair fee. Platform floor 5%. Locked on the pair at launch.</div>'+
+      '<div style="font-size:12px;color:var(--muted);margin-top:6px">Of our 80% of the 2% pair fee. Platform and VICE buyback start at 5% (minimum) — raise either if you want. Creator + rewards fill the rest. Rewards % is paid to holders on Collect LP (SUI quote → gold/silver/T-bills basket; other quotes → that wrap). The pit is sunset.</div>'+
       '<div class="pills" style="margin-top:8px">'+
         pill("vice","Vice")+pill("creator","Creator")+pill("holders","Holders")+pill("buyback","Buyback")+
       '</div>'+
       row("creator","Creator")+
-      row("platform","Platform",5)+
+      row("platform","Platform", 5)+
       row("rewards","Rewards")+
-      row("buyback","VICE buyback")+
+      row("buyback","VICE buyback", 5)+
     '</div>';
   }
   function aboutYieldHTML(tk){
@@ -5784,7 +5985,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     var labs = rwaLabsOf(rewardAssetsOf(tk));
     var split = tk.lpSplit;
     var splitFallback = !split;
-    if (!split) split = { creator: 6000, platform: 500, rewards: 2500, buyback: 1000 };
+    if (!split) split = { creator: 6000, platform: 500, rewards: 3000, buyback: 500 };
     var rwa = labs.length
       ? '<div><div class="about-k">Rewards</div><div class="about-rwa">'+
           labs.map(function(lab){
@@ -5950,17 +6151,12 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       else if (ben && !sameAddr(suiSession.address, ben)) hint = "Only the lock beneficiary can migrate.";
       else if (!ben) hint = "Checking lock beneficiary…";
     }
-    if (isRwaQuote(q)){
-      return '<div class="card" style="padding:14px 16px;margin-top:10px">'+
-        '<div style="font-size:12px;font-weight:600;color:var(--ink)">Migrate to holder yield</div>'+
-        '<div style="font-size:12px;color:var(--muted);margin-top:4px">Forward-only. Rewards slice becomes claimable '+escHtml(q)+' for holders instead of the pit.</div>'+
-        '<button type="button" class="btn-trade btn-ghost" id="migrate-go" style="margin-top:10px"'+(can?"":" disabled")+'>Migrate · holder yield</button>'+
-        '<div id="migrate-note" style="font-size:11px;color:var(--muted);margin-top:6px;text-align:center">'+escHtml(hint)+'</div>'+
-      '</div>';
-    }
     if (String(q).toUpperCase() !== "SUI"){
       return '<div class="card" style="padding:14px 16px;margin-top:10px">'+
-        '<div style="font-size:12px;color:var(--muted)">Migrate to yield is available for RWA quotes (holder) or SUI (basket).</div>'+
+        '<div style="font-size:12px;font-weight:600;color:var(--ink)">Migrate to holder yield</div>'+
+        '<div style="font-size:12px;color:var(--muted);margin-top:4px">Forward-only. Rewards slice is paid in '+escHtml(q)+' to holders on Collect LP instead of sitting in the pit.</div>'+
+        '<button type="button" class="btn-trade btn-ghost" id="migrate-go" style="margin-top:10px"'+(can?"":" disabled")+'>Migrate · holder yield</button>'+
+        '<div id="migrate-note" style="font-size:11px;color:var(--muted);margin-top:6px;text-align:center">'+escHtml(hint)+'</div>'+
       '</div>';
     }
     return '<div class="card" style="padding:14px 16px;margin-top:10px">'+
@@ -6006,8 +6202,8 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
 
   function applyHolderYieldLaunch(ev){
     if (!ev || !ev.yield_id) return;
-    if (!ev.cat) ev.cat = rewardsCatId(ev.quote);
-    if (!ev.cat) return;
+    if (!ev.cat) ev.cat = rewardsCatId(ev.quote) || rewardsCatId(ev.quoteLabel);
+    if (!ev.cat) ev.cat = String(ev.quoteLabel || "holder").toLowerCase();
     rewardsVaults[ev.yield_id] = {
       kind: "holder",
       lock_id: ev.lock_id,
@@ -6112,8 +6308,8 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   }
   function applyHolderYieldFunded(ev){
     if (!ev || !ev.yield_id) return;
-    if (!ev.cat) ev.cat = rewardsCatId(ev.quote);
-    if (!ev.cat) return;
+    if (!ev.cat) ev.cat = rewardsCatId(ev.quote) || rewardsCatId(ev.quoteLabel);
+    if (!ev.cat) ev.cat = String(ev.quoteLabel || "holder").toLowerCase();
     if (!rewardsVaults[ev.yield_id]){
       rewardsVaults[ev.yield_id] = {
         kind: "holder",
@@ -6164,6 +6360,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       digest: ev.digest,
       yield_id: ev.yield_id
     });
+    if (ev.who) notePaidWallet(ev.who);
     rebuildRewardsLedger();
     if (state.route === "pit" || state.route === "portfolio") scheduleScreen();
   }
@@ -6309,6 +6506,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       };
     }
     ensureVaultAsset(rewardsVaults[ev.basket_id], ev.asset);
+    if (ev.recipient && Number(ev.amount) > 0) notePaidWallet(ev.recipient);
     if (!ev.cat || !(Number(ev.amount) > 0)) return;
     // Aggregate per digest+asset so ~N holder pushes become one history row.
     var key = String(ev.digest || "") + ":bypush:" + String(ev.basket_id) + ":" + String(ev.asset || "");
@@ -6348,6 +6546,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   }
   function applyHolderYieldPush(ev){
     if (!ev || !ev.yield_id) return;
+    if (ev.recipient && Number(ev.amount) > 0) notePaidWallet(ev.recipient);
     if (!ev.cat) ev.cat = rewardsCatId(ev.quote);
     if (rewardsVaults[ev.yield_id]) rewardsVaults[ev.yield_id].push_mode = true;
     else if (ev.cat) {
@@ -6409,6 +6608,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       yield_id: ev.basket_id,
       basket_id: ev.basket_id
     });
+    if (ev.who) notePaidWallet(ev.who);
     rebuildRewardsLedger();
     if (state.route === "pit" || state.route === "portfolio") scheduleScreen();
   }
@@ -6734,8 +6934,8 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   function pitHTML(){
     var usd = rewardsDistributedUsd();
     var eventUsd = distEventUsd();
-    var elig = eligibleCache.at ? eligibleCache.count : null;
-    var eligBars = (eligibleCache.series && eligibleCache.series.length) ? eligibleCache.series : (elig ? [elig] : []);
+    var paidN = distPaidWalletCount();
+    var paidBars = paidWalletSeries.length ? paidWalletSeries : (paidN ? [paidN] : []);
     var cards = REWARDS_CATS.map(function(cat){
       var tot = rewardsTotals(cat);
       return '<div class="rewards-card">'+
@@ -6764,7 +6964,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     });
     var onlyPush = anyPush && !anyClaimMode;
     var claimNote = onlyPush
-      ? "Push-mode baskets (and holder-yield) auto-distribute RWA to holders — no Claim needed."
+      ? "Push-mode vaults send the Rewards slice to holders after Collect LP — no Claim needed."
       : (anyPush
         ? "Some vaults auto-distribute (push-mode). Claim is only for claim-mode vaults."
         : (REWARDS_CLAIM_PAUSED
@@ -6785,7 +6985,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
         '<div class="dist-stats">'+
           '<div class="dist-stat"><div class="k">Converted to RWA</div><div class="v">'+escHtml(fmtUsd(usd))+'</div><div class="s">in vaults</div>'+distBarsHTML(distUsdSeries(), "gold")+'</div>'+
           '<div class="dist-stat"><div class="k">SUI equivalent</div><div class="v">'+escHtml(fmt(rewardsDistributedSui()))+'</div><div class="s">RWA collected at current prices</div>'+distBarsHTML(eventUsd, "sui")+'</div>'+
-          '<div class="dist-stat"><div class="k">Wallets</div><div class="v">'+(elig==null?"…":elig)+'</div><div class="s">eligible (synced holders)</div>'+distBarsHTML(eligBars, "muted")+'</div>'+
+          '<div class="dist-stat"><div class="k">Wallets</div><div class="v">'+paidN+'</div><div class="s">received airdrops</div>'+distBarsHTML(paidBars, "muted")+'</div>'+
         '</div>'+
         '<div class="rewards-grid">'+cards+'</div>'+
         '<div class="rewards-claim">'+
@@ -6796,7 +6996,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
         '<div class="dist-split">'+
           '<div class="dist-panel">'+
             '<div class="dist-head"><h2>Distribution history</h2><div class="pills">'+pills+'</div></div>'+
-            (distN ? "" : '<div class="dist-pending"><strong>Waiting on the first drop</strong><span>Quote fees accrue on Instant pairs. Funded and converted events fill this list.</span></div>')+
+            (distN ? "" : '<div class="dist-pending"><strong>Waiting on the first drop</strong><span>Collect LP on Instant pairs with Rewards %. Holder-yield and basket events fill this list. The pit is sunset.</span></div>')+
             '<table class="rewards-table"><thead><tr><th>Time</th><th>RWA</th><th>Amount</th><th>Launch</th><th></th></tr></thead>'+
             '<tbody>'+rewardsDistRows()+'</tbody></table>'+
           '</div>'+
@@ -7058,13 +7258,9 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
             basketPanelHTML()+
             splitPanelHTML()+
           '</div>'+
-          '<div><label>First buy · SUI</label><input id="l-first-buy" inputmode="decimal" placeholder="1" value="'+escAttr(state.lFirstBuy)+'"></div>'+
+          '<div><label>First buy · '+escHtml(isStockQuote(state.lQuote)?state.lQuote:"SUI")+'</label><input id="l-first-buy" inputmode="decimal" placeholder="'+(isStockQuote(state.lQuote)?"0.1":"1")+'" value="'+escAttr(state.lFirstBuy)+'"></div>'+
             '<div id="l-first-buy-preview" style="font-size:13px;color:var(--text);margin-top:6px">'+escHtml(firstBuyPreview())+'</div>'+
-            '<div style="font-size:12px;color:var(--muted);margin-top:4px">'+(state.lQuote==="SUI"
-              ? "SUI swapped into TOKEN/SUI in the same transaction as seed, before the pool is public. 0 skips."
-              : state.lQuote==="USDY"
-              ? "Paid in SUI. Same tx hops SUI → USDC → USDY on Cetus, then buys TOKEN/USDY on Bluefin before the pool is public. 0 skips."
-              : "Paid in SUI. Same tx hops SUI → "+state.lQuote+", then buys TOKEN on Bluefin before the pool is public. 0 skips.")+'</div>'+
+            '<div style="font-size:12px;color:var(--muted);margin-top:4px">'+escHtml(firstBuyHint())+'</div>'+
           '<div><label>Name</label><input id="l-name" placeholder="Gladius Token" value="'+escAttr(state.lName)+'"></div>'+
           '<div><label>Ticker</label><input id="l-tick" placeholder="GLADIUS" maxlength="12" value="'+escAttr(state.lTick)+'"></div>'+
           '<div id="l-type-hint" style="font-size:12px;color:var(--muted);margin-top:-4px">'+(tickerToIdent(state.lTick) ? "Coin type will be <code>…::"+escHtml(tickerToIdent(state.lTick))+"::"+escHtml(tickerToIdent(state.lTick).toUpperCase())+"</code>" : "")+'</div>'+
@@ -7074,7 +7270,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
           '<button type="button" class="btn-trade" id="launch-go">'+launchBtnLabel()+'</button>'+
           '<div id="launch-note" style="font-size:12px;color:'+(state.lNoteErr?"#FF6640":"var(--muted)")+';margin-top:8px;text-align:center">'+
             escHtml(state.lNote || (Number(state.lFirstBuy)>0
-              ? ("Pay 1 SUI launch fee. First buy of "+state.lFirstBuy+" SUI lands in the same transaction as seed"+(state.lQuote==="SUI"?"":state.lQuote==="USDY"?" (SUI → USDY hop, then TOKEN)":" (SUI → "+state.lQuote+" hop, then TOKEN)")+".")
+              ? ("Pay 1 SUI launch fee. First buy of "+state.lFirstBuy+" "+(isStockQuote(state.lQuote)?state.lQuote:"SUI")+" lands in the same transaction as seed.")
               : "Pay 1 SUI launch fee. 0 quote LP."))+
           '</div>'+
         '</div></div>'+
@@ -7101,15 +7297,61 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       '</div>';
     }
     const canCollect = !!(tk.lockId && tk.bluefinPool);
-    return '<div class="ticket ticket-cetus" id="swap-box" data-swap-sym="'+escAttr(tk.t)+'">'+
-      '<div class="pit-kicker">'+kicker+' · Cetus</div>'+
-      '<div id="cetus-terminal"></div>'+
-      '<div class="kv" style="margin-top:8px"><span style="color:var(--muted)">Pair</span><span class="mono">'+escHtml(tk.t)+' / '+q+'</span></div>'+
+    if (usesCetusSwap(tk)){
+      return '<div class="ticket ticket-cetus" id="swap-box" data-swap-sym="'+escAttr(tk.t)+'">'+
+        '<div class="pit-kicker">'+kicker+' · Cetus</div>'+
+        '<div id="cetus-terminal"></div>'+
+        '<div class="kv" style="margin-top:8px"><span style="color:var(--muted)">Pair</span><span class="mono">'+escHtml(tk.t)+' / '+q+'</span></div>'+
+        '<div class="kv"><span style="color:var(--muted)">Lock</span><span>'+lockLabel+'</span></div>'+
+        (canCollect ? '<button type="button" class="btn-trade btn-ghost" id="collect-go" style="margin-top:10px">Collect LP fees</button>' : '')+
+        migratePanelHTML(tk)+
+        '<div style="margin-top:10px;text-align:center;font-size:11px;color:var(--muted)">'+
+          'Cetus aggregator. Routes Bluefin, Cetus, and other Sui pools. LP locked forever. Anyone can collect. Token-side fees burn.'+
+          (tk.bluefinPool ? ' · <a href="https://trade.bluefin.io/swap?pool='+escAttr(tk.bluefinPool)+'" target="_blank" rel="noopener">Bluefin</a>' : '')+
+        '</div>'+
+      '</div>';
+    }
+    const alt = q !== "SUI";
+    const stockQ = isStockQuote(q);
+    if (stockQ) state.payWith = q;
+    const buyOn = state.side !== "Sell";
+    const payAsset = buyOn ? (alt && state.payWith === "SUI" ? "SUI" : q) : tk.t;
+    const recvAsset = buyOn ? tk.t : (alt && state.payWith === "SUI" ? "SUI" : q);
+    const amtVal = escAttr(state.amt || (alt && state.payWith !== "SUI" ? quoteRec(q).chips[0] : "1"));
+    const payToggle = alt
+      ? '<div class="chips" id="pay-route" style="margin-top:10px">'+
+          '<div data-pay="SUI" class="'+(stockQ?"disabled":(state.payWith==="SUI"?"on":""))+'"'+(stockQ?' aria-disabled="true" title="This pool is TOKEN/'+escAttr(q)+'. Pay with '+escAttr(q)+' wrap."':'')+'>'+(buyOn?"Pay SUI":"Get SUI")+'</div>'+
+          '<div data-pay="'+escAttr(q)+'"'+(state.payWith!=="SUI"?' class="on"':'')+'>'+(buyOn?"Pay "+q:"Get "+q)+'</div>'+
+        '</div>'
+      : '<div id="pay-route" style="display:none"></div>';
+    return '<div class="ticket" id="swap-box">'+
+      '<div class="pit-kicker">'+kicker+' · Bluefin</div>'+
+      '<div style="font-size:22px;font-weight:700;letter-spacing:-.03em;margin:8px 0 10px">Swap</div>'+
+      '<div class="sides">'+
+        '<div id="btn-buy" data-side="Buy"'+(buyOn?' class="on-buy"':'')+'>Buy</div>'+
+        '<div id="btn-sell" data-side="Sell"'+(buyOn?'':' class="on-sell"')+'>Sell</div>'+
+      '</div>'+
+      payToggle+
+      '<div style="margin-top:12px">'+
+        '<div class="kv" style="border:0;padding:0 0 8px"><span id="pay-label">'+(buyOn?"Pay with "+payAsset:"Sell "+tk.t)+'</span><span id="bal-text" class="mono" style="color:var(--muted)">—</span></div>'+
+        '<input id="amt" class="amt" inputmode="decimal" autocomplete="off" value="'+amtVal+'">'+
+        '<div class="chips" id="amt-chips"></div>'+
+      '</div>'+
+      '<div class="kv"><span style="color:var(--muted)">You receive</span><span id="receive">'+recvAsset+' …</span></div>'+
+      '<div class="kv"><span style="color:var(--muted)">Route</span><span id="venue-text">Bluefin Spot</span></div>'+
+      '<div class="kv" id="hop-row" style="'+(alt && state.payWith==="SUI"?"":"display:none")+'"><span style="color:var(--muted)">Path</span><span id="hop-text"></span></div>'+
+      '<div class="kv"><span style="color:var(--muted)">Pair</span><span class="mono">'+escHtml(tk.t)+' / '+escHtml(q)+'</span></div>'+
       '<div class="kv"><span style="color:var(--muted)">Lock</span><span>'+lockLabel+'</span></div>'+
+      '<div class="kv"><span style="color:var(--muted)">Pool fee</span><span>'+(insta?"2% Bluefin":"Bluefin")+'</span></div>'+
+      '<button type="button" class="btn-trade" id="trade-btn" data-trade>Connect wallet</button>'+
+      '<div id="swap-err" class="swap-err"></div>'+
       (canCollect ? '<button type="button" class="btn-trade btn-ghost" id="collect-go" style="margin-top:10px">Collect LP fees</button>' : '')+
       migratePanelHTML(tk)+
       '<div style="margin-top:10px;text-align:center;font-size:11px;color:var(--muted)">'+
-        'Cetus aggregator. Routes Bluefin, Cetus, and other Sui pools. LP locked forever. Anyone can collect. Token-side fees burn.'+
+        (stockQ
+          ? ('Swaps this '+escHtml(tk.t)+'/'+escHtml(q)+' pool on Bluefin. Pay with '+escHtml(q)+' wrap.')
+          : 'Swaps this pool on Bluefin. Optional SUI hop if you toggle it.')+
+        ' LP locked forever. Anyone can collect. Token-side fees burn.'+
         (tk.bluefinPool ? ' · <a href="https://trade.bluefin.io/swap?pool='+escAttr(tk.bluefinPool)+'" target="_blank" rel="noopener">Bluefin</a>' : '')+
       '</div>'+
     '</div>';
@@ -7232,8 +7474,8 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     const st = stockRec(state.bridgeTick);
     const tick = st.ticker;
     const amt = state.bridgeAmt || "";
-    const dest = amt === "" ? "0.0" : amt;
     const dirOut = state.bridgeDir !== "in";
+    const dest = amt === "" ? "0.0" : bridgeNetHuman(amt, stockBridgeDecimals(st, dirOut));
     const ticks = STOCK_TICKERS.map(function(t){
       return '<button type="button" class="bridge-tick'+(t===tick?" on":"")+'" data-bridge-tick="'+t+'">'+stockLogoHtml(t,'bridge-tick-logo')+' '+t+'</button>';
     }).join("");
@@ -7284,16 +7526,26 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     const note = state.bridgeNote
       ? '<p class="bridge-note" style="color:'+(state.bridgeNoteErr?"var(--pink)":"var(--muted)")+'">'+escHtml(state.bridgeNote)+'</p>'
       : '<p class="bridge-note">'+(dirOut
-          ? "Burns your Sui wrap and emits RedeemBurned for the RH unlock watcher."
+          ? "Burns your Sui wrap (1% protocol fee). v2 pays any amount from the RH vault pool."
           : (!evmSession.address
             ? "Connect an EVM wallet on Robinhood Chain to read your "+tick+" balance."
-            : "Lock "+tick+" on Robinhood. Keeper mints the Sui wrap to your Sui wallet — you never hold the MinterCap."))+'</p>';
+            : "Lock "+tick+" on Robinhood (1% protocol fee). Keeper mints the net wrap to your Sui wallet — you never hold the MinterCap."))+'</p>';
     return '<div data-screen-label="Bridge" class="shell bridge-page">'+
       '<div class="bridge-hero">'+
         '<div class="pit-kicker">Stock bridge</div>'+
         '<h1>Trade RWAs <em>on Sui.</em></h1>'+
-        '<p>Move Robinhood Chain stock tokens to Sui 1:1. Lock in the RH vault, mint the wrap, burn to unlock. Secondary wrap only.</p>'+
+        '<p>Move Robinhood Chain stock tokens to Sui. 1% protocol fee. Lock in the RH vault, mint the wrap, burn to unlock. Secondary wrap only.</p>'+
       '</div>'+
+      '<div class="bridge-layout">'+
+      '<aside class="bridge-howto">'+
+        '<div class="bridge-howto-kicker">How it works</div>'+
+        '<ol class="bridge-steps">'+
+          '<li class="bridge-step"><span class="bridge-step-n">1</span><div><h3>Buy on Robinhood Chain</h3><p>Get NVDA, AMC, and other listed tokens on Uniswap — Robinhood Chain, not the brokerage app.</p></div></li>'+
+          '<li class="bridge-step"><span class="bridge-step-n">2</span><div><h3>Bridge RH → Sui</h3><p>Lock here. Vicefun mints the Sui wrap to your wallet. 1% fee, ~finality wait.</p></div></li>'+
+          '<li class="bridge-step"><span class="bridge-step-n">3</span><div><h3>Trade only on token pages</h3><p>Use the wrap as quote on Vicefun Instant pairs. Don\u2019t dump it on random Sui DEXs.</p></div></li>'+
+          '<li class="bridge-step"><span class="bridge-step-n">4</span><div><h3>Cash out on Robinhood Chain</h3><p>Bridge Sui → RH, then sell back to USDC on Uniswap. The wrap is not a stock sale.</p></div></li>'+
+        '</ol>'+
+      '</aside>'+
       '<div class="bridge-wrap">'+
         '<div class="bridge-card">'+
           '<div class="bridge-wallets">'+
@@ -7332,13 +7584,18 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
             '</div>'+
           '</div>'+
           '<div class="bridge-meta">'+
-            '<div class="kv"><span style="color:var(--muted)">Rate</span><span class="mono">1 : 1</span></div>'+
-            '<div class="kv"><span style="color:var(--muted)">Protocol fee</span><span>—</span></div>'+
+
+            '<div class="kv"><span style="color:var(--muted)">Rate</span><span class="mono">1 : 0.99</span></div>'+
+            '<div class="kv"><span style="color:var(--muted)">Protocol fee</span><span class="mono">1%</span></div>'+
+            '<div class="kv"><span style="color:var(--muted)">You receive</span><span class="mono">'+escHtml(dest)+' '+escHtml(tick)+'</span></div>'+
             '<div class="kv"><span style="color:var(--muted)">Est. time</span><span>'+
               (dirOut
-                ? "~1–2 min"
+                ? "~30–60 sec"
                 : escHtml((_rhFinality.lagSec != null ? fmtEta(_rhFinality.lagSec) : "a few minutes")+" (waits for RH finality)"))+
             '</span></div>'+
+            '<div class="kv"><span style="color:var(--muted)">In RH vault</span><span class="mono" id="bridge-vault-rh">'+escHtml(state.bridgeVaultRh || "—")+'</span></div>'+
+            '<div class="kv"><span style="color:var(--muted)">On Sui</span><span class="mono" id="bridge-vault-sui">'+escHtml(state.bridgeVaultSui || "—")+'</span></div>'+
+
             (st.rhToken
               ? '<div class="kv"><span style="color:var(--muted)">'+escHtml(tick)+' on Robinhood</span>'+
                   '<span><span class="mono">'+escHtml(shortAddr(st.rhToken))+'</span>'+
@@ -7364,6 +7621,11 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
           note+
           pendingHTML()+
         '</div>'+
+      '</div>'+
+      '</div>'+
+      '<div class="bridge-legal">'+
+        '<h2>Vicefun stock wrap — secondary wrap, not shares.</h2>'+
+        '<p>Vicefun’s stock bridge is an independent wrap operated by Vicefun. It is not affiliated with, endorsed by, or connected to Robinhood, NVIDIA, AMC, GameStop, Tesla, or any issuer of the underlying stocks. Sui tokens minted here (NVDA, AMC, and other listed wraps) are claims on matching Robinhood Chain tokens locked in the Vicefun vault — they are not shares of stock and carry no shareholder rights. This is not a trustless or decentralized bridge: minting, redemptions, and vault custody are controlled by team-operated keys, and using the bridge means trusting Vicefun to honor redemptions 1:1 net of the protocol fee shown above. Redemptions further depend on the continued operation of the underlying Robinhood Chain tokens, which their issuer can pause, restrict, or upgrade at any time. A 1% protocol fee applies in each direction. Digital assets are risky and can lose value — use at your own risk. Nothing on this site is investment advice or an offer to sell securities.</p>'+
       '</div>'+
       footerHTML()+'</div>';
   }
@@ -7833,6 +8095,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     }
     var st = stockRec(state.bridgeTick);
     var dirOut = state.bridgeDir !== "in";
+    refreshBridgeVault(st);
     try {
       var raw = 0n;
       if (dirOut){
@@ -7858,6 +8121,36 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       state.bridgeBalHuman = "—";
       state.bridgeBalRaw = 0n;
     }
+  }
+  function paintBridgeVault(){
+    var rhEl = document.getElementById("bridge-vault-rh");
+    var suiEl = document.getElementById("bridge-vault-sui");
+    if (rhEl) rhEl.textContent = state.bridgeVaultRh || "—";
+    if (suiEl) suiEl.textContent = state.bridgeVaultSui || "—";
+  }
+  async function refreshBridgeVault(st){
+    st = st || stockRec(state.bridgeTick);
+    try {
+      var scale = rhToSuiScale(st);
+      var vaultAddr = st.rhVault || window.ARENA_RH_VAULT;
+      var pooled = await rhPooledBacking(vaultAddr, st.rhToken);
+      if (pooled == null){
+        var locks = await rhUnreleasedLocks(vaultAddr, st.rhToken, scale);
+        pooled = 0n;
+        for (var i = 0; i < locks.length; i++) pooled += locks[i].amount;
+      }
+      state.bridgeVaultRh = fromBaseStr(pooled, stockBridgeDecimals(st, false))+" "+st.ticker;
+    } catch (e) {
+      state.bridgeVaultRh = "—";
+    }
+    try {
+      var sup = await suiJson("suix_getTotalSupply", [st.suiCoin]);
+      var val = (sup && (sup.value != null ? sup.value : sup)) || "0";
+      state.bridgeVaultSui = fromBaseStr(BigInt(String(val)), stockBridgeDecimals(st, true))+" "+st.ticker;
+    } catch (e) {
+      state.bridgeVaultSui = "—";
+    }
+    paintBridgeVault();
   }
   var EthersLib = null;
   var ETHERS_URLS = [
@@ -8022,6 +8315,9 @@ async function doBridgeDeposit(){
       var decimals = stockBridgeDecimals(st, false); // RH ERC-20 = 18
       var amount = ethers.parseUnits(amountHuman, decimals);
       if (!(amount > 0n)) throw new Error("Enter an amount to lock");
+      var feeParts = bridgeFeeParts(amount);
+      var feeTo = rhFeeAddr();
+      if (feeParts.net <= 0n) throw new Error("Amount too small after 1% fee");
       // suiRecipient is bytes32: normal Sui addr is already 0x + 64 hex (32 bytes).
       // Pass that through. zeroPadValue only if leading zeros were stripped (shorter hex).
       // Never truncate to 20 bytes / left-pad an eth-style short form of a full Sui addr.
@@ -8032,7 +8328,10 @@ async function doBridgeDeposit(){
       var suiRecipient = (suiHex.length === 64)
         ? ("0x" + suiHex.toLowerCase())
         : ethers.zeroPadValue("0x" + suiHex, 32);
-      var token = new ethers.Contract(st.rhToken, ["function approve(address,uint256) returns (bool)"], signer);
+      var token = new ethers.Contract(st.rhToken, [
+        "function approve(address,uint256) returns (bool)",
+        "function transfer(address,uint256) returns (bool)"
+      ], signer);
       var vault = new ethers.Contract(vaultAddr, [{
         type: "function", name: "deposit", stateMutability: "nonpayable",
         inputs: [
@@ -8042,12 +8341,17 @@ async function doBridgeDeposit(){
         ],
         outputs: [{ name: "depositId", type: "uint256" }]
       }], signer);
+      if (feeParts.fee > 0n){
+        if (btn) btn.textContent = "Fee…";
+        var feeTx = await token.transfer(feeTo, feeParts.fee);
+        await feeTx.wait();
+      }
       if (btn) btn.textContent = "Approve…";
-      var approveTx = await token.approve(vaultAddr, amount);
+      var approveTx = await token.approve(vaultAddr, feeParts.net);
       var approveRc = await approveTx.wait();
       var approveHash = (approveRc && approveRc.hash) || approveTx.hash || "";
       if (btn) btn.textContent = "Deposit…";
-      var depositTx = await vault.deposit(st.rhToken, amount, suiRecipient);
+      var depositTx = await vault.deposit(st.rhToken, feeParts.net, suiRecipient);
       var depositRc = await depositTx.wait();
       var depositHash = (depositRc && depositRc.hash) || depositTx.hash || "";
       var noteParts = ["Locked on RH. Waiting for keeper mint…"];
@@ -8069,7 +8373,7 @@ async function doBridgeDeposit(){
       var minted = await waitForStockMint({
         recipient: suiSession.address,
         // Keeper mints Sui 9dp = RH 18dp / 1e9 (human shares 1:1)
-        amount: amount / 1000000000n,
+        amount: feeParts.net / 1000000000n,
         ticker: st.ticker,
         sinceMs: Date.now() - 15000,
         timeoutMs: 60000,
@@ -8136,6 +8440,7 @@ async function doBridgeDeposit(){
    * Falls back to calling RH directly so this still works when the proxy is not
    * deployed (e.g. a static local preview).
    */
+
   async function rhRpc(method, params){
     var body = JSON.stringify({ jsonrpc:"2.0", id:1, method: method, params: params });
     var urls = ["/api/rh", window.ARENA_RH_RPC || "https://rpc.mainnet.chain.robinhood.com"];
@@ -8169,6 +8474,7 @@ async function doBridgeDeposit(){
   function rhWord(hex, i){
     var h = String(hex || "").replace(/^0x/, "");
     return h.slice(i*64, i*64 + 64);
+
   }
   function rhWordBig(hex, i){
     var w = rhWord(hex, i);
@@ -8182,6 +8488,7 @@ async function doBridgeDeposit(){
   }
 
   /** Unreleased locks for one RH token, oldest first. Read-only, no wallet. */
+
   async function rhUnreleasedLocks(vaultAddr, rhToken, scale){
     var next = await rhEthCall(vaultAddr, RH_NEXT_DEPOSIT_ID_SEL);
     var n = next && next !== "0x" ? BigInt(next) : 0n;
@@ -8189,6 +8496,7 @@ async function doBridgeDeposit(){
     var want = String(rhToken || "").toLowerCase();
     var out = [];
     // Sequential ids from 1; batch a few at a time to stay polite to the RPC.
+
     var ids = [];
     for (var i = 1n; i < n; i++) ids.push(i);
     for (var c = 0; c < ids.length; c += 8){
@@ -8208,6 +8516,7 @@ async function doBridgeDeposit(){
         var token = rhWordAddr(part.data, 1);
         if (token !== want) continue;
         if (rhWordBig(part.data, 4) !== 0n) continue; // released
+
         var amount = rhWordBig(part.data, 2);
         if (amount <= 0n) continue;
         out.push({ depositId: part.id, amount: amount, sui: amount / scale });
@@ -8222,6 +8531,7 @@ async function doBridgeDeposit(){
    * amounts the keeper can pay in full. Dust locks (sui === 0) are skipped,
    * matching the keeper's own matcher.
    */
+
   function rhRedeemableAmounts(locks){
     var sums = [];
     var acc = 0n;
@@ -8402,6 +8712,7 @@ async function doBridgeDeposit(){
   }
 
   /** Throws with an actionable message when `amount` is not fully payable. */
+
   async function assertRedeemable(st, amount){
     var vaultAddr = st.rhVault || window.ARENA_RH_VAULT;
     if (!vaultAddr) throw new Error("ARENA_RH_VAULT missing");
@@ -8421,6 +8732,7 @@ async function doBridgeDeposit(){
       return true;
     }
 
+
     var locks = await rhUnreleasedLocks(vaultAddr, st.rhToken, scale);
     var sums = rhRedeemableAmounts(locks);
     var dec = stockBridgeDecimals(st, true);
@@ -8429,6 +8741,7 @@ async function doBridgeDeposit(){
         "No "+st.ticker+" collateral is currently unlocked on Robinhood Chain, so this burn could not be paid out. "+
         "Burning is irreversible — nothing was burned. Try again once a deposit is outstanding."
       );
+
     }
     for (var i = 0; i < sums.length; i++) if (sums[i] === amount) return true;
     var max = sums[sums.length - 1];
@@ -8443,6 +8756,7 @@ async function doBridgeDeposit(){
       opts+(sums.length > 4 ? ", …" : "")+". "+hint+" Nothing was burned."
     );
   }
+
 
   async function doBridgeBurn(){
     if (state.bridgeBusy) return;
@@ -8460,12 +8774,16 @@ async function doBridgeDeposit(){
       if (btn){ btn.disabled = true; btn.textContent = "Building…"; }
       var bal = await coinBalanceOf(suiSession.address, st.suiCoin);
       if (bal < amount) throw new Error("Need "+fromBaseStr(amount, stockBridgeDecimals(st, true))+" "+st.ticker+" wrap. Wallet has "+fromBaseStr(bal, stockBridgeDecimals(st, true))+".");
+
+      var feeParts = bridgeFeeParts(amount);
+      if (feeParts.net <= 0n) throw new Error("Amount too small after 1% fee");
       // Preflight the RH payout BEFORE burning. bridge::burn destroys the coin
       // unconditionally; the release side can only pay whole unreleased
       // deposits, and an unpayable remainder is never retried. Refuse rather
       // than let the user burn into a partial (or zero) payout.
       if (btn) btn.textContent = "Checking RH…";
-      await assertRedeemable(st, amount);
+      await assertRedeemable(st, feeParts.net);
+
       var Transaction = await loadTransaction();
       var tx = new Transaction();
       tx.setSender(suiSession.address);
@@ -8477,6 +8795,11 @@ async function doBridgeDeposit(){
       // "Balance of gas object ... lower than the needed amount" even
       // though they had plenty to actually pay for the transaction.
       var coinArg = await takeSwapCoin(tx, st.suiCoin, amount);
+      if (feeParts.fee > 0n){
+        var feeSplit = tx.splitCoins(coinArg, [txAmt(feeParts.fee)]);
+        var feeCoin = Array.isArray(feeSplit) ? feeSplit[0] : feeSplit;
+        tx.transferObjects([feeCoin], partnerAddr());
+      }
       var PKG = window.ARENA_STOCKS_PACKAGE;
       if (!PKG) throw new Error("ARENA_STOCKS_PACKAGE missing");
       var rhDestArg = txPureBytes(tx, evmAddrToBytes(state.bridgeRhDest));
@@ -8514,7 +8837,12 @@ async function doBridgeDeposit(){
   }
 
   function hashFor(route, sym){
-    if (route === "token") return "/t/"+encodeURIComponent(String(sym||state.sym||"").toUpperCase());
+    if (route === "token"){
+      var raw = String(sym || state.sym || "");
+      var tk = findT(raw);
+      var id = (tk && !tk.missing) ? tokenRouteId(tk) : (coinPackageOf(raw) || (looksLikeCoinType(raw) ? normType(raw).split("::")[0] : raw.toUpperCase()));
+      return "/t/"+encodeURIComponent(id);
+    }
     if (route === "explore" || route === "floor" || route === "discover") return "#/";
     if (route === "pit") return "#/distributions";
     if (route === "metrics") return "#/books";
@@ -8525,7 +8853,11 @@ async function doBridgeDeposit(){
   function parseHash(){
     const path = (location.pathname || "/").replace(/\/+$/, "") || "/";
     const tm = path.match(/^\/t\/([^/]+)$/i);
-    if (tm) return {route:"token", sym: decodeURIComponent(tm[1]).toUpperCase()};
+    if (tm){
+      var slug = decodeURIComponent(tm[1]);
+      if (looksLikeCoinType(slug)) return {route:"token", sym: slug};
+      return {route:"token", sym: slug.toUpperCase()};
+    }
     const h = (location.hash || "#/").replace(/^#/, "");
     const parts = h.split("/").filter(Boolean);
     if (!parts.length) return {route:"explore", sym:state.sym};
@@ -8552,7 +8884,7 @@ async function doBridgeDeposit(){
       title = "$" + tk.t + " — " + (tk.n || tk.t) + " | Vice";
       desc = "Instant · Trade in " + poolQuote(tk) + " · vicefun.com";
       image = origin + "/card/" + encodeURIComponent(tk.t) + ".jpg";
-      url = origin + "/t/" + encodeURIComponent(tk.t);
+      url = origin + "/t/" + encodeURIComponent(tokenRouteId(tk));
     } else {
       title = "Vice — Fair launches on Sui";
       desc = "Straight to DEX launches. Pair with Sui or RWA's";
@@ -8589,6 +8921,20 @@ async function doBridgeDeposit(){
       return '<div class="nav-item'+(on?" on":"")+'" data-go="'+n[1]+'">'+n[0]+'</div>';
     }).join("");
   }
+  function dockMoreOpen(){
+    var sheet = $("#dock-sheet");
+    return !!(sheet && !sheet.hidden);
+  }
+  function setDockMore(open){
+    open = !!open;
+    var sheet = $("#dock-sheet");
+    var backdrop = $("#dock-backdrop");
+    var more = $("#dock-more");
+    if (sheet) sheet.hidden = !open;
+    if (backdrop) backdrop.hidden = !open;
+    if (more) more.classList.toggle("on", open);
+    document.documentElement.classList.toggle("dock-open", open);
+  }
   function paintDock(){
     var wrap = $("#dock-wrap");
     if (!wrap) return;
@@ -8597,21 +8943,11 @@ async function doBridgeDeposit(){
       var goTo = el.getAttribute("data-go");
       el.classList.toggle("on", state.route === goTo || (goTo === "explore" && state.route === "token"));
     });
-    var more = $("#dock-more");
-    var sheet = $("#dock-sheet");
-    var open = !!(sheet && !sheet.hidden);
-    if (more) more.classList.toggle("on", open);
-    var backdrop = $("#dock-backdrop");
-    if (backdrop) backdrop.hidden = !open;
+    setDockMore(dockMoreOpen());
   }
   function closeDockSheet(){
-    var sheet = $("#dock-sheet");
-    var backdrop = $("#dock-backdrop");
-    var wasOpen = !!(sheet && !sheet.hidden);
-    if (sheet) sheet.hidden = true;
-    if (backdrop) backdrop.hidden = true;
-    var more = $("#dock-more");
-    if (more) more.classList.remove("on");
+    var wasOpen = dockMoreOpen();
+    setDockMore(false);
     return wasOpen;
   }
   var scrHydrateAt = 0;
@@ -8725,13 +9061,13 @@ async function doBridgeDeposit(){
     return n >= 0 && n <= 18 ? n : 9;
   }
   function quoteTypeOf(tk){
-    return quoteRec(poolQuote(tk)).type;
+    return padType(quoteRec(poolQuote(tk)).type);
   }
   function tokenTypeOf(tk){
     return normType(typeNameStr(tk.token) || demoTypeId(tk));
   }
   function usesCetusSwap(tk){
-    return !!(tk && tk.bluefinPool);
+    return !!(tk && tk.bluefinPool && poolQuote(tk) === "SUI");
   }
   var cetusTermReady = null;
   function loadCetusTerminal(){
@@ -8869,6 +9205,7 @@ async function doBridgeDeposit(){
     if (!buy || !tk || !tk.bluefinPool) return;
     const buyOn = state.side !== "Sell";
     const q = poolQuote(tk);
+    if (isStockQuote(q)) state.payWith = q;
     const gold = altQuote(tk);
     const payAsset = swapPayLabel(tk);
     const outAsset = swapOutLabel(tk);
@@ -8882,7 +9219,9 @@ async function doBridgeDeposit(){
       route.style.display = gold ? "" : "none";
       $$("[data-pay]", route).forEach(function(el){
         var isSui = el.getAttribute("data-pay") === "SUI";
-        el.classList.toggle("on", el.getAttribute("data-pay") === (state.payWith === "SUI" ? "SUI" : q));
+        var stockQ = isStockQuote(q);
+        el.classList.toggle("disabled", !!(isSui && stockQ));
+        el.classList.toggle("on", stockQ ? !isSui : (el.getAttribute("data-pay") === (state.payWith === "SUI" ? "SUI" : q)));
         el.textContent = buyOn ? (isSui ? "Pay SUI" : "Pay "+q) : (isSui ? "Get SUI" : "Get "+q);
       });
     }
@@ -9386,7 +9725,8 @@ async function doBridgeDeposit(){
     if (bf && bus.sub && bus.sub.watchBluefinPool) bus.sub.watchBluefinPool(bf);
     if (launching && state.route === "launch") return;
     if (state.route === "token"){
-      if (String(state.sym).toUpperCase() === tk.t) scheduleScreen();
+      syncTokenUrl();
+      if (String(state.sym).toUpperCase() === tk.t || (looksLikeCoinType(state.sym) && coinTypeOf(tk).toLowerCase() === normType(state.sym).toLowerCase())) scheduleScreen();
       else paintLive();
       return;
     }
@@ -9396,8 +9736,20 @@ async function doBridgeDeposit(){
     }
     if (state.route === "pit" || state.route === "launch") scheduleScreen();
   }
+  function syncTokenUrl(){
+    if (state.route !== "token") return;
+    var want = hashFor("token", state.sym);
+    if (!want || want.charAt(0) === "#") return;
+    var cur = (location.pathname.replace(/\/+$/, "") || "/");
+    if (cur === want) return;
+    try { history.replaceState({ route: "token", sym: state.sym }, "", want); } catch (e) {}
+  }
   function renderScreen(){
-    if (state.route === "token" && isHiddenToken({ t: state.sym })) state.route = "explore";
+    if (state.route === "token"){
+      var hideTk = findT(state.sym);
+      if (isHiddenToken(hideTk || { t: state.sym, token: looksLikeCoinType(state.sym) ? state.sym : "" })) state.route = "explore";
+      else syncTokenUrl();
+    }
     const host = $("#screens");
     var keepCard = host && host.querySelector(".chart-card[data-pool]");
     var keepPool = keepCard ? (keepCard.getAttribute("data-pool") || "") : "";
@@ -9428,7 +9780,6 @@ async function doBridgeDeposit(){
     paintWallet();
     if (state.route === "metrics") refreshBooksVol();
     if (state.route === "pit"){
-      refreshEligible();
       refreshPendingRewards();
     }
     if (state.route === "bridge"){ refreshBridgeBal(); refreshPendingDeposits(); }
@@ -9480,6 +9831,14 @@ async function doBridgeDeposit(){
       state.tapeOpen = "";
       state.tapeWallet = "";
       state.tapeFilterOpen = false;
+      var landQ = poolQuote(nextSym);
+      if (landQ && landQ !== "SUI"){
+        state.payWith = landQ;
+        state.amt = quoteRec(landQ).chips[0] || "0.1";
+      } else {
+        state.payWith = "SUI";
+        if (!state.amt) state.amt = "1";
+      }
     }
     if (route !== "token" || (sym && nextSym !== state.sym)) closeMetaEditor();
     state.route = route;
@@ -9855,15 +10214,22 @@ async function doBridgeDeposit(){
       var capId = (state.lCap || "").trim();
       var tokenCoinId = (state.lTokenCoin || "").trim();
       var launchQuote = quoteRec(state.lQuote).label;
-      var firstBuy = toSmallestBig(state.lFirstBuy, 9);
+      var stockBuy = isStockQuote(launchQuote);
+      var firstBuyDec = stockBuy ? quoteDecimalsOf(launchQuote) : 9;
+      var firstBuy = toSmallestBig(state.lFirstBuy, firstBuyDec);
       state.lCoinMode = "create";
       var creating = true;
       if (firstBuy > 0n){
         var suiBal = await coinBalanceOf(suiSession.address, SUI_TYPE);
-        var need = BigInt(LAUNCH_FEE) + firstBuy + 400000000n;
-        if (suiBal < need){
-          var extra = launchQuote === "SUI" ? "" : " First buy is paid in SUI — you do not need "+launchQuote+" in the wallet.";
-          throw new Error("Need about "+fromBase(need, 9).toFixed(2)+" SUI for the 1 SUI launch fee, first buy, and gas. This wallet has "+fromBase(suiBal, 9).toFixed(2)+" SUI."+extra);
+        var suiNeed = BigInt(LAUNCH_FEE) + 400000000n + (stockBuy ? 0n : firstBuy);
+        if (suiBal < suiNeed){
+          throw new Error("Need about "+fromBase(suiNeed, 9).toFixed(2)+" SUI for the 1 SUI launch fee"+(stockBuy ? " and gas" : (launchQuote==="SUI" ? ", first buy, and gas" : ", hop, and gas"))+". This wallet has "+fromBase(suiBal, 9).toFixed(2)+" SUI.");
+        }
+        if (stockBuy){
+          var qBal = await coinBalanceOf(suiSession.address, quoteRec(launchQuote).type);
+          if (qBal < firstBuy){
+            throw new Error("Need "+fromBaseStr(firstBuy, firstBuyDec)+" "+launchQuote+" wrap in this wallet for the first buy. Bridge it first, or set first buy to 0. Wallet has "+fromBaseStr(qBal, firstBuyDec)+" "+launchQuote+".");
+          }
         }
       }
       var tokenHuman = "";
@@ -10025,10 +10391,11 @@ async function doBridgeDeposit(){
         typeArguments: [padType(SUI_TYPE)],
         arguments: []
       });
-      // Instant: 100% token, 0 quote. Paths:
-      // RWA quote → holder_yield; SUI+basket → basket_yield_N; else plain instant.
+      // Instant: 100% token, 0 quote. Rewards > 0 never hits the pit:
+      // SUI → basket yield (RWA to holders); other quotes → holder yield in Q.
+      // Rewards == 0 → plain Instant (pit slice is 0).
       // First buy (if any) is the same PTB: swap Q→T on the owned pool before share.
-      if (!splitOk()) throw new Error("Fee split must sum to 100% with platform ≥ 5%");
+      if (!splitOk()) throw new Error("Fee split must sum to 100% with platform and VICE buyback each at least 5%");
       var splitArgs = launchSplitArgs(tx);
       var baseArgs = [
         tx.object(window.ARENA_CONFIG),
@@ -10047,6 +10414,8 @@ async function doBridgeDeposit(){
         if (launchQuote === "SUI"){
           var buySplit = tx.splitCoins(tx.gas, [txAmt(firstBuy)]);
           buyArg = Array.isArray(buySplit) ? buySplit[0] : buySplit;
+        } else if (stockBuy){
+          buyArg = await takeSwapCoin(tx, Qtype, firstBuy);
         } else {
           var hopped = await hopSuiToQuoteOnTx(tx, launchQuote, firstBuy);
           tx = hopped.tx;
@@ -10062,13 +10431,19 @@ async function doBridgeDeposit(){
         minOutArg = txPure(tx, "u64", txAmt(0));
       }
       var buyArgs = [buyArg, minOutArg];
-      if (isRwaQuote(launchQuote)){
+      var wantRewards = launchSplit().rewards > 0;
+      if (wantRewards && String(launchQuote).toUpperCase() !== "SUI"){
         tx.moveCall({
           target: CALL + "::launch::launch_instant_holder_yield_v2_buy_entry",
           typeArguments: [Ttype, Qtype],
           arguments: baseArgs.concat(splitArgs).concat(buyArgs)
         });
-      } else if (state.lBasket && String(launchQuote).toUpperCase() === "SUI"){
+      } else if (wantRewards && String(launchQuote).toUpperCase() === "SUI"){
+        if (!basketSelectedLegs().length){
+          state.lBasketOn = { XAUM: true, XAGM: true, USDY: true };
+          state.lBasketEqual = true;
+        }
+        state.lBasket = true;
         var legs = normalizeBasketBps(basketSelectedLegs());
         if (!legs.length) throw new Error("Pick 1–3 basket assets (XAUM · XAGM · USDY)");
         if (legs.length > 3) throw new Error("Basket supports at most 3 assets");
@@ -10224,6 +10599,20 @@ async function doBridgeDeposit(){
     if (!window.ARENA_NVDA_USDC_POOL) throw new Error("ARENA_NVDA_USDC_POOL missing");
     nvdaUsdcSnap = await poolSnap(window.ARENA_NVDA_USDC_POOL);
     return nvdaUsdcSnap;
+  }
+  function usdcPerStock(snap, stockType){
+    if (!snap || !snap.sqrt) return 0;
+    var s = Number(snap.sqrt);
+    if (!(s > 0)) return 0;
+    var raw = (s / BLUEFIN_Q64) * (s / BLUEFIN_Q64);
+    var stock = normType(stockType);
+    var usdc = normType(window.ARENA_USDC_TYPE);
+    if (normType(snap.a) === stock && normType(snap.b) === usdc) return raw * Math.pow(10, 9 - 6);
+    if (normType(snap.a) === usdc && normType(snap.b) === stock){
+      var px = raw * Math.pow(10, 6 - 9);
+      return px > 0 ? 1 / px : 0;
+    }
+    return 0;
   }
   var amcUsdcSnap = null;
   async function loadAmcUsdcPool(){
@@ -10825,7 +11214,7 @@ async function doBridgeDeposit(){
       tx.setSender(suiSession.address);
       if (typeof tx.setGasBudget === "function") tx.setGasBudget(100000000);
       if (!tk.bluefinPool) throw new Error("Bluefin pool missing — cannot migrate");
-      if (isRwaQuote(q)){
+      if (String(q).toUpperCase() !== "SUI"){
         tx.moveCall({
           target: CALL + "::launch::migrate_instant_to_holder_yield_v2_entry",
           typeArguments: [Ttype, Qtype],
@@ -10852,7 +11241,7 @@ async function doBridgeDeposit(){
           arguments: [tx.object(tk.lockId), tx.object(tk.bluefinPool)].concat(weightArgs)
         });
       } else {
-        throw new Error("Migrate supports RWA quotes (holder) or SUI (basket)");
+        throw new Error("Migrate supports non-SUI quotes (holder yield) or SUI (basket)");
       }
       if (btn) btn.textContent = "Sign in wallet…";
       var result = await walletExec(tx);
@@ -10993,6 +11382,11 @@ async function doBridgeDeposit(){
       var result = await walletExec(tx);
       var digest = result && (result.digest || (result.effects && result.effects.transactionDigest) || result.transactionDigest);
       if (btn){ btn.disabled = false; btn.textContent = digest ? ("Collected · " + String(digest).slice(0, 8)) : "Collected"; }
+      if (yv && digest){
+        if (btn) btn.title = yv.kind === "basket"
+          ? "Rewards slice staged for the RWA basket, then pushed to holders."
+          : "Rewards slice funded for holders of this token.";
+      }
     } catch (err){
       var msg = (err && err.message) ? err.message : String(err || "Collect failed");
       if (btn){ btn.disabled = false; btn.textContent = msg.length > 28 ? "Collect failed" : msg; }
@@ -11117,13 +11511,7 @@ async function doBridgeDeposit(){
       return;
     }
     if (e.target.closest("#dock-more")){
-      var sheet = $("#dock-sheet");
-      var backdrop = $("#dock-backdrop");
-      var open = !(sheet && !sheet.hidden);
-      if (sheet) sheet.hidden = !open;
-      if (backdrop) backdrop.hidden = !open;
-      var more = $("#dock-more");
-      if (more) more.classList.toggle("on", open);
+      setDockMore(!dockMoreOpen());
       return;
     }
     if (e.target.closest("#dock-backdrop")){
@@ -11132,7 +11520,8 @@ async function doBridgeDeposit(){
     }
     if (e.target.closest("#dock-sheet")){
       closeDockSheet();
-    } else if (closeDockSheet()){
+    } else if (dockMoreOpen()){
+      closeDockSheet();
       return;
     }
     const side = e.target.closest("[data-side]");
@@ -11140,7 +11529,6 @@ async function doBridgeDeposit(){
       state.side = side.getAttribute("data-side");
       if (state.route === "token" && isDexBout(findT(state.sym))){
         var qSide = poolQuote(state.sym);
-        if (qSide !== "SUI") state.payWith = "SUI";
         if (!state.amt) state.amt = (qSide !== "SUI" && state.payWith !== "SUI" && state.side === "Buy") ? quoteRec(qSide).chips[0] : "1";
         const inpS = $("#amt"); if (inpS) inpS.value = state.amt;
         paintTicket();
@@ -11161,6 +11549,9 @@ async function doBridgeDeposit(){
     }
     const pay = e.target.closest("[data-pay]");
     if (pay){
+      if (pay.classList.contains("disabled") || pay.getAttribute("aria-disabled") === "true") return;
+      var payQ = poolQuote(state.sym);
+      if (isStockQuote(payQ) && pay.getAttribute("data-pay") === "SUI") return;
       state.payWith = pay.getAttribute("data-pay");
       if (state.route === "token" && isDexBout(findT(state.sym))){
         state.amt = state.payWith === "SUI" ? "1" : quoteRec(poolQuote(state.sym)).chips[0];
@@ -11276,6 +11667,7 @@ async function doBridgeDeposit(){
     }
     const basketToggle = e.target.closest("[data-basket-toggle]");
     if (basketToggle){
+      if (String(state.lQuote || "").toUpperCase() !== "SUI" && state.route === "launch") return;
       state.lBasket = !state.lBasket;
       if (state.route === "launch" || state.route === "token") renderScreen();
       return;
@@ -11319,7 +11711,13 @@ async function doBridgeDeposit(){
       const val = set.getAttribute("data-val");
       if (key === "lQuote" && quoteSoon(val)) return;
       state[key] = val;
-      if (key === "lQuote") state.quoteOpen = false;
+      if (key === "lQuote"){
+        state.quoteOpen = false;
+        if (String(val || "").toUpperCase() !== "SUI") state.lBasket = false;
+        var nowStock = isStockQuote(val);
+        if (nowStock && (state.lFirstBuy === "1" || state.lFirstBuy === "1.0")) state.lFirstBuy = "0.1";
+        if (!nowStock && state.lFirstBuy === "0.1") state.lFirstBuy = "1";
+      }
       if (key === "rewardsTab"){
         state.rewardsTab = val || "all";
         if (state.route === "pit") renderScreen();
@@ -11465,7 +11863,10 @@ async function doBridgeDeposit(){
     if (e.target && e.target.id === "bridge-amt"){
       state.bridgeAmt = e.target.value;
       var dest = $("#bridge-dest");
-      if (dest) dest.textContent = state.bridgeAmt === "" ? "0.0" : state.bridgeAmt;
+      if (dest){
+        var stAmt = stockRec(state.bridgeTick);
+        dest.textContent = state.bridgeAmt === "" ? "0.0" : bridgeNetHuman(state.bridgeAmt, stockBridgeDecimals(stAmt, state.bridgeDir !== "in"));
+      }
       var go = $("#bridge-go");
       if (go && (go.hasAttribute("data-bridge-deposit") || go.hasAttribute("data-bridge-burn"))){
         var amtOk = Number(String(state.bridgeAmt || "").replace(/,/g, "")) > 0;
@@ -11730,7 +12131,7 @@ async function doBridgeDeposit(){
       onHolderYieldPush: function(e){ applyHolderYieldPush(e); },
       holderYieldPackages: [window.ARENA_HOLDER_YIELD_EVENT_PACKAGE, window.ARENA_CALL_PACKAGE, window.ARENA_COLLECT_PACKAGE].filter(Boolean),
       collectLpPackages: [window.ARENA_COLLECT_LP_EVENT_PACKAGE, window.ARENA_CALL_PACKAGE, window.ARENA_COLLECT_PACKAGE].filter(Boolean),
-      basketYieldPackages: [window.ARENA_BASKET_YIELD_EVENT_PACKAGE, window.ARENA_CALL_PACKAGE, window.ARENA_COLLECT_PACKAGE].filter(Boolean),
+      basketYieldPackages: [window.ARENA_BASKET_YIELD_PUSH_EVENT_PACKAGE, window.ARENA_BASKET_YIELD_EVENT_PACKAGE, window.ARENA_CALL_PACKAGE, window.ARENA_COLLECT_PACKAGE].filter(Boolean),
       burnPackages: [window.ARENA_COLLECT_PACKAGE, "0xd8531cc8c4e1ee914f0e4e48aea9a796faa0603459cc4665838f688e51bf23d9", "0x47ea732e44f21470aa3dd449a7b26731ed2c377e2c02e650f3ede6ea581bf000"].filter(Boolean),
       beneficiaryPackages: [window.ARENA_CALL_PACKAGE, window.ARENA_COLLECT_PACKAGE].filter(Boolean),
       callPackage: window.ARENA_INSTADEX_PACKAGE,
@@ -11770,6 +12171,8 @@ async function doBridgeDeposit(){
       else if (hop.xagmUsd > 0 && hop.suiUsd > 0) hop.suiPerXagm = hop.xagmUsd / hop.suiUsd;
       const vicefunUsd = Number(d.vicefunUsd);
       if (vicefunUsd > 0) hop.vicefunUsd = vicefunUsd;
+      if (Number(d.nvdaUsd) > 0) hop.nvdaUsd = Number(d.nvdaUsd);
+      if (Number(d.amcUsd) > 0) hop.amcUsd = Number(d.amcUsd);
       const perVicefun = Number(d.suiPerVicefun);
       if (perVicefun > 0) hop.suiPerVicefun = perVicefun;
       else if (hop.vicefunUsd > 0 && hop.suiUsd > 0) hop.suiPerVicefun = hop.vicefunUsd / hop.suiUsd;
@@ -11783,6 +12186,31 @@ async function doBridgeDeposit(){
       if (state.route === "metrics" || state.route === "pit") renderScreen();
       else if (state.route === "explore") paintExploreList();
     }
+    function loadStockUsd(){
+      var nvdaId = window.ARENA_NVDA_USDC_POOL;
+      var amcId = window.ARENA_AMC_USDC_POOL;
+      Promise.all([
+        nvdaId ? fetch("https://api.dexscreener.com/latest/dex/pairs/sui/"+nvdaId).then(function(r){ return r.json(); }).catch(function(){ return null; }) : Promise.resolve(null),
+        amcId ? fetch("https://api.dexscreener.com/latest/dex/pairs/sui/"+amcId).then(function(r){ return r.json(); }).catch(function(){ return null; }) : Promise.resolve(null)
+      ]).then(function(pair){
+        var n = pair[0] && pair[0].pairs && pair[0].pairs[0];
+        var a = pair[1] && pair[1].pairs && pair[1].pairs[0];
+        if (n && Number(n.priceUsd) > 0) hop.nvdaUsd = Number(n.priceUsd);
+        if (a && Number(a.priceUsd) > 0) hop.amcUsd = Number(a.priceUsd);
+        paintFirstBuyPreview();
+      }).catch(function(){});
+      loadNvdaUsdcPool().then(function(snap){
+        var px = usdcPerStock(snap, window.ARENA_STOCK_NVDA_TYPE);
+        if (px > 0 && !(hop.nvdaUsd > 0)) hop.nvdaUsd = px;
+        paintFirstBuyPreview();
+      }).catch(function(){});
+      loadAmcUsdcPool().then(function(snap){
+        var px = usdcPerStock(snap, window.ARENA_STOCK_AMC_TYPE);
+        if (px > 0 && !(hop.amcUsd > 0)) hop.amcUsd = px;
+        paintFirstBuyPreview();
+      }).catch(function(){});
+    }
+    loadStockUsd();
     fetch("/api/hop").then(function(r){ return r.ok ? r.json() : Promise.reject(); }).then(apply).catch(function(){
       Promise.all([
         fetch("https://api.dexpaprika.com/networks/sui/pools/0xdcd762ad374686fa890fc4f3b9bbfe2a244e713d7bffbfbd1b9221cb290da2ed").then(function(r){ return r.json(); }),

@@ -50,10 +50,21 @@ function quoteLabel(v) {
 }
 
 const HIDE = new Set(["BFLN", "GRAD", "SMOKE", "IDEX", "SILVER"]);
+const HIDE_TYPES = new Set([
+  "0xa0b937f9f6c7cd7e865b3c5bde42dc21dee8e847a7226e6de3aa9af4f64059b4::ncat::ncat",
+]);
+
+function normTypeKey(s) {
+  s = String(s || "").trim();
+  if (s.startsWith("0X")) s = "0x" + s.slice(2);
+  return s.toLowerCase();
+}
 
 async function findLaunch(sym) {
-  const want = String(sym || "").toUpperCase();
-  if (!want || HIDE.has(want)) return null;
+  const raw = String(sym || "").trim();
+  const want = raw.toUpperCase();
+  const wantType = normTypeKey(raw);
+  if (!want || HIDE.has(want) || HIDE_TYPES.has(wantType)) return null;
   const q =
     "query($t:String!){ events(first:50, filter:{ type:$t }){ nodes { contents { json } } } }";
   for (const pkg of EVENT_PKGS) {
@@ -67,11 +78,17 @@ async function findLaunch(sym) {
       const nodes = (j && j.data && j.data.events && j.data.events.nodes) || [];
       for (const n of nodes) {
         const p = (n.contents && n.contents.json) || {};
-        if (String(p.symbol || "").toUpperCase() === want) {
+        const ticker = String(p.symbol || "").toUpperCase();
+        const token = typeNameOf(p.token);
+        const tokenKey = normTypeKey(token);
+        if (HIDE_TYPES.has(tokenKey)) continue;
+        const typeHit = wantType.includes("::") && tokenKey === wantType;
+        const pkgHit = /^0x[0-9a-f]+$/i.test(raw) && tokenKey.split("::")[0] === wantType;
+        if (ticker === want || typeHit || pkgHit) {
           return {
-            symbol: want,
-            name: p.name || want,
-            token: typeNameOf(p.token),
+            symbol: ticker,
+            name: p.name || ticker,
+            token: token,
             quote: quoteLabel(p.quote),
           };
         }
@@ -239,7 +256,9 @@ async function homeJpg(origin) {
 async function render(request) {
   const origin = originOf(request);
   const t = new URL(request.url).searchParams.get("t") || "";
-  const sym = String(t).trim().toUpperCase().slice(0, 12);
+  const raw = String(t).trim();
+  const isType = raw.includes("::") || /^0x[0-9a-fA-F]{40,}$/i.test(raw);
+  const sym = isType ? raw : raw.toUpperCase().slice(0, 12);
   if (!sym) return homeJpg(origin);
 
   const jpegMod = await import("jpeg-js");

@@ -67,7 +67,7 @@
   function quoteDecimals(quote) {
     var lab = quoteLabel(quote);
     if (lab === "USDY") return 6;
-    if (lab === "NVDA" || lab === "AMC" || lab === "GME" || lab === "TSLA") return 18;
+    if (lab === "NVDA" || lab === "AMC" || lab === "GME" || lab === "TSLA") return 9;
     return 9;
   }
 
@@ -672,6 +672,11 @@
     if (lab === "XAUM") return "gold";
     if (lab === "XAGM") return "silver";
     if (lab === "USDY") return "tbills";
+    if (lab === "NVDA") return "nvda";
+    if (lab === "AMC") return "amc";
+    if (lab === "GME") return "gme";
+    if (lab === "TSLA") return "tsla";
+    if (lab === "VICEFUN") return "vicefun";
     return "";
   }
 
@@ -1138,7 +1143,7 @@
           rows.forEach(emitHyClaim);
         }).catch(function () {});
         // Push distributes one event per holder — pull more pages than claim/funded.
-        collect(rpc, pkg + "::events::HolderYieldPushEvent", parseHolderYieldPush, 24, 50).then(function (rows) {
+        collect(rpc, pkg + "::events::HolderYieldPushEvent", parseHolderYieldPush, 40, 50).then(function (rows) {
           rows.forEach(emitHyPush);
         }).catch(function () {});
       }
@@ -1194,7 +1199,7 @@
         collect(rpc, pkg + "::events::BasketYieldClaimEvent", parseBasketYieldClaim, 8, 50).then(function (rows) {
           rows.forEach(emitByClaim);
         }).catch(function () {});
-        collect(rpc, pkg + "::events::BasketYieldPushEvent", parseBasketYieldPush, 24, 50).then(function (rows) {
+        collect(rpc, pkg + "::events::BasketYieldPushEvent", parseBasketYieldPush, 40, 50).then(function (rows) {
           rows.forEach(emitByPush);
         }).catch(function () {});
         collect(rpc, pkg + "::events::BasketYieldRotateEvent", parseBasketYieldRotate, 4, 50).then(function (rows) {

@@ -7,6 +7,7 @@
 module stocks::bridge {
     use std::type_name::{Self, TypeName};
     use sui::coin::{Self, Coin, TreasuryCap};
+    use sui::coin_registry::{Self, Currency, MetadataCap};
     use sui::event;
     use sui::table::{Self, Table};
 
@@ -63,6 +64,19 @@ module stocks::bridge {
         /// only source of truth for where `release()` should pay out — the
         /// Sui `burner` above is never a valid EVM address on its own.
         rh_dest: vector<u8>,
+    }
+
+    /// Claim CoinRegistry `MetadataCap<T>` using the vault's TreasuryCap.
+    /// Legacy `CoinMetadata` was frozen with no icon at publish; explorers read
+    /// registry icon_url after this cap is used with `coin_registry::set_icon_url`.
+    public fun claim_metadata_cap<T>(
+        vault: &BridgeVault<T>,
+        minter: &MinterCap,
+        currency: &mut Currency<T>,
+        ctx: &mut TxContext,
+    ): MetadataCap<T> {
+        assert!(object::id(vault) == minter.vault_id, EUnauthorized);
+        coin_registry::claim_metadata_cap(currency, &vault.treasury, ctx)
     }
 
     /// Create a vault from a freshly created `TreasuryCap` and a ticker label.

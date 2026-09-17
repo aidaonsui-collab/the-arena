@@ -2,7 +2,7 @@
 name = "stocks"
 edition = "2024.beta"
 license = "Apache-2.0"
-published-at = "0x9a4ba3338384d36033065f9cf0c58078033a718a92f091f12a551f6984c290c5"
+published-at = "0x937f6c5baf6199eb7ba114c4276070af2506b032b2df79f10000f44c61a5bdaf"
 
 [dependencies]
 Sui = { git = "https://github.com/MystenLabs/sui.git", subdir = "crates/sui-framework/packages/sui-framework", rev = "framework/mainnet", override = true }
