@@ -754,6 +754,8 @@ html.shot,html.shot *{animation:none!important;transition:none!important}
 .bridge-pend-main .mono{font-size:12px;font-weight:650}
 .bridge-pend-right{display:flex;align-items:center;gap:8px;margin-left:auto}
 .bridge-pend-sub{color:var(--muted);font-size:11px}
+  .bridge-pend-execbtn{border:1px solid var(--line);background:transparent;color:var(--muted);border-radius:999px;padding:4px 10px;font:inherit;font-size:11px;cursor:pointer}
+  .bridge-pend-execbtn:hover{color:var(--ink);border-color:#5a3a56}
   .bridge-pend-dir{font-size:10px;font-weight:650;letter-spacing:.04em;color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:1px 6px;white-space:nowrap}
 .bridge-pend-pill{border-radius:999px;padding:3px 8px;font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;white-space:nowrap}
 .bridge-pend-pill.wait{background:rgba(255,176,32,.14);color:#FFB020}
@@ -1197,7 +1199,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   let balance = 48.60;
   let xaumBal = 2.40;
 
-  const state = {route:"explore", sym:"VOLT", filter:"All", sort:"Market cap", time:"All", side:"Buy", amt:"1", connected:false, search:"", lName:"", lTick:"", lQuote:"SUI", lPath:"instadex", lMode:"Holders", lTokenAmt:"", lQuoteAmt:"", lFirstBuy:"1", lCap:"", lTokenCoin:"", lQuoteCoin:"", lCoinMode:"create", lDecimals:"9", lSupply:"1000000000", lDesc:"", lX:"", lTg:"", lWeb:"", lPublishedType:"", metricsWindow:"All", tapeTab:"trades", tapeOpen:"", tapePage:0, tapeAge:"age", tapeWallet:"", tapeFilterOpen:false, lFile:null, lArtUrl:"", lArtPreview:"", payWith:"", lNote:"", lNoteErr:false, chartTf:900, chartInd:{vol:true,ma7:false,ma25:false,ma99:false,ema:false}, bridgeTick:"NVDA", bridgeAmt:"", bridgeDir:"in", bridgeRhDest:"", bridgeNote:"", bridgeBusy:false, bridgePending:[], quoteOpen:false, rewardsTab:"all", lBasket:false, lBasketEqual:true, lBasketMode:0, lBasketOn:{XAUM:true,XAGM:true,USDY:true}, lBasketBps:{XAUM:3334,XAGM:3333,USDY:3333}, lSplitPreset:"vice", lSplit:{creator:6000,platform:500,rewards:3000,buyback:500}, pfRange:"1M", pfFlash:"", lockTab:"create", lockKind:"lock", lockTok:"", lockAmt:"", lockDays:"30", lockSelf:"self", lockBen:"", lockCliff:"90", lockEnd:"365", lockNote:"", lockNoteErr:false, lockBusy:false, lockMine:[], lockAll:[], lockLoad:false, scrTab:"mcap", scrSort:"mcap", scrDir:-1, scrQuote:"All", scrBuyUsd:5, scrLiveOnly:false, scrFilters:false, watch:[]};
+  const state = {route:"explore", sym:"VOLT", filter:"All", sort:"Market cap", time:"All", side:"Buy", amt:"1", connected:false, search:"", lName:"", lTick:"", lQuote:"SUI", lPath:"instadex", lMode:"Holders", lTokenAmt:"", lQuoteAmt:"", lFirstBuy:"1", lCap:"", lTokenCoin:"", lQuoteCoin:"", lCoinMode:"create", lDecimals:"9", lSupply:"1000000000", lDesc:"", lX:"", lTg:"", lWeb:"", lPublishedType:"", metricsWindow:"All", tapeTab:"trades", tapeOpen:"", tapePage:0, tapeAge:"age", tapeWallet:"", tapeFilterOpen:false, lFile:null, lArtUrl:"", lArtPreview:"", payWith:"", lNote:"", lNoteErr:false, chartTf:900, chartInd:{vol:true,ma7:false,ma25:false,ma99:false,ema:false}, bridgeTick:"NVDA", bridgeAmt:"", bridgeDir:"in", bridgeRhDest:"", bridgeNote:"", bridgeBusy:false, bridgePending:[], walletCheck:null, quoteOpen:false, rewardsTab:"all", lBasket:false, lBasketEqual:true, lBasketMode:0, lBasketOn:{XAUM:true,XAGM:true,USDY:true}, lBasketBps:{XAUM:3334,XAGM:3333,USDY:3333}, lSplitPreset:"vice", lSplit:{creator:6000,platform:500,rewards:3000,buyback:500}, pfRange:"1M", pfFlash:"", lockTab:"create", lockKind:"lock", lockTok:"", lockAmt:"", lockDays:"30", lockSelf:"self", lockBen:"", lockCliff:"90", lockEnd:"365", lockNote:"", lockNoteErr:false, lockBusy:false, lockMine:[], lockAll:[], lockLoad:false, scrTab:"mcap", scrSort:"mcap", scrDir:-1, scrQuote:"All", scrBuyUsd:5, scrLiveOnly:false, scrFilters:false, watch:[]};
 
   try {
     var watchSaved = JSON.parse(localStorage.getItem("vice.watch.v1") || "[]");
@@ -7768,6 +7770,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
           cta+
           note+
           pendingHTML()+
+          walletCheckHTML()+
         '</div>'+
       '</div>'+
       '</div>'+
@@ -7783,6 +7786,122 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
    * Robinhood Chain finality is invisible and a perfectly healthy deposit looks
    * like it vanished.
    */
+  /**
+   * Wallet compatibility check.
+   *
+   * Bitget was only found to be broken because a real user hit it: it
+   * advertised all four signing features and then fulfilled the request with a
+   * result carrying no digest. Nothing in CI can catch that, because the bug
+   * lives in a wallet extension we do not own. This lets anyone holding any
+   * wallet exercise the real signing path on the real site and report back.
+   *
+   * Hidden unless ?walletcheck is in the URL, so it adds nothing to the normal
+   * bridge UI.
+   */
+  function walletCheckOn(){
+    try {
+      return /(^|[?&])walletcheck(=|&|$)/i.test(String(location.search || "")) ||
+             /walletcheck/i.test(String(location.hash || ""));
+    } catch (e) { return false; }
+  }
+
+  /** A transaction of the same shape as a burn: a split plus a transfer. */
+  async function walletCheckTx(){
+    var Transaction = await loadTransaction();
+    var tx = new Transaction();
+    tx.setSender(suiSession.address);
+    var split = tx.splitCoins(tx.gas, [txAmt(1n)]);
+    var coin = Array.isArray(split) ? split[0] : split;
+    // Back to the sender: if the execute step is ever run, it moves 1 MIST to
+    // the tester themselves and costs only gas.
+    tx.transferObjects([coin], suiSession.address);
+    return tx;
+  }
+
+  /**
+   * Sign-only by default: sui:signTransaction produces a signature without
+   * broadcasting, so the default run cannot move anything or cost anything.
+   * `execute` additionally exercises the signAndExecute path — the one Bitget
+   * failed — by really submitting the 1 MIST self-transfer above.
+   */
+  async function walletCheckRun(execute){
+    var out = { wallet: walletLabel(suiSession.wallet) || "unknown", steps: [], features: [] };
+    var w = suiSession.wallet;
+    if (!w) { out.steps.push({ step: "connect", ok: false, detail: "no wallet connected" }); return out; }
+    var feats = w.features || {};
+    out.features = ["sui:signTransaction","sui:signTransactionBlock",
+                    "sui:signAndExecuteTransaction","sui:signAndExecuteTransactionBlock"]
+                   .filter(function(k){ return !!feats[k]; })
+                   .map(function(k){ return k.replace("sui:",""); });
+
+    var tx = null;
+    try { tx = await walletCheckTx(); out.steps.push({ step: "build tx", ok: true }); }
+    catch (e){ out.steps.push({ step: "build tx", ok: false, detail: walletErrText(e) }); return out; }
+
+    var bytes = null;
+    try { bytes = await buildTxBytes(tx); out.steps.push({ step: "serialize", ok: !!bytes }); }
+    catch (e){ out.steps.push({ step: "serialize", ok: false, detail: walletErrText(e) }); }
+
+    var signTx = feats["sui:signTransaction"] && feats["sui:signTransaction"].signTransaction;
+    if (signTx){
+      try {
+        var signed = await signTx({ transaction: tx, account: suiSession.account, chain: "sui:mainnet" });
+        var sig = signed && signed.signature;
+        out.steps.push({ step: "signTransaction (no broadcast)", ok: !!sig,
+                         detail: sig ? "signature returned" : "resolved without a signature" });
+      } catch (e){
+        out.steps.push({ step: "signTransaction (no broadcast)", ok: false, detail: walletErrText(e) });
+      }
+    } else {
+      out.steps.push({ step: "signTransaction (no broadcast)", ok: false, detail: "feature not exposed" });
+    }
+
+    if (execute){
+      try {
+        var res = await walletExec(tx);
+        var dg = txDigest(res);
+        out.steps.push({ step: "signAndExecute (1 MIST to self)", ok: !!dg,
+                         detail: dg ? ("digest "+String(dg).slice(0,12)+"…")
+                                    : "resolved with NO digest — this is the Bitget failure" });
+      } catch (e){
+        out.steps.push({ step: "signAndExecute (1 MIST to self)", ok: false, detail: walletErrText(e) });
+      }
+    }
+    return out;
+  }
+
+  function walletCheckHTML(){
+    if (!walletCheckOn()) return "";
+    var r = state.walletCheck;
+    var body;
+    if (!r){
+      body = '<div class="bridge-pend-foot">Signs a burn-shaped transaction without broadcasting. Nothing moves and nothing is spent.</div>';
+    } else {
+      body = '<ul class="bridge-pend-list">'+
+        r.steps.map(function(s){
+          return '<li class="bridge-pend-row">'+
+            '<span class="bridge-pend-main"><span class="mono">'+escHtml(s.step)+'</span></span>'+
+            '<span class="bridge-pend-right">'+
+              (s.detail ? '<span class="bridge-pend-sub">'+escHtml(s.detail)+'</span>' : '')+
+              '<span class="bridge-pend-pill '+(s.ok ? "ok" : "wait")+'">'+(s.ok ? "OK" : "FAIL")+'</span>'+
+            '</span></li>';
+        }).join("")+'</ul>'+
+        '<div class="bridge-pend-foot">wallet: '+escHtml(r.wallet)+' · signing: '+
+          escHtml(r.features.length ? r.features.join(", ") : "none exposed")+'</div>';
+    }
+    // Its own root class: paintBridgePending() targets .bridge-pend and removes
+    // it when there are no deposits, which was deleting this panel a tick after
+    // it rendered.
+    return '<div class="bridge-pend bridge-wcheck">'+
+      '<div class="bridge-pend-head"><span>Wallet check</span>'+
+        '<button type="button" data-wallet-check title="Run">▶</button></div>'+
+      body+
+      '<div class="bridge-pend-foot" style="margin-top:6px">'+
+        '<button type="button" data-wallet-check-exec class="bridge-pend-execbtn">Also test execute (sends 1 MIST to yourself, costs gas)</button>'+
+      '</div>'+
+    '</div>';
+  }
+
   function pendingHTML(){
     var rows = state.bridgePending || [];
     if (!rows.length) return "";
@@ -9080,7 +9199,7 @@ async function doBridgeDeposit(){
   function paintBridgePending(){
     if (state.route !== "bridge") return;
     var html = pendingHTML();
-    var host = document.querySelector(".bridge-pend");
+    var host = document.querySelector(".bridge-pend:not(.bridge-wcheck)");
     var card = document.querySelector(".bridge-card");
     if (!html){
       if (host) host.remove();
@@ -12275,6 +12394,28 @@ async function doBridgeDeposit(){
     }
     if (e.target.closest("[data-bridge-refresh-pending]")){
       refreshPendingDeposits();
+      return;
+    }
+    var wcBtn = e.target.closest("[data-wallet-check]");
+    var wcExec = e.target.closest("[data-wallet-check-exec]");
+    if (wcBtn || wcExec){
+      if (!suiSession.address){ openWalletPicker(); return; }
+      if (wcExec && !window.confirm(
+        "This signs AND submits a real transaction: 1 MIST back to your own address.\n\n"+
+        "It moves no tokens other than that and costs only gas, but it is a real "+
+        "on-chain transaction. Continue?"
+      )) return;
+      state.walletCheck = { wallet: walletLabel(suiSession.wallet) || "…", features: [],
+                            steps: [{ step: wcExec ? "running (with execute)…" : "running…", ok: true }] };
+      if (state.route === "bridge") renderScreen();
+      walletCheckRun(!!wcExec).then(function(r){
+        state.walletCheck = r;
+        if (state.route === "bridge") renderScreen();
+      }).catch(function(err){
+        state.walletCheck = { wallet: walletLabel(suiSession.wallet) || "unknown", features: [],
+                              steps: [{ step: "check failed", ok: false, detail: walletErrText(err) }] };
+        if (state.route === "bridge") renderScreen();
+      });
       return;
     }
     if (e.target.closest("[data-bridge-max]")){
