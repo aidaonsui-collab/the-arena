@@ -27,7 +27,7 @@ keeper phrase env or local Sui keystore. Never print or commit private keys.
 
 Defaults:
 - RH_RPC = https://rpc.mainnet.chain.robinhood.com
-- RH_VAULT_ADDRESS = 0xB0DbeAa279A4D1c5BBB67f7083a3C5445Af3c058
+- RH_VAULT_ADDRESS = 0x3870b3B4767bf96C88828A992448cCf55530f0c9
 
 Dry-run once (no live mint):
   STOCKS_MINT_DRY_RUN=1 RH_WATCH_LOOKBACK=2000 npx tsx src/cli.ts watch-rh

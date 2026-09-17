@@ -1,5 +1,18 @@
 # StockLockVault → StockLockVaultV2 migration
 
+> **DONE — 2026-09-17. Do not re-run any step here.**
+>
+> v2 is live at `0x3870b3B4767bf96C88828A992448cCf55530f0c9`, unpaused, all four
+> tokens allowlisted, backing synced and matching holdings exactly. v1 is
+> drained and delisted (`deposit` reverts). Verified state and per-token figures
+> are in [`PUBLISHED.md`](./PUBLISHED.md).
+>
+> Steps 2 and 3 in particular are destructive and must not be repeated: step 2
+> revokes the allowlist, step 3 releases locks that no longer exist.
+>
+> Kept as the record of what was done, and as the template if a v3 is ever
+> needed.
+
 Why: v1's `release(depositId, to)` pays **whole deposits only**, so a Sui burn
 that isn't an exact FIFO prefix-sum of unreleased locks can't be paid in full.
 `bridge::burn` destroys the wrapper unconditionally, so the shortfall was simply

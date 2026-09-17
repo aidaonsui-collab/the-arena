@@ -7,7 +7,8 @@ Sui wrap package (live): `0x9a4ba3338384d36033065f9cf0c58078033a718a92f091f12a55
 
 ## Published (mainnet 4663)
 
-- **RH_VAULT_ADDRESS**: [`0xB0DbeAa279A4D1c5BBB67f7083a3C5445Af3c058`](https://robinhoodchain.blockscout.com/address/0xB0DbeAa279A4D1c5BBB67f7083a3C5445Af3c058)
+- **RH_VAULT_ADDRESS** (StockLockVaultV2, live): [`0x3870b3B4767bf96C88828A992448cCf55530f0c9`](https://robinhoodchain.blockscout.com/address/0x3870b3B4767bf96C88828A992448cCf55530f0c9)
+- v1 `0xB0DbeAa279A4D1c5BBB67f7083a3C5445Af3c058` is retired — drained and delisted, `deposit` reverts. Do not point anything at it.
 - **Create tx**: [`0x971feabc20d09c63cbb738226a234aa48f48aad84dc094b2b99cc02b2e95d27d`](https://robinhoodchain.blockscout.com/tx/0x971feabc20d09c63cbb738226a234aa48f48aad84dc094b2b99cc02b2e95d27d)
 - Details: [`PUBLISHED.md`](./PUBLISHED.md)
 
@@ -69,13 +70,14 @@ After deploy, set keeper env:
 
 ```bash
 export RH_RPC=https://rpc.mainnet.chain.robinhood.com
-export RH_VAULT_ADDRESS=0xB0DbeAa279A4D1c5BBB67f7083a3C5445Af3c058   # StockLockVault address
+export RH_VAULT_ADDRESS=0x3870b3B4767bf96C88828A992448cCf55530f0c9   # StockLockVaultV2 address
 ```
 
 ## Roles
 
 - `DEFAULT_ADMIN_ROLE` — allowlist tokens (`setTokenAllowed` / `setTokensAllowed`), grant roles
-- `RELEASER_ROLE` — `release(depositId, to)` after Sui burn attestation
+- `RELEASER_ROLE` — `release(token, amount, to, suiBurnRef)` after Sui burn attestation
+- `GUARDIAN_ROLE` — `pause()` only; no spending power (admin-only `unpause`)
 
 ## Bridge CTA (Arena pad): approve + deposit
 
@@ -174,7 +176,7 @@ const receipt = await tx.wait();
 
 ```bash
 export RH_RPC=https://rpc.mainnet.chain.robinhood.com
-export RH_VAULT_ADDRESS=0xB0DbeAa279A4D1c5BBB67f7083a3C5445Af3c058
+export RH_VAULT_ADDRESS=0x3870b3B4767bf96C88828A992448cCf55530f0c9
 export RH_WATCH_POLL_MS=15000       # optional
 export RH_WATCH_BLOCK_TAG=safe      # optional: latest|safe|finalized (default safe)
 export RH_WATCH_CONFIRMATIONS=0     # optional: extra blocks below that tag

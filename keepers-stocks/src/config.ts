@@ -11,10 +11,10 @@ export const STOCKS_PACKAGE =
 export const MINTER_HOLDER =
   "0x92a32ac7fd525f8bd37ed359423b8d7d858cad26224854dfbff1914b75ee658b";
 
-/** Robinhood Chain mainnet StockLockVault (chainId 4663). */
+/** Robinhood Chain mainnet StockLockVaultV2 (chainId 4663). */
 export const DEFAULT_RH_RPC = "https://rpc.mainnet.chain.robinhood.com";
 export const DEFAULT_RH_VAULT_ADDRESS =
-  "0xB0DbeAa279A4D1c5BBB67f7083a3C5445Af3c058";
+  "0x3870b3B4767bf96C88828A992448cCf55530f0c9";
 export const RH_CHAIN_ID = 4663;
 /** Public RELEASER_ROLE holder (not a key). Used as eth_call `from` in dry-run. */
 export const DEFAULT_RH_RELEASER_ADDRESS =
