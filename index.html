@@ -3145,8 +3145,11 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   function chText(k){ return (k.ch>=0?"+":"")+k.ch.toFixed(1)+"%"; }
   function chColor(k){ return k.ch>=0 ? "#298DFF" : "#FF6640"; }
   function rank(i){ return String(i+1).padStart(2,"0"); }
+  // Keys must be normType()'d and lowercased — that is what isHiddenToken
+  // compares against.
   var HIDDEN_COIN_TYPES = {
-    "0xa0b937f9f6c7cd7e865b3c5bde42dc21dee8e847a7226e6de3aa9af4f64059b4::ncat::ncat": true
+    "0xa0b937f9f6c7cd7e865b3c5bde42dc21dee8e847a7226e6de3aa9af4f64059b4::ncat::ncat": true,
+    "0xbe1af5ef6e6ffa70a298947fd173932e24f98aa1488d77875bee1eff747e107c::nncat::nncat": true
   };
   function looksLikeCoinType(s){
     s = String(s || "");
