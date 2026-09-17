@@ -925,13 +925,30 @@ html[data-route="explore"] main{padding-top:10px;padding-bottom:24px}
   .scr-mlist{display:block;order:6;overflow-x:auto;-webkit-overflow-scrolling:touch;margin:0 -12px;padding:0 12px 8px;scrollbar-width:none}
   .scr-mlist::-webkit-scrollbar{display:none}
   .mrow{display:flex;align-items:center;min-width:680px;min-height:76px;border-bottom:1px solid color-mix(in srgb,var(--ink) 7%,transparent);cursor:pointer}
-  .mrow-id{position:sticky;left:0;z-index:2;display:flex;align-items:center;gap:8px;width:158px;flex:none;background:var(--bg);padding:8px 8px 8px 0;box-shadow:12px 0 12px -8px var(--bg)}
+  /* The identity column is sticky over a 680px-wide scrolling row, so every
+     px here is taken from the data columns. It still has to fit rank +
+     avatar + name block + star: at 158px with 8px gaps and a 44px avatar the
+     name block was squeezed to exactly 30px, and .mrow-tick (nowrap, and
+     previously unclipped) painted its 51-78px of text straight over the star.
+     Widened a little, avatar back down to the 32px the rest of the screener
+     uses, tighter gaps — and the tick line now clips, so text can never reach
+     the star again regardless of ticker length. */
+  .mrow-id{position:sticky;left:0;z-index:2;display:flex;align-items:center;gap:6px;width:182px;flex:none;background:var(--bg);padding:8px 8px 8px 0;box-shadow:12px 0 12px -8px var(--bg)}
   .mrow-rank{width:16px;flex:none;font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:12px;color:var(--muted)}
-  .mrow-id .scr-av{width:44px;height:44px;border-radius:12px}
-  .mrow-copy{min-width:0;flex:1}
-  .mrow-tick{display:flex;align-items:center;gap:5px;font-size:14px;font-weight:700;letter-spacing:-.02em;white-space:nowrap}
-  .mrow-name{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:72px}
-  .mrow-id .scr-star{width:36px;height:36px;margin-left:auto}
+  .mrow-id .scr-av{width:32px;height:32px;border-radius:9px}
+  .mrow-copy{min-width:0;flex:1;overflow:hidden}
+  /* 2px keeps the quote logo off the clip edge — without it the logo lands
+     flush against the boundary and reads as sliced. */
+  .mrow-tick{display:flex;align-items:center;gap:5px;font-size:14px;font-weight:700;letter-spacing:-.02em;white-space:nowrap;min-width:0;overflow:hidden;padding-right:2px}
+  /* Only the symbol truncates. The quote logo and hot badge hold their size,
+     so a long ticker ellipsises instead of the 14px logo being sliced in half
+     by the clip above. */
+  .mrow-sym{min-width:0;overflow:hidden;text-overflow:ellipsis}
+  .mrow-tick > span:not(.mrow-sym){flex:none}
+  .mrow-name{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+  /* Sits flush to the column's right edge. Keeps a 36px box for the tap
+     target while the glyph itself stays small. */
+  .mrow-id .scr-star{width:36px;height:36px;margin-left:auto;flex:none}
   .mrow-spark{flex:none;width:112px;display:grid;place-items:center;padding:0 6px}
   .mrow-cell{flex:none;width:92px;padding:0 10px;font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:13px;font-weight:600;font-variant-numeric:tabular-nums;text-align:right}
   .mrow-k{display:block;font-family:"Instrument Sans",ui-sans-serif,sans-serif;font-size:10px;font-weight:650;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:2px}
@@ -5440,7 +5457,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     var hot = r.status === "Graduating" ? '<span class="scr-hot">Hot</span>' : "";
     return '<article class="mrow" data-go="token:'+escAttr(r.ticker)+'">'+
       '<div class="mrow-id"><span class="mrow-rank">'+rank+'</span>'+scrAv(r.k, 44)+
-        '<div class="mrow-copy"><div class="mrow-tick">'+escHtml(r.ticker)+'<span title="'+escAttr(r.quote)+'">'+quoteLogoHtml(r.quote, "scr-quote-logo")+'</span>'+hot+'</div><div class="mrow-name">'+(String(r.ticker).toUpperCase()==="VICEFUN"?"platform token":escHtml(r.name))+'</div></div>'+
+        '<div class="mrow-copy"><div class="mrow-tick"><span class="mrow-sym">'+escHtml(r.ticker)+'</span><span title="'+escAttr(r.quote)+'">'+quoteLogoHtml(r.quote, "scr-quote-logo")+'</span>'+hot+'</div><div class="mrow-name">'+(String(r.ticker).toUpperCase()==="VICEFUN"?"platform token":escHtml(r.name))+'</div></div>'+
         scrStarBtn(r.ticker, r.watched)+'</div>'+
       '<div class="mrow-spark">'+scrSpark(r.pts, up, 108, 44)+'</div>'+
       '<div class="mrow-cell"><span class="mrow-k">Mcap</span>'+scrFmtCompact(r.mcap)+'<span class="chg '+(up?"up":"down")+'">'+scrChgText(r.ch)+'</span></div>'+
