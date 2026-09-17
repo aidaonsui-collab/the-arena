@@ -547,8 +547,22 @@ export async function runRedeemWatcher(cfg: RedeemWatcherConfig = {}) {
 
   const attempts: BurnAttempt[] = [];
 
+  // A pooled (v2) vault never consults per-deposit locks, but listLocks was
+  // still walking every deposit with one eth_call each, on every 15s poll.
+  // That is what filled the log with 429s — and a rate-limited RPC is also how
+  // a release fails to broadcast. Resolve the generation once and skip it.
+  let pooledVault: boolean | null = null;
   const pass = async () => {
-    const locks = await listLocks(rhRpc, vault);
+    if (pooledVault === null) {
+      try {
+        const probe = await tryBackingOf(rhRpc, vault, tickerToken("NVDA"));
+        pooledVault = probe !== null;
+        console.log(JSON.stringify({ event: "watch", vaultGeneration: pooledVault ? "v2-pooled" : "v1-locks" }));
+      } catch {
+        pooledVault = null; // undetermined; fall back to loading locks
+      }
+    }
+    const locks = pooledVault === true ? [] : await listLocks(rhRpc, vault);
     const claimed = new Set(
       Object.keys(loadRedeemStore().releasedDepositIds).filter((id) => isDepositReleased(id)),
     );
