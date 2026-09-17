@@ -8021,6 +8021,137 @@ async function doBridgeDeposit(){
       }
     }
   }
+  // --- RH redeem preflight -------------------------------------------------
+  // StockLockVault.release(depositId,to) is all-or-nothing per deposit, so the
+  // keeper can only pay a burn that equals a FIFO prefix-sum of whole
+  // unreleased locks. A burn that does not is irreversible on Sui but only
+  // partly (or never) paid on RH — the leftover is not retried and the coins
+  // are already gone. So refuse to build that burn in the first place and tell
+  // the user exactly what is redeemable. Mirrors keepers-stocks/src/matchFifo.ts.
+  var RH_NEXT_DEPOSIT_ID_SEL = "0x8070a4bd"; // nextDepositId()
+  var RH_GET_LOCK_SEL = "0xd68f4dd1";        // getLock(uint256)
+
+  /** RH base units per wrapper unit, e.g. 18dp RH -> 9dp wrap = 1e9. */
+  function rhToSuiScale(st){
+    var rhDec = stockBridgeDecimals(st, false);
+    var suiDec = stockBridgeDecimals(st, true);
+    var d = rhDec - suiDec;
+    if (!(d >= 0)) throw new Error("bad decimals for "+(st && st.ticker));
+    return 10n ** BigInt(d);
+  }
+
+  async function rhEthCall(to, data){
+    var url = window.ARENA_RH_RPC || "https://rpc.mainnet.chain.robinhood.com";
+    var res = await fetch(url, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ jsonrpc:"2.0", id:1, method:"eth_call", params:[{ to: to, data: data }, "latest"] })
+    });
+    if (!res.ok) throw new Error("RH RPC HTTP "+res.status);
+    var body = await res.json();
+    if (body && body.error) throw new Error("RH RPC: "+(body.error.message || "call failed"));
+    return String(body.result || "0x");
+  }
+
+  function rhWord(hex, i){
+    var h = String(hex || "").replace(/^0x/, "");
+    return h.slice(i*64, i*64 + 64);
+  }
+  function rhWordBig(hex, i){
+    var w = rhWord(hex, i);
+    return w ? BigInt("0x"+w) : 0n;
+  }
+  function rhWordAddr(hex, i){
+    return ("0x" + rhWord(hex, i).slice(-40)).toLowerCase();
+  }
+  function rhPad32(n){
+    return n.toString(16).padStart(64, "0");
+  }
+
+  /** Unreleased locks for one RH token, oldest first. Read-only, no wallet. */
+  async function rhUnreleasedLocks(vaultAddr, rhToken, scale){
+    var next = await rhEthCall(vaultAddr, RH_NEXT_DEPOSIT_ID_SEL);
+    var n = next && next !== "0x" ? BigInt(next) : 0n;
+    if (n <= 1n) return [];
+    var want = String(rhToken || "").toLowerCase();
+    var out = [];
+    // Sequential ids from 1; batch a few at a time to stay polite to the RPC.
+    var ids = [];
+    for (var i = 1n; i < n; i++) ids.push(i);
+    for (var c = 0; c < ids.length; c += 8){
+      var slice = ids.slice(c, c + 8);
+      var parts = await Promise.all(slice.map(function(id){
+        return rhEthCall(vaultAddr, RH_GET_LOCK_SEL + rhPad32(id)).then(function(d){
+          return { id: id, data: d };
+        }).catch(function(){ return null; });
+      }));
+      for (var p = 0; p < parts.length; p++){
+        var part = parts[p];
+        if (!part) continue;
+        var hex = String(part.data || "").replace(/^0x/, "");
+        if (hex.length < 320) continue;
+        var depositor = rhWordAddr(part.data, 0);
+        if (depositor === "0x0000000000000000000000000000000000000000") continue;
+        var token = rhWordAddr(part.data, 1);
+        if (token !== want) continue;
+        if (rhWordBig(part.data, 4) !== 0n) continue; // released
+        var amount = rhWordBig(part.data, 2);
+        if (amount <= 0n) continue;
+        out.push({ depositId: part.id, amount: amount, sui: amount / scale });
+      }
+    }
+    out.sort(function(a,b){ return a.depositId < b.depositId ? -1 : a.depositId > b.depositId ? 1 : 0; });
+    return out;
+  }
+
+  /**
+   * Prefix sums of whole unreleased locks, in wrapper units — the only burn
+   * amounts the keeper can pay in full. Dust locks (sui === 0) are skipped,
+   * matching the keeper's own matcher.
+   */
+  function rhRedeemableAmounts(locks){
+    var sums = [];
+    var acc = 0n;
+    for (var i = 0; i < locks.length; i++){
+      if (locks[i].sui === 0n) continue;
+      acc += locks[i].sui;
+      sums.push(acc);
+    }
+    return sums;
+  }
+
+  function fmtWrap(v, dec){
+    try { return fromBaseStr(v, dec); } catch (e) { return String(v); }
+  }
+
+  /** Throws with an actionable message when `amount` is not fully payable. */
+  async function assertRedeemable(st, amount){
+    var vaultAddr = st.rhVault || window.ARENA_RH_VAULT;
+    if (!vaultAddr) throw new Error("ARENA_RH_VAULT missing");
+    if (!st.rhToken) throw new Error("RH token missing for "+st.ticker);
+    var locks = await rhUnreleasedLocks(vaultAddr, st.rhToken, rhToSuiScale(st));
+    var sums = rhRedeemableAmounts(locks);
+    var dec = stockBridgeDecimals(st, true);
+    if (!sums.length){
+      throw new Error(
+        "No "+st.ticker+" collateral is currently unlocked on Robinhood Chain, so this burn could not be paid out. "+
+        "Burning is irreversible — nothing was burned. Try again once a deposit is outstanding."
+      );
+    }
+    for (var i = 0; i < sums.length; i++) if (sums[i] === amount) return true;
+    var max = sums[sums.length - 1];
+    var best = null;
+    for (var j = 0; j < sums.length; j++) if (sums[j] < amount) best = sums[j];
+    var opts = sums.slice(0, 4).map(function(s){ return fmtWrap(s, dec); }).join(", ");
+    var hint = amount > max
+      ? ("Most that can be redeemed right now is "+fmtWrap(max, dec)+" "+st.ticker+".")
+      : ("Nearest payable amount below yours is "+(best !== null ? fmtWrap(best, dec) : "none")+" "+st.ticker+".");
+    throw new Error(
+      "That amount can't be paid out in full yet. RH releases whole deposits, so only these amounts redeem cleanly right now: "+
+      opts+(sums.length > 4 ? ", …" : "")+". "+hint+" Nothing was burned."
+    );
+  }
+
   async function doBridgeBurn(){
     if (state.bridgeBusy) return;
     var st = stockRec(state.bridgeTick);
@@ -8037,6 +8168,12 @@ async function doBridgeDeposit(){
       if (btn){ btn.disabled = true; btn.textContent = "Building…"; }
       var bal = await coinBalanceOf(suiSession.address, st.suiCoin);
       if (bal < amount) throw new Error("Need "+fromBaseStr(amount, stockBridgeDecimals(st, true))+" "+st.ticker+" wrap. Wallet has "+fromBaseStr(bal, stockBridgeDecimals(st, true))+".");
+      // Preflight the RH payout BEFORE burning. bridge::burn destroys the coin
+      // unconditionally; the release side can only pay whole unreleased
+      // deposits, and an unpayable remainder is never retried. Refuse rather
+      // than let the user burn into a partial (or zero) payout.
+      if (btn) btn.textContent = "Checking RH…";
+      await assertRedeemable(st, amount);
       var Transaction = await loadTransaction();
       var tx = new Transaction();
       tx.setSender(suiSession.address);
