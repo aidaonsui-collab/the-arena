@@ -1856,8 +1856,8 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     return null;
   }
 
-  function gql(query, variables){
-    return fetch(window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graphql", {
+  function gqlOnce(url, query, variables){
+    return fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ query: query, variables: variables || {} })
@@ -1869,6 +1869,26 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
         if (j.errors && j.errors.length) throw new Error(j.errors[0].message || "graphql");
         return j.data;
       });
+    });
+  }
+  /**
+   * Sui GraphQL, through our own origin first.
+   *
+   * graphql.mainnet.sui.io sends no Access-Control-Allow-Origin, so calling it
+   * straight from the browser is blocked before the request leaves — every call
+   * throws TypeError "Failed to fetch". Most callers catch that and quietly
+   * degrade, which is why the site looks healthy; coinsOfExact does not, so the
+   * bridge burn surfaced it as a bare "Failed to fetch" and redeem could never
+   * complete. /api/sui-gql takes the browser out of the CORS equation. The
+   * direct URL stays as a fallback for a static preview with no functions.
+   */
+  function gql(query, variables){
+    var direct = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graphql";
+    return gqlOnce("/api/sui-gql", query, variables).catch(function(e){
+      // A GraphQL-level error is a real answer, not a transport failure —
+      // do not replay the query upstream.
+      if (e && /^graphql/.test(String(e.message || ""))) throw e;
+      return gqlOnce(direct, query, variables);
     });
   }
   function saveWalletPref(w, addr){
@@ -2561,7 +2581,50 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     if (b && typeof b === "object") b = b.value;
     try { return BigInt(String(b == null ? "0" : b)); } catch (e) { return 0n; }
   }
+  /**
+   * The user's coin objects of one type, newest-largest first.
+   *
+   * JSON-RPC first, via rpcJson's RPC_EXEC fallback chain. The GraphQL path
+   * below it is CORS-blocked from the browser (graphql.mainnet.sui.io sends no
+   * Access-Control-Allow-Origin), and since this is the only gql() caller with
+   * no try/catch around it, that surfaced as a bare "Failed to fetch" and made
+   * the bridge burn impossible to complete. Deliberately not routed through
+   * /api/sui-gql: Sui's GraphQL rate-limits by IP, so proxying the redeem path
+   * would pool every user onto one egress IP. suix_getCoins is served by all
+   * three RPC_EXEC endpoints.
+   */
+  async function coinsOfCoinType(owner, coinType){
+    var t = normType(coinType);
+    var out = [];
+    var cursor = null;
+    for (var page = 0; page < 8; page++){
+      var res = await rpcJson("suix_getCoins", [owner, t, cursor, 50]);
+      var data = (res && res.data) || [];
+      for (var i = 0; i < data.length; i++){
+        var c = data[i];
+        var big = BigInt(String(c.balance || "0"));
+        if (big > 0n){
+          out.push({
+            id: c.coinObjectId,
+            value: Number(big > BigInt(Number.MAX_SAFE_INTEGER) ? Number.MAX_SAFE_INTEGER : big),
+            valueBig: big
+          });
+        }
+      }
+      if (!(res && res.hasNextPage && res.nextCursor)) break;
+      cursor = res.nextCursor;
+    }
+    out.sort(function(a,b){ return a.valueBig < b.valueBig ? 1 : -1; });
+    return out;
+  }
   async function coinsOfExact(owner, coinType){
+    try {
+      var viaRpc = await coinsOfCoinType(owner, coinType);
+      if (viaRpc && viaRpc.length) return viaRpc;
+    } catch (e) { /* fall through to GraphQL */ }
+    return coinsOfExactGql(owner, coinType);
+  }
+  async function coinsOfExactGql(owner, coinType){
     var t = "0x2::coin::Coin<" + normType(coinType) + ">";
     var out = [];
     var after = null;
