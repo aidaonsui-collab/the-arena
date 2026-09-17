@@ -2308,6 +2308,18 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     var m = walletErrText(err);
     return /reject|denied|cancelled|canceled/i.test(m);
   }
+  /**
+   * A wallet result only counts if it carries a transaction digest.
+   *
+   * Bitget (and others) can fulfil a signing request with an object that has
+   * no digest — nothing was signed, nothing executed, no error thrown. Every
+   * branch below used to `return` that straight out, which is how a burn that
+   * never happened was reported as done. Anything digest-less is treated as
+   * "this method did not work", so the next one is tried instead.
+   */
+  function walletResultOk(r){
+    return r && txDigest(r) ? r : null;
+  }
   async function walletExec(tx, asJson){
     var w = suiSession.wallet;
     var account = suiSession.account;
@@ -2346,14 +2358,25 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       }
     }
     var execBlock = feats["sui:signAndExecuteTransactionBlock"] && feats["sui:signAndExecuteTransactionBlock"].signAndExecuteTransactionBlock;
-    if (execBlock && bytes){
-      try {
-        return await execBlock({
-          transactionBlock: bytes, account: account, chain: "sui:mainnet", options: opts
-        });
-      } catch (e) {
-        last = e;
-        if (isWalletReject(e)) throw e;
+    if (execBlock){
+      // The wallet standard types transactionBlock as a Transaction, not raw
+      // bytes. Wallets that take bytes anyway are common enough that bytes
+      // stayed first historically, but a strict one can resolve with nothing
+      // rather than erroring — so try the Transaction object too.
+      var execArgs = [];
+      if (bytes) execArgs.push(bytes);
+      execArgs.push(tx);
+      for (var ei = 0; ei < execArgs.length; ei++){
+        try {
+          var execRes = walletResultOk(await execBlock({
+            transactionBlock: execArgs[ei], account: account, chain: "sui:mainnet", options: opts
+          }));
+          if (execRes) return execRes;
+          last = last || new Error("Wallet returned no transaction digest");
+        } catch (e) {
+          last = e;
+          if (isWalletReject(e)) throw e;
+        }
       }
     }
     var attempts = [];
@@ -2368,9 +2391,11 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     if (signExec){
       for (var i = 0; i < attempts.length; i++){
         try {
-          return await signExec({
+          var seRes = walletResultOk(await signExec({
             transaction: attempts[i], account: account, chain: "sui:mainnet", options: opts
-          });
+          }));
+          if (seRes) return seRes;
+          last = last || new Error("Wallet returned no transaction digest");
         } catch (e) {
           last = e;
           if (isWalletReject(e)) throw e;
@@ -2379,7 +2404,11 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     }
     if (typeof w.signAndExecuteTransactionBlock === "function" && bytes){
       try {
-        return await w.signAndExecuteTransactionBlock({ transactionBlock: bytes, options: opts });
+        var legRes = walletResultOk(
+          await w.signAndExecuteTransactionBlock({ transactionBlock: bytes, options: opts })
+        );
+        if (legRes) return legRes;
+        last = last || new Error("Wallet returned no transaction digest");
       } catch (e) {
         last = e;
         if (isWalletReject(e)) throw e;
