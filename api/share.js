@@ -56,6 +56,7 @@ async function gql(query, variables) {
 const HIDE = new Set(["BFLN", "GRAD", "SMOKE", "IDEX", "SILVER"]);
 const HIDE_TYPES = new Set([
   "0xa0b937f9f6c7cd7e865b3c5bde42dc21dee8e847a7226e6de3aa9af4f64059b4::ncat::ncat",
+  "0xbe1af5ef6e6ffa70a298947fd173932e24f98aa1488d77875bee1eff747e107c::nncat::nncat",
 ]);
 
 function normType(s) {
