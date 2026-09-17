@@ -754,6 +754,7 @@ html.shot,html.shot *{animation:none!important;transition:none!important}
 .bridge-pend-main .mono{font-size:12px;font-weight:650}
 .bridge-pend-right{display:flex;align-items:center;gap:8px;margin-left:auto}
 .bridge-pend-sub{color:var(--muted);font-size:11px}
+  .bridge-pend-dir{font-size:10px;font-weight:650;letter-spacing:.04em;color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:1px 6px;white-space:nowrap}
 .bridge-pend-pill{border-radius:999px;padding:3px 8px;font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;white-space:nowrap}
 .bridge-pend-pill.wait{background:rgba(255,176,32,.14);color:#FFB020}
 .bridge-pend-pill.go{background:rgba(41,141,255,.16);color:var(--sui)}
@@ -7785,31 +7786,56 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   function pendingHTML(){
     var rows = state.bridgePending || [];
     if (!rows.length) return "";
-    var pend = rows.filter(function(r){ return r.status !== "minted"; });
+    var pend = rows.filter(function(r){
+      return r.status !== "minted" && r.status !== "released";
+    });
     var shown = pend.length ? pend : rows.slice(0, 2);
     var exp = (window.ARENA_RH_EXPLORER || "https://robinhoodchain.blockscout.com").replace(/\/$/, "");
     var items = shown.map(function(r){
-      var label, cls, sub;
-      if (r.status === "minted"){
+      var label, cls, sub, href, hint;
+      if (r.dir === "out"){
+        // A redeem's receipt is two transactions: the Sui burn, then the RH
+        // release. Link whichever end is the newest fact, so the row always
+        // points at something the user can actually open.
+        if (r.status === "released"){
+          label = "Released"; cls = "ok";
+          sub = r.rhTx ? "RH "+String(r.rhTx).slice(0, 10)+"…" : "paid out on RH";
+          href = r.rhTx ? exp+"/tx/"+r.rhTx : "";
+          hint = "View the RH release";
+        } else {
+          label = "Burned"; cls = "go";
+          sub = "releasing on RH…";
+          href = r.suiDigest ? "https://suiscan.xyz/mainnet/tx/"+r.suiDigest : "";
+          hint = "View the Sui burn";
+        }
+      } else if (r.status === "minted"){
         label = "Minted"; cls = "ok";
         sub = r.mintedDigest ? "Sui "+String(r.mintedDigest).slice(0, 10)+"…" : "wrap delivered";
+        href = exp+"/tx/"+r.txHash; hint = "View the RH lock";
       } else if (r.status === "awaiting-finality"){
         label = "Finalizing"; cls = "wait";
         sub = (r.etaSec != null ? fmtEta(r.etaSec) : "a few minutes")+
           (r.blocksLeft != null ? " · "+r.blocksLeft.toLocaleString()+" blocks to safe" : "");
+        href = exp+"/tx/"+r.txHash; hint = "View the RH lock";
       } else {
         label = "Minting"; cls = "go";
         sub = "final on RH — keeper is minting";
+        href = exp+"/tx/"+r.txHash; hint = "View the RH lock";
       }
       return '<li class="bridge-pend-row">'+
         '<span class="bridge-pend-main">'+
           stockLogoHtml(r.ticker, "bridge-tick-logo")+
           '<span class="mono">'+escHtml(fromBaseStr(r.amount, r.decimals))+' '+escHtml(r.ticker)+'</span>'+
+          '<span class="bridge-pend-dir" title="'+(r.dir === "out" ? "Sui to Robinhood Chain" : "Robinhood Chain to Sui")+'">'+
+            (r.dir === "out" ? "→ RH" : "→ Sui")+
+          '</span>'+
         '</span>'+
         '<span class="bridge-pend-right">'+
           '<span class="bridge-pend-sub">'+escHtml(sub)+'</span>'+
           '<span class="bridge-pend-pill '+cls+'">'+escHtml(label)+'</span>'+
-          '<a href="'+escAttr(exp+"/tx/"+r.txHash)+'" target="_blank" rel="noopener" title="View the RH lock">↗</a>'+
+          (href
+            ? '<a href="'+escAttr(href)+'" target="_blank" rel="noopener" title="'+escAttr(hint)+'">↗</a>'
+            : '')+
         '</span>'+
       '</li>';
     }).join("");
@@ -7820,7 +7846,11 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       '</div>'+
       '<ul class="bridge-pend-list">'+items+'</ul>'+
       (pend.length
-        ? '<div class="bridge-pend-foot">The bridge mints only after a deposit is final on Robinhood Chain, so a reorg can’t leave a wrap with no collateral behind it.</div>'
+        ? '<div class="bridge-pend-foot">'+
+            (pend.some(function(r){ return r.dir === "out"; })
+              ? 'Burned wraps are released from the RH vault pool by the keeper, usually within a few minutes.'
+              : 'The bridge mints only after a deposit is final on Robinhood Chain, so a reorg can’t leave a wrap with no collateral behind it.')+
+          '</div>'
         : '')+
     '</div>';
   }
@@ -8379,11 +8409,17 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     ]);
     return ((res && res.data) || []).map(function(ev){
       var pj = ev.parsedJson || {};
+      var dest = pj.rh_dest;
+      var destHex = "";
+      if (Array.isArray(dest)) destHex = "0x"+dest.map(function(n){ return ("0"+(Number(n)&255).toString(16)).slice(-2); }).join("");
+      else if (typeof dest === "string") destHex = dest.indexOf("0x") === 0 ? dest : ("0x"+dest);
       return {
         burner: String(pj.burner || ""),
         amount: pj.amount,
         ticker: pj.ticker,
+        rhDest: destHex.toLowerCase(),
         digest: (ev.id && ev.id.txDigest) || "",
+        eventSeq: (ev.id && ev.id.eventSeq) || "0",
         ts: Number(ev.timestampMs) || 0
       };
     });
@@ -8853,6 +8889,94 @@ async function doBridgeDeposit(){
   }
 
   /** Every DepositLocked on the vault. Volume is tiny; filtered client-side. */
+  /**
+   * Released(address indexed token, address indexed to, uint256 amount,
+   *          bytes32 indexed suiBurnRef) on the v2 vault. This is the RH-side
+   *   half of a redeem receipt — the burn alone tells the user nothing about
+   *   whether their stock actually moved.
+   */
+  var RH_RELEASED_TOPIC0 =
+    "0xa665ffb445611e4a69ea6bd353374f390a656906ea2da3245a8aae47a360a6cc";
+  async function rhReleases(vaultAddr){
+    var logs = await rhRpc("eth_getLogs", [
+      { address: vaultAddr, fromBlock:"0x0", toBlock:"latest", topics:[RH_RELEASED_TOPIC0] }
+    ]);
+    return (logs || []).map(function(l){
+      if (String(l.address || "").toLowerCase() !== vaultAddr.toLowerCase()) return null;
+      var t = l.topics || [];
+      if (t.length < 4) return null;
+      var data = String(l.data || "").replace(/^0x/, "");
+      return {
+        txHash: String(l.transactionHash || "").toLowerCase(),
+        blockNumber: Number(BigInt(l.blockNumber)),
+        token: ("0x"+String(t[1]).slice(-40)).toLowerCase(),
+        to: ("0x"+String(t[2]).slice(-40)).toLowerCase(),
+        suiBurnRef: String(t[3] || "").toLowerCase(),
+        amount: data.length >= 64 ? BigInt("0x"+data.slice(0, 64)) : 0n
+      };
+    }).filter(Boolean).sort(function(a,b){ return a.blockNumber - b.blockNumber; });
+  }
+
+  /**
+   * The connected wallet's redeems, paired with their RH release.
+   *
+   * Pairing is by (token, destination, amount) in block order rather than by
+   * suiBurnRef, which would need keccak in the browser for no real gain: the
+   * release carries the exact RH-scaled amount of its burn, so a same-amount
+   * same-destination repeat still pairs correctly oldest-first.
+   */
+  async function loadMyBurns(vaultAddr){
+    var sui = normSuiAddr(suiSession.address || "");
+    if (!sui) return [];
+    var burns = [];
+    try {
+      var rows = await queryStockRedeemed(50);
+      for (var i = 0; i < rows.length; i++){
+        if (normSuiAddr(rows[i].burner) !== sui) continue;
+        burns.push(rows[i]);
+      }
+    } catch (e) { return []; }
+    if (!burns.length) return [];
+
+    var releases = [];
+    try { releases = await rhReleases(vaultAddr); } catch (e) { /* status stays "settling" */ }
+    var used = {};
+
+    burns.sort(function(a,b){ return (a.ts || 0) - (b.ts || 0); });
+    var out = burns.map(function(b){
+      var tick = vecU8ToStr(b.ticker).trim().toUpperCase();
+      var rec = STOCKS[tick] || null;
+      var amt9 = BigInt(String(b.amount || "0"));
+      var rhAmount = amt9 * 1000000000n;
+      var token = rec ? String(rec.rhToken || "").toLowerCase() : "";
+      var hit = null;
+      for (var j = 0; j < releases.length; j++){
+        var r = releases[j];
+        if (used[r.txHash + ":" + j]) continue;
+        if (token && r.token !== token) continue;
+        if (b.rhDest && r.to !== b.rhDest) continue;
+        if (r.amount !== rhAmount) continue;
+        used[r.txHash + ":" + j] = true;
+        hit = r;
+        break;
+      }
+      return {
+        ref: "burn:" + b.digest + ":" + b.eventSeq,
+        dir: "out",
+        ticker: tick || "?",
+        amount: amt9,
+        decimals: rec ? stockBridgeDecimals(rec, true) : 9,
+        status: hit ? "released" : "settling",
+        suiDigest: b.digest,
+        rhTx: hit ? hit.txHash : "",
+        rhDest: b.rhDest,
+        ts: b.ts || 0
+      };
+    });
+    out.sort(function(a,b){ return (b.ts || 0) - (a.ts || 0); });
+    return out;
+  }
+
   async function rhAllDeposits(vaultAddr){
     var logs = await rhRpc("eth_getLogs", [
       { address: vaultAddr, fromBlock:"0x0", toBlock:"latest", topics:[RH_DEPOSIT_TOPIC0] }
@@ -8885,11 +9009,16 @@ async function doBridgeDeposit(){
     var evm = String(evmSession.address || "").toLowerCase();
     if (!sui && !evm) return [];
 
+    // Redeems are loaded alongside deposits: the panel used to be built from
+    // DepositLocked alone, so a burn left no trace anywhere in the UI even
+    // though it produced a Sui digest and an RH release transaction.
+    var burnRows = await loadMyBurns(vaultAddr);
+
     var deposits = await rhAllDeposits(vaultAddr);
     var mine = deposits.filter(function(d){
       return (evm && d.depositor === evm) || (sui && normSuiAddr(d.suiRecipient) === sui);
     });
-    if (!mine.length) return [];
+    if (!mine.length) return burnRows;
 
     var mintedRefs = {};
     try {
@@ -8915,6 +9044,7 @@ async function doBridgeDeposit(){
       var blocksLeft = (fin.safeBlock != null) ? Math.max(0, d.blockNumber - fin.safeBlock) : null;
       return {
         ref: ref,
+        dir: "in",
         txHash: d.txHash,
         depositId: d.depositId,
         ticker: rec ? rec.ticker : "?",
@@ -8927,7 +9057,7 @@ async function doBridgeDeposit(){
           ? Math.round(fin.lagSec * (blocksLeft / (fin.tip - fin.safeBlock)))
           : null
       };
-    }).sort(function(a,b){ return Number(b.depositId) - Number(a.depositId); });
+    }).sort(function(a,b){ return Number(b.depositId) - Number(a.depositId); }).concat(burnRows);
   }
 
   var pendingLoadSeq = 0;
