@@ -3,10 +3,18 @@
  * Selectors verified with `cast sig` / `cast sig-event`.
  */
 export const GET_LOCK_SELECTOR = "0xd68f4dd1"; // getLock(uint256)
-export const RELEASE_SELECTOR = "0x8124fea6"; // release(uint256,address)
+export const RELEASE_SELECTOR = "0x8124fea6"; // release(uint256,address) — v1
 export const NEXT_DEPOSIT_ID_SELECTOR = "0x8070a4bd"; // nextDepositId()
 export const RELEASED_TOPIC0 =
   "0xbe9955ede01f89429605b39b8541dc3efb42abc6215925c50e35c676e9e06f88";
+
+// --- StockLockVaultV2 (pooled, amount-based release) ---
+// v1's release(depositId,to) pays whole deposits only, which is what made an
+// arbitrary redeem unpayable. v2 pays any amount against pooled backing and
+// enforces replay protection on-chain via suiBurnRef.
+export const RELEASE_V2_SELECTOR = "0xdcef412e"; // release(address,uint256,address,bytes32)
+export const BACKING_OF_SELECTOR = "0xef961d97"; // backingOf(address)
+export const IS_SETTLED_SELECTOR = "0xbd07f3c9"; // isSettled(bytes32)
 
 export type JsonRpcError = { message: string; code?: number; data?: unknown };
 
@@ -70,6 +78,101 @@ export function wordBytes32(data: string, wordIndex: number): string {
 
 export function encodeReleaseCalldata(depositId: bigint, to: string): string {
   return RELEASE_SELECTOR + encodeUint256(depositId) + encodeAddress(to);
+}
+
+export function encodeBytes32(hex: string): string {
+  const body = hex.trim().toLowerCase().replace(/^0x/, "");
+  if (!/^[0-9a-f]{64}$/.test(body)) throw new Error(`bad bytes32 ${hex}`);
+  return body;
+}
+
+/** v2: release(token, amount, to, suiBurnRef). */
+export function encodeReleaseV2Calldata(
+  token: string,
+  amount: bigint,
+  to: string,
+  suiBurnRef: string,
+): string {
+  if (amount <= 0n) throw new Error("release amount must be > 0");
+  return (
+    RELEASE_V2_SELECTOR +
+    encodeAddress(token) +
+    encodeUint256(amount) +
+    encodeAddress(to) +
+    encodeBytes32(suiBurnRef)
+  );
+}
+
+export async function backingOf(rpcUrl: string, vault: string, token: string): Promise<bigint> {
+  const data = await ethCall(rpcUrl, {
+    to: vault,
+    data: BACKING_OF_SELECTOR + encodeAddress(token),
+  });
+  return hexToBigInt(data);
+}
+
+export async function isSettled(
+  rpcUrl: string,
+  vault: string,
+  suiBurnRef: string,
+): Promise<boolean> {
+  const data = await ethCall(rpcUrl, {
+    to: vault,
+    data: IS_SETTLED_SELECTOR + encodeBytes32(suiBurnRef),
+  });
+  return hexToBigInt(data) !== 0n;
+}
+
+export type TxReceipt = { status: bigint; blockNumber: bigint };
+
+/**
+ * Wait for a transaction to be mined and report its status.
+ *
+ * v1 recorded a release as complete the moment eth_sendRawTransaction returned
+ * a hash. A dropped, replaced or reverted send then left the keeper's store
+ * claiming a lock was spent while the chain still held it — the collateral was
+ * stranded and the redeemer was never paid. Nothing is marked settled until
+ * this resolves with status 1.
+ */
+export async function waitForReceipt(
+  rpcUrl: string,
+  txHash: string,
+  opts: { timeoutMs?: number; pollMs?: number; confirmations?: number } = {},
+): Promise<TxReceipt> {
+  const timeoutMs = opts.timeoutMs ?? 120_000;
+  const pollMs = opts.pollMs ?? 2_000;
+  const confirmations = opts.confirmations ?? 1;
+  const deadline = Date.now() + timeoutMs;
+
+  for (;;) {
+    const r = await rpc<{ status?: string; blockNumber?: string } | null>(
+      rpcUrl,
+      "eth_getTransactionReceipt",
+      [txHash],
+    );
+    if (r && r.blockNumber) {
+      const status = hexToBigInt(r.status ?? "0x0");
+      const blockNumber = hexToBigInt(r.blockNumber);
+      if (status !== 1n) {
+        throw new Error(`release tx ${txHash} reverted (status ${status})`);
+      }
+      if (confirmations > 1) {
+        const tip = BigInt(await getBlockNumber(rpcUrl));
+        if (tip - blockNumber + 1n < BigInt(confirmations)) {
+          if (Date.now() > deadline) {
+            throw new Error(`release tx ${txHash} mined but under ${confirmations} confirmations`);
+          }
+          await new Promise((r2) => setTimeout(r2, pollMs));
+          continue;
+        }
+      }
+      return { status, blockNumber };
+    }
+    if (Date.now() > deadline) {
+      throw new Error(`release tx ${txHash} not mined within ${timeoutMs}ms`);
+    }
+    await new Promise((r2) => setTimeout(r2, pollMs));
+  }
 }
 
 export function encodeGetLockCalldata(depositId: bigint): string {
