@@ -175,11 +175,27 @@ const receipt = await tx.wait();
 ```bash
 export RH_RPC=https://rpc.mainnet.chain.robinhood.com
 export RH_VAULT_ADDRESS=0xB0DbeAa279A4D1c5BBB67f7083a3C5445Af3c058
-export RH_WATCH_POLL_MS=15000   # optional
+export RH_WATCH_POLL_MS=15000       # optional
+export RH_WATCH_BLOCK_TAG=safe      # optional: latest|safe|finalized (default safe)
+export RH_WATCH_CONFIRMATIONS=0     # optional: extra blocks below that tag
 npx tsx src/cli.ts watch-rh
 ```
 
-v1 logs matching events (does not auto-mint). Wire mint enqueue in a follow-up.
+**This auto-mints.** A matched `DepositLocked` is minted on Sui via
+`bridge::mint` unless `STOCKS_MINT_DRY_RUN=1` is set. Dry-run first if you are
+just checking connectivity.
+
+Minting is irreversible on Sui, so deposits are only minted once they reach the
+configured finality ceiling. RH produces ~0.1s blocks and serves L1-anchored
+`safe` (trails the tip by ~12 min) and `finalized` (~19 min); the default is
+`safe`. `latest` mints at the chain tip, where a reorg would leave an unbacked
+wrapper on Sui — don't use it without a large `RH_WATCH_CONFIRMATIONS`.
+
+The cursor and any failed mints persist to `<STOCKS_DATA_DIR>/rh-watch.json`, so
+a restart resumes where it stopped and a transient failure is retried rather
+than skipped. After `MAX_MINT_ATTEMPTS` the deposit is dead-lettered and logged
+every pass with `flag: "NEEDS_OPERATOR"` — that collateral is locked with no
+wrapper and needs a manual mint.
 
 ## Event topic
 

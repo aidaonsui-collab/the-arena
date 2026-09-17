@@ -8,10 +8,19 @@
  *   RH_RPC                 default https://rpc.mainnet.chain.robinhood.com
  *   RH_VAULT_ADDRESS       default StockLockVault mainnet (see config)
  *   RH_WATCH_POLL_MS       default 15000
- *   RH_WATCH_FROM_BLOCK    optional hex/decimal start block
- *   RH_WATCH_LOOKBACK      blocks to look back on first poll (default 2000)
+ *   RH_WATCH_FROM_BLOCK    optional hex/decimal start block (overrides the
+ *                          persisted cursor in <STOCKS_DATA_DIR>/rh-watch.json)
+ *   RH_WATCH_LOOKBACK      blocks to look back on a first-ever poll (default 2000)
  *   RH_WATCH_LOOP=1        continuous poll; otherwise process once and exit
+ *   RH_WATCH_BLOCK_TAG     latest|safe|finalized finality ceiling (default safe)
+ *   RH_WATCH_CONFIRMATIONS extra blocks below that tag (default 0)
  *   STOCKS_MINT_DRY_RUN=1  dry-run mint (no execute)
+ *
+ * Finality: minting is irreversible on Sui, so deposits are only minted once
+ * they reach the configured ceiling. RH produces ~0.1s blocks and serves
+ * L1-anchored `safe` (~12 min behind tip) and `finalized` (~19 min). `latest`
+ * restores the old mint-at-tip behaviour and is unsafe without a large
+ * RH_WATCH_CONFIRMATIONS.
  *
  * Event ABI (StockLockVault):
  *   DepositLocked(address indexed token, address indexed depositor,
@@ -27,6 +36,26 @@ import {
   tickerFromRhToken,
 } from "./config.ts";
 import { runMint } from "./mint.ts";
+import {
+  clearPendingMint,
+  deadLetteredMints,
+  MAX_MINT_ATTEMPTS,
+  recordMintFailure,
+  retryableMints,
+  saveFromBlock,
+  savedFromBlock,
+} from "./watchStore.ts";
+
+/**
+ * Only mint deposits that have reached L1-anchored `safe`. RH `safe` currently
+ * trails the tip by ~12 minutes; `finalized` by ~19. Set RH_WATCH_BLOCK_TAG to
+ * trade latency against reorg exposure — `latest` restores the old
+ * zero-confirmation behaviour and should only be used with a large
+ * RH_WATCH_CONFIRMATIONS on a chain you trust not to reorg.
+ */
+const DEFAULT_BLOCK_TAG: BlockTag = "safe";
+/** Depth used when a node does not serve the requested tag (~0.1s blocks). */
+const FALLBACK_CONFIRMATIONS = 120;
 
 export const DEPOSIT_LOCKED_SIGNATURE =
   "DepositLocked(address,address,uint256,bytes32,uint256)";
@@ -53,6 +82,10 @@ export type RhWatcherConfig = {
   pollMs?: number;
   /** If true, poll once and return (CLI-friendly). Default: single pass when not RH_WATCH_LOOP=1. */
   once?: boolean;
+  /** Finality ceiling for minting. Default `safe`. */
+  blockTag?: BlockTag;
+  /** Extra depth below the tag. Default 0. */
+  confirmations?: number;
 };
 
 export type DepositLockedLog = {
@@ -142,6 +175,58 @@ async function rpc<T>(rpcUrl: string, method: string, params: unknown[]): Promis
 async function getBlockNumber(rpcUrl: string): Promise<number> {
   const hex = await rpc<string>(rpcUrl, "eth_blockNumber", []);
   return Number(hexToBigInt(hex));
+}
+
+/** Block tags RH Chain answers. `safe`/`finalized` are L1-anchored. */
+export type BlockTag = "latest" | "safe" | "finalized";
+
+export function parseBlockTag(raw: string | undefined): BlockTag {
+  const t = String(raw ?? "").trim().toLowerCase();
+  if (t === "latest" || t === "safe" || t === "finalized") return t;
+  if (t) throw new Error(`RH_WATCH_BLOCK_TAG must be latest|safe|finalized, got ${raw}`);
+  return DEFAULT_BLOCK_TAG;
+}
+
+/** Block number behind a tag, or null when the node does not serve it. */
+export async function taggedBlockNumber(rpcUrl: string, tag: BlockTag): Promise<number | null> {
+  const b = await rpc<{ number?: string } | null>(rpcUrl, "eth_getBlockByNumber", [tag, false]);
+  if (!b || !b.number) return null;
+  return Number(hexToBigInt(b.number));
+}
+
+/**
+ * Highest block safe to mint from.
+ *
+ * The old watcher scanned to `eth_blockNumber` and minted immediately, so a
+ * reorg of even one block left an irreversibly minted Sui wrapper with no
+ * collateral behind it. RH Chain produces ~0.1s blocks and exposes L1-anchored
+ * `safe` / `finalized` tags, so the ceiling is a tag (default `safe`) minus any
+ * extra `confirmations`. A fixed depth alone would only cover accidental
+ * shallow reorgs, not a sequencer-level reorg — which is the realistic threat
+ * on an L2 — so the tag is the primary guard and the depth is a surcharge.
+ *
+ * Returns null when nothing has reached the required depth yet.
+ */
+export async function safeCeiling(
+  rpcUrl: string,
+  tag: BlockTag,
+  confirmations: number,
+): Promise<{ tip: number; ceiling: number | null; tagBlock: number | null }> {
+  const tip = await getBlockNumber(rpcUrl);
+  let base = tip;
+  let tagBlock: number | null = null;
+  if (tag !== "latest") {
+    tagBlock = await taggedBlockNumber(rpcUrl, tag);
+    if (tagBlock === null) {
+      // Node does not serve the tag. Fall back to a depth below the tip rather
+      // than silently reverting to zero-confirmation behaviour.
+      base = tip - Math.max(confirmations, FALLBACK_CONFIRMATIONS);
+      return { tip, tagBlock, ceiling: base >= 0 ? base : null };
+    }
+    base = Math.min(tagBlock, tip);
+  }
+  const ceiling = base - confirmations;
+  return { tip, tagBlock, ceiling: ceiling >= 0 ? ceiling : null };
 }
 
 async function getLogs(
@@ -263,6 +348,21 @@ export async function runRhWatcher(cfg: RhWatcherConfig = {}) {
   const loop = process.env.RH_WATCH_LOOP === "1" && cfg.once !== true;
   const lookback = Number(process.env.RH_WATCH_LOOKBACK || 2000);
   const dryRunDefault = process.env.STOCKS_MINT_DRY_RUN === "1";
+  const blockTag = cfg.blockTag ?? parseBlockTag(process.env.RH_WATCH_BLOCK_TAG);
+  const confirmations = Number(
+    cfg.confirmations ?? process.env.RH_WATCH_CONFIRMATIONS ?? 0,
+  );
+  if (!Number.isFinite(confirmations) || confirmations < 0) {
+    throw new Error(`RH_WATCH_CONFIRMATIONS must be >= 0, got ${process.env.RH_WATCH_CONFIRMATIONS}`);
+  }
+  if (blockTag === "latest" && confirmations === 0) {
+    console.error(
+      JSON.stringify({
+        flag: "WARN",
+        msg: "RH_WATCH_BLOCK_TAG=latest with 0 confirmations mints at the chain tip — a reorg leaves unbacked wrappers on Sui",
+      }),
+    );
+  }
 
   console.log(
     JSON.stringify(
@@ -273,6 +373,10 @@ export async function runRhWatcher(cfg: RhWatcherConfig = {}) {
         pollMs,
         loop,
         dryRunDefault,
+        blockTag,
+        confirmations,
+        pendingRetries: retryableMints().length,
+        deadLettered: deadLetteredMints().length,
         depositLockedTopic0: DEPOSIT_LOCKED_TOPIC0,
         depositLockedSignature: DEPOSIT_LOCKED_SIGNATURE,
         knownRhTokens: Object.values(STOCKS).map((s) => ({
@@ -300,28 +404,102 @@ export async function runRhWatcher(cfg: RhWatcherConfig = {}) {
     const raw = process.env.RH_WATCH_FROM_BLOCK;
     fromBlock = raw.startsWith("0x") ? Number(hexToBigInt(raw)) : Number(raw);
   } else {
-    const tip = await getBlockNumber(rhRpc);
-    fromBlock = Math.max(0, tip - lookback);
+    // Resume where the last run stopped. Falling back to `tip - lookback` on
+    // every start silently skipped anything older than the lookback window.
+    const saved = savedFromBlock();
+    if (saved !== null) {
+      fromBlock = saved;
+    } else {
+      const tip = await getBlockNumber(rhRpc);
+      fromBlock = Math.max(0, tip - lookback);
+    }
   }
 
   const seen = new Set<string>();
   const collected: DepositLockedLog[] = [];
   const attempts: MintAttempt[] = [];
 
+  /**
+   * Mint one deposit and file the outcome.
+   *
+   * `skipped` is a terminal verdict about the deposit itself (unknown token,
+   * below one wrapper unit, over u64) — retrying cannot change it, so it leaves
+   * the queue. `error` is transient, so it stays queued and the cursor is not
+   * allowed to step over it.
+   */
+  const handle = async (ev: DepositLockedLog): Promise<MintAttempt> => {
+    const key = `${ev.txHash}:${ev.depositId}`;
+    const attempt = await mintFromDeposit(ev);
+    if (attempt.ok || attempt.skipped) {
+      clearPendingMint(key);
+    } else {
+      recordMintFailure(key, ev, attempt.error ?? "unknown mint failure");
+    }
+    attempts.push(attempt);
+    return attempt;
+  };
+
   const pass = async () => {
-    const tip = await getBlockNumber(rhRpc);
-    if (tip < fromBlock) return;
-    const logs = await getLogs(rhRpc, vault, fromBlock, tip);
+    const { tip, ceiling, tagBlock } = await safeCeiling(rhRpc, blockTag, confirmations);
+
+    // Retry parked failures first — they are independent of the cursor.
+    for (const p of retryableMints()) {
+      console.error(
+        JSON.stringify({
+          event: "mintRetry",
+          rhRef: p.event.rhRef,
+          attempts: p.attempts,
+          lastError: p.lastError,
+        }),
+      );
+      await handle(p.event);
+    }
+    for (const p of deadLetteredMints()) {
+      console.error(
+        JSON.stringify({
+          event: "mintDeadLetter",
+          flag: "NEEDS_OPERATOR",
+          rhRef: p.event.rhRef,
+          depositId: p.event.depositId,
+          ticker: p.event.ticker ?? null,
+          amount: p.event.amount,
+          attempts: p.attempts,
+          lastError: p.lastError,
+          note: `gave up after ${MAX_MINT_ATTEMPTS} attempts; collateral is locked with no wrapper — mint manually`,
+        }),
+      );
+    }
+
+    if (ceiling === null || ceiling < fromBlock) {
+      console.log(
+        JSON.stringify({
+          event: "watch",
+          status: "waiting-for-finality",
+          fromBlock,
+          tip,
+          tagBlock,
+          ceiling,
+          blockTag,
+          confirmations,
+        }),
+      );
+      return;
+    }
+
+    const logs = await getLogs(rhRpc, vault, fromBlock, ceiling);
     for (const ev of logs) {
       const key = `${ev.txHash}:${ev.depositId}`;
       if (seen.has(key)) continue;
       seen.add(key);
       collected.push(ev);
       console.log(JSON.stringify({ event: "DepositLocked", ...ev }));
-      const attempt = await mintFromDeposit(ev);
-      attempts.push(attempt);
+      await handle(ev);
     }
-    fromBlock = tip + 1;
+
+    // Safe to advance: anything that failed is parked in the retry queue, so
+    // moving the cursor no longer means forgetting it.
+    fromBlock = ceiling + 1;
+    saveFromBlock(fromBlock);
   };
 
   try {
