@@ -393,6 +393,27 @@ a.btn-trade{display:block;text-align:center;text-decoration:none;box-sizing:bord
 .badge{font-size:11px;font-weight:650;border-radius:999px;padding:5px 10px;background:var(--card);box-shadow:var(--shadow)}
 
 .about-card{padding:22px 24px;margin:14px 0 0}
+.about-card.about-quote{
+  position:relative;
+  overflow:hidden;
+  isolation:isolate;
+  background:
+    linear-gradient(105deg, #120814 0%, #120814 38%, color-mix(in srgb, var(--quote-tint,#1c101c) 42%, #120814) 78%, color-mix(in srgb, var(--quote-tint,#1c101c) 62%, #1a0c14) 100%);
+  border:1px solid color-mix(in srgb, var(--quote-tint,#1c101c) 38%, var(--line));
+}
+.about-card.about-quote::after{
+  content:"";
+  position:absolute;
+  right:0;
+  top:0;
+  bottom:0;
+  width:min(340px,52%);
+  background:var(--quote-mark, var(--quote-logo)) right center / contain no-repeat;
+  opacity:.78;
+  pointer-events:none;
+  z-index:0;
+}
+.about-card.about-quote > *{position:relative;z-index:1}
 .about-head{display:flex;align-items:center;justify-content:space-between;gap:12px}
 .about-card h2{font-size:18px;font-weight:650;margin:0;letter-spacing:-.02em}
 .about-desc{color:var(--muted);margin:10px 0 22px;max-width:56ch;line-height:1.5;white-space:pre-wrap}
@@ -1063,6 +1084,7 @@ window.ARENA_PIT_AMC = "0xea87957448ff50131877697e9716ab58b6da20c7c48902cfd7c07c
 window.ARENA_PIT_USDY = window.ARENA_PIT_USDY || "";
 window.ARENA_PIT_XAGM = window.ARENA_PIT_XAGM || "";
 window.ARENA_STOCKS_PACKAGE = "0x9a4ba3338384d36033065f9cf0c58078033a718a92f091f12a551f6984c290c5";
+window.ARENA_STOCKS_PUBLISHED_AT = "0x937f6c5baf6199eb7ba114c4276070af2506b032b2df79f10000f44c61a5bdaf";
 window.ARENA_STOCK_NVDA_TYPE = window.ARENA_STOCKS_PACKAGE + "::nvda::NVDA";
 window.ARENA_STOCK_AMC_TYPE = window.ARENA_STOCKS_PACKAGE + "::amc::AMC";
 window.ARENA_STOCK_GME_TYPE = window.ARENA_STOCKS_PACKAGE + "::gme::GME";
@@ -1482,6 +1504,27 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   function quoteDecimalsOf(q){ return quoteRec(q).decimals; }
   function isStockQuote(q){
     return !!(quoteRec(q).stock);
+  }
+  function quoteMarkUrl(rec){
+    if (!rec) return "";
+    if (rec.label === "NVDA") return "/brand/quotes/nvda-mark.svg";
+    if (rec.label === "AMC") return "/brand/quotes/amc-mark.png";
+    if (rec.label === "SUI") return "/brand/quotes/sui.svg";
+    if (rec.label === "XAUM") return "/brand/quotes/xaum-mark.svg";
+    if (rec.label === "XAGM") return "/brand/quotes/xagm-mark.svg";
+    if (rec.label === "USDY") return "/brand/quotes/usdy.svg";
+    return rec.logo || "";
+  }
+  function aboutQuoteClass(q){
+    var rec = quoteRec(q);
+    if (!rec || !rec.logo) return "";
+    return " about-quote";
+  }
+  function aboutQuoteStyle(q){
+    var rec = quoteRec(q);
+    if (!rec || !rec.logo) return "";
+    var mark = quoteMarkUrl(rec);
+    return ' style="--quote-logo:url(\''+escAttr(rec.logo)+'\');--quote-mark:url(\''+escAttr(mark)+'\');--quote-tint:'+escAttr(rec.color||'#1c101c')+'"';
   }
   function firstBuyPreview(){
     var buy = Number(state.lFirstBuy);
@@ -2161,7 +2204,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   async function buildTxBytes(tx){
     if (!tx || typeof tx.build !== "function") return null;
     var Ctor = await loadSuiClient();
-    var client = new Ctor({ url: window.SUI_RPC || "https://fullnode.mainnet.sui.io:443" });
+    var client = new Ctor({ url: window.SUI_RPC || "https://mainnet.suiet.app" });
     var bytes = await tx.build({ client: client });
     if (bytes && bytes.bytes) bytes = bytes.bytes;
     return bytes;
@@ -2182,9 +2225,9 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     };
   }
   var RPC_EXEC = [
-    "https://mainnet.suiet.app",
     "https://rpc-mainnet.suiscan.xyz:443",
-    "https://sui-mainnet-endpoint.blockvision.org"
+    "https://sui-mainnet-endpoint.blockvision.org",
+    "https://mainnet.suiet.app"
   ];
   async function executeSigned(bytes, signature){
     var sigs = Array.isArray(signature) ? signature : [signature];
@@ -2259,7 +2302,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     if (bytes){
       try {
         var Ctor = await loadSuiClient();
-        var client = new Ctor({ url: window.SUI_RPC || "https://fullnode.mainnet.sui.io:443" });
+        var client = new Ctor({ url: window.SUI_RPC || "https://mainnet.suiet.app" });
         var dry = await client.dryRunTransactionBlock({ transactionBlock: toB64(bytes) });
         var st = dry && dry.effects && dry.effects.status;
         if (st && st.status && st.status !== "success"){
@@ -6757,15 +6800,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   }
   var eligibleCache = { at: 0, count: 0, series: [] };
   async function suiJson(method, params){
-    var rpc = window.SUI_RPC || "https://mainnet.suiet.app";
-    var res = await fetch(rpc, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ jsonrpc:"2.0", id:1, method:method, params:params })
-    });
-    var j = await res.json();
-    if (j && j.error) throw new Error(j.error.message || "rpc");
-    return j && j.result;
+    return rpcJson(method, params);
   }
   function vaultHoldersTable(fields){
     var h = fields && fields.holders;
@@ -7460,7 +7495,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
           '<span class="badge">'+q+'</span></div></div>'+
       '<div class="split">'+
         '<div class="split-about">'+
-        '<div class="about-card card">'+
+        '<div class="about-card card'+aboutQuoteClass(q)+'"'+aboutQuoteStyle(q)+'>'+
           '<div class="about-head"><h2>About</h2>'+
             (canEditTokenMeta(tk) ? '<button type="button" class="about-link" id="meta-edit">Edit</button>' : '')+
           '</div>'+
@@ -7557,10 +7592,10 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       '<aside class="bridge-howto">'+
         '<div class="bridge-howto-kicker">How it works</div>'+
         '<ol class="bridge-steps">'+
-          '<li class="bridge-step"><span class="bridge-step-n">1</span><div><h3>Buy on Robinhood Chain</h3><p>Get NVDA, AMC, and other listed tokens on Uniswap — Robinhood Chain, not the brokerage app.</p></div></li>'+
-          '<li class="bridge-step"><span class="bridge-step-n">2</span><div><h3>Bridge RH → Sui</h3><p>Lock here. Vicefun mints the Sui wrap to your wallet. 1% fee, ~finality wait.</p></div></li>'+
-          '<li class="bridge-step"><span class="bridge-step-n">3</span><div><h3>Trade only on token pages</h3><p>Use the wrap as quote on Vicefun Instant pairs. Don\u2019t dump it on random Sui DEXs.</p></div></li>'+
-          '<li class="bridge-step"><span class="bridge-step-n">4</span><div><h3>Cash out on Robinhood Chain</h3><p>Bridge Sui → RH, then sell back to USDC on Uniswap. The wrap is not a stock sale.</p></div></li>'+
+          '<li class="bridge-step"><span class="bridge-step-n">1</span><div><h3>Buy on Robinhood Chain</h3><p>Buy NVDA, AMC, and other listed tokens on Uniswap — Robinhood Chain, not the brokerage app.</p></div></li>'+
+          '<li class="bridge-step"><span class="bridge-step-n">2</span><div><h3>Bridge RH → Sui</h3><p>Lock here. Vicefun mints the Sui wrap to your wallet. 1% fee, finality wait up to 13 minutes.</p></div></li>'+
+          '<li class="bridge-step"><span class="bridge-step-n">3</span><div><h3>Trade only on token pages</h3><p>Use the RWA to launch or trade. Do NOT use bots or DEXs.</p></div></li>'+
+          '<li class="bridge-step"><span class="bridge-step-n">4</span><div><h3>Cash out on Robinhood Chain</h3><p>Bridge the RWA back to RH, then sell back to USDC on Uniswap. Do NOT sell the RWA to Sui/USDC on Sui Network.</p></div></li>'+
         '</ol>'+
       '</aside>'+
       '<div class="bridge-wrap">'+
@@ -8238,35 +8273,63 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     return "0x" + hex.padStart(64, "0");
   }
   async function queryStockMinted(limit){
-    var pkg = window.ARENA_STOCKS_PACKAGE;
-    if (!pkg) return [];
-    var rpc = window.SUI_RPC || "https://mainnet.suiet.app";
-    var type = pkg + "::bridge::MintedEvent";
-    var body = {
-      jsonrpc: "2.0", id: 1, method: "suix_queryEvents",
-      params: [{ MoveEventType: type }, null, limit || 25, true]
-    };
-    var res = await fetch(rpc, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(body)
-    });
-    if (!res.ok) throw new Error("Sui RPC " + res.status);
-    var j = await res.json();
-    if (j.error) throw new Error(j.error.message || "queryEvents failed");
-    return ((j.result && j.result.data) || []).map(function(ev){
-      var pj = ev.parsedJson || {};
-      return {
+    limit = limit || 50;
+    var pkgs = [window.ARENA_STOCKS_PACKAGE, window.ARENA_STOCKS_PUBLISHED_AT].filter(Boolean);
+    var seen = {};
+    var out = [];
+    function take(pj, digest, ts){
+      if (!pj) return;
+      var row = {
         recipient: String(pj.recipient || ""),
         amount: pj.amount,
         ticker: pj.ticker,
-        // rh_ref is the keeper's exact key (txHash:depositId) — lets the
-        // pending list match a mint to a deposit without guessing.
         rhRef: pj.rh_ref,
-        ts: Number(ev.timestampMs) || 0,
-        digest: (ev.id && ev.id.txDigest) || ""
+        ts: Number(ts) || 0,
+        digest: digest || ""
       };
-    });
+      var key = String(row.digest || "") + ":" + vecU8ToStr(row.rhRef).toLowerCase();
+      if (seen[key]) return;
+      seen[key] = 1;
+      out.push(row);
+    }
+    var gqlUrl = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graphql";
+    var q = "query($t:String!,$n:Int!){ events(first:$n, filter:{ type:$t }){ nodes { timestamp contents { json } transaction { digest } } } }";
+    for (var i = 0; i < pkgs.length; i++){
+      var type = pkgs[i] + "::bridge::MintedEvent";
+      try {
+        var gj = await fetch(gqlUrl, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ query: q, variables: { t: type, n: limit } })
+        }).then(function(r){ return r.json(); });
+        var nodes = gj && gj.data && gj.data.events && gj.data.events.nodes;
+        if (nodes && nodes.length){
+          nodes.forEach(function(n){
+            take((n.contents && n.contents.json) || {}, n.transaction && n.transaction.digest, Date.parse(n.timestamp));
+          });
+          continue;
+        }
+      } catch (e) {}
+      try {
+        var rpc = window.SUI_RPC || "https://mainnet.suiet.app";
+        var body = {
+          jsonrpc: "2.0", id: 1, method: "suix_queryEvents",
+          params: [{ MoveEventType: type }, null, limit, true]
+        };
+        var res = await fetch(rpc, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(body)
+        });
+        if (!res.ok) continue;
+        var j = await res.json();
+        if (j.error) continue;
+        ((j.result && j.result.data) || []).forEach(function(ev){
+          take(ev.parsedJson || {}, (ev.id && ev.id.txDigest) || "", ev.timestampMs);
+        });
+      } catch (e2) {}
+    }
+    return out;
   }
   async function waitForStockMint(opts){
     opts = opts || {};
@@ -8629,10 +8692,17 @@ async function doBridgeDeposit(){
     try {
       if (Array.isArray(v)) return String.fromCharCode.apply(null, v.map(Number));
       if (typeof v === "string"){
-        if (/^0x[0-9a-fA-F]*$/.test(v) && v.length % 2 === 0){
+        if (/^0x[0-9a-fA-F]+:\d+$/i.test(v)) return v;
+        if (/^0x[0-9a-fA-F]*$/.test(v) && v.length % 2 === 0 && v.length > 10){
           var out = "";
           for (var i = 2; i < v.length; i += 2) out += String.fromCharCode(parseInt(v.slice(i, i+2), 16));
-          return out;
+          if (out.indexOf(":") >= 0 || /^[\x20-\x7e]+$/.test(out)) return out;
+        }
+        if (/^[A-Za-z0-9+/]+=*$/.test(v) && v.length >= 8){
+          try {
+            var bin = atob(v);
+            if (bin && (/^0x/i.test(bin) || bin.indexOf(":") >= 0 || /^[A-Za-z0-9]+$/.test(bin))) return bin;
+          } catch (e0) {}
         }
         return v;
       }
@@ -8684,7 +8754,10 @@ async function doBridgeDeposit(){
       var rows = await queryStockMinted(50);
       for (var i = 0; i < rows.length; i++){
         var ref = vecU8ToStr(rows[i].rhRef).trim().toLowerCase();
-        if (ref) mintedRefs[ref] = rows[i].digest || true;
+        if (ref){
+          mintedRefs[ref] = rows[i].digest || true;
+          if (ref.indexOf("0x") === 0) mintedRefs[ref.slice(2)] = rows[i].digest || true;
+        }
       }
     } catch (e) { /* treat as "unknown"; rows below just stay pending */ }
 
@@ -8692,8 +8765,8 @@ async function doBridgeDeposit(){
     return mine.map(function(d){
       var rec = null;
       for (var k in STOCKS) if (STOCKS[k].rhToken && STOCKS[k].rhToken.toLowerCase() === d.token) rec = STOCKS[k];
-      var ref = d.txHash + ":" + d.depositId;
-      var mintedDigest = mintedRefs[ref];
+      var ref = String(d.txHash || "").toLowerCase() + ":" + String(d.depositId);
+      var mintedDigest = mintedRefs[ref] || mintedRefs[ref.replace(/^0x/, "")];
       var status = mintedDigest ? "minted"
         : (fin.safeBlock != null && d.blockNumber > fin.safeBlock) ? "awaiting-finality"
         : "minting";
@@ -8715,17 +8788,63 @@ async function doBridgeDeposit(){
     }).sort(function(a,b){ return Number(b.depositId) - Number(a.depositId); });
   }
 
-  async function refreshPendingDeposits(){
-    // Load the finality lag even with no wallet connected — the deposit panel
-    // quotes it as "Est. time", so it should be the live figure rather than a
-    // vague fallback for anyone just looking at the bridge.
-    try { await rhFinalityInfo(); } catch (e) {}
-    try {
-      state.bridgePending = await loadPendingDeposits();
-    } catch (e) {
-      state.bridgePending = [];
+  var pendingLoadSeq = 0;
+  var bridgePendTimer = 0;
+  function mergeBridgePending(next){
+    var prev = state.bridgePending || [];
+    var byRef = {};
+    for (var i = 0; i < prev.length; i++){
+      if (prev[i] && prev[i].ref) byRef[prev[i].ref] = prev[i];
     }
-    if (state.route === "bridge") renderScreen();
+    return (next || []).map(function(r){
+      var old = byRef[r.ref];
+      if (old && old.status === "minted" && r.status !== "minted"){
+        r.status = "minted";
+        r.mintedDigest = r.mintedDigest || old.mintedDigest;
+      }
+      return r;
+    });
+  }
+  function paintBridgePending(){
+    if (state.route !== "bridge") return;
+    var html = pendingHTML();
+    var host = document.querySelector(".bridge-pend");
+    var card = document.querySelector(".bridge-card");
+    if (!html){
+      if (host) host.remove();
+      return;
+    }
+    var tmp = document.createElement("div");
+    tmp.innerHTML = html;
+    var node = tmp.firstChild;
+    if (!node) return;
+    if (host) host.replaceWith(node);
+    else if (card) card.appendChild(node);
+  }
+  async function refreshPendingDeposits(){
+    try { await rhFinalityInfo(); } catch (e) {}
+    var seq = ++pendingLoadSeq;
+    try {
+      var rows = await loadPendingDeposits();
+      if (seq !== pendingLoadSeq) return;
+      state.bridgePending = mergeBridgePending(rows);
+    } catch (e) {
+      if (seq !== pendingLoadSeq) return;
+    }
+    paintBridgePending();
+  }
+  function startBridgePendWatch(){
+    if (state.route !== "bridge") return;
+    if (bridgePendTimer) return;
+    refreshPendingDeposits();
+    bridgePendTimer = setInterval(function(){
+      if (state.route !== "bridge"){
+        clearInterval(bridgePendTimer);
+        bridgePendTimer = 0;
+        return;
+      }
+      refreshPendingDeposits();
+    }, 15000);
   }
 
   /** Throws with an actionable message when `amount` is not fully payable. */
@@ -9799,7 +9918,8 @@ async function doBridgeDeposit(){
     if (state.route === "pit"){
       refreshPendingRewards();
     }
-    if (state.route === "bridge"){ refreshBridgeBal(); refreshPendingDeposits(); }
+    if (state.route === "bridge"){ refreshBridgeBal(); startBridgePendWatch(); }
+    else if (bridgePendTimer){ clearInterval(bridgePendTimer); bridgePendTimer = 0; }
     const q = $("#q");
     if (q) q.value = state.search;
     prevPot = money(pot);
@@ -10751,7 +10871,9 @@ async function doBridgeDeposit(){
     var fromType = swapPayType(tk);
     var toType = swapOutType(tk);
     var target = (!swapNeedsHop(tk) && tk.bluefinPool) ? tk.bluefinPool : "";
+    var skipAgg = isStockQuote(poolQuote(tk)) && !swapNeedsHop(tk);
     try {
+      if (skipAgg) throw new Error("skip-agg");
       var j = await quoteAggregator(fromType, toType, amount, target);
       if (seq !== swapQuoteSeq) return;
       swapQuote = {
