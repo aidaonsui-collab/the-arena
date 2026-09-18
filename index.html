@@ -4766,6 +4766,28 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     });
     return ["XAUM","XAGM","USDY"].filter(function(x){ return labs.indexOf(x) >= 0; });
   }
+  function rewardLabName(lab){
+    if (lab === "XAUM") return "Gold";
+    if (lab === "XAGM") return "Silver";
+    if (lab === "USDY") return "T-bills";
+    var rec = quoteRec(lab);
+    return (rec && rec.label) || lab;
+  }
+  function rewardLabsOf(tk){
+    var assets = rewardAssetsOf(tk);
+    var rwa = rwaLabsOf(assets);
+    if (rwa.length) return rwa;
+    var labs = [];
+    (assets || []).forEach(function(a){
+      var lab = quoteRec(a).label;
+      if (lab && lab !== "SUI" && labs.indexOf(lab) < 0) labs.push(lab);
+    });
+    if (labs.length) return labs;
+    var kind = lockYieldKind(tk);
+    var q = poolQuote(tk);
+    if (kind === "holder" && q && q !== "SUI") return [q];
+    return [];
+  }
   function rewardAssetsOf(tk){
     if (!tk) return [];
     if (tk.rewardAssets && tk.rewardAssets.length) return tk.rewardAssets;
@@ -4774,7 +4796,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     if (yv && yv.kind === "holder" && (yv.quoteLabel || yv.quote)) return [yv.quoteLabel || yv.quote];
     var kind = lockYieldKind(tk);
     var q = poolQuote(tk);
-    if (kind === "holder" && isRwaQuote(q)) return [q];
+    if (kind === "holder" && q && q !== "SUI") return [q];
     return [];
   }
   function rwaStackHTML(assets){
@@ -5818,7 +5840,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       buys: buys,
       sells: sells,
       price: px,
-      rewards: rwaLabsOf(rewardAssetsOf(k)),
+      rewards: rewardLabsOf(k),
       ageH: scrAgeH(k),
       pts: scrPts(k),
       watched: (state.watch || []).indexOf(k.t) >= 0
@@ -6512,7 +6534,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   }
   function aboutYieldHTML(tk){
     if (!tk || (!isInstadex(tk) && !tk.bluefinPool)) return "";
-    var labs = rwaLabsOf(rewardAssetsOf(tk));
+    var labs = rewardLabsOf(tk);
     var split = tk.lpSplit;
     var splitFallback = !split;
     if (!split) split = { creator: 6000, platform: 500, rewards: 3000, buyback: 500 };
@@ -6520,8 +6542,11 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       ? '<div><div class="about-k">Rewards</div><div class="about-rwa">'+
           labs.map(function(lab){
             var rec = quoteRec(lab);
-            var name = lab === "XAUM" ? "Gold" : (lab === "XAGM" ? "Silver" : "T-bills");
-            return '<img src="'+escUrl(rec.logo)+'" alt="'+escAttr(lab)+'"><span>'+escHtml(name)+'</span>';
+            var name = rewardLabName(lab);
+            var img = rec && rec.logo
+              ? '<img src="'+escUrl(rec.logo)+'" alt="'+escAttr(lab)+'">'
+              : "";
+            return img+'<span>'+escHtml(name)+'</span>';
           }).join("")+
         '</div></div>'
       : "";
@@ -6661,9 +6686,12 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     if (!tk || !isInstadex(tk) || !tk.lockId) return "";
     var kind = lockYieldKind(tk);
     if (kind){
-      var labs = rwaLabsOf(rewardAssetsOf(tk));
-      var rwaLine = labs.length
-        ? ("Holders earn "+labs.join(" · ")+". Collect LP fees, then keepers convert staged SUI into the basket.")
+      var labs = rewardLabsOf(tk);
+      var names = labs.map(rewardLabName);
+      var rwaLine = names.length
+        ? (kind==="basket"
+          ? ("Holders earn "+names.join(" · ")+". Collect LP fees, then keepers convert staged SUI into the basket.")
+          : ("Holders earn "+names.join(" · ")+" from Collect LP."))
         : (kind==="basket"
           ? "Rewards already route to the RWA basket vault. Collect LP fees to stage SUI; keepers buy gold / silver / T-bills."
           : "Rewards already route to holder yield. Collect LP fees to fund holders.");
