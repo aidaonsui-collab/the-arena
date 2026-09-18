@@ -1259,9 +1259,9 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     AMC:  { label:"AMC",  type:window.ARENA_STOCK_AMC_TYPE,  metadata:window.ARENA_STOCK_AMC_METADATA,  decimals:9, name:"AMC wrap", what:"RH→Sui stock wrap (AMC)", create:true, soon:false, stock:true, chips:["0.01","0.1","1","5","Max"], virtualHuman:"≈ $4.5k", pit:window.ARENA_PIT_AMC, color:"#E11D2E", logo:"/brand/quotes/amc.png" },
     GME:  { label:"GME",  type:window.ARENA_STOCK_GME_TYPE,  metadata:window.ARENA_STOCK_GME_METADATA,  decimals:9, name:"GME wrap", what:"RH→Sui stock wrap (GME)", create:false, soon:true, stock:true, chips:["0.01","0.1","1","5","Max"], virtualHuman:"≈ $4.5k", pit:"", color:"#EF4444", logo:"/brand/quotes/gme.png" },
     TSLA: { label:"TSLA", type:window.ARENA_STOCK_TSLA_TYPE, metadata:window.ARENA_STOCK_TSLA_METADATA, decimals:9, name:"Tesla wrap", what:"RH→Sui stock wrap (TSLA)", create:false, soon:true, stock:true, chips:["0.01","0.1","1","5","Max"], virtualHuman:"≈ $4.5k", pit:"", color:"#CC0000", logo:"/brand/quotes/tsla.png" },
-    AXOL: { label:"AXOL", type:window.ARENA_AXOL_TYPE, metadata:window.ARENA_AXOL_METADATA, decimals:9, name:"AXOLcoin", what:"Axol the axolotl on Sui", create:true, payInQuote:true, chips:["1000","10000","50000","100000","Max"], virtualHuman:"≈ $4.5k", pit:"", color:"#FF7EB6", logo:"/brand/quotes/axol.png" },
-    LOFI: { label:"LOFI", type:window.ARENA_LOFI_TYPE, metadata:window.ARENA_LOFI_METADATA, decimals:9, name:"LOFI", what:"Lofi the Yeti on Sui", create:true, payInQuote:true, chips:["100","500","1000","5000","Max"], virtualHuman:"≈ $4.5k", pit:"", color:"#7EC8E3", logo:"/brand/quotes/lofi.png" },
-    MANIFEST: { label:"MANIFEST", type:window.ARENA_MANIFEST_TYPE, metadata:window.ARENA_MANIFEST_METADATA, decimals:9, name:"MANIFEST", what:"Believe. Act. Freedom.", create:true, payInQuote:true, chips:["1000","10000","50000","100000","Max"], virtualHuman:"≈ $4.5k", pit:"", color:"#C9A227", logo:"/brand/quotes/manifest.png" }
+    AXOL: { label:"AXOL", type:window.ARENA_AXOL_TYPE, metadata:window.ARENA_AXOL_METADATA, decimals:9, name:"AXOLcoin", what:"Axol the axolotl on Sui", create:true, chips:["1000","10000","50000","100000","Max"], virtualHuman:"≈ $4.5k", pit:"", color:"#FF7EB6", logo:"/brand/quotes/axol.png" },
+    LOFI: { label:"LOFI", type:window.ARENA_LOFI_TYPE, metadata:window.ARENA_LOFI_METADATA, decimals:9, name:"LOFI", what:"Lofi the Yeti on Sui", create:true, chips:["100","500","1000","5000","Max"], virtualHuman:"≈ $4.5k", pit:"", color:"#7EC8E3", logo:"/brand/quotes/lofi.png" },
+    MANIFEST: { label:"MANIFEST", type:window.ARENA_MANIFEST_TYPE, metadata:window.ARENA_MANIFEST_METADATA, decimals:9, name:"MANIFEST", what:"Believe. Act. Freedom.", create:true, chips:["1000","10000","50000","100000","Max"], virtualHuman:"≈ $4.5k", pit:"", color:"#C9A227", logo:"/brand/quotes/manifest.png" }
   };
   var CREATE_QUOTES = ["SUI","USDY","XAGM","XAUM","VICEFUN","AXOL","LOFI","MANIFEST","NVDA","AMC","GME","TSLA"];
   // Holder-yield / basket dashboard. Pit path is sunset for Rewards > 0.
@@ -1524,10 +1524,6 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   function isStockQuote(q){
     return !!(quoteRec(q).stock);
   }
-  function isPayInQuote(q){
-    var rec = quoteRec(q);
-    return !!(rec && (rec.stock || rec.payInQuote));
-  }
   function quoteMarkUrl(rec){
     if (!rec) return "";
     if (rec.label === "NVDA") return "/brand/quotes/nvda-mark.svg";
@@ -1552,7 +1548,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   function firstBuyPreview(){
     var buy = Number(state.lFirstBuy);
     if (!(buy > 0)) return "0 skips the first buy.";
-    var q = isPayInQuote(state.lQuote) ? quoteRec(state.lQuote).label : "SUI";
+    var q = isStockQuote(state.lQuote) ? quoteRec(state.lQuote).label : "SUI";
     var u = quoteUsd(q);
     if (!(u > 0)) return "Estimate loads with "+q+" price…";
     var buyUsd = buy * u * 0.98;
@@ -1572,8 +1568,8 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     var q = quoteRec(state.lQuote).label;
     if (q === "SUI") return "SUI swapped into TOKEN/SUI in the same transaction as seed, before the pool is public. 0 skips.";
     if (isStockQuote(q)) return "Spend "+q+" wrap from this wallet on TOKEN/"+q+" before the pool is public. Launch fee is still 1 SUI. 0 skips.";
-    if (isPayInQuote(q)) return "Spend "+q+" from this wallet on TOKEN/"+q+" before the pool is public. Launch fee is still 1 SUI. 0 skips.";
     if (q === "USDY") return "Paid in SUI. Same tx hops SUI → USDC → USDY on Cetus, then buys TOKEN/USDY on Bluefin before the pool is public. 0 skips.";
+    if (q === "AXOL" || q === "LOFI" || q === "MANIFEST") return "Paid in SUI. Same tx hops SUI → "+q+" on Sui DEXs, then buys TOKEN/"+q+" on Bluefin before the pool is public. 0 skips.";
     return "Paid in SUI. Same tx hops SUI → "+q+", then buys TOKEN on Bluefin before the pool is public. 0 skips.";
   }
   function lpBlurb(){
@@ -7578,7 +7574,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
             basketPanelHTML()+
             splitPanelHTML()+
           '</div>'+
-          '<div><label>First buy · '+escHtml(isPayInQuote(state.lQuote)?state.lQuote:"SUI")+'</label><input id="l-first-buy" inputmode="decimal" placeholder="'+(isPayInQuote(state.lQuote)?(quoteRec(state.lQuote).chips[0]||"1"):"1")+'" value="'+escAttr(state.lFirstBuy)+'"></div>'+
+          '<div><label>First buy · '+escHtml(isStockQuote(state.lQuote)?state.lQuote:"SUI")+'</label><input id="l-first-buy" inputmode="decimal" placeholder="'+(isStockQuote(state.lQuote)?"0.1":"1")+'" value="'+escAttr(state.lFirstBuy)+'"></div>'+
             '<div id="l-first-buy-preview" style="font-size:13px;color:var(--text);margin-top:6px">'+escHtml(firstBuyPreview())+'</div>'+
             '<div style="font-size:12px;color:var(--muted);margin-top:4px">'+escHtml(firstBuyHint())+'</div>'+
           '<div><label>Name</label><input id="l-name" placeholder="Gladius Token" value="'+escAttr(state.lName)+'"></div>'+
@@ -7590,7 +7586,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
           '<button type="button" class="btn-trade" id="launch-go">'+launchBtnLabel()+'</button>'+
           '<div id="launch-note" style="font-size:12px;color:'+(state.lNoteErr?"#FF6640":"var(--muted)")+';margin-top:8px;text-align:center">'+
             escHtml(state.lNote || (Number(state.lFirstBuy)>0
-              ? ("Pay 1 SUI launch fee. First buy of "+state.lFirstBuy+" "+(isPayInQuote(state.lQuote)?state.lQuote:"SUI")+" lands in the same transaction as seed.")
+              ? ("Pay 1 SUI launch fee. First buy of "+state.lFirstBuy+" "+(isStockQuote(state.lQuote)?state.lQuote:"SUI")+" lands in the same transaction as seed.")
               : "Pay 1 SUI launch fee. 0 quote LP."))+
           '</div>'+
         '</div></div>'+
@@ -7632,7 +7628,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       '</div>';
     }
     const alt = q !== "SUI";
-    const stockQ = isPayInQuote(q);
+    const stockQ = isStockQuote(q);
     if (stockQ) state.payWith = q;
     const buyOn = state.side !== "Sell";
     const payAsset = buyOn ? (alt && state.payWith === "SUI" ? "SUI" : q) : tk.t;
@@ -7640,7 +7636,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     const amtVal = escAttr(state.amt || (alt && state.payWith !== "SUI" ? quoteRec(q).chips[0] : "1"));
     const payToggle = alt
       ? '<div class="chips" id="pay-route" style="margin-top:10px">'+
-          '<div data-pay="SUI" class="'+(stockQ?"disabled":(state.payWith==="SUI"?"on":""))+'"'+(stockQ?' aria-disabled="true" title="This pool is TOKEN/'+escAttr(q)+'. Pay with '+escAttr(q)+'."':'')+'>'+(buyOn?"Pay SUI":"Get SUI")+'</div>'+
+          '<div data-pay="SUI" class="'+(stockQ?"disabled":(state.payWith==="SUI"?"on":""))+'"'+(stockQ?' aria-disabled="true" title="This pool is TOKEN/'+escAttr(q)+'. Pay with '+escAttr(q)+' wrap."':'')+'>'+(buyOn?"Pay SUI":"Get SUI")+'</div>'+
           '<div data-pay="'+escAttr(q)+'"'+(state.payWith!=="SUI"?' class="on"':'')+'>'+(buyOn?"Pay "+q:"Get "+q)+'</div>'+
         '</div>'
       : '<div id="pay-route" style="display:none"></div>';
@@ -9943,7 +9939,7 @@ async function doBridgeDeposit(){
     if (!buy || !tk || !tk.bluefinPool) return;
     const buyOn = state.side !== "Sell";
     const q = poolQuote(tk);
-    if (isPayInQuote(q)) state.payWith = q;
+    if (isStockQuote(q)) state.payWith = q;
     const gold = altQuote(tk);
     const payAsset = swapPayLabel(tk);
     const outAsset = swapOutLabel(tk);
@@ -9957,7 +9953,7 @@ async function doBridgeDeposit(){
       route.style.display = gold ? "" : "none";
       $$("[data-pay]", route).forEach(function(el){
         var isSui = el.getAttribute("data-pay") === "SUI";
-        var stockQ = isPayInQuote(q);
+        var stockQ = isStockQuote(q);
         el.classList.toggle("disabled", !!(isSui && stockQ));
         el.classList.toggle("on", stockQ ? !isSui : (el.getAttribute("data-pay") === (state.payWith === "SUI" ? "SUI" : q)));
         el.textContent = buyOn ? (isSui ? "Pay SUI" : "Pay "+q) : (isSui ? "Get SUI" : "Get "+q);
@@ -10958,7 +10954,7 @@ async function doBridgeDeposit(){
       var capId = (state.lCap || "").trim();
       var tokenCoinId = (state.lTokenCoin || "").trim();
       var launchQuote = quoteRec(state.lQuote).label;
-      var stockBuy = isPayInQuote(launchQuote);
+      var stockBuy = isStockQuote(launchQuote);
       var firstBuyDec = stockBuy ? quoteDecimalsOf(launchQuote) : 9;
       var firstBuy = toSmallestBig(state.lFirstBuy, firstBuyDec);
       state.lCoinMode = "create";
@@ -11402,6 +11398,31 @@ async function doBridgeDeposit(){
     vicefunSuiSnap = await poolSnap(window.ARENA_VICEFUN_SUI_POOL);
     return vicefunSuiSnap;
   }
+  var axolSuiSnap = null;
+  var lofiSuiSnap = null;
+  var manifestSuiSnap = null;
+  async function loadAxolSuiPool(){
+    if (axolSuiSnap && axolSuiSnap.a) return axolSuiSnap;
+    if (!window.ARENA_AXOL_SUI_POOL) throw new Error("ARENA_AXOL_SUI_POOL missing");
+    axolSuiSnap = await poolSnap(window.ARENA_AXOL_SUI_POOL);
+    return axolSuiSnap;
+  }
+  async function loadLofiSuiPool(){
+    if (lofiSuiSnap && lofiSuiSnap.a) return lofiSuiSnap;
+    if (!window.ARENA_LOFI_SUI_POOL) throw new Error("ARENA_LOFI_SUI_POOL missing");
+    lofiSuiSnap = await poolSnap(window.ARENA_LOFI_SUI_POOL);
+    return lofiSuiSnap;
+  }
+  async function loadManifestSuiPool(){
+    if (manifestSuiSnap && manifestSuiSnap.a) return manifestSuiSnap;
+    if (!window.ARENA_MANIFEST_SUI_POOL) throw new Error("ARENA_MANIFEST_SUI_POOL missing");
+    manifestSuiSnap = await poolSnap(window.ARENA_MANIFEST_SUI_POOL);
+    return manifestSuiSnap;
+  }
+  function isMemeQuote(q){
+    q = String(q || "").toUpperCase();
+    return q === "AXOL" || q === "LOFI" || q === "MANIFEST";
+  }
   function asBigAmt(v){
     if (typeof v === "bigint") return v;
     if (v && typeof v === "object") v = v.value || v.amount || "0";
@@ -11498,7 +11519,7 @@ async function doBridgeDeposit(){
     var fromType = swapPayType(tk);
     var toType = swapOutType(tk);
     var target = (!swapNeedsHop(tk) && tk.bluefinPool) ? tk.bluefinPool : "";
-    var skipAgg = isPayInQuote(poolQuote(tk)) && !swapNeedsHop(tk);
+    var skipAgg = altQuote(tk) && state.payWith !== "SUI" && !swapNeedsHop(tk);
     try {
       if (skipAgg) throw new Error("skip-agg");
       var j = await quoteAggregator(fromType, toType, amount, target);
@@ -11683,6 +11704,22 @@ async function doBridgeDeposit(){
       var vicePool = await loadVicefunSuiPool();
       return { tx: tx, coin: bluefinHop(tx, vicePool, SUI_TYPE, suiCoin, 0) };
     }
+    if (isMemeQuote(q)){
+      try {
+        var memeHop = await sevenkOnto(tx, suiCoin, SUI_TYPE, Qtype, amount);
+        return { tx: memeHop.tx, coin: memeHop.coinOut };
+      } catch (e7) {
+        if (q === "AXOL"){
+          var axolPool = await loadAxolSuiPool();
+          return { tx: tx, coin: cetusHop(tx, axolPool, SUI_TYPE, suiCoin) };
+        }
+        if (q === "MANIFEST"){
+          var manPool = await loadManifestSuiPool();
+          return { tx: tx, coin: bluefinHop(tx, manPool, SUI_TYPE, suiCoin, 0) };
+        }
+        throw e7;
+      }
+    }
     if (q === "NVDA" || q === "AMC"){
       // Stock wraps: SUI → USDC (7k) → wrap on Bluefin NVDA/AMC–USDC pool.
       var stockUsdc = await sevenkOnto(tx, suiCoin, SUI_TYPE, usdc, amount);
@@ -11840,6 +11877,26 @@ async function doBridgeDeposit(){
         var tokVice = await takeSwapCoin(tx, tokenTypeOf(tk), amount);
         var viceOut = bluefinHop(tx, insta, tokenTypeOf(tk), tokVice, 0);
         outCoin = bluefinHop(tx, viceHop, Qtype, viceOut, minOut);
+      }
+    } else if (isMemeQuote(q)){
+      if (state.side === "Buy"){
+        var hopped = await hopSuiToQuoteOnTx(tx, q, amount);
+        tx = hopped.tx;
+        outCoin = bluefinHop(tx, insta, Qtype, hopped.coin, minOut);
+      } else {
+        var tokMeme = await takeSwapCoin(tx, tokenTypeOf(tk), amount);
+        var qOut = bluefinHop(tx, insta, tokenTypeOf(tk), tokMeme, 0);
+        if (q === "AXOL"){
+          outCoin = cetusHop(tx, await loadAxolSuiPool(), Qtype, qOut);
+        } else if (q === "MANIFEST"){
+          outCoin = bluefinHop(tx, await loadManifestSuiPool(), Qtype, qOut, minOut);
+        } else {
+          var estQ = estimatePoolOut(insta, tokenTypeOf(tk), amount);
+          if (!(estQ > 0n)) throw new Error("No LOFI in the pool to hop back to SUI");
+          var back = await sevenkOnto(tx, qOut, Qtype, SUI_TYPE, estQ);
+          tx = back.tx;
+          outCoin = back.coinOut;
+        }
       }
     } else {
       if (state.side === "Buy"){
@@ -12313,7 +12370,7 @@ async function doBridgeDeposit(){
     if (pay){
       if (pay.classList.contains("disabled") || pay.getAttribute("aria-disabled") === "true") return;
       var payQ = poolQuote(state.sym);
-      if (isPayInQuote(payQ) && pay.getAttribute("data-pay") === "SUI") return;
+      if (isStockQuote(payQ) && pay.getAttribute("data-pay") === "SUI") return;
       state.payWith = pay.getAttribute("data-pay");
       if (state.route === "token" && isDexBout(findT(state.sym))){
         state.amt = state.payWith === "SUI" ? "1" : quoteRec(poolQuote(state.sym)).chips[0];
@@ -12476,9 +12533,9 @@ async function doBridgeDeposit(){
       if (key === "lQuote"){
         state.quoteOpen = false;
         if (String(val || "").toUpperCase() !== "SUI") state.lBasket = false;
-        var recQ = quoteRec(val);
-        if (isPayInQuote(val)) state.lFirstBuy = isStockQuote(val) ? "0.1" : (recQ.chips[0] || "1000");
-        else if (state.lFirstBuy === "0.1" || /k$/i.test(String(state.lFirstBuy||""))) state.lFirstBuy = "1";
+        var nowStock = isStockQuote(val);
+        if (nowStock && (state.lFirstBuy === "1" || state.lFirstBuy === "1.0")) state.lFirstBuy = "0.1";
+        if (!nowStock && state.lFirstBuy === "0.1") state.lFirstBuy = "1";
       }
       if (key === "rewardsTab"){
         state.rewardsTab = val || "all";
