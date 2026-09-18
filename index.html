@@ -4388,9 +4388,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       tk.statsHydrated = true;
       tk.statsAt = Date.now();
       if (s.burned && String(s.burned) !== "0"){
-        tk.burnFloor = s.burned;
-        tk.instadexBurn = s.burned;
-        tk.burnHydrated = true;
+        if (noteBurnedMist(tk, s.burned)) persistLaunches();
       }
       if (Number(s.mcUsd) > 0) tk.statsMcUsd = Number(s.mcUsd);
       if (s.sqrt && (!tk.poolSnap || !tk._poolSnapAt)){
@@ -4408,35 +4406,85 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       else if (state.route === "explore") scheduleExploreList();
     }).catch(function(){ tk.statsBusy = false; });
   }
+  function noteBurnedMist(tk, mist){
+    if (!tk) return false;
+    var n = 0n;
+    try { n = BigInt(String(mist == null ? "0" : mist).split(".")[0] || "0"); } catch (e) { return false; }
+    if (n <= 0n) return false;
+    var cur = 0n;
+    try { cur = BigInt(String(tk.instadexBurn || "0").split(".")[0] || "0"); } catch (e) {}
+    try {
+      var floor = BigInt(String(tk.burnFloor || "0").split(".")[0] || "0");
+      if (floor > cur) cur = floor;
+    } catch (e2) {}
+    if (n <= cur) return false;
+    tk.instadexBurn = n.toString();
+    tk.burnFloor = n.toString();
+    tk.burnHydrated = true;
+    return true;
+  }
+  function mintLockSupplyMist(fields){
+    var cap = fields && fields.cap;
+    var cf = cap && (cap.fields || cap);
+    var ts = cf && cf.total_supply;
+    var inner = ts && (ts.fields || ts);
+    var v = inner && (inner.value != null ? inner.value : inner);
+    if (v && typeof v === "object" && v.value != null) v = v.value;
+    return v != null ? String(v) : "";
+  }
+  function initialSupplyMist(tk){
+    var dec = tk && tk.decimals != null ? Number(tk.decimals) : 9;
+    if (!(dec >= 0 && dec <= 18)) dec = 9;
+    var whole = 1000000000n;
+    try { whole = BigInt(String(TOKEN_SUPPLY || "1000000000")); } catch (e) {}
+    var scale = 1n;
+    for (var i = 0; i < dec; i++) scale *= 10n;
+    return whole * scale;
+  }
+  function paintBurnSurfaces(tk){
+    if (viewingToken(tk)){
+      paintAboutBurn(tk);
+      if (state.tapeTab === "holders") paintTape();
+    } else if (state.route === "metrics") scheduleScreen();
+  }
+  function hydrateMintLockBurn(tk){
+    if (!tk || tk.missing) return;
+    seedKnownLocks(tk);
+    var id = tk.mintLock;
+    if (!id) return;
+    rpcJson("sui_getObject", [id, { showContent: true }]).then(function(res){
+      var fields = res && res.data && res.data.content && res.data.content.fields;
+      var supplyStr = mintLockSupplyMist(fields);
+      if (!supplyStr) return;
+      var supply = 0n;
+      try { supply = BigInt(supplyStr); } catch (e) { return; }
+      var init = initialSupplyMist(tk);
+      if (supply <= 0n || supply >= init) return;
+      if (noteBurnedMist(tk, init - supply)){
+        persistLaunches();
+        paintBurnSurfaces(tk);
+      }
+    }).catch(function(){});
+  }
   function hydrateTokenBurns(tk, attempt){
     if (!tk || tk.missing || tk.burnBusy) return;
     if (!tk.lockId && !tk.mintLock && String(tk.t || "").toUpperCase() !== "VICEFUN") return;
+    hydrateMintLockBurn(tk);
     if (tk.burnEventsAt && Date.now() - tk.burnEventsAt < 20000 && (Number(tk.instadexBurn) || 0) > 0) return;
     tk.burnBusy = true;
     attempt = Number(attempt) || 0;
-    var prev = Number(tk.instadexBurn) || Number(tk.burnFloor) || 0;
-    var sum = 0;
+    var sum = 0n;
+    try { sum = BigInt(String(tk.instadexBurn || tk.burnFloor || "0").split(".")[0] || "0"); } catch (e) { sum = 0n; }
     var before = "";
     var pages = 0;
     var q1 = "query($t:String!,$n:Int!){ events(last:$n, filter:{ type:$t }){ pageInfo { hasPreviousPage startCursor } nodes { timestamp contents { json } transaction { digest } } } }";
     var q2 = "query($t:String!,$n:Int!,$before:String!){ events(last:$n, before:$before, filter:{ type:$t }){ pageInfo { hasPreviousPage startCursor } nodes { timestamp contents { json } transaction { digest } } } }";
-    function paint(){
-      if (state.route === "token" && String(state.sym).toUpperCase() === tk.t){
-        paintAboutBurn(tk);
-        if (state.tapeTab === "holders") paintTape();
-      } else if (state.route === "metrics") {
-        scheduleScreen();
-      }
-    }
+    function paint(){ paintBurnSurfaces(tk); }
     function done(ok){
       tk.burnBusy = false;
       tk.burnEventsAt = Date.now();
-      if (sum > 0){
-        if (sum < prev) sum = prev;
-        tk.instadexBurn = sum;
-        tk.burnFloor = sum;
-        tk.burnHydrated = true;
-        persistLaunches();
+      if (sum > 0n){
+        if (noteBurnedMist(tk, sum)) persistLaunches();
         paint();
         return;
       }
@@ -4446,7 +4494,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       }
     }
     function step(){
-      if (pages >= 20) return done(true);
+      if (pages >= 40) return done(true);
       pages++;
       var req = before
         ? gql(q2, { t: INSTADEX_BURN_EVENT, n: 50, before: before })
@@ -4454,7 +4502,6 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       req.then(function(data){
         var conn = data && data.events;
         var nodes = (conn && conn.nodes) || [];
-        var hit = 0;
         for (var i = 0; i < nodes.length; i++){
           var n = nodes[i];
           var p = (n.contents && n.contents.json) || {};
@@ -4468,14 +4515,14 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
           if (row.lock_id && burnMatchesTk(tk, row.lock_id)){
             if (!seenBurns[key]){
               seenBurns[key] = 1;
-              sum += Number(row.amount) || 0;
+              try { sum += BigInt(String(row.amount || "0").split(".")[0] || "0"); } catch (e) {}
             }
-            hit++;
           }
         }
-        if (sum > 0) paint();
-        // Newest-first: stop once a page has no burns for this lock after we already found some.
-        if (hit === 0 && sum > 0) return done(true);
+        if (sum > 0n){
+          noteBurnedMist(tk, sum);
+          paint();
+        }
         if (conn && conn.pageInfo && conn.pageInfo.hasPreviousPage && conn.pageInfo.startCursor){
           before = conn.pageInfo.startCursor;
           return step();
@@ -4490,6 +4537,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     hydrateTokenOverlay(tk);
     hydrateLockBeneficiary(tk);
     if (viewingToken(tk)) {
+      hydrateMintLockBurn(tk);
       hydrateTokenStats(tk);
       hydrateTokenBurns(tk);
       hydrateTape(tk);
@@ -7423,7 +7471,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   function ensureVicefunBurnHydrated(){
     var tk = vicefunTk();
     if (!tk) return;
-    // Seed from keepers token-stats, then sum InstadexBurnEvent for the VICEFUN Instant lock.
+    hydrateMintLockBurn(tk);
     hydrateTokenStats(tk);
     hydrateTokenBurns(tk);
   }
