@@ -12,6 +12,12 @@ const XAUM_USDC =
 // and hands back priceUsd/priceNative directly so no on-chain sqrt-price decoding is needed.
 const VICEFUN_SUI_DEXSCREENER =
   "https://api.dexscreener.com/latest/dex/pairs/sui/0xcae6fe00841fbccb44fbe8128a7c4b2e8800e87c7952af8444d24d0e76eb31c5";
+const AXOL_SUI_DEXSCREENER =
+  "https://api.dexscreener.com/latest/dex/pairs/sui/0xde265ef8645c680c71b33805de77ce5261a20c58397d83b3915bdbb3a7209d7e";
+const LOFI_SUI_DEXSCREENER =
+  "https://api.dexscreener.com/latest/dex/pairs/sui/0xd6147f5f50e2f9f593557e497c9ee0f2387652e2a4ad73ee28bd0bdef5e3f51d";
+const MANIFEST_SUI_DEXSCREENER =
+  "https://api.dexscreener.com/latest/dex/pairs/sui/0x15a1adef56e1b716c29a6ce7df539fd7b8080da283199c92c6caa6f641a61c3f";
 
 async function poolJson(url) {
   const r = await fetch(url, { cache: "no-store" });
@@ -29,13 +35,16 @@ function perSui(usd, suiUsd) {
 }
 
 export async function GET() {
-  const [usdy, xagm, xaum, suiUsdc, suiRes, vicefunPair] = await Promise.all([
+  const [usdy, xagm, xaum, suiUsdc, suiRes, vicefunPair, axolPair, lofiPair, manifestPair] = await Promise.all([
     poolJson(USDY_USDC),
     poolJson(XAGM_USDC),
     poolJson(XAUM_USDC),
     poolJson(SUI_USDC),
     fetch(SUI_USD, { cache: "no-store" }).catch(function () { return null; }),
-    poolJson(VICEFUN_SUI_DEXSCREENER)
+    poolJson(VICEFUN_SUI_DEXSCREENER),
+    poolJson(AXOL_SUI_DEXSCREENER),
+    poolJson(LOFI_SUI_DEXSCREENER),
+    poolJson(MANIFEST_SUI_DEXSCREENER)
   ]);
   let suiUsd = num(suiUsdc && (suiUsdc.last_price_usd || suiUsdc.last_price));
   if (!(suiUsd > 0) && suiRes && suiRes.ok) {
@@ -53,6 +62,13 @@ export async function GET() {
   let suiPerVicefun = num(vicefunPairData && vicefunPairData.priceNative);
   if (!(suiPerVicefun > 0) && vicefunUsd > 0 && suiUsd > 0) suiPerVicefun = vicefunUsd / suiUsd;
   if (!(vicefunUsd > 0) && suiPerVicefun > 0 && suiUsd > 0) vicefunUsd = suiPerVicefun * suiUsd;
+  function dsUsd(j) {
+    const p = j && j.pairs && j.pairs[0];
+    return { usd: num(p && p.priceUsd), native: num(p && p.priceNative) };
+  }
+  const axol = dsUsd(axolPair);
+  const lofi = dsUsd(lofiPair);
+  const manifest = dsUsd(manifestPair);
   if (!(usdyUsd > 0) && !(xagmUsd > 0) && !(xaumUsd > 0) && !(suiUsd > 0)) {
     return Response.json({ error: "hop unavailable" }, { status: 502 });
   }
@@ -62,11 +78,17 @@ export async function GET() {
     xagmUsd,
     xaumUsd,
     vicefunUsd,
+    axolUsd: axol.usd,
+    lofiUsd: lofi.usd,
+    manifestUsd: manifest.usd,
     usd: xaumUsd || usdyUsd || xagmUsd,
     suiPerXaum,
     suiPerUsdy: perSui(usdyUsd, suiUsd),
     suiPerXagm: perSui(xagmUsd, suiUsd),
     suiPerVicefun,
-    source: "Cetus USDY/USDC · Bluefin XAGM/USDC · Bluefin XAUM/USDC · Dexscreener VICEFUN/SUI · DexPaprika SUI/USDC"
+    suiPerAxol: axol.native || perSui(axol.usd, suiUsd),
+    suiPerLofi: lofi.native || perSui(lofi.usd, suiUsd),
+    suiPerManifest: manifest.native || perSui(manifest.usd, suiUsd),
+    source: "Cetus USDY/USDC · Bluefin XAGM/USDC · Bluefin XAUM/USDC · Dexscreener VICEFUN/AXOL/LOFI/MANIFEST · DexPaprika SUI/USDC"
   });
 }

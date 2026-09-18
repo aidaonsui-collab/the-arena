@@ -24,6 +24,12 @@
     "0x64bddec0f898ccaa022b8a6e0a5f75d80f53177b87a9795dd15aefe9ac12ee6c::xagm::XAGM";
   var VICEFUN_TYPE =
     "0x4a6d6f56100e08f8f433fdc62760259e8d7ab91b476a42e138883dfc35ea80ab::vicefun::VICEFUN";
+  var AXOL_TYPE =
+    "0xf00eb7ab086967a33c04a853ad960e5c6b0955ef5a47d50b376d83856dc1215e::axol::AXOL";
+  var LOFI_TYPE =
+    "0xf22da9a24ad027cccb5f2d496cbe91de953d363513db08a3a734d361c7c17503::LOFI::LOFI";
+  var MANIFEST_TYPE =
+    "0xc466c28d87b3d5cd34f3d5c088751532d71a38d93a8aae4551dd56272cfb4355::manifest::MANIFEST";
   var SUI_TYPE = "0x2::sui::SUI";
   var CLAIM_REFLECTION = 0;
   var CLAIM_PIT = 1;
@@ -56,6 +62,9 @@
     if (/::amc::AMC$/i.test(s) || s === "AMC") return "AMC";
     if (/::gme::GME$/i.test(s) || s === "GME") return "GME";
     if (/::tsla::TSLA$/i.test(s) || s === "TSLA") return "TSLA";
+    if (/::axol::AXOL$/i.test(s) || s === "AXOL") return "AXOL";
+    if (/::LOFI::LOFI$/i.test(s) || s === "LOFI") return "LOFI";
+    if (/::manifest::MANIFEST$/i.test(s) || s === "MANIFEST") return "MANIFEST";
     if (s === "SUI" || s === SUI_TYPE || /::sui::sui$/i.test(s)) return "SUI";
     // Falls back to the type's last segment, which is a Move identifier and so
     // alphanumeric — but this string is rendered, so clamp rather than trust
@@ -77,6 +86,9 @@
     if (lab === "XAGM") return XAGM_TYPE;
     if (lab === "XAUM") return XAUM_TYPE;
     if (lab === "VICEFUN") return VICEFUN_TYPE;
+    if (lab === "AXOL") return AXOL_TYPE;
+    if (lab === "LOFI") return LOFI_TYPE;
+    if (lab === "MANIFEST") return MANIFEST_TYPE;
     if (typeof window !== "undefined") {
       if (lab === "NVDA" && window.ARENA_STOCK_NVDA_TYPE) return window.ARENA_STOCK_NVDA_TYPE;
       if (lab === "AMC" && window.ARENA_STOCK_AMC_TYPE) return window.ARENA_STOCK_AMC_TYPE;
@@ -701,6 +713,9 @@
     if (lab === "GME") return "gme";
     if (lab === "TSLA") return "tsla";
     if (lab === "VICEFUN") return "vicefun";
+    if (lab === "AXOL") return "axol";
+    if (lab === "LOFI") return "lofi";
+    if (lab === "MANIFEST") return "manifest";
     return "";
   }
 
