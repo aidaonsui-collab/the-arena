@@ -343,15 +343,30 @@
     return { pools: pools, cursor: null };
   }
 
+  var RPC_FALLBACKS = [
+    "https://mainnet.suiet.app",
+    "https://rpc-mainnet.suiscan.xyz:443",
+    "https://sui-mainnet-endpoint.blockvision.org"
+  ];
   function rpcCall(rpc, method, params) {
-    return fetch(rpc, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: method, params: params }),
-    }).then(function (r) { return r.json(); }).then(function (j) {
-      if (j.error) throw new Error(j.error.message || "rpc error");
-      return j.result;
-    });
+    var urls = [rpc].concat(RPC_FALLBACKS.filter(function (u) { return u !== rpc; }));
+    function tryAt(i) {
+      return fetch(urls[i], {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: method, params: params }),
+      }).then(function (r) {
+        if (r.status === 429) throw new Error("rpc 429");
+        return r.json();
+      }).then(function (j) {
+        if (j.error) throw new Error(j.error.message || "rpc error");
+        return j.result;
+      }).catch(function (e) {
+        if (i + 1 < urls.length) return tryAt(i + 1);
+        throw e;
+      });
+    }
+    return tryAt(0);
   }
 
   var DEFAULT_GQL = "https://graphql.mainnet.sui.io/graphql";
@@ -382,17 +397,26 @@
     });
   }
 
+  function queryEventsRpc(rpc, type, cursor, limit) {
+    return rpcCall(rpc, "suix_queryEvents", [
+      { MoveEventType: type },
+      cursor || null,
+      limit || 50,
+      true
+    ]).then(function (res) {
+      return res || { data: [], hasNextPage: false, nextCursor: null };
+    });
+  }
   function queryEvents(rpc, type, cursor, limit) {
     var gql = (typeof window !== "undefined" && window.SUI_GRAPHQL) || DEFAULT_GQL;
-    return queryEventsGql(gql, type, cursor, limit).catch(function () {
-      return rpcCall(rpc, "suix_queryEvents", [
-        { MoveEventType: type },
-        cursor || null,
-        limit || 50,
-        false,
-      ]).then(function (res) {
-        return res || { data: [], hasNextPage: false, nextCursor: null };
-      });
+    // Newest-first JSON-RPC first. GraphQL empty-success used to look like
+    // "no events" and skip the RPC that actually had the tape.
+    return queryEventsRpc(rpc, type, cursor, limit).then(function (page) {
+      if (page && page.data && page.data.length) return page;
+      if (cursor) return page;
+      return queryEventsGql(gql, type, cursor, limit).catch(function () { return page; });
+    }).catch(function () {
+      return queryEventsGql(gql, type, cursor, limit);
     });
   }
 
@@ -867,14 +891,34 @@
     };
   }
 
-  async function collect(rpc, type, parse, pages, limit) {
+  async function collect(rpc, type, parse, pages, limit, onRow) {
     var out = [];
     var cursor = null;
+    var gql = (typeof window !== "undefined" && window.SUI_GRAPHQL) || DEFAULT_GQL;
+    var mode = "rpc";
     for (var i = 0; i < (pages || 8); i++) {
-      var page = await queryEvents(rpc, type, cursor, limit || 50);
-      var data = page.data || [];
+      var page;
+      try {
+        if (mode === "rpc") page = await queryEventsRpc(rpc, type, cursor, limit || 50);
+        else page = await queryEventsGql(gql, type, cursor, limit || 50);
+      } catch (e) {
+        if (i === 0 && mode === "rpc") {
+          mode = "gql";
+          cursor = null;
+          try { page = await queryEventsGql(gql, type, null, limit || 50); }
+          catch (e2) { break; }
+        } else break;
+      }
+      var data = (page && page.data) || [];
       if (!data.length) break;
-      for (var j = 0; j < data.length; j++) out.push(parse(data[j]));
+      for (var j = 0; j < data.length; j++) {
+        var row = parse(data[j]);
+        if (!row) continue;
+        out.push(row);
+        if (onRow) {
+          try { onRow(row); } catch (err) {}
+        }
+      }
       if (!page.hasNextPage || !page.nextCursor) break;
       cursor = page.nextCursor;
     }
@@ -993,21 +1037,11 @@
     } else {
       var rpc = opts.rpc || DEFAULT_RPC;
       var P = opts.packageId;
-      collect(rpc, P + "::events::TradeEvent", parseTrade, 8, 50).then(function (rows) {
-        rows.forEach(function (t) { push(t); });
-      }).catch(function () {});
-      collect(rpc, P + "::events::ClaimEvent", parseClaim, 4, 50).then(function (rows) {
-        rows.forEach(function (c) { claims.push(c); });
-      }).catch(function () {});
-      collect(rpc, P + "::events::LaunchEvent", parseLaunch, 2, 50).then(function (rows) {
-        rows.forEach(function (l) { if (opts.onLaunch) opts.onLaunch(l); });
-      }).catch(function () {});
-      collect(rpc, P + "::events::GraduationEvent", parseGraduation, 2, 50).then(function (rows) {
-        rows.forEach(function (g) { if (opts.onGraduate) opts.onGraduate(g); });
-      }).catch(function () {});
-      collect(rpc, P + "::events::LockEvent", parseLock, 2, 50).then(function (rows) {
-        rows.forEach(function (g) { if (opts.onLock) opts.onLock(g); });
-      }).catch(function () {});
+      collect(rpc, P + "::events::TradeEvent", parseTrade, 8, 50, push).catch(function () {});
+      collect(rpc, P + "::events::ClaimEvent", parseClaim, 4, 50, function (c) { claims.push(c); }).catch(function () {});
+      collect(rpc, P + "::events::LaunchEvent", parseLaunch, 2, 50, function (l) { if (opts.onLaunch) opts.onLaunch(l); }).catch(function () {});
+      collect(rpc, P + "::events::GraduationEvent", parseGraduation, 2, 50, function (g) { if (opts.onGraduate) opts.onGraduate(g); }).catch(function () {});
+      collect(rpc, P + "::events::LockEvent", parseLock, 2, 50, function (g) { if (opts.onLock) opts.onLock(g); }).catch(function () {});
       var lockPkgs = (opts.lockPackages || []).slice();
       if (lockPkgs.indexOf(P) < 0) lockPkgs.push(P);
       var callPkg = opts.callPackage || opts.instadexPackage;
@@ -1017,9 +1051,7 @@
       if (callPkg && lockPkgs.indexOf(callPkg) < 0) lockPkgs.push(callPkg);
       lockPkgs.forEach(function (LP) {
         if (!LP || LP === "0x0") return;
-        collect(rpc, LP + "::events::BluefinLockEvent", parseBluefinLock, 2, 50).then(function (rows) {
-          rows.forEach(function (g) { if (opts.onBluefinLock) opts.onBluefinLock(g); });
-        }).catch(function () {});
+        collect(rpc, LP + "::events::BluefinLockEvent", parseBluefinLock, 2, 50, function (g) { if (opts.onBluefinLock) opts.onBluefinLock(g); }).catch(function () {});
       });
       function emitInstadex(l) {
         if (l && l.bluefin_pool_id) watchBluefinPool(l.bluefin_pool_id);
@@ -1029,9 +1061,7 @@
       function pullInstadex(pkg) {
         if (!pkg || pkg === "0x0") return;
         function once(attempt) {
-          collect(rpc, pkg + "::events::InstadexLaunchEvent", parseInstadexLaunch, 2, 50).then(function (rows) {
-            rows.forEach(emitInstadex);
-          }).catch(function () {
+          collect(rpc, pkg + "::events::InstadexLaunchEvent", parseInstadexLaunch, 2, 50, emitInstadex).catch(function () {
             if (attempt < 4) setTimeout(function () { once(attempt + 1); }, 700 * (attempt + 1));
           });
         }
@@ -1048,18 +1078,14 @@
       }
       function pullBurn(pkg) {
         if (!pkg || pkg === "0x0") return;
-        collect(rpc, pkg + "::events::InstadexBurnEvent", parseInstadexBurn, 8, 50).then(function (rows) {
-          rows.forEach(emitBurn);
-        }).catch(function () {});
+        collect(rpc, pkg + "::events::InstadexBurnEvent", parseInstadexBurn, 8, 50, emitBurn).catch(function () {});
       }
       function emitMintLock(m) {
         if (opts.onInstadexMintLock) opts.onInstadexMintLock(m);
       }
       function pullMintLock(pkg) {
         if (!pkg || pkg === "0x0") return;
-        collect(rpc, pkg + "::events::InstadexMintLockEvent", parseInstadexMintLock, 2, 50).then(function (rows) {
-          rows.forEach(emitMintLock);
-        }).catch(function () {});
+        collect(rpc, pkg + "::events::InstadexMintLockEvent", parseInstadexMintLock, 2, 50, emitMintLock).catch(function () {});
       }
       var burnPkgs = (opts.burnPackages || []).slice();
       if (typeof window !== "undefined") {
@@ -1074,9 +1100,7 @@
       }
       function pullBeneficiary(pkg) {
         if (!pkg || pkg === "0x0") return;
-        collect(rpc, pkg + "::events::BeneficiarySetEvent", parseBeneficiarySet, 8, 50).then(function (rows) {
-          rows.forEach(emitBeneficiary);
-        }).catch(function () {});
+        collect(rpc, pkg + "::events::BeneficiarySetEvent", parseBeneficiarySet, 8, 50, emitBeneficiary).catch(function () {});
       }
       var benPkgs = (opts.beneficiaryPackages || burnPkgs).slice();
       benPkgs.forEach(pullBeneficiary);
@@ -1133,24 +1157,16 @@
       function emitHyPush(r) { if (opts.onHolderYieldPush) opts.onHolderYieldPush(r); }
       function pullHolderYield(pkg) {
         if (!pkg || pkg === "0x0") return;
-        collect(rpc, pkg + "::events::HolderYieldLaunchEvent", parseHolderYieldLaunch, 4, 50).then(function (rows) {
-          rows.forEach(emitHyLaunch);
-        }).catch(function () {});
-        collect(rpc, pkg + "::events::HolderYieldFundedEvent", parseHolderYieldFunded, 8, 50).then(function (rows) {
-          rows.forEach(emitHyFunded);
-        }).catch(function () {});
-        collect(rpc, pkg + "::events::HolderYieldClaimEvent", parseHolderYieldClaim, 8, 50).then(function (rows) {
-          rows.forEach(emitHyClaim);
-        }).catch(function () {});
+        collect(rpc, pkg + "::events::HolderYieldLaunchEvent", parseHolderYieldLaunch, 4, 50, emitHyLaunch).catch(function () {});
+        collect(rpc, pkg + "::events::HolderYieldFundedEvent", parseHolderYieldFunded, 8, 50, emitHyFunded).catch(function () {});
+        collect(rpc, pkg + "::events::HolderYieldClaimEvent", parseHolderYieldClaim, 8, 50, emitHyClaim).catch(function () {});
         // Push distributes one event per holder — pull more pages than claim/funded.
-        collect(rpc, pkg + "::events::HolderYieldPushEvent", parseHolderYieldPush, 40, 50).then(function (rows) {
-          rows.forEach(emitHyPush);
-        }).catch(function () {});
+        collect(rpc, pkg + "::events::HolderYieldPushEvent", parseHolderYieldPush, 40, 50, emitHyPush).catch(function () {});
       }
       var hyPkgs = (opts.holderYieldPackages || []).slice();
       if (!hyPkgs.length) {
         if (typeof window !== "undefined") {
-          [window.ARENA_HOLDER_YIELD_EVENT_PACKAGE, window.ARENA_CALL_PACKAGE, window.ARENA_COLLECT_PACKAGE].forEach(function (pkg) {
+          [window.ARENA_HOLDER_YIELD_PUSH_EVENT_PACKAGE, window.ARENA_HOLDER_YIELD_EVENT_PACKAGE, window.ARENA_CALL_PACKAGE, window.ARENA_COLLECT_PACKAGE].forEach(function (pkg) {
             if (pkg && hyPkgs.indexOf(pkg) < 0) hyPkgs.push(pkg);
           });
         }
@@ -1163,9 +1179,7 @@
       function emitCollectLp(r) { if (opts.onCollectLpFees) opts.onCollectLpFees(r); }
       function pullCollectLp(pkg) {
         if (!pkg || pkg === "0x0") return;
-        collect(rpc, pkg + "::events::CollectLpFeesEvent", parseCollectLpFees, 4, 50).then(function (rows) {
-          rows.forEach(emitCollectLp);
-        }).catch(function () {});
+        collect(rpc, pkg + "::events::CollectLpFeesEvent", parseCollectLpFees, 4, 50, emitCollectLp).catch(function () {});
       }
       var clpPkgs = (opts.collectLpPackages || []).slice();
       if (!clpPkgs.length) {
@@ -1187,24 +1201,12 @@
       function emitByRotate(r) { if (opts.onBasketYieldRotate) opts.onBasketYieldRotate(r); }
       function pullBasketYield(pkg) {
         if (!pkg || pkg === "0x0") return;
-        collect(rpc, pkg + "::events::BasketYieldLaunchEvent", parseBasketYieldLaunch, 4, 50).then(function (rows) {
-          rows.forEach(emitByLaunch);
-        }).catch(function () {});
-        collect(rpc, pkg + "::events::BasketYieldFundedEvent", parseBasketYieldFunded, 8, 50).then(function (rows) {
-          rows.forEach(emitByFunded);
-        }).catch(function () {});
-        collect(rpc, pkg + "::events::BasketYieldConvertedEvent", parseBasketYieldConverted, 8, 50).then(function (rows) {
-          rows.forEach(emitByConverted);
-        }).catch(function () {});
-        collect(rpc, pkg + "::events::BasketYieldClaimEvent", parseBasketYieldClaim, 8, 50).then(function (rows) {
-          rows.forEach(emitByClaim);
-        }).catch(function () {});
-        collect(rpc, pkg + "::events::BasketYieldPushEvent", parseBasketYieldPush, 40, 50).then(function (rows) {
-          rows.forEach(emitByPush);
-        }).catch(function () {});
-        collect(rpc, pkg + "::events::BasketYieldRotateEvent", parseBasketYieldRotate, 4, 50).then(function (rows) {
-          rows.forEach(emitByRotate);
-        }).catch(function () {});
+        collect(rpc, pkg + "::events::BasketYieldLaunchEvent", parseBasketYieldLaunch, 4, 50, emitByLaunch).catch(function () {});
+        collect(rpc, pkg + "::events::BasketYieldFundedEvent", parseBasketYieldFunded, 8, 50, emitByFunded).catch(function () {});
+        collect(rpc, pkg + "::events::BasketYieldConvertedEvent", parseBasketYieldConverted, 8, 50, emitByConverted).catch(function () {});
+        collect(rpc, pkg + "::events::BasketYieldClaimEvent", parseBasketYieldClaim, 8, 50, emitByClaim).catch(function () {});
+        collect(rpc, pkg + "::events::BasketYieldPushEvent", parseBasketYieldPush, 40, 50, emitByPush).catch(function () {});
+        collect(rpc, pkg + "::events::BasketYieldRotateEvent", parseBasketYieldRotate, 4, 50, emitByRotate).catch(function () {});
       }
       var byPkgs = (opts.basketYieldPackages || []).slice();
       if (!byPkgs.length && opts.holderYieldPackages && opts.holderYieldPackages.length) {

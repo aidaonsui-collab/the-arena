@@ -5,6 +5,8 @@ const RPC = process.env.SUI_RPC || "https://mainnet.suiet.app";
 const EVENT_PKGS = [
   process.env.ARENA_INSTADEX_PACKAGE || "0xcf7835ae4e3f8a3d4eb4bd9d14cb4a3dbdd80e70908feb6c433688a31e119de3",
   "0xd8531cc8c4e1ee914f0e4e48aea9a796faa0603459cc4665838f688e51bf23d9",
+  process.env.ARENA_CALL_PACKAGE || "0x1c808e5fe7f14703a72cae3cd71ebba98b3a9a97dc530feed6222595bfb4a853",
+  "0x3ccc57531949d6f24178bd57fe20496ee4ff515e26c280f1b80f658bc020bcbe",
 ];
 
 const JPG_HEADERS = {
@@ -46,6 +48,9 @@ function quoteLabel(v) {
   if (/usdy/i.test(s)) return "USDY";
   if (/xagm/i.test(s)) return "XAGM";
   if (/xaum/i.test(s)) return "XAUM";
+  if (/nvda/i.test(s)) return "NVDA";
+  if (/amc/i.test(s)) return "AMC";
+  if (/vicefun/i.test(s)) return "VICEFUN";
   return "SUI";
 }
 
@@ -81,36 +86,47 @@ async function findLaunch(sym) {
   const wantType = normTypeKey(raw);
   if (!want || HIDE.has(want) || HIDE_TYPES.has(wantType)) return null;
   const q =
-    "query($t:String!){ events(first:50, filter:{ type:$t }){ nodes { contents { json } } } }";
+    "query($t:String!,$first:Int!,$after:String){ events(first:$first, after:$after, filter:{ type:$t }){ pageInfo { hasNextPage endCursor } nodes { contents { json } } } }";
   for (const pkg of EVENT_PKGS) {
-    try {
-      const r = await fetch(GQL, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ query: q, variables: { t: pkg + "::events::InstadexLaunchEvent" } }),
-      });
-      const j = await r.json();
-      const nodes = (j && j.data && j.data.events && j.data.events.nodes) || [];
-      for (const n of nodes) {
-        const p = (n.contents && n.contents.json) || {};
-        const ticker = String(p.symbol || "").toUpperCase();
-        const token = typeNameOf(p.token);
-        const tokenKey = normTypeKey(token);
-        if (HIDE_TYPES.has(tokenKey)) continue;
-        const typeHit = wantType.includes("::") && tokenKey === wantType;
-        const pkgHit = /^0x[0-9a-f]+$/i.test(raw) && tokenKey.split("::")[0] === wantType;
-        if (ticker === want || typeHit || pkgHit) {
-          return {
-            symbol: ticker,
-            name: p.name || ticker,
-            token: token,
-            quote: quoteLabel(p.quote),
-          };
+    let after = null;
+    for (let page = 0; page < 12; page++) {
+      try {
+        const r = await fetch(GQL, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            query: q,
+            variables: { t: pkg + "::events::InstadexLaunchEvent", first: 50, after },
+          }),
+        });
+        const j = await r.json();
+        const nodes = (j && j.data && j.data.events && j.data.events.nodes) || [];
+        for (const n of nodes) {
+          const p = (n.contents && n.contents.json) || {};
+          const ticker = String(p.symbol || "").toUpperCase();
+          const token = typeNameOf(p.token);
+          const tokenKey = normTypeKey(token);
+          if (HIDE_TYPES.has(tokenKey)) continue;
+          const typeHit = wantType.includes("::") && tokenKey === wantType;
+          const pkgHit = /^0x[0-9a-f]+$/i.test(raw) && tokenKey.split("::")[0] === wantType;
+          if (ticker === want || typeHit || pkgHit) {
+            return {
+              symbol: ticker,
+              name: p.name || ticker,
+              token: token,
+              quote: quoteLabel(p.quote),
+            };
+          }
         }
+        const info = j && j.data && j.data.events && j.data.events.pageInfo;
+        if (!info || !info.hasNextPage || !info.endCursor) break;
+        after = info.endCursor;
+      } catch (e) {
+        break;
       }
-    } catch (e) {}
+    }
   }
-  return { symbol: want, name: want, token: "", quote: "SUI" };
+  return { symbol: /^[A-Z][A-Z0-9_.\-]{0,15}$/.test(want) ? want : "", name: want, token: "", quote: "SUI" };
 }
 
 async function coinIcon(type) {
@@ -129,10 +145,19 @@ async function coinIcon(type) {
   }
 }
 
+function absIcon(origin, url) {
+  url = String(url || "").trim();
+  if (!url) return "";
+  if (url.startsWith("//")) return "https:" + url;
+  if (url.startsWith("/")) return origin.replace(/\/$/, "") + url;
+  if (/^https?:\/\//i.test(url)) return url;
+  return "";
+}
+
 async function fetchBuf(url) {
   if (!url) return null;
   try {
-    const r = await fetch(url);
+    const r = await fetch(url, { headers: { "user-agent": "vicefun-og" } });
     if (!r.ok) return null;
     const buf = Buffer.from(await r.arrayBuffer());
     if (buf.length < 32 || buf.length > 3500000) return null;
@@ -286,10 +311,13 @@ async function render(request) {
   } catch (e) {}
 
   const launch = await findLaunch(sym);
-  const overlay = await loadTokenOverlay(sym);
-  const name = (overlay && overlay.name) || (launch && launch.name) || sym;
+  const tick =
+    (launch && launch.symbol && /^[A-Z][A-Z0-9_.\-]{0,15}$/.test(launch.symbol) && launch.symbol) ||
+    (!isType && /^[A-Z][A-Z0-9_.\-]{0,15}$/.test(String(sym).toUpperCase()) ? String(sym).toUpperCase() : "");
+  const overlay = tick ? await loadTokenOverlay(tick) : null;
+  const name = (overlay && overlay.name) || (launch && launch.name) || tick || "Vice";
   const quote = (launch && launch.quote) || "SUI";
-  const icon = (overlay && overlay.icon) || (launch && launch.token ? await coinIcon(launch.token) : "");
+  const icon = absIcon(origin, (overlay && overlay.icon) || "") || (launch && launch.token ? await coinIcon(launch.token) : "");
   const pfpFile = await fetchBuf(icon);
   const pfp = await decodeAny(pfpFile, jpeg, PNG);
   const pack = await loadAssets(origin, jpeg, PNG);
@@ -303,7 +331,7 @@ async function render(request) {
     const ticker = pack.fonts.ticker;
     const nameF = pack.fonts.name;
     const sub = pack.fonts.sub;
-    const tickerStr = fitText(ticker, "$" + sym, maxW, 0);
+    const tickerStr = fitText(ticker, "$" + (tick || (launch && launch.symbol) || "TOKEN"), maxW, 0);
     const nameStr = fitText(nameF, String(name), maxW, 0);
     const subStr = fitText(sub, "Instant  ·  Trade in " + quote + "  ·  vicefun.com", maxW, 0);
     let y = 150;
