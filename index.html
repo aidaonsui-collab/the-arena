@@ -1046,7 +1046,8 @@ window.ARENA_INSTADEX_PACKAGE = "0xcf7835ae4e3f8a3d4eb4bd9d14cb4a3dbdd80e70908fe
 window.ARENA_COLLECT_PACKAGE = "0x1c808e5fe7f14703a72cae3cd71ebba98b3a9a97dc530feed6222595bfb4a853";
 window.ARENA_CALL_PACKAGE = window.ARENA_COLLECT_PACKAGE;
 // Compatible-upgrade event types keep the package id that first defined them.
-window.ARENA_HOLDER_YIELD_EVENT_PACKAGE = "0xe2dee7a21e382d47d8f13e39801c86987a88e9ebd5fb8801efd1b974e4e4d9a2"; // v11
+window.ARENA_HOLDER_YIELD_EVENT_PACKAGE = "0xe2dee7a21e382d47d8f13e39801c86987a88e9ebd5fb8801efd1b974e4e4d9a2"; // v11 launch/fund/claim
+window.ARENA_HOLDER_YIELD_PUSH_EVENT_PACKAGE = "0x97158e99b999f8e7ad729d1e7de8c10e4f3550f25557a392fbca3296b000a984"; // HolderYieldPushEvent origin
 window.ARENA_BASKET_YIELD_EVENT_PACKAGE = "0x1710adbe0293015cac7492b6db0cf871a7af81c5a51cd9d5d99d3aadf9fea161"; // v12 launch/fund/claim
 window.ARENA_BASKET_YIELD_PUSH_EVENT_PACKAGE = "0x3ccc57531949d6f24178bd57fe20496ee4ff515e26c280f1b80f658bc020bcbe"; // v22 BasketYieldPushEvent origin
 window.ARENA_COLLECT_LP_EVENT_PACKAGE = "0x68e178d50276b3bcbce11a136df48909aceff1f2a8ee8a45483e9f128e989972"; // v5 CollectLpFeesEvent
@@ -1952,7 +1953,6 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
         if (state.route === "token"){
           refreshSwapBals(findT(state.sym));
         }
-        if (state.route === "pit") loadPitVotes();
       });
     } catch (e) {}
   }
@@ -1966,7 +1966,6 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       renderScreen();
       refreshSwapBals(findT(state.sym));
     }
-    if (state.route === "pit") loadPitVotes();
   }
   async function tryResumeWallet(){
     if (suiSession.address || walletResuming) return;
@@ -2224,13 +2223,30 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     if (typeof bytes === "string") return bytes;
     return bytesToB64(bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes));
   }
+  function rpcUrls(){
+    var urls = RPC_EXEC.slice();
+    var pref = window.SUI_RPC;
+    if (pref && urls.indexOf(pref) < 0) urls.unshift(pref);
+    return urls;
+  }
+  function isTransientNet(err){
+    var m = walletErrText(err);
+    return /failed to fetch|networkerror|load failed|rpc 429|too frequent|timeout|econnreset|network request failed/i.test(m);
+  }
   async function buildTxBytes(tx){
     if (!tx || typeof tx.build !== "function") return null;
     var Ctor = await loadSuiClient();
-    var client = new Ctor({ url: window.SUI_RPC || "https://mainnet.suiet.app" });
-    var bytes = await tx.build({ client: client });
-    if (bytes && bytes.bytes) bytes = bytes.bytes;
-    return bytes;
+    var last = null;
+    var urls = rpcUrls();
+    for (var i = 0; i < urls.length; i++){
+      try {
+        var client = new Ctor({ url: urls[i] });
+        var bytes = await tx.build({ client: client });
+        if (bytes && bytes.bytes) bytes = bytes.bytes;
+        if (bytes) return bytes;
+      } catch (e) { last = e; }
+    }
+    throw last || new Error("Could not build transaction");
   }
   function walletErrText(err){
     if (!err) return "";
@@ -2336,9 +2352,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     try { bytes = await buildTxBytes(tx); } catch (e) { last = e; }
     if (bytes){
       try {
-        var Ctor = await loadSuiClient();
-        var client = new Ctor({ url: window.SUI_RPC || "https://mainnet.suiet.app" });
-        var dry = await client.dryRunTransactionBlock({ transactionBlock: toB64(bytes) });
+        var dry = await rpcJson("sui_dryRunTransactionBlock", [toB64(bytes)]);
         var st = dry && dry.effects && dry.effects.status;
         if (st && st.status && st.status !== "success"){
           throw new Error(st.error || "Transaction dry-run failed");
@@ -2568,7 +2582,35 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     if (u.some && typeof u.some.url === "string") return u.some.url;
     return "";
   }
+  async function coinsOfRpc(owner, coinType){
+    var out = [];
+    var cursor = null;
+    for (var page = 0; page < 8; page++){
+      var res = await rpcJson("suix_getCoins", [owner, normType(coinType), cursor, 50]);
+      var data = (res && res.data) || [];
+      for (var i = 0; i < data.length; i++){
+        var c = data[i] || {};
+        var big = 0n;
+        try { big = BigInt(String(c.balance || "0")); } catch (e) { big = 0n; }
+        if (big > 0n){
+          out.push({
+            id: c.coinObjectId,
+            value: Number(big > BigInt(Number.MAX_SAFE_INTEGER) ? Number.MAX_SAFE_INTEGER : big),
+            valueBig: big
+          });
+        }
+      }
+      if (!(res && res.hasNextPage && res.nextCursor)) break;
+      cursor = res.nextCursor;
+    }
+    out.sort(function(a,b){ return a.valueBig < b.valueBig ? 1 : -1; });
+    return out;
+  }
   async function coinsOf(owner, coinType){
+    try {
+      var rpcCoins = await coinsOfRpc(owner, coinType);
+      if (rpcCoins && rpcCoins.length) return rpcCoins.map(function(c){ return { id: c.id, value: c.value }; });
+    } catch (e) {}
     var t = "0x2::coin::Coin<" + normType(coinType) + ">";
     var data = await gql(
       "query($o:SuiAddress!,$t:String){ address(address:$o){ objects(first:50, filter:{ type:$t }){ nodes { address contents { json } } } } }",
@@ -3244,8 +3286,19 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   // compares against.
   var HIDDEN_COIN_TYPES = {
     "0xa0b937f9f6c7cd7e865b3c5bde42dc21dee8e847a7226e6de3aa9af4f64059b4::ncat::ncat": true,
-    "0xbe1af5ef6e6ffa70a298947fd173932e24f98aa1488d77875bee1eff747e107c::nncat::nncat": true
+    "0xbe1af5ef6e6ffa70a298947fd173932e24f98aa1488d77875bee1eff747e107c::nncat::nncat": true,
+    // Bare package too: hiddenTypeKey() falls back to a package-only lookup for
+    // package-routed links (tokenRouteId() returns just the package), which the
+    // full-type key above does not satisfy on its own.
+    "0xbe1af5ef6e6ffa70a298947fd173932e24f98aa1488d77875bee1eff747e107c": true
   };
+  function hiddenTypeKey(s){
+    var n = normType(s || "").toLowerCase();
+    if (!n) return false;
+    if (HIDDEN_COIN_TYPES[n]) return true;
+    var pkg = n.split("::")[0];
+    return !!(pkg && HIDDEN_COIN_TYPES[pkg]);
+  }
   function looksLikeCoinType(s){
     s = String(s || "");
     return s.indexOf("::") >= 0 || /^0x[0-9a-fA-F]{40,}$/i.test(s);
@@ -3269,10 +3322,9 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   function isHiddenToken(k){
     const t = String((k && k.t) || "").toUpperCase();
     if (t === "BFLN" || t === "GRAD" || t === "SMOKE" || t === "IDEX" || t === "SILVER" || t === "SSILVER" || t === "NNCAT") return true;
-    var ct = coinTypeOf(k).toLowerCase();
-    if (ct && HIDDEN_COIN_TYPES[ct]) return true;
-    var rawType = String((k && k.token) || (looksLikeCoinType(t) ? t : "") || "").toLowerCase();
-    if (rawType && HIDDEN_COIN_TYPES[normType(rawType).toLowerCase()]) return true;
+    if (hiddenTypeKey(coinTypeOf(k))) return true;
+    if (hiddenTypeKey(k && k.token)) return true;
+    if (hiddenTypeKey(t)) return true;
     if (k && k.mode === "AMC") return true;
     const n = String((k && k.n) || "");
     return /^Arena (Bluefin|Grad|Smoke)$/i.test(n) || /^INSTA$/i.test(n);
@@ -3362,7 +3414,10 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     const found = T.find(function(k){
       return k.t === up || (k.pool && k.pool.toLowerCase() === low) || (k.bluefinPool && k.bluefinPool.toLowerCase() === low);
     });
-    if (found) return found;
+    if (found){
+      seedKnownLocks(found);
+      return found;
+    }
     if (up && (state.route === "token" || raw)) {
       return {t:up,n:up,b:"",cap:0,ch:0,h:0,st:"Live",mode:"Instadex",q:"SUI",c:"#298DFF",buckets:[1],fbuckets:[1],pool:"",missing:true,instadex:true};
     }
@@ -3429,9 +3484,9 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     }
     return chartToolbarHTML()+'<div class="tv-wrap"><div class="tv-host" data-chart-pool="'+escAttr(pool)+'"><div class="chart-pending">Drawing chart…</div></div></div>';
   }
-  var lw = { chart:null, candle:null, vol:null, ma7:null, ma25:null, ma99:null, ema:null, host:null, ticker:"", legend:null, rows:[] };
+  var lw = { chart:null, candle:null, vol:null, ma7:null, ma25:null, ma99:null, ema:null, host:null, ticker:"", legend:null, rows:[], _fitKey:"" };
   function emptyLw(){
-    return { chart:null, candle:null, vol:null, ma7:null, ma25:null, ma99:null, ema:null, host:null, ticker:"", legend:null, rows:[] };
+    return { chart:null, candle:null, vol:null, ma7:null, ma25:null, ma99:null, ema:null, host:null, ticker:"", legend:null, rows:[], _fitKey:"" };
   }
   function dropLwChart(){
     if (lw.legend && lw.legend.parentNode){
@@ -3483,21 +3538,64 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     if (px >= 0.01) return 6;
     return Math.min(12, Math.ceil(-Math.log10(px)) + 4);
   }
+  function fillLwGaps(rows, stepSec){
+    stepSec = Number(stepSec) || 900;
+    if (!rows || !rows.length || !(stepSec > 0)) return rows || [];
+    var out = [rows[0]];
+    var inserted = 0;
+    var maxInsert = 4000;
+    function flat(t, px){
+      return { time: t, open: px, high: px, low: px, close: px, volume: 0 };
+    }
+    for (var i = 1; i < rows.length; i++){
+      var prev = out[out.length - 1];
+      var next = rows[i];
+      var t = prev.time + stepSec;
+      while (t < next.time && inserted < maxInsert){
+        out.push(flat(t, prev.close));
+        t += stepSec;
+        inserted++;
+      }
+      if (next.time <= prev.time) next = Object.assign({}, next, { time: prev.time + stepSec });
+      out.push(next);
+    }
+    var last = out[out.length - 1];
+    var now = Math.floor(Date.now() / 1000);
+    now = Math.floor(now / stepSec) * stepSec;
+    var t2 = last.time + stepSec;
+    while (t2 <= now && inserted < maxInsert){
+      out.push(flat(t2, last.close));
+      t2 += stepSec;
+      inserted++;
+    }
+    return out;
+  }
   function lwRows(tk){
-    var candles = tvBars(tk.t, (Number(state.chartTf) || 900) * 1000);
+    var stepSec = Number(state.chartTf) || 900;
+    if (!(stepSec > 0)) stepSec = 900;
+    var candles = tvBars(tk.t, stepSec * 1000);
     var mul = chartMcMul(tk);
     var rows = [];
     candles.forEach(function(c){
       if (!(c.close > 0) || !isFinite(c.close)) return;
       var t = Math.floor(Number(c.time) / 1000);
-      if (rows.length && rows[rows.length - 1].time >= t) t = rows[rows.length - 1].time + 1;
+      t = Math.floor(t / stepSec) * stepSec;
+      if (rows.length && rows[rows.length - 1].time >= t) return;
       rows.push({
         time: t,
         open: c.open * mul, high: c.high * mul, low: c.low * mul, close: c.close * mul,
         volume: Number(c.volume) || 0
       });
     });
-    return rows;
+    return fillLwGaps(rows, stepSec);
+  }
+  function lwVisibleCount(){
+    var tf = Number(state.chartTf) || 900;
+    if (tf <= 60) return 90;
+    if (tf <= 300) return 72;
+    if (tf <= 900) return 64;
+    if (tf <= 3600) return 48;
+    return 36;
   }
   function syncLwInd(){
     var on = chartInd();
@@ -3529,7 +3627,13 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
         for (var i = 0; i < rows.length; i++){
           if (rows[i].time === bar.time){ prev = rows[i - 1] || null; break; }
         }
-      } else prev = rows.length > 1 ? rows[rows.length - 2] : null;
+      } else {
+        prev = null;
+        for (var pi = rows.length - 2; pi >= 0; pi--){
+          if (rows[pi].volume > 0){ prev = rows[pi]; break; }
+        }
+        if (!prev) prev = rows.length > 1 ? rows[rows.length - 2] : null;
+      }
     }
     var up = bar.close >= bar.open;
     var chg = prev && prev.close > 0 ? ((bar.close - prev.close) / prev.close) * 100 : 0;
@@ -3590,6 +3694,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     if (lw.chart) lw.chart.applyOptions({
       timeScale: { timeVisible: true, secondsVisible: Number(state.chartTf) < 3600, borderColor: themeNow() === "pastel" ? "#F0C9DC" : "#3A2438" }
     });
+    var stepSec = Number(state.chartTf) || 900;
     lw.candle.setData(rows.map(function(r){ return { time: r.time, open: r.open, high: r.high, low: r.low, close: r.close }; }));
     if (lw.vol) lw.vol.setData(rows.map(function(r){
       return { time: r.time, value: r.volume, color: r.close >= r.open ? "rgba(41,141,255,.45)" : "rgba(255,102,64,.45)" };
@@ -3603,7 +3708,18 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     if (lw.ma99) lw.ma99.setData(lw._ma99);
     if (lw.ema) lw.ema.setData(lw._ema);
     syncLwInd();
-    try { lw.chart.timeScale().scrollToRealTime(); } catch (e) {}
+    var fitKey = String(tk.t || "") + ":" + String(stepSec);
+    try {
+      if (lw._fitKey !== fitKey){
+        var n = rows.length;
+        var vis = lwVisibleCount();
+        lw.chart.timeScale().setVisibleLogicalRange({
+          from: n - vis,
+          to: n + 3
+        });
+        lw._fitKey = fitKey;
+      }
+    } catch (e) {}
   }
   function paintLocalChart(host, tk){
     if (!host || !tk) return;
@@ -3638,9 +3754,10 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
           borderColor: pastel ? "#F0C9DC" : "#3A2438",
           timeVisible: true,
           secondsVisible: Number(state.chartTf) < 3600,
-          rightOffset: 6,
-          barSpacing: 10,
-          minBarSpacing: 4
+          rightOffset: 4,
+          barSpacing: 6,
+          minBarSpacing: 3,
+          shiftVisibleRangeOnNewBar: true
         },
         crosshair: { mode: magnet },
         handleScroll: true,
@@ -4036,7 +4153,6 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
         paintCreatorLink();
         paintTape();
       }
-      if (state.route === "pit") paintPitVotes();
     }).catch(function(){
       need.forEach(function(a){ if (!(a in suins.cache)) suins.cache[a] = ""; });
       suins.pending = false;
@@ -5739,16 +5855,9 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       if (changed && (state.route === "pit" || state.route === "explore" || state.route === "metrics") && (state.route !== "pit" || $("#contenders"))) scheduleScreen();
     }).catch(function(){});
   }
-  function loadPitVotes(){
-    const q = suiSession.address ? ("?address="+encodeURIComponent(suiSession.address)) : "";
-    return fetch("/api/pit-vote"+q, { cache: "no-store" }).then(function(r){ return r.json(); }).then(function(j){
-      if (j && !j.error) applyPitVotePayload(j);
-      else if (j && j.error) pitVoteErr = j.error;
-      paintPitVotes();
-    }).catch(function(){
-      paintPitVotes();
-    });
-  }
+  var pitVoteAt = 0;
+  var pitVoteFetchBusy = false;
+  function loadPitVotes(){ return Promise.resolve(); }
   function noteLocalVote(tick){
     const prev = pitVotes.mine;
     if (prev && prev !== tick && pitVotes.tallies[prev] > 0) pitVotes.tallies[prev] -= 1;
@@ -5778,45 +5887,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       paintClocks();
     }).catch(function(){});
   }
-  async function doPitVote(tick){
-    tick = String(tick || "").toUpperCase();
-    if (!tick || pitVoteBusy) return;
-    pitVoteErr = "";
-    try {
-      if (!hasSuiWallet() && !suiSession.address) throw new Error("No Sui wallet found");
-      if (!suiSession.address) await connectWallet();
-      pitVoteBusy = tick;
-      paintPitVotes();
-      const Tx = await loadTransaction();
-      const tx = new Tx();
-      const coin = await takeSwapCoin(tx, SUI_TYPE, PIT_VOTE_FEE);
-      const bal = coinIntoBalance(tx, SUI_TYPE, coin);
-      tx.moveCall({
-        target: window.ARENA_PACKAGE_ID + "::pit::take_fee",
-        typeArguments: [SUI_TYPE],
-        arguments: [tx.object(window.ARENA_PIT_SUI), bal]
-      });
-      const result = await walletExec(tx);
-      const digest = txDigest(result);
-      if (!digest) throw new Error("Wallet did not return a digest");
-      noteLocalVote(tick);
-      const res = await fetch("/api/pit-vote", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ digest: digest, ticker: tick, address: suiSession.address })
-      });
-      const j = await res.json().catch(function(){ return null; });
-      if (!res.ok || (j && j.error)) throw new Error((j && j.error) || "Vote paid, but it did not record");
-      applyPitVotePayload(j);
-      pot += PIT_VOTE_FEE / 1e9;
-      paintPots();
-      refreshPitObject();
-    } catch (err){
-      pitVoteErr = walletErrText(err) || "Vote failed";
-    }
-    pitVoteBusy = "";
-    paintPitVotes();
-  }
+  async function doPitVote(){ return; }
   function rewardsCat(id){
     for (var i = 0; i < REWARDS_CATS.length; i++) if (REWARDS_CATS[i].id === id) return REWARDS_CATS[i];
     return REWARDS_CATS[0];
@@ -7166,6 +7237,81 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     return n;
   }
   var booksVolBusy = false;
+  var booksBridgeBusy = false;
+  var booksBridgeAt = 0;
+  var booksBridgeSupply = {};
+  var booksBridgePx = {};
+  function wrapSupplyFromVault(fields){
+    var f = fields || {};
+    var treas = f.treasury;
+    var tf = treas && (treas.fields || treas);
+    var ts = tf && tf.total_supply;
+    var inner = ts && (ts.fields || ts);
+    var v = inner && (inner.value != null ? inner.value : inner);
+    if (v && typeof v === "object" && v.value != null) v = v.value;
+    return v != null ? String(v) : "0";
+  }
+  function pickRhUsd(pairs){
+    var best = 0;
+    var bestScore = -1;
+    (pairs || []).forEach(function(p){
+      var px = Number(p && p.priceUsd);
+      if (!(px > 0)) return;
+      var liq = Number((p.liquidity && p.liquidity.usd) || 0);
+      var q = String((p.quoteToken && p.quoteToken.symbol) || "").toUpperCase();
+      var score = liq + (/USD/.test(q) ? 1e12 : 0);
+      if (score > bestScore){ bestScore = score; best = px; }
+    });
+    return best;
+  }
+  function booksBridgeUsd(){
+    var n = 0;
+    STOCK_TICKERS.forEach(function(lab){
+      var raw = booksBridgeSupply[lab];
+      if (raw == null) return;
+      var rec = QUOTES[lab] || {};
+      var qty = fromBase(raw, rec.decimals != null ? rec.decimals : 9);
+      var px = Number(booksBridgePx[lab] || 0);
+      if (!(px > 0)) px = quoteUsd(lab);
+      if (qty > 0 && px > 0) n += qty * px;
+    });
+    return n;
+  }
+  function refreshBooksBridge(){
+    if (state.route !== "metrics" || booksBridgeBusy) return;
+    if (booksBridgeAt && Date.now() - booksBridgeAt < 60000) return;
+    booksBridgeBusy = true;
+    var labs = STOCK_TICKERS.filter(function(lab){ return STOCKS[lab] && STOCKS[lab].suiVault; });
+    var ids = labs.map(function(lab){ return STOCKS[lab].suiVault; });
+    var supplyP = ids.length
+      ? rpcJson("sui_multiGetObjects", [ids, { showContent: true, showType: true }]).then(function(res){
+          (res || []).forEach(function(o, i){
+            var lab = labs[i];
+            var data = o && o.data;
+            var fields = data && data.content && data.content.fields;
+            if (lab && fields) booksBridgeSupply[lab] = wrapSupplyFromVault(fields);
+          });
+        }).catch(function(){})
+      : Promise.resolve();
+    var pxP = Promise.all(STOCK_TICKERS.map(function(lab){
+      var st = STOCKS[lab];
+      if (!st || !st.rhToken) return Promise.resolve();
+      return fetch("https://api.dexscreener.com/latest/dex/tokens/" + st.rhToken, { cache: "no-store" })
+        .then(function(r){ return r.json(); })
+        .then(function(j){
+          var px = pickRhUsd(j && j.pairs);
+          if (px > 0) booksBridgePx[lab] = px;
+        }).catch(function(){});
+    }));
+    Promise.all([supplyP, pxP]).then(function(){
+      booksBridgeBusy = false;
+      booksBridgeAt = Date.now();
+      if (state.route === "metrics") renderScreen();
+    }).catch(function(){
+      booksBridgeBusy = false;
+      booksBridgeAt = Date.now();
+    });
+  }
   function refreshBooksVol(){
     if (state.route !== "metrics" || booksVolBusy) return;
     var need = T.filter(function(tk){
@@ -7211,6 +7357,18 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   }
   var VICEFUN_BURN_LOCK = "0xf38be874fd17488c028ed810085d987862f158d0f8c7c06bf745823163821bf7";
   var VICEFUN_MINT_LOCK = "0x9b4320cd6bb5051abe11339e6b343f20c258a51b759f62d9ee8142028f855a4e";
+  function seedKnownLocks(tk){
+    if (!tk) return tk;
+    var isVice = String(tk.t || "").toUpperCase() === "VICEFUN"
+      || (tk.token && window.ARENA_VICEFUN_TYPE && normType(tk.token) === normType(window.ARENA_VICEFUN_TYPE));
+    if (isVice){
+      if (!tk.lockId) tk.lockId = VICEFUN_BURN_LOCK;
+      if (!tk.mintLock) tk.mintLock = VICEFUN_MINT_LOCK;
+      if (!tk.bluefinPool && window.ARENA_VICEFUN_SUI_POOL) tk.bluefinPool = window.ARENA_VICEFUN_SUI_POOL;
+      if (!tk.token && window.ARENA_VICEFUN_TYPE) tk.token = window.ARENA_VICEFUN_TYPE;
+    }
+    return tk;
+  }
   function burnIdsOf(tk){
     var ids = [];
     function add(id){
@@ -7341,6 +7499,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     var rollupUsd = Number(m.volUsd) || 0;
     if (!(rollupUsd > 0)) rollupUsd = (m.rwaVolUsd || 0) + (m.suiVol || 0) * (hop.suiUsd || 0);
     if (rollupUsd > allUsd) allUsd = rollupUsd;
+    var bridgedUsd = booksBridgeUsd();
     const feeTotal = m.creator+m.plat+m.pit;
     function feeBar(label, n, color){
       const pct = feeTotal>0 ? (n/feeTotal*100) : 0;
@@ -7363,6 +7522,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       '<div class="metrics-grid">'+
         '<div class="mstat"><div class="k">Volume · SUI</div><div class="v">'+fmt(m.suiVol)+'</div><div class="s">all time</div></div>'+
         '<div class="mstat"><div class="k">Volume · USD</div><div class="v">'+(allUsd > 0 ? fmtUsd(allUsd) : "$0")+'</div><div class="s">all tokens · all time</div></div>'+
+        '<div class="mstat"><div class="k">Bridged · USDC</div><div class="v">'+(bridgedUsd > 0 ? fmtUsd(bridgedUsd) : (booksBridgeAt ? "$0" : "—"))+'</div><div class="s">Robinhood wraps · on Sui</div></div>'+
         '<div class="mstat"><div class="k">Tokens launched</div><div class="v">'+m.launches+'</div><div class="s">'+m.grads+' graduated · all time</div></div>'+
         '<div class="mstat"><div class="k">$VICEFUN burned</div><div class="v">'+fmtBig(viceBurn)+'</div><div class="s">LP collects · all time</div></div>'+
       '</div>'+
@@ -10181,6 +10341,12 @@ async function doBridgeDeposit(){
     if (g.beneficiary && !tk.creator) tk.creator = g.beneficiary;
     scheduleAfterChain();
   }
+  function applyInstadexMintLock(m){
+    if (!m || !m.lock_id || !m.mint_lock_id) return;
+    T.forEach(function(tk){
+      if (tk && tk.lockId && sameAddr(tk.lockId, m.lock_id)) tk.mintLock = m.mint_lock_id;
+    });
+  }
   var seenBurns = {};
   var pendingBurns = {};
   var pendingBeneficiaries = {};
@@ -10346,7 +10512,7 @@ async function doBridgeDeposit(){
     paintDock();
     if (state.route === "explore") hydrateScreener();
     paintWallet();
-    if (state.route === "metrics") refreshBooksVol();
+    if (state.route === "metrics"){ refreshBooksVol(); refreshBooksBridge(); }
     if (state.route === "pit"){
       refreshPendingRewards();
     }
@@ -10366,7 +10532,6 @@ async function doBridgeDeposit(){
     }
     if (state.route === "pit"){
       refreshPitObject();
-      loadPitVotes();
       loadPitState();
       pitStatePollAt = Date.now();
     } else if (state.route === "explore" || state.route === "metrics"){
@@ -11075,8 +11240,10 @@ async function doBridgeDeposit(){
     return origin + "::launch::InstadexMintLock<" + Ttype + ">";
   }
   async function resolveMintLock(tk, Ttype){
+    seedKnownLocks(tk);
     if (tk && tk.mintLock) return tk.mintLock;
     if (tk && String(tk.t).toUpperCase() === "IDEX") return "0x38c1667f65f085677a577a48338dd86f6cb8ec1ea4aa0351bbcfb3cb39336e54";
+    if (tk && String(tk.t).toUpperCase() === "VICEFUN") return VICEFUN_MINT_LOCK;
     var types = [];
     function addType(t){
       t = normType(t);
@@ -11108,6 +11275,24 @@ async function doBridgeDeposit(){
           if (nodes && nodes[0] && nodes[0].address) return nodes[0].address;
         } catch (e) {}
       }
+    }
+    var eventPkgs = [window.ARENA_INSTADEX_PACKAGE, window.ARENA_COLLECT_PACKAGE, window.ARENA_CALL_PACKAGE];
+    var wantLock = padAddr(tk && tk.lockId);
+    for (p = 0; p < eventPkgs.length; p++){
+      if (!eventPkgs[p]) continue;
+      try {
+        var evs = await rpcJson("suix_queryEvents", [
+          { MoveEventType: eventPkgs[p] + "::events::InstadexMintLockEvent" },
+          null, 50, true
+        ]);
+        var rows = (evs && evs.data) || [];
+        for (i = 0; i < rows.length; i++){
+          var pj = rows[i].parsedJson || {};
+          var mid = pj.mint_lock_id || pj.mintLockId;
+          if (!mid) continue;
+          if (!wantLock || padAddr(pj.lock_id || pj.lockId) === wantLock) return mid;
+        }
+      } catch (e2) {}
     }
     throw new Error("InstadexMintLock not found");
   }
@@ -11510,7 +11695,7 @@ async function doBridgeDeposit(){
     var coinIn = await takeSwapCoin(tx, fromType, amount);
     var outCoin = bluefinHop(tx, insta, fromType, coinIn, minOut);
     tx.transferObjects([outCoin], suiSession.address);
-    return walletExec(tx);
+    return walletExecSigned(tx);
   }
   /// Cetus CLMM hop (USDC ↔ USDY). Returns the output Coin.
   function cetusHop(tx, snap, fromType, coinIn){
@@ -11662,7 +11847,7 @@ async function doBridgeDeposit(){
       }
     }
     tx.transferObjects([outCoin], suiSession.address);
-    return walletExec(tx);
+    return walletExecSigned(tx);
   }
   async function swapVia7k(tk, amount){
     var sdk = await loadSevenK();
@@ -11745,6 +11930,7 @@ async function doBridgeDeposit(){
     } catch (err2){
       swapping = false;
       var msg = (err2 && err2.message) ? err2.message : String(err2 || "Swap failed");
+      if (isTransientNet(err2)) msg = "RPC busy — tap Buy again";
       if (btn){ btn.disabled = false; btn.textContent = msg.length > 32 ? "Swap failed" : msg; }
       if (err) err.textContent = msg;
     }
@@ -12002,11 +12188,6 @@ async function doBridgeDeposit(){
       }
       if (!state.connected){ state.connected = true; paintWallet(); paintTicket(); }
       else { userFill(); paintLive(); }
-      return;
-    }
-    const pitVoteBtn = e.target.closest("[data-pit-vote]");
-    if (pitVoteBtn){
-      doPitVote(pitVoteBtn.getAttribute("data-pit-vote"));
       return;
     }
     if (e.target.id === "wallet-modal"){
@@ -12642,10 +12823,6 @@ async function doBridgeDeposit(){
     secs = secs > 0 ? secs - 1 : ROUND_SECONDS;
     if (secs === ROUND_SECONDS){
       rollover();
-      if (!LIVE){
-        pitVotes = { round: roundNo, list: [], tallies: {}, mine: "" };
-        if (state.route === "pit") loadPitVotes();
-      }
     }
     if (++bshift >= 20){
       bshift = 0;
@@ -12654,7 +12831,6 @@ async function doBridgeDeposit(){
     if (state.route === "pit"){
       if (bshift % 8 === 0){
         refreshPitObject();
-        loadPitVotes();
       }
       if (!pitStatePollAt || Date.now() - pitStatePollAt >= 120000){
         pitStatePollAt = Date.now();
@@ -12710,6 +12886,7 @@ async function doBridgeDeposit(){
       onLock: function(g){ applyLock(g); },
       onBluefinLock: function(g){ applyBluefinLock(g); },
       onInstadexBurn: function(b){ applyInstadexBurn(b); },
+      onInstadexMintLock: function(m){ applyInstadexMintLock(m); },
       onBeneficiarySet: function(b){ applyBeneficiarySet(b); },
       onHolderYieldLaunch: function(e){ applyHolderYieldLaunch(e); },
       onHolderYieldFunded: function(e){ applyHolderYieldFunded(e); },
@@ -12722,7 +12899,7 @@ async function doBridgeDeposit(){
       onBasketYieldPush: function(e){ applyBasketYieldPush(e); },
       onBasketYieldRotate: function(e){ applyBasketYieldRotate(e); },
       onHolderYieldPush: function(e){ applyHolderYieldPush(e); },
-      holderYieldPackages: [window.ARENA_HOLDER_YIELD_EVENT_PACKAGE, window.ARENA_CALL_PACKAGE, window.ARENA_COLLECT_PACKAGE].filter(Boolean),
+      holderYieldPackages: [window.ARENA_HOLDER_YIELD_PUSH_EVENT_PACKAGE, window.ARENA_HOLDER_YIELD_EVENT_PACKAGE, window.ARENA_CALL_PACKAGE, window.ARENA_COLLECT_PACKAGE].filter(Boolean),
       collectLpPackages: [window.ARENA_COLLECT_LP_EVENT_PACKAGE, window.ARENA_CALL_PACKAGE, window.ARENA_COLLECT_PACKAGE].filter(Boolean),
       basketYieldPackages: [window.ARENA_BASKET_YIELD_PUSH_EVENT_PACKAGE, window.ARENA_BASKET_YIELD_EVENT_PACKAGE, window.ARENA_CALL_PACKAGE, window.ARENA_COLLECT_PACKAGE].filter(Boolean),
       burnPackages: [window.ARENA_COLLECT_PACKAGE, "0xd8531cc8c4e1ee914f0e4e48aea9a796faa0603459cc4665838f688e51bf23d9", "0x47ea732e44f21470aa3dd449a7b26731ed2c377e2c02e650f3ede6ea581bf000"].filter(Boolean),
