@@ -5950,23 +5950,17 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   }
   function rewardsDistributedUsd(){
     var sum = 0;
-    (rewardsLedger.distributions || []).forEach(function(d){
-      if (!d || !d.cat) return;
-      var cat = rewardsCat(d.cat);
-      if (!cat) return;
-      var n = (Number(d.amount) || 0) / Math.pow(10, rewardsDec(cat.unit));
-      var px = quoteUsd(cat.quote);
-      if (px > 0 && isFinite(n)) sum += n * px;
+    REWARDS_CATS.forEach(function(cat){
+      var tot = rewardsTotals(cat);
+      sum += rewardUsd(tot.total, cat);
     });
     return sum;
   }
   function rewardsDistributedSui(){
     var sum = 0;
-    (rewardsLedger.distributions || []).forEach(function(d){
-      if (!d || !d.cat) return;
-      var cat = rewardsCat(d.cat);
-      if (!cat) return;
-      var n = (Number(d.amount) || 0) / Math.pow(10, rewardsDec(cat.unit));
+    REWARDS_CATS.forEach(function(cat){
+      var tot = rewardsTotals(cat);
+      var n = rewardAmtHuman(tot.total, cat.unit);
       var sui = quoteSuiAmt(n, cat.quote);
       if (sui > 0 && isFinite(sui)) sum += sui;
     });
@@ -6021,8 +6015,12 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       by[c.id] = { total:"0", claimable:"0", distributed:"0" };
     });
     var funded = {};
+    var seenLot = {};
     (rewardsLedger.distributions || []).forEach(function(d){
-      if (!d || !d.cat || !by[d.cat]) return;
+      if (!d || !d.cat || !by[d.cat] || d.push || d.staging) return;
+      var lot = d.digest ? (String(d.digest) + ":" + d.cat) : d._key;
+      if (lot && seenLot[lot]) return;
+      if (lot) seenLot[lot] = 1;
       funded[d.cat] = (funded[d.cat] || 0) + (Number(d.amount) || 0);
     });
     Object.keys(by).forEach(function(cat){
@@ -6784,41 +6782,6 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     }
     ensureVaultAsset(rewardsVaults[ev.basket_id], ev.asset);
     if (ev.recipient && Number(ev.amount) > 0) notePaidWallet(ev.recipient);
-    if (!ev.cat || !(Number(ev.amount) > 0)) return;
-    // Aggregate per digest+asset so ~N holder pushes become one history row.
-    var key = String(ev.digest || "") + ":bypush:" + String(ev.basket_id) + ":" + String(ev.asset || "");
-    if (!rewardsLedger.distributions) rewardsLedger.distributions = [];
-    var existing = null;
-    for (var i = 0; i < rewardsLedger.distributions.length; i++){
-      if (rewardsLedger.distributions[i]._key === key){ existing = rewardsLedger.distributions[i]; break; }
-    }
-    var tk = null;
-    var vault = rewardsVaults[ev.basket_id];
-    if (vault && vault.bluefin_pool_id){
-      tk = T.find(function(x){ return padAddr(x.bluefinPool) === padAddr(vault.bluefin_pool_id); });
-    }
-    if (!tk && vault && vault.lock_id){
-      tk = T.find(function(x){ return padAddr(x.lockId) === padAddr(vault.lock_id); });
-    }
-    var label = (tk ? ("$"+tk.t) : "—") + " · auto";
-    if (existing){
-      existing.amount = String(asBigInt(existing.amount) + asBigInt(ev.amount));
-      if (ev.ts && (!existing.ts || ev.ts > existing.ts)) existing.ts = ev.ts;
-    } else {
-      rewardsLedger.distributions.unshift({
-        _key: key,
-        cat: ev.cat,
-        amount: ev.amount,
-        token: label,
-        ts: ev.ts,
-        digest: ev.digest,
-        yield_id: ev.basket_id,
-        basket_id: ev.basket_id,
-        push: true
-      });
-    }
-    rewardsLedger.distributions.sort(function(a,b){ return (b.ts||0)-(a.ts||0); });
-    rebuildRewardsLedger();
     if (state.route === "pit" || state.route === "portfolio") scheduleScreen();
   }
   function applyHolderYieldPush(ev){
@@ -6837,33 +6800,6 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
         push_mode: true
       };
     }
-    if (!ev.cat || !(Number(ev.amount) > 0)) return;
-    var key = String(ev.digest || "") + ":hypush:" + String(ev.yield_id);
-    if (!rewardsLedger.distributions) rewardsLedger.distributions = [];
-    var existing = null;
-    for (var i = 0; i < rewardsLedger.distributions.length; i++){
-      if (rewardsLedger.distributions[i]._key === key){ existing = rewardsLedger.distributions[i]; break; }
-    }
-    var tk = null;
-    if (ev.lock_id) tk = T.find(function(x){ return padAddr(x.lockId) === padAddr(ev.lock_id); });
-    var label = (tk ? ("$"+tk.t) : "—") + " · auto";
-    if (existing){
-      existing.amount = String(asBigInt(existing.amount) + asBigInt(ev.amount));
-      if (ev.ts && (!existing.ts || ev.ts > existing.ts)) existing.ts = ev.ts;
-    } else {
-      rewardsLedger.distributions.unshift({
-        _key: key,
-        cat: ev.cat,
-        amount: ev.amount,
-        token: label,
-        ts: ev.ts,
-        digest: ev.digest,
-        yield_id: ev.yield_id,
-        push: true
-      });
-    }
-    rewardsLedger.distributions.sort(function(a,b){ return (b.ts||0)-(a.ts||0); });
-    rebuildRewardsLedger();
     if (state.route === "pit" || state.route === "portfolio") scheduleScreen();
   }
   function applyBasketYieldClaim(ev){
