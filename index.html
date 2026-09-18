@@ -3493,10 +3493,15 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       chip("data-ind","ema", !!ind.ema, "EMA9")+
       '</div>';
   }
+  function useDexChart(tk){
+    if (!tk || !tk.bluefinPool) return false;
+    var q = poolQuote(tk);
+    return q === "SUI" || q === "AXOL" || q === "LOFI" || q === "MANIFEST";
+  }
   function dexEmbed(tk){
     var pool = (tk && tk.bluefinPool) || "";
     if (!pool) return '<div class="tv-host" style="display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:13px">Bluefin pool pending</div>';
-    if (poolQuote(tk) === "SUI"){
+    if (useDexChart(tk)){
       var light = themeNow() === "pastel";
       var src = "https://dexscreener.com/sui/"+pool+"?embed=1&loadChartSettings=0&trades=0&tabs=0&info=0&chartLeftToolbar=0&chartTheme="+(light?"light":"dark")+"&theme="+(light?"light":"dark")+"&chartStyle=1&chartType=usd&interval=15";
       return '<div class="tv-wrap tv-wrap-dex"><iframe class="dex-embed" title="Dexscreener" src="'+escAttr(src)+'" loading="lazy" allowfullscreen></iframe></div>';
@@ -7613,20 +7618,6 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       '</div>';
     }
     const canCollect = !!(tk.lockId && tk.bluefinPool);
-    if (usesCetusSwap(tk)){
-      return '<div class="ticket ticket-cetus" id="swap-box" data-swap-sym="'+escAttr(tk.t)+'">'+
-        '<div class="pit-kicker">'+kicker+' · Cetus</div>'+
-        '<div id="cetus-terminal"></div>'+
-        '<div class="kv" style="margin-top:8px"><span style="color:var(--muted)">Pair</span><span class="mono">'+escHtml(tk.t)+' / '+q+'</span></div>'+
-        '<div class="kv"><span style="color:var(--muted)">Lock</span><span>'+lockLabel+'</span></div>'+
-        (canCollect ? '<button type="button" class="btn-trade btn-ghost" id="collect-go" style="margin-top:10px">Collect LP fees</button>' : '')+
-        migratePanelHTML(tk)+
-        '<div style="margin-top:10px;text-align:center;font-size:11px;color:var(--muted)">'+
-          'Cetus aggregator. Routes Bluefin, Cetus, and other Sui pools. LP locked forever. Anyone can collect. Token-side fees burn.'+
-          (tk.bluefinPool ? ' · <a href="https://trade.bluefin.io/swap?pool='+escAttr(tk.bluefinPool)+'" target="_blank" rel="noopener">Bluefin</a>' : '')+
-        '</div>'+
-      '</div>';
-    }
     const alt = q !== "SUI";
     const stockQ = isStockQuote(q);
     if (stockQ) state.payWith = q;
@@ -7641,7 +7632,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
         '</div>'
       : '<div id="pay-route" style="display:none"></div>';
     return '<div class="ticket" id="swap-box">'+
-      '<div class="pit-kicker">'+kicker+' · Bluefin</div>'+
+      '<div class="pit-kicker">'+kicker+' · '+(q === "SUI" || isMemeQuote(q) ? "7k" : "Bluefin")+'</div>'+
       '<div style="font-size:22px;font-weight:700;letter-spacing:-.03em;margin:8px 0 10px">Swap</div>'+
       '<div class="sides">'+
         '<div id="btn-buy" data-side="Buy"'+(buyOn?' class="on-buy"':'')+'>Buy</div>'+
@@ -7666,7 +7657,9 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       '<div style="margin-top:10px;text-align:center;font-size:11px;color:var(--muted)">'+
         (stockQ
           ? ('Swaps this '+escHtml(tk.t)+'/'+escHtml(q)+' pool on Bluefin. Pay with '+escHtml(q)+' wrap.')
-          : 'Swaps this pool on Bluefin. Optional SUI hop if you toggle it.')+
+          : (q === "SUI" || isMemeQuote(q)
+            ? 'Routes 7k aggregator across Sui DEXs, then this Instant pool. Powered by 7K Aggregator.'
+            : 'Swaps this pool on Bluefin. Optional SUI hop if you toggle it.'))+
         ' LP locked forever. Anyone can collect. Token-side fees burn.'+
         (tk.bluefinPool ? ' · <a href="https://trade.bluefin.io/swap?pool='+escAttr(tk.bluefinPool)+'" target="_blank" rel="noopener">Bluefin</a>' : '')+
       '</div>'+
@@ -9801,7 +9794,7 @@ async function doBridgeDeposit(){
     return normType(typeNameStr(tk.token) || demoTypeId(tk));
   }
   function usesCetusSwap(tk){
-    return !!(tk && tk.bluefinPool && poolQuote(tk) === "SUI");
+    return false;
   }
   var cetusTermReady = null;
   function loadCetusTerminal(){
