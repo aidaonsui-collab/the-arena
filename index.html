@@ -509,6 +509,29 @@ a.btn-trade{display:block;text-align:center;text-decoration:none;box-sizing:bord
 .dist-collect-row{display:flex;justify-content:space-between;gap:12px;padding:14px 2px;border-top:1px solid rgba(244,238,242,.08);font-size:14px}
 .dist-collect-row:first-of-type{border-top:0}
 .dist-collect-row .when{color:var(--muted);font-size:13px}
+.rw-lookup{margin-top:14px}
+.rw-lookup-row{display:flex;gap:10px}
+.rw-lookup-row input{flex:1;min-width:0;background:var(--well);border:1px solid var(--line);border-radius:12px;padding:12px 14px;color:var(--ink);font-size:14px;outline:none}
+.rw-lookup-row input:focus{border-color:var(--sui)}
+.rw-lookup-row .btn{white-space:nowrap;padding:0 18px}
+.rw-lookup-err{color:#ff6b6b;font-size:13px;margin-top:10px}
+.rw-card-wrap{margin-top:18px}
+.rw-card{background:#0b0f1a;border:1px solid #caa14a;border-radius:20px;padding:26px 28px;max-width:520px;color:#f4eee2;box-shadow:0 0 0 1px rgba(202,161,74,.15) inset}
+.rw-card-head{display:flex;align-items:center;gap:12px;margin-bottom:22px}
+.rw-card-mark{width:40px;height:40px;border-radius:10px;object-fit:cover;flex:none}
+.rw-card-brand{font-family:Georgia,"Times New Roman",serif;font-weight:700;font-size:19px;letter-spacing:.04em;color:#f2e6c8}
+.rw-card-tag{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#caa14a;margin-top:2px}
+.rw-card-k{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#caa14a;font-weight:650;margin-bottom:8px}
+.rw-card-total{font-family:Georgia,"Times New Roman",serif;font-weight:800;font-size:44px;color:#f2d98a;line-height:1.1;margin-bottom:14px}
+.rw-card-breakdown{display:flex;flex-direction:column;gap:6px;margin-bottom:16px}
+.rw-card-line{display:flex;align-items:center;gap:8px;font-size:14px;color:#e7dfd0}
+.rw-card-line-usd{color:#9a93ab;margin-left:auto;font-size:13px}
+.rw-card-dot{width:8px;height:8px;border-radius:50%;flex:none}
+.rw-card-empty{color:#9a93ab;font-size:13px;line-height:1.4}
+.rw-card-sub{font-style:italic;color:#9a93ab;font-size:13px;margin-bottom:18px}
+.rw-card-foot{display:flex;justify-content:space-between;gap:10px;border-top:1px solid rgba(202,161,74,.3);padding-top:14px;font-size:12px;font-weight:650;color:#f2e6c8;letter-spacing:.02em}
+.rw-card-actions{display:flex;gap:10px;margin-top:14px}
+.rw-card-actions .btn-ghost{border-radius:10px;padding:10px 16px;font-size:13px;font-weight:650;border:1px solid var(--line);cursor:pointer}
 @media (max-width:900px){
   .dist-stats,.dist-split,.rewards-grid{grid-template-columns:1fr}
 }
@@ -822,120 +845,10 @@ html.shot,html.shot *{animation:none!important;transition:none!important}
   .split-about,.split-main,.tape-wrap,.card{min-width:0;max-width:100%}
 }
 
-/* RH → Sui stock bridge (scaffold) */
-.bridge-page{padding:8px 0 0}
-.bridge-hero{text-align:center;margin:6px 0 18px}
-.bridge-hero h1{font-size:clamp(28px,5vw,44px);font-weight:700;letter-spacing:-.03em;margin:0;line-height:1.1}
-.bridge-hero h1 em{font-style:normal;color:var(--sui)}
-.bridge-hero p{margin:10px auto 0;color:var(--muted);font-size:14px;max-width:46ch;line-height:1.45}
-.bridge-layout{display:grid;grid-template-columns:minmax(240px,300px) 440px;gap:28px 56px;align-items:start;justify-content:center;max-width:920px;margin:0 auto;padding:0 8px}
-.bridge-wrap{max-width:440px;margin:0;width:100%}
-.bridge-howto{padding:6px 4px 0}
-.bridge-howto-kicker{font-size:11px;font-weight:650;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin:0 0 16px}
-.bridge-steps{list-style:none;margin:0;padding:0}
-.bridge-step{display:grid;grid-template-columns:36px 1fr;gap:2px 14px;position:relative;padding:0 0 22px}
-.bridge-step:last-child{padding-bottom:0}
-.bridge-step:not(:last-child)::before{content:"";position:absolute;left:17px;top:36px;bottom:4px;width:1px;background:var(--line)}
-.bridge-step-n{width:36px;height:36px;border-radius:99px;display:grid;place-items:center;font-size:13px;font-weight:700;color:var(--sui);background:var(--lift);border:1px solid var(--line);position:relative;z-index:1}
-.bridge-step h3{margin:6px 0 4px;font-size:15px;font-weight:650;letter-spacing:-.02em;line-height:1.25}
-.bridge-step p{margin:0;font-size:13px;color:var(--muted);line-height:1.5}
-.bridge-card{background:var(--card);border-radius:24px;padding:18px 16px 16px;box-shadow:var(--shadow);border:1px solid rgba(255,255,255,.04)}
-.bridge-panel{background:var(--well);border:1px solid var(--line);border-radius:16px;padding:12px 14px 14px;position:relative}
-.bridge-panel + .bridge-arrow{display:flex;justify-content:center;margin:-6px 0;position:relative;z-index:1}
-.bridge-arrow span{width:32px;height:32px;border-radius:999px;background:var(--lift);border:1px solid var(--line);display:grid;place-items:center;color:var(--muted);font-size:14px;line-height:1}
-.bridge-panel-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:0 0 10px}
-.bridge-panel-lab{font-size:11px;font-weight:650;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
-.bridge-chain{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:4px 10px;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase}
-.bridge-chain.rh{background:rgba(0,200,83,.12);color:#3DDC84}
-.bridge-chain.sui{background:rgba(41,141,255,.14);color:var(--sui)}
-.bridge-chain i{width:6px;height:6px;border-radius:99px;background:currentColor;display:inline-block}
-.bridge-panel-body{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
-.bridge-amt-col{flex:1;min-width:0}
-.bridge-amt-col .amt{width:100%;border:0;background:transparent;padding:0;font-size:28px;font-weight:650;border-radius:0;outline:none;color:var(--ink)}
-.bridge-amt-col .amt:focus{border:0;background:transparent;box-shadow:none}
-.bridge-out{font-size:28px;font-weight:650;font-variant-numeric:tabular-nums;letter-spacing:-.02em;line-height:1.2;min-height:1.2em}
-.bridge-asset{display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex:none}
-.bridge-pick{display:flex;align-items:center;gap:6px;background:var(--card);border:1px solid var(--line);border-radius:999px;padding:6px 8px 6px 10px}
-.bridge-pick .bridge-tick-mark,.bridge-pick .bridge-tick-logo{width:22px;height:22px;border-radius:99px;background:var(--lift);display:grid;place-items:center;font-size:10px;font-weight:700;color:var(--ink);flex:none;object-fit:contain;padding:2px;box-sizing:border-box}
-.bridge-chain img{width:12px;height:12px;border-radius:99px;object-fit:contain;margin-right:2px;vertical-align:middle}
-.bridge-tick .bridge-tick-logo{width:14px;height:14px;border-radius:4px;object-fit:contain;margin-right:4px;vertical-align:-2px}
-.bridge-ticks{display:flex;flex-wrap:wrap;gap:4px;justify-content:flex-end;max-width:168px}
-.bridge-tick{border:1px solid var(--line);background:var(--bg);color:var(--muted);border-radius:999px;padding:5px 9px;font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:11px;font-weight:600;letter-spacing:.03em;cursor:pointer}
-.bridge-tick:hover{color:var(--ink);border-color:#5a3a56}
-.bridge-tick.on{background:var(--sui);color:#fff;border-color:var(--sui)}
-.bridge-dirs,.bridge-ticks,.bridge-bal,.bridge-asset{position:relative;z-index:2}
-.bridge-dirs{display:flex;gap:8px;margin:0 0 12px}
-.bridge-dirs .pill{flex:1;text-align:center;padding:10px 12px;border-radius:12px;background:var(--well);border-color:var(--line);color:var(--muted);font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:none}
-.bridge-dirs .pill:hover{color:var(--ink);border-color:#5a3a56}
-.bridge-dirs .pill.on{background:var(--sui);color:#fff;border-color:var(--sui)}
-.bridge-dirs .pill.on:hover{color:#fff;filter:brightness(1.05)}
-.bridge-pend{margin-top:14px;border-top:1px solid var(--line);padding-top:12px}
-.bridge-pend-head{display:flex;align-items:center;justify-content:space-between;font-size:11px;font-weight:650;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:8px}
-.bridge-pend-head button{border:0;background:transparent;color:var(--muted);cursor:pointer;font-size:13px;line-height:1;padding:2px 4px}
-.bridge-pend-head button:hover{color:var(--ink)}
-.bridge-pend-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
-.bridge-pend-row{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;background:#140e14;border:1px solid var(--line);border-radius:12px;padding:8px 10px;font-size:12px}
-.bridge-pend-main{display:flex;align-items:center;gap:7px;min-width:0}
-.bridge-pend-main .mono{font-size:12px;font-weight:650}
-.bridge-pend-right{display:flex;align-items:center;gap:8px;margin-left:auto}
-.bridge-pend-sub{color:var(--muted);font-size:11px}
-  .bridge-pend-execbtn{border:1px solid var(--line);background:transparent;color:var(--muted);border-radius:999px;padding:4px 10px;font:inherit;font-size:11px;cursor:pointer}
-  .bridge-pend-execbtn:hover{color:var(--ink);border-color:#5a3a56}
-  .bridge-pend-dir{font-size:10px;font-weight:650;letter-spacing:.04em;color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:1px 6px;white-space:nowrap}
-.bridge-pend-pill{border-radius:999px;padding:3px 8px;font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;white-space:nowrap}
-.bridge-pend-pill.wait{background:rgba(255,176,32,.14);color:#FFB020}
-.bridge-pend-pill.go{background:rgba(41,141,255,.16);color:var(--sui)}
-.bridge-pend-pill.ok{background:rgba(0,200,83,.14);color:#3DDC84}
-.bridge-pend-row a{color:var(--muted);text-decoration:none}
-.bridge-pend-row a:hover{color:var(--ink)}
-.bridge-pend-foot{margin-top:8px;font-size:11px;color:var(--muted);line-height:1.45}
-.bridge-bal{margin-top:8px;font-size:12px;color:var(--muted)}
-.bridge-bal button{border:0;background:transparent;color:var(--ink);font:inherit;font-weight:700;cursor:pointer;padding:0;margin:0;letter-spacing:.04em}
-.bridge-bal button:hover{color:var(--sui)}
-.bridge-meta{margin-top:6px}
-.bridge-meta .kv{padding:8px 2px;font-size:13px;border-top-color:rgba(58,36,56,.7)}
-.bridge-meta .kv:first-child{border-top:0}
-.bridge-meta .kv a{color:var(--sui)}
-.bridge-copy{border:0;background:transparent;color:var(--muted);cursor:pointer;padding:0 0 0 6px;font-size:12px;vertical-align:middle}
-.bridge-copy:hover{color:var(--ink)}
-.bridge-uni{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:10px 2px 2px;padding:8px 0;font-size:13px;color:var(--muted);border-top:1px solid var(--line)}
-.bridge-uni:hover{color:var(--ink)}
-.bridge-card .btn-trade{margin-top:14px;border-radius:14px;background:#2a1a28;color:var(--muted)}
-.bridge-card .btn-trade.ready,.bridge-card .btn-trade[data-wallet],.bridge-card .btn-trade[data-evm-wallet]{background:var(--sui);color:#fff}
-.bridge-card .btn-trade.ready:hover,.bridge-card .btn-trade[data-wallet]:hover,.bridge-card .btn-trade[data-evm-wallet]:hover{filter:brightness(1.08);color:#fff}
-.bridge-card .btn-trade:disabled{opacity:.7}
-.bridge-note{margin:12px 2px 2px;font-size:12px;color:var(--muted);text-align:center;line-height:1.4}
-.bridge-wallets{display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px 14px;margin:0 2px 12px;font-size:12px;color:var(--muted)}
-.bridge-wallets button{border:0;background:transparent;color:var(--sui);font:inherit;cursor:pointer;padding:0}
-.bridge-wallets button:hover{color:var(--ink)}
-.bridge-wallets .mono{color:var(--ink)}
-.bridge-dest-field{border-top:1px solid var(--line);margin:10px 2px 0;padding-top:12px}
-.bridge-dest-lab{color:var(--muted);font-size:13px;margin-bottom:6px;display:flex;gap:6px;align-items:center}
-.bridge-dest-req{color:var(--pink);font-size:11px;font-weight:600;letter-spacing:.03em;text-transform:uppercase}
-.bridge-dest-input{width:100%;box-sizing:border-box;background:var(--well);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:13px;color:var(--ink);outline:none}
-.bridge-dest-input::placeholder{color:var(--muted);opacity:.8}
-.bridge-dest-input:focus{border-color:var(--sui)}
-.bridge-legal{max-width:640px;margin:28px auto 4px;padding:0 12px 8px;font-size:12.5px;line-height:1.6;color:var(--muted)}
-.bridge-legal h2{margin:0 0 10px;font-size:13px;font-weight:650;letter-spacing:.01em;color:var(--muted)}
-.bridge-legal p{margin:0}
-.bridge-dest-input.bad{border-color:var(--pink)}
-.bridge-dest-hint{margin:6px 0 0;font-size:12px;color:var(--muted);line-height:1.4}
 @media (max-width:860px){
-  .bridge-layout{grid-template-columns:1fr;gap:22px;max-width:440px}
-  .bridge-howto{padding:0 2px 4px}
-  .bridge-step{padding-bottom:16px}
 }
 @media (max-width:720px){
-  .bridge-wrap{max-width:none}
-  .bridge-layout{max-width:none}
-  .bridge-card{padding:14px 12px 12px;border-radius:20px}
-  .bridge-panel-body{flex-direction:column;align-items:stretch}
-  .bridge-asset{align-items:flex-start}
-  .bridge-ticks{justify-content:flex-start;max-width:none}
-  .bridge-out,.bridge-amt-col .amt{font-size:24px}
-  .bridge-hero{margin-bottom:14px;text-align:left}
 }
-html[data-route="bridge"] .search-row{display:none}
 html[data-route="lock"] .search-row{display:none}
 html[data-route="lock"] main{width:min(720px,calc(100% - 32px));margin:0 auto;padding:18px 0 72px}
 .lock-hero{margin:0 0 18px}
@@ -1154,7 +1067,6 @@ html[data-route="explore"] main{padding-top:10px;padding-bottom:24px}
 <div class="dock-backdrop" id="dock-backdrop" hidden></div>
 <div class="dock-wrap" id="dock-wrap" hidden>
   <div class="dock-sheet" id="dock-sheet" hidden>
-    <div data-go="bridge">Bridge</div>
     <div data-go="lock">Vicelock</div>
     <div data-go="launch">Create</div>
   </div>
@@ -1380,8 +1292,8 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     XAGM: { label:"XAGM", type:window.ARENA_XAGM_TYPE, metadata:window.ARENA_XAGM_METADATA, decimals:9, name:"Matrixdock Silver", what:"Matrixdock silver, 1 oz", create:true, chips:["0.01","0.05","0.1","0.25","Max"], virtualHuman:"≈ $4.5k", pit:window.ARENA_PIT_XAGM, color:"#C0C7D1", logo:"/brand/quotes/xagm.png" },
     XAUM: { label:"XAUM", type:window.ARENA_XAUM_TYPE, metadata:window.ARENA_XAUM_METADATA, decimals:9, name:"Matrixdock Gold", what:"Matrixdock gold, 1 oz", create:true, chips:["0.01","0.05","0.1","0.25","Max"], virtualHuman:"≈ $4.5k", pit:window.ARENA_PIT_XAUM, color:"#C9A97E", logo:"/brand/quotes/xaum.png" },
     VICEFUN: { label:"VICEFUN", type:window.ARENA_VICEFUN_TYPE, metadata:window.ARENA_VICEFUN_METADATA, decimals:9, name:"Vicefun", what:"Vice's own token", create:true, chips:["10k","50k","100k","250k","Max"], virtualHuman:"≈ $4.5k", pit:"", color:"#FF2EA6", logo:"/brand/quotes/vicefun.png" },
-    NVDA: { label:"NVDA", type:window.ARENA_STOCK_NVDA_TYPE, metadata:window.ARENA_STOCK_NVDA_METADATA, decimals:9, name:"NVIDIA wrap", what:"RH→Sui stock wrap (NVDA)", create:true, soon:false, stock:true, chips:["0.01","0.1","1","5","Max"], virtualHuman:"≈ $4.5k", pit:window.ARENA_PIT_NVDA, color:"#76B900", logo:"/brand/quotes/nvda.png" },
-    AMC:  { label:"AMC",  type:window.ARENA_STOCK_AMC_TYPE,  metadata:window.ARENA_STOCK_AMC_METADATA,  decimals:9, name:"AMC wrap", what:"RH→Sui stock wrap (AMC)", create:true, soon:false, stock:true, chips:["0.01","0.1","1","5","Max"], virtualHuman:"≈ $4.5k", pit:window.ARENA_PIT_AMC, color:"#E11D2E", logo:"/brand/quotes/amc.png" },
+    NVDA: { label:"NVDA", type:window.ARENA_STOCK_NVDA_TYPE, metadata:window.ARENA_STOCK_NVDA_METADATA, decimals:9, name:"NVIDIA wrap", what:"RH→Sui stock wrap (NVDA)", create:false, soon:true, stock:true, chips:["0.01","0.1","1","5","Max"], virtualHuman:"≈ $4.5k", pit:window.ARENA_PIT_NVDA, color:"#76B900", logo:"/brand/quotes/nvda.png" },
+    AMC:  { label:"AMC",  type:window.ARENA_STOCK_AMC_TYPE,  metadata:window.ARENA_STOCK_AMC_METADATA,  decimals:9, name:"AMC wrap", what:"RH→Sui stock wrap (AMC)", create:false, soon:true, stock:true, chips:["0.01","0.1","1","5","Max"], virtualHuman:"≈ $4.5k", pit:window.ARENA_PIT_AMC, color:"#E11D2E", logo:"/brand/quotes/amc.png" },
     GME:  { label:"GME",  type:window.ARENA_STOCK_GME_TYPE,  metadata:window.ARENA_STOCK_GME_METADATA,  decimals:9, name:"GME wrap", what:"RH→Sui stock wrap (GME)", create:false, soon:true, stock:true, chips:["0.01","0.1","1","5","Max"], virtualHuman:"≈ $4.5k", pit:"", color:"#EF4444", logo:"/brand/quotes/gme.png" },
     TSLA: { label:"TSLA", type:window.ARENA_STOCK_TSLA_TYPE, metadata:window.ARENA_STOCK_TSLA_METADATA, decimals:9, name:"Tesla wrap", what:"RH→Sui stock wrap (TSLA)", create:false, soon:true, stock:true, chips:["0.01","0.1","1","5","Max"], virtualHuman:"≈ $4.5k", pit:"", color:"#CC0000", logo:"/brand/quotes/tsla.png" },
     AXOL: { label:"AXOL", type:window.ARENA_AXOL_TYPE, metadata:window.ARENA_AXOL_METADATA, decimals:9, name:"AXOLcoin", what:"Axol the axolotl on Sui", create:true, chips:["1000","10000","50000","100000","Max"], virtualHuman:"≈ $4.5k", pit:"", color:"#FF7EB6", logo:"/brand/quotes/axol.png" },
@@ -1432,7 +1344,19 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   var KNOWN_BASKET_PUSH_VAULTS = {
     "0x3b8a61405825146ee68f351363f29a3e4206683fced840ea10cdfba50fe075e7": true
   };
+  var VICEFUN_REWARDS_VAULT = Object.keys(KNOWN_BASKET_PUSH_VAULTS)[0] || "";
+  // A BasketYieldPushEvent's type is pinned to whichever package published
+  // events.move at call time, not the package that calls push_payout — this
+  // list mirrors api/og.js EVENT_PKGS so wallet lookups see pushes from every
+  // historical version, not just the current one.
+  var BASKET_EVENT_PKGS = [
+    "0xcf7835ae4e3f8a3d4eb4bd9d14cb4a3dbdd80e70908feb6c433688a31e119de3",
+    "0xd8531cc8c4e1ee914f0e4e48aea9a796faa0603459cc4665838f688e51bf23d9",
+    "0x1c808e5fe7f14703a72cae3cd71ebba98b3a9a97dc530feed6222595bfb4a853",
+    "0x3ccc57531949d6f24178bd57fe20496ee4ff515e26c280f1b80f658bc020bcbe"
+  ];
   var pendingRewards = { addr: "", at: 0, usd: 0, parts: [], busy: false };
+  var rewardsCardLookup = { addr: "", busy: false, error: "", result: null, copyStatus: "" };
 
 
   // Secondary wrap only: RH stock → vault lock → 1:1 Sui mint. Not RH primary mint.
@@ -5462,7 +5386,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     return '<footer class="footer">'+
       '<div><div class="brand-name" style="margin-bottom:8px">vice.</div>'+
         '<p style="margin:0;max-width:42ch">Fair launches on Sui. Instant seeds Bluefin in block one. T-bills hop Cetus. Quote is SUI, USDY, XAGM, or XAUM. LP locked forever.</p></div>'+
-      '<div><h4>Product</h4><div data-go="explore">The Strip</div><div data-go="pit">Distributions</div><div data-go="metrics">Books</div><div data-go="bridge">Bridge</div><div data-go="lock">Vicelock</div><div data-go="launch">Create</div><a href="https://x.com/ViceFun" target="_blank" rel="noopener">X</a></div>'+
+      '<div><h4>Product</h4><div data-go="explore">The Strip</div><div data-go="pit">Distributions</div><div data-go="metrics">Books</div><div data-go="lock">Vicelock</div><div data-go="launch">Create</div><a href="https://x.com/ViceFun" target="_blank" rel="noopener">X</a></div>'+
       '<div><h4>Fees</h4>Bluefin 2% on the pair (keeps 20%).<br>Our 80% quote split: 5% platform + 5% VICE buyback minimum, rest creator/rewards. Rewards go to holders on Collect LP.<br>Bridge 1%. Token-side LP fees burn.</div></footer>';
   }
   var pfCache = { addr: "", rows: [], at: 0 };
@@ -6243,6 +6167,55 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     if (u < 0.01) return "<$0.01";
     if (u < 10) return "$" + u.toFixed(2);
     return fmtUsd(u);
+  }
+  function fmtUsdCard(u){
+    u = Number(u) || 0;
+    if (u <= 0) return "$0.00";
+    if (u < 0.01) return "<$0.01";
+    if (u < 10) return "$" + u.toFixed(2);
+    return fmtUsd(u);
+  }
+  function rewardsCardHTML(res){
+    if (!res) return "";
+    var parts = (res.parts || []).filter(function(p){ return p.amtHuman > 0; });
+    var lines = parts.length
+      ? parts.map(function(p){
+          return '<div class="rw-card-line"><span class="rw-card-dot" style="background:'+escAttr(p.color)+'"></span>'+
+            '<span>'+escHtml(p.amtLabel)+'</span>'+
+            '<span class="rw-card-line-usd">'+escHtml(fmtRewardUsd(p.raw, p.cat))+'</span></div>';
+        }).join("")
+      : '<div class="rw-card-empty">This wallet hasn’t collected any rewards yet.</div>';
+    return '' +
+      '<div class="rw-card" id="rw-share-card">' +
+        '<div class="rw-card-head">' +
+          '<img src="/brand/vice-mark.png" alt="" class="rw-card-mark">' +
+          '<div><div class="rw-card-brand">VICE</div><div class="rw-card-tag">Gold &middot; Silver &middot; T-bills, on Sui</div></div>' +
+        '</div>' +
+        '<div class="rw-card-k">Total rewards</div>' +
+        '<div class="rw-card-total">'+escHtml(fmtUsdCard(res.totalUsd))+'</div>' +
+        '<div class="rw-card-breakdown">'+lines+'</div>' +
+        '<div class="rw-card-sub">Paid automatically to $VICEFUN holders — no staking, no claiming.</div>' +
+        '<div class="rw-card-foot"><span>vicefun.com</span><span>Real-world assets, on-chain</span></div>' +
+      '</div>';
+  }
+  function rewardsLookupHTML(){
+    var L = rewardsCardLookup;
+    var res = L.result;
+    return '' +
+      '<div class="dist-panel rw-lookup">' +
+        '<h2>Check your $VICEFUN rewards</h2>' +
+        '<div class="dist-lede" style="margin:6px 0 16px">Enter any wallet to add up its gold, silver, and T-bill rewards from holding $VICEFUN, then share the card.</div>' +
+        '<div class="rw-lookup-row">' +
+          '<input id="rw-addr" type="text" inputmode="text" placeholder="0x…" value="'+escAttr(L.addr || "")+'" autocomplete="off" spellcheck="false">' +
+          '<button type="button" class="btn" data-rw-lookup-go'+(L.busy ? " disabled" : "")+'>'+(L.busy ? "Looking up…" : "Look up")+'</button>' +
+        '</div>' +
+        (L.error ? '<div class="rw-lookup-err">'+escHtml(L.error)+'</div>' : "") +
+        (res ? ('<div class="rw-card-wrap">' + rewardsCardHTML(res) +
+          '<div class="rw-card-actions">' +
+            '<button type="button" class="btn-ghost" data-rw-copy'+(L.copyStatus === "Rendering…" ? " disabled" : "")+'>'+escHtml(L.copyStatus || "Copy card image")+'</button>' +
+            '<button type="button" class="btn-ghost" data-rw-share>Share on X</button>' +
+          '</div></div>') : "") +
+      '</div>';
   }
   function rebuildRewardsLedger(){
     var by = {};
@@ -7373,6 +7346,254 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       pendingRewards.busy = false;
     });
   }
+  // --- $VICEFUN holder-rewards card: look up any wallet's all-time basket push total ---
+  function assetCatFromTypeName(name){
+    var s = String(name || "").trim();
+    if (!s) return "";
+    if (s.indexOf("0x") !== 0) s = "0x" + s;
+    s = s.toLowerCase();
+    function norm(t){ return String(t || "").trim().toLowerCase(); }
+    if (s === norm(window.ARENA_XAUM_TYPE)) return "gold";
+    if (s === norm(window.ARENA_XAGM_TYPE)) return "silver";
+    if (s === norm(window.ARENA_USDY_TYPE)) return "tbills";
+    return "";
+  }
+  // A live per-lookup scan used to sit here: walk every BasketYieldPushEvent
+  // ever emitted (Sui hard-caps pages at 50, with no server-side filter by
+  // recipient) and sum the ones matching this wallet. Correct, but 5+
+  // minutes for an active holder. api/rewards-index.js now keeps a
+  // wallet -> {asset: rawAmount} index up to date on a cron, and
+  // api/rewards-lookup.js serves it back instantly — this just reads that.
+  async function vicefunRewardsFor(addr){
+    var wantAddr = normSuiAddr(addr);
+    if (!wantAddr) throw new Error("Invalid address");
+    var r = await fetch("/api/rewards-lookup?addr=" + encodeURIComponent(addr));
+    var j = {};
+    try { j = await r.json(); } catch (e) {}
+    if (!r.ok) throw new Error((j && j.error) || ("rewards-lookup " + r.status));
+    var raw = { gold: 0n, silver: 0n, tbills: 0n };
+    var count = 0;
+    (j.parts || []).forEach(function(p){
+      var catId = assetCatFromTypeName(p.asset);
+      if (!catId) return;
+      raw[catId] = raw[catId] + asBigInt(p.amount);
+      count++;
+    });
+    var parts = ["gold","silver","tbills"].map(function(id){
+      var cat = rewardsCat(id);
+      var rawStr = raw[id].toString();
+      return {
+        id: id,
+        cat: cat,
+        label: cat.label,
+        unit: cat.unit,
+        color: cat.color,
+        raw: rawStr,
+        amtHuman: rewardAmtHuman(rawStr, cat.unit),
+        amtLabel: fmtRewardAmt(rawStr, cat.unit),
+        usd: rewardUsd(rawStr, cat)
+      };
+    });
+    var totalUsd = parts.reduce(function(s,pt){ return s + (pt.usd || 0); }, 0);
+    return {
+      addr: addr, parts: parts, totalUsd: totalUsd, count: count,
+      indexUpdatedMs: j.indexUpdatedMs || 0
+    };
+  }
+  function drawRoundedRectPath(ctx, x, y, w, h, r){
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+  }
+  function paintRewardsCardCanvas(canvas, res, markImg){
+    var W = 1200;
+    var x = 84;
+    var parts = (res.parts || []).filter(function(p){ return p.amtHuman > 0; });
+    // Row-per-part (dot + amount + right-aligned USD) mirrors the on-page
+    // .rw-card-line layout. The old version joined every part into one
+    // plain-text line and kept a fixed 630 canvas height sized for that —
+    // real wallets almost always show fewer than a full line's worth, which
+    // left a large dead gap between the subtitle and footer. Height is now
+    // derived from actual content so the card doesn't outgrow it.
+    var rowH = 32;
+    var breakdownStartY = 348;
+    var breakdownEndY = breakdownStartY + Math.max(0, parts.length - 1) * rowH;
+    var subtitleY = breakdownEndY + 46;
+    var footerLineY = subtitleY + 44;
+    var footerTextY = footerLineY + 34;
+    var H = footerTextY + 58;
+
+    canvas.width = W; canvas.height = H;
+    var ctx = canvas.getContext("2d");
+    ctx.fillStyle = "#0b0f1a";
+    ctx.fillRect(0, 0, W, H);
+    drawRoundedRectPath(ctx, 36, 36, W - 72, H - 72, 24);
+    ctx.strokeStyle = "#caa14a";
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    drawRoundedRectPath(ctx, 48, 48, W - 96, H - 96, 18);
+    ctx.strokeStyle = "rgba(202,161,74,0.35)";
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    if (markImg){
+      try { ctx.drawImage(markImg, x, 78, 56, 56); } catch (e) {}
+    }
+    var hx = markImg ? x + 72 : x;
+    ctx.fillStyle = "#f2e6c8";
+    ctx.font = "700 30px Georgia, 'Times New Roman', serif";
+    ctx.textBaseline = "alphabetic";
+    ctx.fillText("VICE", hx, 108);
+    ctx.fillStyle = "#caa14a";
+    ctx.font = "600 13px Arial, sans-serif";
+    ctx.fillText("GOLD · SILVER · T-BILLS, ON SUI", hx, 130);
+
+    ctx.fillStyle = "#caa14a";
+    ctx.font = "600 15px Arial, sans-serif";
+    ctx.fillText("TOTAL REWARDS", x, 222);
+
+    ctx.fillStyle = "#f2d98a";
+    ctx.font = "800 76px Georgia, 'Times New Roman', serif";
+    ctx.fillText(fmtUsdCard(res.totalUsd), x, 305);
+
+    if (parts.length){
+      parts.forEach(function(p, i){
+        var rowY = breakdownStartY + i * rowH;
+        ctx.fillStyle = p.color || "#caa14a";
+        ctx.beginPath();
+        ctx.arc(x + 5, rowY - 7, 5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = "#e7dfd0";
+        ctx.font = "500 21px Arial, sans-serif";
+        ctx.fillText(fitCanvasText(ctx, p.amtLabel, W - 2 * x - 170), x + 22, rowY);
+        ctx.fillStyle = "#9a93ab";
+        ctx.font = "500 18px Arial, sans-serif";
+        ctx.textAlign = "right";
+        ctx.fillText(fmtRewardUsd(p.raw, p.cat), W - 84, rowY);
+        ctx.textAlign = "left";
+      });
+    } else {
+      ctx.fillStyle = "#9a93ab";
+      ctx.font = "500 19px Arial, sans-serif";
+      ctx.fillText("This wallet hasn’t collected any rewards yet.", x, breakdownStartY);
+    }
+
+    ctx.fillStyle = "#9a93ab";
+    ctx.font = "italic 18px Georgia, 'Times New Roman', serif";
+    ctx.fillText(fitCanvasText(ctx, "Paid automatically to $VICEFUN holders — no staking, no claiming.", W - 2 * x), x, subtitleY);
+
+    ctx.strokeStyle = "rgba(202,161,74,0.3)";
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(x, footerLineY); ctx.lineTo(W - 84, footerLineY); ctx.stroke();
+
+    ctx.fillStyle = "#f2e6c8";
+    ctx.font = "700 15px Arial, sans-serif";
+    ctx.fillText("vicefun.com", x, footerTextY);
+    ctx.textAlign = "right";
+    ctx.fillText("REAL-WORLD ASSETS, ON-CHAIN", W - 84, footerTextY);
+    ctx.textAlign = "left";
+  }
+  function fitCanvasText(ctx, str, maxW){
+    if (ctx.measureText(str).width <= maxW) return str;
+    var s = str;
+    while (s.length && ctx.measureText(s + "…").width > maxW) s = s.slice(0, -1);
+    return s + "…";
+  }
+  function rewardsCardToBlob(res, cb){
+    var canvas = document.createElement("canvas");
+    var img = new Image();
+    var done = false;
+    function finish(){
+      if (done) return;
+      done = true;
+      try { paintRewardsCardCanvas(canvas, res, img.complete && img.naturalWidth ? img : null); }
+      catch (e) { paintRewardsCardCanvas(canvas, res, null); }
+      canvas.toBlob(function(blob){ cb(blob); }, "image/png");
+    }
+    img.onload = finish;
+    img.onerror = finish;
+    img.src = "/brand/vice-mark.png";
+    setTimeout(finish, 1200);
+  }
+  // Button-label feedback goes through state + renderScreen, not direct DOM
+  // mutation — this screen re-renders on its own poll cycle (price/pending
+  // refreshes), which replaces the DOM and would silently orphan a captured
+  // button reference before an async clipboard op ever resolves.
+  function setRwCopyStatus(text){
+    rewardsCardLookup.copyStatus = text;
+    renderScreen();
+    if (!text) return;
+    setTimeout(function(){
+      if (rewardsCardLookup.copyStatus === text){
+        rewardsCardLookup.copyStatus = "";
+        renderScreen();
+      }
+    }, 1800);
+  }
+  function downloadBlob(blob, filename){
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(function(){ URL.revokeObjectURL(url); }, 4000);
+  }
+  function rewardsCopyImage(){
+    var res = rewardsCardLookup.result;
+    if (!res) return;
+    setRwCopyStatus("Rendering…");
+    rewardsCardToBlob(res, function(blob){
+      if (!blob) { setRwCopyStatus("Copy failed"); return; }
+      if (navigator.clipboard && window.ClipboardItem){
+        navigator.clipboard.write([new ClipboardItem({ "image/png": blob })])
+          .then(function(){ setRwCopyStatus("Copied!"); })
+          .catch(function(){
+            // Clipboard permission is commonly denied (embedded/automated
+            // contexts, some browsers without a direct user-gesture path) —
+            // a saved file the user can attach to a post is a better
+            // fallback than a popup, which async callbacks like this one
+            // are liable to get blocked anyway.
+            downloadBlob(blob, "vicefun-rewards.png");
+            setRwCopyStatus("Downloaded");
+          });
+      } else {
+        downloadBlob(blob, "vicefun-rewards.png");
+        setRwCopyStatus("Downloaded");
+      }
+    });
+  }
+  function rewardsShareX(){
+    var res = rewardsCardLookup.result;
+    var usd = fmtUsdCard(res ? res.totalUsd : 0);
+    var text = "$VICEFUN has paid me " + usd + " in real gold, silver & T-bills — no staking, no claiming. Paste the card I just copied ⬆️\n\nCheck what you've earned:";
+    var url = "https://vicefun.com/#/distributions";
+    window.open("https://twitter.com/intent/tweet?text=" + encodeURIComponent(text) + "&url=" + encodeURIComponent(url), "_blank", "noopener");
+  }
+  function runRewardsLookup(addrRaw){
+    var addr = String(addrRaw || "").trim();
+    if (!/^0x[0-9a-fA-F]{1,64}$/.test(addr)){
+      rewardsCardLookup = { addr: addrRaw, busy: false, error: "Enter a valid Sui address (0x…)", result: null };
+      renderScreen();
+      return;
+    }
+    rewardsCardLookup = { addr: addr, busy: true, error: "", result: null };
+    renderScreen();
+    vicefunRewardsFor(addr).then(function(res){
+      if (rewardsCardLookup.addr !== addr || !rewardsCardLookup.busy) return;
+      rewardsCardLookup = { addr: addr, busy: false, error: "", result: res };
+      renderScreen();
+    }).catch(function(err){
+      if (rewardsCardLookup.addr !== addr) return;
+      rewardsCardLookup = { addr: addr, busy: false, error: (err && err.message) || "Lookup failed", result: null };
+      renderScreen();
+    });
+  }
   async function listTableAddresses(tableId){
     var addrs = [];
     var cursor = null;
@@ -7462,7 +7683,9 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     var eventUsd = distEventUsd();
     var paidN = distPaidWalletCount();
     var paidBars = paidWalletSeries.length ? paidWalletSeries : (paidN ? [paidN] : []);
-    var cards = REWARDS_CATS.map(function(cat){
+    var cards = REWARDS_CATS.filter(function(cat){
+      return cat.id === "gold" || cat.id === "silver" || cat.id === "tbills";
+    }).map(function(cat){
       var tot = rewardsTotals(cat);
       return '<div class="rewards-card">'+
         '<div class="rw-top">'+
@@ -7514,6 +7737,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
           '<div class="dist-stat"><div class="k">Wallets</div><div class="v">'+paidN+'</div><div class="s">received airdrops</div>'+distBarsHTML(paidBars, "muted")+'</div>'+
         '</div>'+
         '<div class="rewards-grid">'+cards+'</div>'+
+        rewardsLookupHTML()+
         '<div class="rewards-claim">'+
           '<button type="button" class="btn" data-rewards-claim disabled>'+escHtml(claimLabel)+'</button>'+
           pendingPillHTML()+
@@ -8896,6 +9120,9 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   }
 
   async function refreshBridgeBal(){
+    /* sunset: Bridge tab removed — refreshBridgeBal is a no-op */
+    return;
+
     if (state.route !== "bridge"){
       state.bridgeBalHuman = "—";
       return;
@@ -8936,6 +9163,9 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     if (suiEl) suiEl.textContent = state.bridgeVaultSui || "—";
   }
   async function refreshBridgeVault(st){
+    /* sunset: Bridge tab removed — refreshBridgeVault is a no-op */
+    return;
+
     st = st || stockRec(state.bridgeTick);
     try {
       var scale = rhToSuiScale(st);
@@ -9177,6 +9407,9 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   }
 
 async function doBridgeDeposit(){
+    /* sunset: Bridge tab removed — doBridgeDeposit is a no-op */
+    return;
+
     if (state.bridgeBusy) return;
     var st = stockRec(state.bridgeTick);
     var btn = $("#bridge-go");
@@ -9736,6 +9969,9 @@ async function doBridgeDeposit(){
     paintBridgePending();
   }
   function startBridgePendWatch(){
+    /* sunset: Bridge tab removed — startBridgePendWatch is a no-op */
+    return;
+
     if (state.route !== "bridge") return;
     if (bridgePendTimer) return;
     refreshPendingDeposits();
@@ -9797,6 +10033,9 @@ async function doBridgeDeposit(){
 
 
   async function doBridgeBurn(){
+    /* sunset: Bridge tab removed — doBridgeBurn is a no-op */
+    return;
+
     if (state.bridgeBusy) return;
     var st = stockRec(state.bridgeTick);
     var btn = $("#bridge-go");
@@ -9925,11 +10164,12 @@ async function doBridgeDeposit(){
     if (route === "explore" || route === "floor" || route === "discover") return "#/";
     if (route === "pit") return "#/distributions";
     if (route === "metrics") return "#/books";
-    if (route === "bridge") return "#/bridge";
-    if (route === "lock") return "#/vicelock";
+        if (route === "lock") return "#/vicelock";
     return "#/"+route;
   }
   function parseHash(){
+    /* bridge sunset parseHash */
+
     const path = (location.pathname || "/").replace(/\/+$/, "") || "/";
     const tm = path.match(/^\/t\/([^/]+)$/i);
     if (tm){
@@ -9950,7 +10190,7 @@ async function doBridgeDeposit(){
     if (r === "pit" || r === "pot" || r === "night" || r === "fight" || r === "rewards" || r === "distributions") return {route:"pit", sym:state.sym};
     if (r === "books") return {route:"metrics", sym:state.sym};
     if (r === "launch" || r === "metrics" || r === "analytics") return {route: r==="analytics"?"metrics":r, sym:state.sym};
-    if (r === "bridge") return {route:"bridge", sym:state.sym};
+    
     if (r === "lock" || r === "vicelock" || r === "suilock") return {route:"lock", sym:state.sym};
     return {route:"explore", sym:state.sym};
   }
@@ -9994,7 +10234,7 @@ async function doBridgeDeposit(){
     if (can) can.setAttribute("href", url);
   }
   function paintNav(){
-    const nav = [["The Strip","explore"],["Distributions","pit"],["Books","metrics"],["Bridge","bridge"],["Vicelock","lock"]];
+    const nav = [["The Strip","explore"],["Distributions","pit"],["Books","metrics"],["Vicelock","lock"]];
     $("#nav-pill").innerHTML = nav.map(function(n){
       const on = state.route === n[1] || (n[1]==="explore" && state.route==="token");
       return '<div class="nav-item'+(on?" on":"")+'" data-go="'+n[1]+'">'+n[0]+'</div>';
@@ -10845,6 +11085,9 @@ async function doBridgeDeposit(){
     try { history.replaceState({ route: "token", sym: state.sym }, "", want); } catch (e) {}
   }
   function renderScreen(){
+    /* bridge route sunset redirect */
+    if (state.route === "bridge") { state.route = "explore"; try { location.hash = "#/"; } catch (e) {} }
+
     if (state.route === "token"){
       var hideTk = findT(state.sym);
       if (isHiddenToken(hideTk || { t: state.sym, token: looksLikeCoinType(state.sym) ? state.sym : "" })) state.route = "explore";
@@ -10855,6 +11098,15 @@ async function doBridgeDeposit(){
     var keepPool = keepCard ? (keepCard.getAttribute("data-pool") || "") : "";
     var keepTicket = host && host.querySelector("#swap-box.ticket-cetus");
     var keepSwapSym = keepTicket ? (keepTicket.getAttribute("data-swap-sym") || "") : "";
+    // Preserve the live input node (value, cursor, focus) across the
+    // innerHTML rebuild below — rewardsCardLookup.addr only syncs from this
+    // field on submit, so a render landing mid-type/paste would otherwise
+    // reset it to stale state and steal focus, which read as "paste doesn't
+    // work" / a false "invalid address" (the click handler read the
+    // just-wiped value).
+    var keepRwAddr = host && host.querySelector("#rw-addr");
+    var keepRwAddrFocused = !!(keepRwAddr && document.activeElement === keepRwAddr);
+    var keepRwAddrSel = keepRwAddrFocused ? [keepRwAddr.selectionStart, keepRwAddr.selectionEnd] : null;
     dropTv();
     const map = {explore:exploreHTML, pit:pitHTML, token:tokenHTML, launch:launchHTML, metrics:metricsHTML, bridge:bridgeHTML, lock:vicelockHTML};
     host.innerHTML = (map[state.route] || exploreHTML)();
@@ -10862,6 +11114,17 @@ async function doBridgeDeposit(){
     var ticketSlot = host.querySelector("#swap-box.ticket-cetus");
     if (keepTicket && ticketSlot && keepSwapSym && keepSwapSym === String(state.sym || "").toUpperCase()){
       ticketSlot.parentNode.replaceChild(keepTicket, ticketSlot);
+    }
+    var rwAddrSlot = host.querySelector("#rw-addr");
+    if (keepRwAddr && rwAddrSlot){
+      rwAddrSlot.parentNode.replaceChild(keepRwAddr, rwAddrSlot);
+      // Detaching via innerHTML above drops focus even though the node
+      // (and its value) survives as keepRwAddr — reattaching doesn't get it
+      // back on its own, so restore it explicitly, cursor position and all.
+      if (keepRwAddrFocused){
+        keepRwAddr.focus();
+        if (keepRwAddrSel) keepRwAddr.setSelectionRange(keepRwAddrSel[0], keepRwAddrSel[1]);
+      }
     }
     var slot = host.querySelector(".chart-card[data-pool]");
     if (keepCard && keepPool && slot && slot.getAttribute("data-pool") === keepPool){
@@ -10882,7 +11145,7 @@ async function doBridgeDeposit(){
     if (state.route === "pit"){
       refreshPendingRewards();
     }
-    if (state.route === "bridge"){ refreshBridgeBal(); startBridgePendWatch(); }
+    /* bridge sunset: no pend watch */
     else if (bridgePendTimer){ clearInterval(bridgePendTimer); bridgePendTimer = 0; }
     const q = $("#q");
     if (q) q.value = state.search;
@@ -12838,6 +13101,24 @@ async function doBridgeDeposit(){
       });
       return;
     }
+    const rwLookupBtn = e.target.closest("[data-rw-lookup-go]");
+    if (rwLookupBtn){
+      if (rwLookupBtn.disabled) return;
+      var rwInput = $("#rw-addr");
+      runRewardsLookup(rwInput ? rwInput.value : "");
+      return;
+    }
+    const rwCopyBtn = e.target.closest("[data-rw-copy]");
+    if (rwCopyBtn){
+      if (rwCopyBtn.disabled) return;
+      rewardsCopyImage();
+      return;
+    }
+    const rwShareBtn = e.target.closest("[data-rw-share]");
+    if (rwShareBtn){
+      rewardsShareX();
+      return;
+    }
     const rwCard = e.target.closest("[data-rewards-tab]");
     if (rwCard && state.route === "pit"){
       state.rewardsTab = rwCard.getAttribute("data-rewards-tab") || "all";
@@ -13300,6 +13581,11 @@ async function doBridgeDeposit(){
     if (e.key === "Enter" && e.target && e.target.id === "tape-wallet"){
       e.preventDefault();
       applyTapeWallet(e.target.value);
+      return;
+    }
+    if (e.key === "Enter" && e.target && e.target.id === "rw-addr"){
+      e.preventDefault();
+      if (!rewardsCardLookup.busy) runRewardsLookup(e.target.value);
       return;
     }
     if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k"){

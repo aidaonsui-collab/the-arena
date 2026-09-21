@@ -1,4 +1,10 @@
 {
+  "crons": [
+    {
+      "path": "/api/rewards-index",
+      "schedule": "*/5 * * * *"
+    }
+  ],
   "rewrites": [
     {
       "source": "/",
