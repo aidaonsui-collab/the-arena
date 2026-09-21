@@ -11120,6 +11120,15 @@ async function doBridgeDeposit(){
     var keepPool = keepCard ? (keepCard.getAttribute("data-pool") || "") : "";
     var keepTicket = host && host.querySelector("#swap-box.ticket-cetus");
     var keepSwapSym = keepTicket ? (keepTicket.getAttribute("data-swap-sym") || "") : "";
+    // Preserve the live input node (value, cursor, focus) across the
+    // innerHTML rebuild below — rewardsCardLookup.addr only syncs from this
+    // field on submit, so a render landing mid-type/paste would otherwise
+    // reset it to stale state and steal focus, which read as "paste doesn't
+    // work" / a false "invalid address" (the click handler read the
+    // just-wiped value).
+    var keepRwAddr = host && host.querySelector("#rw-addr");
+    var keepRwAddrFocused = !!(keepRwAddr && document.activeElement === keepRwAddr);
+    var keepRwAddrSel = keepRwAddrFocused ? [keepRwAddr.selectionStart, keepRwAddr.selectionEnd] : null;
     dropTv();
     const map = {explore:exploreHTML, pit:pitHTML, token:tokenHTML, launch:launchHTML, metrics:metricsHTML, bridge:bridgeHTML, lock:vicelockHTML};
     host.innerHTML = (map[state.route] || exploreHTML)();
@@ -11127,6 +11136,17 @@ async function doBridgeDeposit(){
     var ticketSlot = host.querySelector("#swap-box.ticket-cetus");
     if (keepTicket && ticketSlot && keepSwapSym && keepSwapSym === String(state.sym || "").toUpperCase()){
       ticketSlot.parentNode.replaceChild(keepTicket, ticketSlot);
+    }
+    var rwAddrSlot = host.querySelector("#rw-addr");
+    if (keepRwAddr && rwAddrSlot){
+      rwAddrSlot.parentNode.replaceChild(keepRwAddr, rwAddrSlot);
+      // Detaching via innerHTML above drops focus even though the node
+      // (and its value) survives as keepRwAddr — reattaching doesn't get it
+      // back on its own, so restore it explicitly, cursor position and all.
+      if (keepRwAddrFocused){
+        keepRwAddr.focus();
+        if (keepRwAddrSel) keepRwAddr.setSelectionRange(keepRwAddrSel[0], keepRwAddrSel[1]);
+      }
     }
     var slot = host.querySelector(".chart-card[data-pool]");
     if (keepCard && keepPool && slot && slot.getAttribute("data-pool") === keepPool){
