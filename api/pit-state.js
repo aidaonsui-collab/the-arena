@@ -736,15 +736,6 @@ export async function GET(request) {
   } catch (e) {}
   applySitoutExempt(prev);
   attachUsd(prev, prev.quoteUsd);
-  // The pit (Fight Night buy/burn) was sunset. Every keeper that polls this
-  // endpoint — this one on Jessica's Air, and any other — decides whether to
-  // run its buy/burn step purely from whether a bell here has neither a
-  // digest nor a skipped reason. Closing that off here, at the one place
-  // every keeper actually reads, holds regardless of what refresh()/POST/a
-  // keeper's own local computation puts into state.bells upstream.
-  (prev.bells || []).forEach(function (b) {
-    if (b && !b.digest && !b.skipped) b.skipped = "pit-sunset";
-  });
   return Response.json(prev, {
     status: 200,
     headers: {
