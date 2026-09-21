@@ -6,6 +6,12 @@
       "runtimeExecutable": "npx",
       "runtimeArgs": ["-y", "serve", "-l", "4321", "."],
       "port": 4321
+    },
+    {
+      "name": "arena-vercel-dev",
+      "runtimeExecutable": "vercel",
+      "runtimeArgs": ["dev", "--listen", "4322", "--yes"],
+      "port": 4322
     }
   ]
 }
