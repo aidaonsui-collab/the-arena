@@ -154,5 +154,5 @@ RH → Sui 1:1 wrappers live in **`contracts-stocks/`** (`stocks` package), not 
 
 - Package: `0x9a4ba3338384d36033065f9cf0c58078033a718a92f091f12a551f6984c290c5`
 - Publish tx: `CLF3jgp39FCMh7KjvGqjWULcQXvju9f86qFbJaNPvL13`
-- Tickers: NVDA, AMC, GME, TSLA — BridgeVault + MinterCap per ticker (ids in `contracts-stocks/PUBLISHED.md`)
+- Tickers: NVDA, AMC, GME, TSLA — BridgeVault + MinterCap per ticker (ids in `contracts-stocks/PUBLISHED.md`). Pad Bridge tab + RH watch/redeem keepers **sunset** 2026-09-21; wraps remain for Instant Create quotes.
 

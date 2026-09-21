@@ -1,3 +1,9 @@
+> **SUNSET (2026-09-21):** The RH↔Sui stock Bridge product tab is removed from the pad.
+> Do **not** install or run LaunchAgents `com.arena.keepers-stocks.watch-rh` /
+> `com.arena.keepers-stocks.watch-redeem`. On Jessica’s Air those plists were unloaded
+> and moved to `~/Library/LaunchAgents/disabled/`. Scripts below remain for historical
+> reference / emergency ops only — default is off.
+>
 # Arena keepers-stocks
 
 RH -> Sui wrap attestor for The Arena.

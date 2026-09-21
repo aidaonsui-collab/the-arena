@@ -841,120 +841,10 @@ html.shot,html.shot *{animation:none!important;transition:none!important}
   .split-about,.split-main,.tape-wrap,.card{min-width:0;max-width:100%}
 }
 
-/* RH → Sui stock bridge (scaffold) */
-.bridge-page{padding:8px 0 0}
-.bridge-hero{text-align:center;margin:6px 0 18px}
-.bridge-hero h1{font-size:clamp(28px,5vw,44px);font-weight:700;letter-spacing:-.03em;margin:0;line-height:1.1}
-.bridge-hero h1 em{font-style:normal;color:var(--sui)}
-.bridge-hero p{margin:10px auto 0;color:var(--muted);font-size:14px;max-width:46ch;line-height:1.45}
-.bridge-layout{display:grid;grid-template-columns:minmax(240px,300px) 440px;gap:28px 56px;align-items:start;justify-content:center;max-width:920px;margin:0 auto;padding:0 8px}
-.bridge-wrap{max-width:440px;margin:0;width:100%}
-.bridge-howto{padding:6px 4px 0}
-.bridge-howto-kicker{font-size:11px;font-weight:650;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin:0 0 16px}
-.bridge-steps{list-style:none;margin:0;padding:0}
-.bridge-step{display:grid;grid-template-columns:36px 1fr;gap:2px 14px;position:relative;padding:0 0 22px}
-.bridge-step:last-child{padding-bottom:0}
-.bridge-step:not(:last-child)::before{content:"";position:absolute;left:17px;top:36px;bottom:4px;width:1px;background:var(--line)}
-.bridge-step-n{width:36px;height:36px;border-radius:99px;display:grid;place-items:center;font-size:13px;font-weight:700;color:var(--sui);background:var(--lift);border:1px solid var(--line);position:relative;z-index:1}
-.bridge-step h3{margin:6px 0 4px;font-size:15px;font-weight:650;letter-spacing:-.02em;line-height:1.25}
-.bridge-step p{margin:0;font-size:13px;color:var(--muted);line-height:1.5}
-.bridge-card{background:var(--card);border-radius:24px;padding:18px 16px 16px;box-shadow:var(--shadow);border:1px solid rgba(255,255,255,.04)}
-.bridge-panel{background:var(--well);border:1px solid var(--line);border-radius:16px;padding:12px 14px 14px;position:relative}
-.bridge-panel + .bridge-arrow{display:flex;justify-content:center;margin:-6px 0;position:relative;z-index:1}
-.bridge-arrow span{width:32px;height:32px;border-radius:999px;background:var(--lift);border:1px solid var(--line);display:grid;place-items:center;color:var(--muted);font-size:14px;line-height:1}
-.bridge-panel-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:0 0 10px}
-.bridge-panel-lab{font-size:11px;font-weight:650;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
-.bridge-chain{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:4px 10px;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase}
-.bridge-chain.rh{background:rgba(0,200,83,.12);color:#3DDC84}
-.bridge-chain.sui{background:rgba(41,141,255,.14);color:var(--sui)}
-.bridge-chain i{width:6px;height:6px;border-radius:99px;background:currentColor;display:inline-block}
-.bridge-panel-body{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
-.bridge-amt-col{flex:1;min-width:0}
-.bridge-amt-col .amt{width:100%;border:0;background:transparent;padding:0;font-size:28px;font-weight:650;border-radius:0;outline:none;color:var(--ink)}
-.bridge-amt-col .amt:focus{border:0;background:transparent;box-shadow:none}
-.bridge-out{font-size:28px;font-weight:650;font-variant-numeric:tabular-nums;letter-spacing:-.02em;line-height:1.2;min-height:1.2em}
-.bridge-asset{display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex:none}
-.bridge-pick{display:flex;align-items:center;gap:6px;background:var(--card);border:1px solid var(--line);border-radius:999px;padding:6px 8px 6px 10px}
-.bridge-pick .bridge-tick-mark,.bridge-pick .bridge-tick-logo{width:22px;height:22px;border-radius:99px;background:var(--lift);display:grid;place-items:center;font-size:10px;font-weight:700;color:var(--ink);flex:none;object-fit:contain;padding:2px;box-sizing:border-box}
-.bridge-chain img{width:12px;height:12px;border-radius:99px;object-fit:contain;margin-right:2px;vertical-align:middle}
-.bridge-tick .bridge-tick-logo{width:14px;height:14px;border-radius:4px;object-fit:contain;margin-right:4px;vertical-align:-2px}
-.bridge-ticks{display:flex;flex-wrap:wrap;gap:4px;justify-content:flex-end;max-width:168px}
-.bridge-tick{border:1px solid var(--line);background:var(--bg);color:var(--muted);border-radius:999px;padding:5px 9px;font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:11px;font-weight:600;letter-spacing:.03em;cursor:pointer}
-.bridge-tick:hover{color:var(--ink);border-color:#5a3a56}
-.bridge-tick.on{background:var(--sui);color:#fff;border-color:var(--sui)}
-.bridge-dirs,.bridge-ticks,.bridge-bal,.bridge-asset{position:relative;z-index:2}
-.bridge-dirs{display:flex;gap:8px;margin:0 0 12px}
-.bridge-dirs .pill{flex:1;text-align:center;padding:10px 12px;border-radius:12px;background:var(--well);border-color:var(--line);color:var(--muted);font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:none}
-.bridge-dirs .pill:hover{color:var(--ink);border-color:#5a3a56}
-.bridge-dirs .pill.on{background:var(--sui);color:#fff;border-color:var(--sui)}
-.bridge-dirs .pill.on:hover{color:#fff;filter:brightness(1.05)}
-.bridge-pend{margin-top:14px;border-top:1px solid var(--line);padding-top:12px}
-.bridge-pend-head{display:flex;align-items:center;justify-content:space-between;font-size:11px;font-weight:650;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:8px}
-.bridge-pend-head button{border:0;background:transparent;color:var(--muted);cursor:pointer;font-size:13px;line-height:1;padding:2px 4px}
-.bridge-pend-head button:hover{color:var(--ink)}
-.bridge-pend-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
-.bridge-pend-row{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;background:#140e14;border:1px solid var(--line);border-radius:12px;padding:8px 10px;font-size:12px}
-.bridge-pend-main{display:flex;align-items:center;gap:7px;min-width:0}
-.bridge-pend-main .mono{font-size:12px;font-weight:650}
-.bridge-pend-right{display:flex;align-items:center;gap:8px;margin-left:auto}
-.bridge-pend-sub{color:var(--muted);font-size:11px}
-  .bridge-pend-execbtn{border:1px solid var(--line);background:transparent;color:var(--muted);border-radius:999px;padding:4px 10px;font:inherit;font-size:11px;cursor:pointer}
-  .bridge-pend-execbtn:hover{color:var(--ink);border-color:#5a3a56}
-  .bridge-pend-dir{font-size:10px;font-weight:650;letter-spacing:.04em;color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:1px 6px;white-space:nowrap}
-.bridge-pend-pill{border-radius:999px;padding:3px 8px;font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;white-space:nowrap}
-.bridge-pend-pill.wait{background:rgba(255,176,32,.14);color:#FFB020}
-.bridge-pend-pill.go{background:rgba(41,141,255,.16);color:var(--sui)}
-.bridge-pend-pill.ok{background:rgba(0,200,83,.14);color:#3DDC84}
-.bridge-pend-row a{color:var(--muted);text-decoration:none}
-.bridge-pend-row a:hover{color:var(--ink)}
-.bridge-pend-foot{margin-top:8px;font-size:11px;color:var(--muted);line-height:1.45}
-.bridge-bal{margin-top:8px;font-size:12px;color:var(--muted)}
-.bridge-bal button{border:0;background:transparent;color:var(--ink);font:inherit;font-weight:700;cursor:pointer;padding:0;margin:0;letter-spacing:.04em}
-.bridge-bal button:hover{color:var(--sui)}
-.bridge-meta{margin-top:6px}
-.bridge-meta .kv{padding:8px 2px;font-size:13px;border-top-color:rgba(58,36,56,.7)}
-.bridge-meta .kv:first-child{border-top:0}
-.bridge-meta .kv a{color:var(--sui)}
-.bridge-copy{border:0;background:transparent;color:var(--muted);cursor:pointer;padding:0 0 0 6px;font-size:12px;vertical-align:middle}
-.bridge-copy:hover{color:var(--ink)}
-.bridge-uni{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:10px 2px 2px;padding:8px 0;font-size:13px;color:var(--muted);border-top:1px solid var(--line)}
-.bridge-uni:hover{color:var(--ink)}
-.bridge-card .btn-trade{margin-top:14px;border-radius:14px;background:#2a1a28;color:var(--muted)}
-.bridge-card .btn-trade.ready,.bridge-card .btn-trade[data-wallet],.bridge-card .btn-trade[data-evm-wallet]{background:var(--sui);color:#fff}
-.bridge-card .btn-trade.ready:hover,.bridge-card .btn-trade[data-wallet]:hover,.bridge-card .btn-trade[data-evm-wallet]:hover{filter:brightness(1.08);color:#fff}
-.bridge-card .btn-trade:disabled{opacity:.7}
-.bridge-note{margin:12px 2px 2px;font-size:12px;color:var(--muted);text-align:center;line-height:1.4}
-.bridge-wallets{display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px 14px;margin:0 2px 12px;font-size:12px;color:var(--muted)}
-.bridge-wallets button{border:0;background:transparent;color:var(--sui);font:inherit;cursor:pointer;padding:0}
-.bridge-wallets button:hover{color:var(--ink)}
-.bridge-wallets .mono{color:var(--ink)}
-.bridge-dest-field{border-top:1px solid var(--line);margin:10px 2px 0;padding-top:12px}
-.bridge-dest-lab{color:var(--muted);font-size:13px;margin-bottom:6px;display:flex;gap:6px;align-items:center}
-.bridge-dest-req{color:var(--pink);font-size:11px;font-weight:600;letter-spacing:.03em;text-transform:uppercase}
-.bridge-dest-input{width:100%;box-sizing:border-box;background:var(--well);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:13px;color:var(--ink);outline:none}
-.bridge-dest-input::placeholder{color:var(--muted);opacity:.8}
-.bridge-dest-input:focus{border-color:var(--sui)}
-.bridge-legal{max-width:640px;margin:28px auto 4px;padding:0 12px 8px;font-size:12.5px;line-height:1.6;color:var(--muted)}
-.bridge-legal h2{margin:0 0 10px;font-size:13px;font-weight:650;letter-spacing:.01em;color:var(--muted)}
-.bridge-legal p{margin:0}
-.bridge-dest-input.bad{border-color:var(--pink)}
-.bridge-dest-hint{margin:6px 0 0;font-size:12px;color:var(--muted);line-height:1.4}
 @media (max-width:860px){
-  .bridge-layout{grid-template-columns:1fr;gap:22px;max-width:440px}
-  .bridge-howto{padding:0 2px 4px}
-  .bridge-step{padding-bottom:16px}
 }
 @media (max-width:720px){
-  .bridge-wrap{max-width:none}
-  .bridge-layout{max-width:none}
-  .bridge-card{padding:14px 12px 12px;border-radius:20px}
-  .bridge-panel-body{flex-direction:column;align-items:stretch}
-  .bridge-asset{align-items:flex-start}
-  .bridge-ticks{justify-content:flex-start;max-width:none}
-  .bridge-out,.bridge-amt-col .amt{font-size:24px}
-  .bridge-hero{margin-bottom:14px;text-align:left}
 }
-html[data-route="bridge"] .search-row{display:none}
 html[data-route="lock"] .search-row{display:none}
 html[data-route="lock"] main{width:min(720px,calc(100% - 32px));margin:0 auto;padding:18px 0 72px}
 .lock-hero{margin:0 0 18px}
@@ -1173,7 +1063,6 @@ html[data-route="explore"] main{padding-top:10px;padding-bottom:24px}
 <div class="dock-backdrop" id="dock-backdrop" hidden></div>
 <div class="dock-wrap" id="dock-wrap" hidden>
   <div class="dock-sheet" id="dock-sheet" hidden>
-    <div data-go="bridge">Bridge</div>
     <div data-go="lock">Vicelock</div>
     <div data-go="launch">Create</div>
   </div>
@@ -5459,7 +5348,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     return '<footer class="footer">'+
       '<div><div class="brand-name" style="margin-bottom:8px">vice.</div>'+
         '<p style="margin:0;max-width:42ch">Fair launches on Sui. Instant seeds Bluefin in block one. T-bills hop Cetus. Quote is SUI, USDY, XAGM, or XAUM. LP locked forever.</p></div>'+
-      '<div><h4>Product</h4><div data-go="explore">The Strip</div><div data-go="pit">Distributions</div><div data-go="metrics">Books</div><div data-go="bridge">Bridge</div><div data-go="lock">Vicelock</div><div data-go="launch">Create</div><a href="https://x.com/ViceFun" target="_blank" rel="noopener">X</a></div>'+
+      '<div><h4>Product</h4><div data-go="explore">The Strip</div><div data-go="pit">Distributions</div><div data-go="metrics">Books</div><div data-go="lock">Vicelock</div><div data-go="launch">Create</div><a href="https://x.com/ViceFun" target="_blank" rel="noopener">X</a></div>'+
       '<div><h4>Fees</h4>Bluefin 2% on the pair (keeps 20%).<br>Our 80% quote split: 5% platform + 5% VICE buyback minimum, rest creator/rewards. Rewards go to holders on Collect LP.<br>Bridge 1%. Token-side LP fees burn.</div></footer>';
   }
   var pfCache = { addr: "", rows: [], at: 0 };
@@ -9192,6 +9081,9 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   }
 
   async function refreshBridgeBal(){
+    /* sunset: Bridge tab removed — refreshBridgeBal is a no-op */
+    return;
+
     if (state.route !== "bridge"){
       state.bridgeBalHuman = "—";
       return;
@@ -9232,6 +9124,9 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     if (suiEl) suiEl.textContent = state.bridgeVaultSui || "—";
   }
   async function refreshBridgeVault(st){
+    /* sunset: Bridge tab removed — refreshBridgeVault is a no-op */
+    return;
+
     st = st || stockRec(state.bridgeTick);
     try {
       var scale = rhToSuiScale(st);
@@ -9473,6 +9368,9 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   }
 
 async function doBridgeDeposit(){
+    /* sunset: Bridge tab removed — doBridgeDeposit is a no-op */
+    return;
+
     if (state.bridgeBusy) return;
     var st = stockRec(state.bridgeTick);
     var btn = $("#bridge-go");
@@ -10032,6 +9930,9 @@ async function doBridgeDeposit(){
     paintBridgePending();
   }
   function startBridgePendWatch(){
+    /* sunset: Bridge tab removed — startBridgePendWatch is a no-op */
+    return;
+
     if (state.route !== "bridge") return;
     if (bridgePendTimer) return;
     refreshPendingDeposits();
@@ -10093,6 +9994,9 @@ async function doBridgeDeposit(){
 
 
   async function doBridgeBurn(){
+    /* sunset: Bridge tab removed — doBridgeBurn is a no-op */
+    return;
+
     if (state.bridgeBusy) return;
     var st = stockRec(state.bridgeTick);
     var btn = $("#bridge-go");
@@ -10221,11 +10125,12 @@ async function doBridgeDeposit(){
     if (route === "explore" || route === "floor" || route === "discover") return "#/";
     if (route === "pit") return "#/distributions";
     if (route === "metrics") return "#/books";
-    if (route === "bridge") return "#/bridge";
-    if (route === "lock") return "#/vicelock";
+        if (route === "lock") return "#/vicelock";
     return "#/"+route;
   }
   function parseHash(){
+    /* bridge sunset parseHash */
+
     const path = (location.pathname || "/").replace(/\/+$/, "") || "/";
     const tm = path.match(/^\/t\/([^/]+)$/i);
     if (tm){
@@ -10246,7 +10151,7 @@ async function doBridgeDeposit(){
     if (r === "pit" || r === "pot" || r === "night" || r === "fight" || r === "rewards" || r === "distributions") return {route:"pit", sym:state.sym};
     if (r === "books") return {route:"metrics", sym:state.sym};
     if (r === "launch" || r === "metrics" || r === "analytics") return {route: r==="analytics"?"metrics":r, sym:state.sym};
-    if (r === "bridge") return {route:"bridge", sym:state.sym};
+    
     if (r === "lock" || r === "vicelock" || r === "suilock") return {route:"lock", sym:state.sym};
     return {route:"explore", sym:state.sym};
   }
@@ -10290,7 +10195,7 @@ async function doBridgeDeposit(){
     if (can) can.setAttribute("href", url);
   }
   function paintNav(){
-    const nav = [["The Strip","explore"],["Distributions","pit"],["Books","metrics"],["Bridge","bridge"],["Vicelock","lock"]];
+    const nav = [["The Strip","explore"],["Distributions","pit"],["Books","metrics"],["Vicelock","lock"]];
     $("#nav-pill").innerHTML = nav.map(function(n){
       const on = state.route === n[1] || (n[1]==="explore" && state.route==="token");
       return '<div class="nav-item'+(on?" on":"")+'" data-go="'+n[1]+'">'+n[0]+'</div>';
@@ -11141,6 +11046,9 @@ async function doBridgeDeposit(){
     try { history.replaceState({ route: "token", sym: state.sym }, "", want); } catch (e) {}
   }
   function renderScreen(){
+    /* bridge route sunset redirect */
+    if (state.route === "bridge") { state.route = "explore"; try { location.hash = "#/"; } catch (e) {} }
+
     if (state.route === "token"){
       var hideTk = findT(state.sym);
       if (isHiddenToken(hideTk || { t: state.sym, token: looksLikeCoinType(state.sym) ? state.sym : "" })) state.route = "explore";
@@ -11198,7 +11106,7 @@ async function doBridgeDeposit(){
     if (state.route === "pit"){
       refreshPendingRewards();
     }
-    if (state.route === "bridge"){ refreshBridgeBal(); startBridgePendWatch(); }
+    /* bridge sunset: no pend watch */
     else if (bridgePendTimer){ clearInterval(bridgePendTimer); bridgePendTimer = 0; }
     const q = $("#q");
     if (q) q.value = state.search;
