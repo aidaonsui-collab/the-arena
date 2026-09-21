@@ -509,6 +509,29 @@ a.btn-trade{display:block;text-align:center;text-decoration:none;box-sizing:bord
 .dist-collect-row{display:flex;justify-content:space-between;gap:12px;padding:14px 2px;border-top:1px solid rgba(244,238,242,.08);font-size:14px}
 .dist-collect-row:first-of-type{border-top:0}
 .dist-collect-row .when{color:var(--muted);font-size:13px}
+.rw-lookup{margin-top:14px}
+.rw-lookup-row{display:flex;gap:10px}
+.rw-lookup-row input{flex:1;min-width:0;background:var(--well);border:1px solid var(--line);border-radius:12px;padding:12px 14px;color:var(--ink);font-size:14px;outline:none}
+.rw-lookup-row input:focus{border-color:var(--sui)}
+.rw-lookup-row .btn{white-space:nowrap;padding:0 18px}
+.rw-lookup-err{color:#ff6b6b;font-size:13px;margin-top:10px}
+.rw-card-wrap{margin-top:18px}
+.rw-card{background:#0b0f1a;border:1px solid #caa14a;border-radius:20px;padding:26px 28px;max-width:520px;color:#f4eee2;box-shadow:0 0 0 1px rgba(202,161,74,.15) inset}
+.rw-card-head{display:flex;align-items:center;gap:12px;margin-bottom:22px}
+.rw-card-mark{width:40px;height:40px;border-radius:10px;object-fit:cover;flex:none}
+.rw-card-brand{font-family:Georgia,"Times New Roman",serif;font-weight:700;font-size:19px;letter-spacing:.04em;color:#f2e6c8}
+.rw-card-tag{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#caa14a;margin-top:2px}
+.rw-card-k{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#caa14a;font-weight:650;margin-bottom:8px}
+.rw-card-total{font-family:Georgia,"Times New Roman",serif;font-weight:800;font-size:44px;color:#f2d98a;line-height:1.1;margin-bottom:14px}
+.rw-card-breakdown{display:flex;flex-direction:column;gap:6px;margin-bottom:16px}
+.rw-card-line{display:flex;align-items:center;gap:8px;font-size:14px;color:#e7dfd0}
+.rw-card-line-usd{color:#9a93ab;margin-left:auto;font-size:13px}
+.rw-card-dot{width:8px;height:8px;border-radius:50%;flex:none}
+.rw-card-empty{color:#9a93ab;font-size:13px;line-height:1.4}
+.rw-card-sub{font-style:italic;color:#9a93ab;font-size:13px;margin-bottom:18px}
+.rw-card-foot{display:flex;justify-content:space-between;gap:10px;border-top:1px solid rgba(202,161,74,.3);padding-top:14px;font-size:12px;font-weight:650;color:#f2e6c8;letter-spacing:.02em}
+.rw-card-actions{display:flex;gap:10px;margin-top:14px}
+.rw-card-actions .btn-ghost{border-radius:10px;padding:10px 16px;font-size:13px;font-weight:650;border:1px solid var(--line);cursor:pointer}
 @media (max-width:900px){
   .dist-stats,.dist-split,.rewards-grid{grid-template-columns:1fr}
 }
@@ -1422,7 +1445,19 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   var KNOWN_BASKET_PUSH_VAULTS = {
     "0x3b8a61405825146ee68f351363f29a3e4206683fced840ea10cdfba50fe075e7": true
   };
+  var VICEFUN_REWARDS_VAULT = Object.keys(KNOWN_BASKET_PUSH_VAULTS)[0] || "";
+  // A BasketYieldPushEvent's type is pinned to whichever package published
+  // events.move at call time, not the package that calls push_payout — this
+  // list mirrors api/og.js EVENT_PKGS so wallet lookups see pushes from every
+  // historical version, not just the current one.
+  var BASKET_EVENT_PKGS = [
+    "0xcf7835ae4e3f8a3d4eb4bd9d14cb4a3dbdd80e70908feb6c433688a31e119de3",
+    "0xd8531cc8c4e1ee914f0e4e48aea9a796faa0603459cc4665838f688e51bf23d9",
+    "0x1c808e5fe7f14703a72cae3cd71ebba98b3a9a97dc530feed6222595bfb4a853",
+    "0x3ccc57531949d6f24178bd57fe20496ee4ff515e26c280f1b80f658bc020bcbe"
+  ];
   var pendingRewards = { addr: "", at: 0, usd: 0, parts: [], busy: false };
+  var rewardsCardLookup = { addr: "", busy: false, error: "", result: null, copyStatus: "" };
 
 
   // Secondary wrap only: RH stock → vault lock → 1:1 Sui mint. Not RH primary mint.
@@ -6206,6 +6241,55 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     if (u < 10) return "$" + u.toFixed(2);
     return fmtUsd(u);
   }
+  function fmtUsdCard(u){
+    u = Number(u) || 0;
+    if (u <= 0) return "$0.00";
+    if (u < 0.01) return "<$0.01";
+    if (u < 10) return "$" + u.toFixed(2);
+    return fmtUsd(u);
+  }
+  function rewardsCardHTML(res){
+    if (!res) return "";
+    var parts = (res.parts || []).filter(function(p){ return p.amtHuman > 0; });
+    var lines = parts.length
+      ? parts.map(function(p){
+          return '<div class="rw-card-line"><span class="rw-card-dot" style="background:'+escAttr(p.color)+'"></span>'+
+            '<span>'+escHtml(p.amtLabel)+'</span>'+
+            '<span class="rw-card-line-usd">'+escHtml(fmtRewardUsd(p.raw, p.cat))+'</span></div>';
+        }).join("")
+      : '<div class="rw-card-empty">This wallet hasn’t collected any rewards yet.</div>';
+    return '' +
+      '<div class="rw-card" id="rw-share-card">' +
+        '<div class="rw-card-head">' +
+          '<img src="/brand/vice-mark.png" alt="" class="rw-card-mark">' +
+          '<div><div class="rw-card-brand">VICE</div><div class="rw-card-tag">Gold &middot; Silver &middot; T-bills, on Sui</div></div>' +
+        '</div>' +
+        '<div class="rw-card-k">Total rewards</div>' +
+        '<div class="rw-card-total">'+escHtml(fmtUsdCard(res.totalUsd))+'</div>' +
+        '<div class="rw-card-breakdown">'+lines+'</div>' +
+        '<div class="rw-card-sub">Paid automatically to $VICEFUN holders — no staking, no claiming.</div>' +
+        '<div class="rw-card-foot"><span>vicefun.com</span><span>Real-world assets, on-chain</span></div>' +
+      '</div>';
+  }
+  function rewardsLookupHTML(){
+    var L = rewardsCardLookup;
+    var res = L.result;
+    return '' +
+      '<div class="dist-panel rw-lookup">' +
+        '<h2>Check your $VICEFUN rewards</h2>' +
+        '<div class="dist-lede" style="margin:6px 0 16px">Enter any wallet to add up its gold, silver, and T-bill rewards from holding $VICEFUN, then share the card.</div>' +
+        '<div class="rw-lookup-row">' +
+          '<input id="rw-addr" type="text" inputmode="text" placeholder="0x…" value="'+escAttr(L.addr || "")+'" autocomplete="off" spellcheck="false">' +
+          '<button type="button" class="btn" data-rw-lookup-go'+(L.busy ? " disabled" : "")+'>'+(L.busy ? "Looking up…" : "Look up")+'</button>' +
+        '</div>' +
+        (L.error ? '<div class="rw-lookup-err">'+escHtml(L.error)+'</div>' : "") +
+        (res ? ('<div class="rw-card-wrap">' + rewardsCardHTML(res) +
+          '<div class="rw-card-actions">' +
+            '<button type="button" class="btn-ghost" data-rw-copy'+(L.copyStatus === "Rendering…" ? " disabled" : "")+'>'+escHtml(L.copyStatus || "Copy card image")+'</button>' +
+            '<button type="button" class="btn-ghost" data-rw-share>Share on X</button>' +
+          '</div></div>') : "") +
+      '</div>';
+  }
   function rebuildRewardsLedger(){
     var by = {};
     REWARDS_CATS.forEach(function(c){
@@ -7335,6 +7419,272 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       pendingRewards.busy = false;
     });
   }
+  // --- $VICEFUN holder-rewards card: look up any wallet's all-time basket push total ---
+  function assetCatFromTypeName(name){
+    var s = String(name || "").trim();
+    if (!s) return "";
+    if (s.indexOf("0x") !== 0) s = "0x" + s;
+    s = s.toLowerCase();
+    function norm(t){ return String(t || "").trim().toLowerCase(); }
+    if (s === norm(window.ARENA_XAUM_TYPE)) return "gold";
+    if (s === norm(window.ARENA_XAGM_TYPE)) return "silver";
+    if (s === norm(window.ARENA_USDY_TYPE)) return "tbills";
+    return "";
+  }
+  async function queryBasketPushEventsFor(vaultId, recipientAddr){
+    var wantVault = normSuiAddr(vaultId);
+    var wantAddr = normSuiAddr(recipientAddr);
+    if (!wantVault || !wantAddr) return [];
+    var seen = {};
+    var failed = false;
+    async function pullOnePage(pkg, cursor){
+      // rpcJson already falls back across RPC_EXEC internally; this retries
+      // the whole call a few times on top of that, because a silent
+      // under-count here reads as "this wallet earned less than it did" —
+      // worse than a slow answer, so a transient miss must not look like a
+      // real zero.
+      var lastErr = null;
+      for (var attempt = 0; attempt < 3; attempt++){
+        try {
+          return await rpcJson("suix_queryEvents", [
+            { MoveEventType: pkg + "::events::BasketYieldPushEvent" }, cursor, 200, true
+          ]);
+        } catch (e) {
+          lastErr = e;
+          await new Promise(function(r){ setTimeout(r, 350 * (attempt + 1)); });
+        }
+      }
+      throw lastErr || new Error("suix_queryEvents failed");
+    }
+    async function pullPkg(pkg){
+      var out = [];
+      var cursor = null;
+      for (var page = 0; page < 40; page++){
+        var res;
+        try {
+          res = await pullOnePage(pkg, cursor);
+        } catch (e) {
+          failed = true;
+          break;
+        }
+        var data = (res && res.data) || [];
+        for (var i = 0; i < data.length; i++){
+          var ev = data[i];
+          var pj = ev.parsedJson || {};
+          if (normSuiAddr(pj.basket_id) !== wantVault) continue;
+          if (normSuiAddr(pj.recipient) !== wantAddr) continue;
+          var key = ((ev.id && ev.id.txDigest) || "") + ":" + ((ev.id && ev.id.eventSeq) || "");
+          if (seen[key]) continue;
+          seen[key] = 1;
+          var assetName = pj.asset && (pj.asset.name != null ? pj.asset.name : pj.asset);
+          out.push({
+            asset: typeof assetName === "string" ? assetName : "",
+            amount: pj.amount,
+            ts: Number(ev.timestampMs || pj.timestamp_ms) || 0
+          });
+        }
+        if (!res || !res.hasNextPage || !res.nextCursor) break;
+        cursor = res.nextCursor;
+      }
+      return out;
+    }
+    var perPkg = await Promise.all(BASKET_EVENT_PKGS.map(pullPkg));
+    if (failed) throw new Error("Couldn't reach Sui after retries — try again in a moment");
+    return [].concat.apply([], perPkg);
+  }
+  async function vicefunRewardsFor(addr){
+    var events = await queryBasketPushEventsFor(VICEFUN_REWARDS_VAULT, addr);
+    var raw = { gold: 0n, silver: 0n, tbills: 0n };
+    var count = 0, firstMs = 0, lastMs = 0;
+    events.forEach(function(ev){
+      var catId = assetCatFromTypeName(ev.asset);
+      if (!catId) return;
+      raw[catId] = raw[catId] + asBigInt(ev.amount);
+      count++;
+      if (!firstMs || (ev.ts && ev.ts < firstMs)) firstMs = ev.ts;
+      if (ev.ts > lastMs) lastMs = ev.ts;
+    });
+    var parts = ["gold","silver","tbills"].map(function(id){
+      var cat = rewardsCat(id);
+      var rawStr = raw[id].toString();
+      return {
+        id: id,
+        cat: cat,
+        label: cat.label,
+        unit: cat.unit,
+        color: cat.color,
+        raw: rawStr,
+        amtHuman: rewardAmtHuman(rawStr, cat.unit),
+        amtLabel: fmtRewardAmt(rawStr, cat.unit),
+        usd: rewardUsd(rawStr, cat)
+      };
+    });
+    var totalUsd = parts.reduce(function(s,pt){ return s + (pt.usd || 0); }, 0);
+    return { addr: addr, parts: parts, totalUsd: totalUsd, count: count, firstMs: firstMs, lastMs: lastMs };
+  }
+  function drawRoundedRectPath(ctx, x, y, w, h, r){
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+  }
+  function paintRewardsCardCanvas(canvas, res, markImg){
+    var W = 1200, H = 630;
+    canvas.width = W; canvas.height = H;
+    var ctx = canvas.getContext("2d");
+    ctx.fillStyle = "#0b0f1a";
+    ctx.fillRect(0, 0, W, H);
+    drawRoundedRectPath(ctx, 36, 36, W - 72, H - 72, 24);
+    ctx.strokeStyle = "#caa14a";
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    drawRoundedRectPath(ctx, 48, 48, W - 96, H - 96, 18);
+    ctx.strokeStyle = "rgba(202,161,74,0.35)";
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    var x = 84;
+    if (markImg){
+      try { ctx.drawImage(markImg, x, 78, 56, 56); } catch (e) {}
+    }
+    var hx = markImg ? x + 72 : x;
+    ctx.fillStyle = "#f2e6c8";
+    ctx.font = "700 30px Georgia, 'Times New Roman', serif";
+    ctx.textBaseline = "alphabetic";
+    ctx.fillText("VICE", hx, 108);
+    ctx.fillStyle = "#caa14a";
+    ctx.font = "600 13px Arial, sans-serif";
+    ctx.fillText("GOLD · SILVER · T-BILLS, ON SUI", hx, 130);
+
+    ctx.fillStyle = "#caa14a";
+    ctx.font = "600 15px Arial, sans-serif";
+    ctx.fillText("TOTAL REWARDS", x, 222);
+
+    ctx.fillStyle = "#f2d98a";
+    ctx.font = "800 76px Georgia, 'Times New Roman', serif";
+    ctx.fillText(fmtUsdCard(res.totalUsd), x, 305);
+
+    var parts = (res.parts || []).filter(function(p){ return p.amtHuman > 0; });
+    var breakdown = parts.length ? parts.map(function(p){ return p.amtLabel; }).join("   ·   ") : "Nothing collected yet";
+    ctx.fillStyle = "#c9c2d8";
+    ctx.font = "500 21px Arial, sans-serif";
+    ctx.fillText(fitCanvasText(ctx, breakdown, W - 2 * x), x, 348);
+
+    ctx.fillStyle = "#9a93ab";
+    ctx.font = "italic 18px Georgia, 'Times New Roman', serif";
+    ctx.fillText(fitCanvasText(ctx, "Paid automatically to $VICEFUN holders — no staking, no claiming.", W - 2 * x), x, 396);
+
+    ctx.strokeStyle = "rgba(202,161,74,0.3)";
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(x, H - 92); ctx.lineTo(W - 84, H - 92); ctx.stroke();
+
+    ctx.fillStyle = "#f2e6c8";
+    ctx.font = "700 15px Arial, sans-serif";
+    ctx.fillText("vicefun.com", x, H - 58);
+    ctx.textAlign = "right";
+    ctx.fillText("REAL-WORLD ASSETS, ON-CHAIN", W - 84, H - 58);
+    ctx.textAlign = "left";
+  }
+  function fitCanvasText(ctx, str, maxW){
+    if (ctx.measureText(str).width <= maxW) return str;
+    var s = str;
+    while (s.length && ctx.measureText(s + "…").width > maxW) s = s.slice(0, -1);
+    return s + "…";
+  }
+  function rewardsCardToBlob(res, cb){
+    var canvas = document.createElement("canvas");
+    var img = new Image();
+    var done = false;
+    function finish(){
+      if (done) return;
+      done = true;
+      try { paintRewardsCardCanvas(canvas, res, img.complete && img.naturalWidth ? img : null); }
+      catch (e) { paintRewardsCardCanvas(canvas, res, null); }
+      canvas.toBlob(function(blob){ cb(blob); }, "image/png");
+    }
+    img.onload = finish;
+    img.onerror = finish;
+    img.src = "/brand/vice-mark.png";
+    setTimeout(finish, 1200);
+  }
+  // Button-label feedback goes through state + renderScreen, not direct DOM
+  // mutation — this screen re-renders on its own poll cycle (price/pending
+  // refreshes), which replaces the DOM and would silently orphan a captured
+  // button reference before an async clipboard op ever resolves.
+  function setRwCopyStatus(text){
+    rewardsCardLookup.copyStatus = text;
+    renderScreen();
+    if (!text) return;
+    setTimeout(function(){
+      if (rewardsCardLookup.copyStatus === text){
+        rewardsCardLookup.copyStatus = "";
+        renderScreen();
+      }
+    }, 1800);
+  }
+  function downloadBlob(blob, filename){
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(function(){ URL.revokeObjectURL(url); }, 4000);
+  }
+  function rewardsCopyImage(){
+    var res = rewardsCardLookup.result;
+    if (!res) return;
+    setRwCopyStatus("Rendering…");
+    rewardsCardToBlob(res, function(blob){
+      if (!blob) { setRwCopyStatus("Copy failed"); return; }
+      if (navigator.clipboard && window.ClipboardItem){
+        navigator.clipboard.write([new ClipboardItem({ "image/png": blob })])
+          .then(function(){ setRwCopyStatus("Copied!"); })
+          .catch(function(){
+            // Clipboard permission is commonly denied (embedded/automated
+            // contexts, some browsers without a direct user-gesture path) —
+            // a saved file the user can attach to a post is a better
+            // fallback than a popup, which async callbacks like this one
+            // are liable to get blocked anyway.
+            downloadBlob(blob, "vicefun-rewards.png");
+            setRwCopyStatus("Downloaded");
+          });
+      } else {
+        downloadBlob(blob, "vicefun-rewards.png");
+        setRwCopyStatus("Downloaded");
+      }
+    });
+  }
+  function rewardsShareX(){
+    var res = rewardsCardLookup.result;
+    var usd = fmtUsdCard(res ? res.totalUsd : 0);
+    var text = "$VICEFUN has paid me " + usd + " in real gold, silver & T-bills — no staking, no claiming. Paste the card I just copied ⬆️\n\nCheck what you've earned:";
+    var url = "https://vicefun.com/#/distributions";
+    window.open("https://twitter.com/intent/tweet?text=" + encodeURIComponent(text) + "&url=" + encodeURIComponent(url), "_blank", "noopener");
+  }
+  function runRewardsLookup(addrRaw){
+    var addr = String(addrRaw || "").trim();
+    if (!/^0x[0-9a-fA-F]{1,64}$/.test(addr)){
+      rewardsCardLookup = { addr: addrRaw, busy: false, error: "Enter a valid Sui address (0x…)", result: null };
+      renderScreen();
+      return;
+    }
+    rewardsCardLookup = { addr: addr, busy: true, error: "", result: null };
+    renderScreen();
+    vicefunRewardsFor(addr).then(function(res){
+      if (rewardsCardLookup.addr !== addr || !rewardsCardLookup.busy) return;
+      rewardsCardLookup = { addr: addr, busy: false, error: "", result: res };
+      renderScreen();
+    }).catch(function(err){
+      if (rewardsCardLookup.addr !== addr) return;
+      rewardsCardLookup = { addr: addr, busy: false, error: (err && err.message) || "Lookup failed", result: null };
+      renderScreen();
+    });
+  }
   async function listTableAddresses(tableId){
     var addrs = [];
     var cursor = null;
@@ -7490,6 +7840,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
           '</div>'+
           '<div class="dist-panel"><h2>Collected</h2>'+distCollectRows()+'</div>'+
         '</div>'+
+        rewardsLookupHTML()+
       footerHTML()+'</div></div>';
   }
   function quoteRowsVolUsd(tk, rows){
@@ -12799,6 +13150,24 @@ async function doBridgeDeposit(){
       });
       return;
     }
+    const rwLookupBtn = e.target.closest("[data-rw-lookup-go]");
+    if (rwLookupBtn){
+      if (rwLookupBtn.disabled) return;
+      var rwInput = $("#rw-addr");
+      runRewardsLookup(rwInput ? rwInput.value : "");
+      return;
+    }
+    const rwCopyBtn = e.target.closest("[data-rw-copy]");
+    if (rwCopyBtn){
+      if (rwCopyBtn.disabled) return;
+      rewardsCopyImage();
+      return;
+    }
+    const rwShareBtn = e.target.closest("[data-rw-share]");
+    if (rwShareBtn){
+      rewardsShareX();
+      return;
+    }
     const rwCard = e.target.closest("[data-rewards-tab]");
     if (rwCard && state.route === "pit"){
       state.rewardsTab = rwCard.getAttribute("data-rewards-tab") || "all";
@@ -13254,6 +13623,11 @@ async function doBridgeDeposit(){
     if (e.key === "Enter" && e.target && e.target.id === "tape-wallet"){
       e.preventDefault();
       applyTapeWallet(e.target.value);
+      return;
+    }
+    if (e.key === "Enter" && e.target && e.target.id === "rw-addr"){
+      e.preventDefault();
+      if (!rewardsCardLookup.busy) runRewardsLookup(e.target.value);
       return;
     }
     if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k"){
