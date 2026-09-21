@@ -7483,7 +7483,23 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     ctx.closePath();
   }
   function paintRewardsCardCanvas(canvas, res, markImg){
-    var W = 1200, H = 630;
+    var W = 1200;
+    var x = 84;
+    var parts = (res.parts || []).filter(function(p){ return p.amtHuman > 0; });
+    // Row-per-part (dot + amount + right-aligned USD) mirrors the on-page
+    // .rw-card-line layout. The old version joined every part into one
+    // plain-text line and kept a fixed 630 canvas height sized for that —
+    // real wallets almost always show fewer than a full line's worth, which
+    // left a large dead gap between the subtitle and footer. Height is now
+    // derived from actual content so the card doesn't outgrow it.
+    var rowH = 32;
+    var breakdownStartY = 348;
+    var breakdownEndY = breakdownStartY + Math.max(0, parts.length - 1) * rowH;
+    var subtitleY = breakdownEndY + 46;
+    var footerLineY = subtitleY + 44;
+    var footerTextY = footerLineY + 34;
+    var H = footerTextY + 58;
+
     canvas.width = W; canvas.height = H;
     var ctx = canvas.getContext("2d");
     ctx.fillStyle = "#0b0f1a";
@@ -7497,7 +7513,6 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     ctx.lineWidth = 1;
     ctx.stroke();
 
-    var x = 84;
     if (markImg){
       try { ctx.drawImage(markImg, x, 78, 56, 56); } catch (e) {}
     }
@@ -7518,25 +7533,41 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     ctx.font = "800 76px Georgia, 'Times New Roman', serif";
     ctx.fillText(fmtUsdCard(res.totalUsd), x, 305);
 
-    var parts = (res.parts || []).filter(function(p){ return p.amtHuman > 0; });
-    var breakdown = parts.length ? parts.map(function(p){ return p.amtLabel; }).join("   ·   ") : "Nothing collected yet";
-    ctx.fillStyle = "#c9c2d8";
-    ctx.font = "500 21px Arial, sans-serif";
-    ctx.fillText(fitCanvasText(ctx, breakdown, W - 2 * x), x, 348);
+    if (parts.length){
+      parts.forEach(function(p, i){
+        var rowY = breakdownStartY + i * rowH;
+        ctx.fillStyle = p.color || "#caa14a";
+        ctx.beginPath();
+        ctx.arc(x + 5, rowY - 7, 5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = "#e7dfd0";
+        ctx.font = "500 21px Arial, sans-serif";
+        ctx.fillText(fitCanvasText(ctx, p.amtLabel, W - 2 * x - 170), x + 22, rowY);
+        ctx.fillStyle = "#9a93ab";
+        ctx.font = "500 18px Arial, sans-serif";
+        ctx.textAlign = "right";
+        ctx.fillText(fmtRewardUsd(p.raw, p.cat), W - 84, rowY);
+        ctx.textAlign = "left";
+      });
+    } else {
+      ctx.fillStyle = "#9a93ab";
+      ctx.font = "500 19px Arial, sans-serif";
+      ctx.fillText("This wallet hasn’t collected any rewards yet.", x, breakdownStartY);
+    }
 
     ctx.fillStyle = "#9a93ab";
     ctx.font = "italic 18px Georgia, 'Times New Roman', serif";
-    ctx.fillText(fitCanvasText(ctx, "Paid automatically to $VICEFUN holders — no staking, no claiming.", W - 2 * x), x, 396);
+    ctx.fillText(fitCanvasText(ctx, "Paid automatically to $VICEFUN holders — no staking, no claiming.", W - 2 * x), x, subtitleY);
 
     ctx.strokeStyle = "rgba(202,161,74,0.3)";
     ctx.lineWidth = 1;
-    ctx.beginPath(); ctx.moveTo(x, H - 92); ctx.lineTo(W - 84, H - 92); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x, footerLineY); ctx.lineTo(W - 84, footerLineY); ctx.stroke();
 
     ctx.fillStyle = "#f2e6c8";
     ctx.font = "700 15px Arial, sans-serif";
-    ctx.fillText("vicefun.com", x, H - 58);
+    ctx.fillText("vicefun.com", x, footerTextY);
     ctx.textAlign = "right";
-    ctx.fillText("REAL-WORLD ASSETS, ON-CHAIN", W - 84, H - 58);
+    ctx.fillText("REAL-WORLD ASSETS, ON-CHAIN", W - 84, footerTextY);
     ctx.textAlign = "left";
   }
   function fitCanvasText(ctx, str, maxW){
