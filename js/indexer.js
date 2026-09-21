@@ -30,6 +30,16 @@
     "0xf22da9a24ad027cccb5f2d496cbe91de953d363513db08a3a734d361c7c17503::LOFI::LOFI";
   var MANIFEST_TYPE =
     "0xc466c28d87b3d5cd34f3d5c088751532d71a38d93a8aae4551dd56272cfb4355::manifest::MANIFEST";
+  var WAL_TYPE =
+    "0x356a26eb9e012a68958082340d4c4116e7f55615cf27affcff209cf0ae544f59::wal::WAL";
+  var DEEP_TYPE =
+    "0xdeeb7a4662eec9f2f3def03fb937a663dddaa2e215b8078a284d026b7946c270::deep::DEEP";
+  var NS_TYPE =
+    "0x5145494a5f5100e645e4b0aa950fa6b68f614e8c59e17bc5ded3495123a79178::ns::NS";
+  var SCA_TYPE =
+    "0x7016aae72cfc67f2fadf55769c0a7dd54291a583b63051a5ed71081cce836ac6::sca::SCA";
+  var BLUE_TYPE =
+    "0xe1b45a0e641b9955a20aa0ad1c1f4ad86aad8afb07296d4085e349a50e90bdca::blue::BLUE";
   var SUI_TYPE = "0x2::sui::SUI";
   var CLAIM_REFLECTION = 0;
   var CLAIM_PIT = 1;
@@ -65,6 +75,11 @@
     if (/::axol::AXOL$/i.test(s) || s === "AXOL") return "AXOL";
     if (/::LOFI::LOFI$/i.test(s) || s === "LOFI") return "LOFI";
     if (/::manifest::MANIFEST$/i.test(s) || s === "MANIFEST") return "MANIFEST";
+    if (/::wal::WAL$/i.test(s) || s === "WAL") return "WAL";
+    if (/::deep::DEEP$/i.test(s) || s === "DEEP") return "DEEP";
+    if (/::ns::NS$/i.test(s) || s === "NS") return "NS";
+    if (/::sca::SCA$/i.test(s) || s === "SCA") return "SCA";
+    if (/::blue::BLUE$/i.test(s) || s === "BLUE") return "BLUE";
     if (s === "SUI" || s === SUI_TYPE || /::sui::sui$/i.test(s)) return "SUI";
     // Falls back to the type's last segment, which is a Move identifier and so
     // alphanumeric — but this string is rendered, so clamp rather than trust
@@ -75,7 +90,7 @@
 
   function quoteDecimals(quote) {
     var lab = quoteLabel(quote);
-    if (lab === "USDY") return 6;
+    if (lab === "USDY" || lab === "DEEP" || lab === "NS") return 6;
     if (lab === "NVDA" || lab === "AMC" || lab === "GME" || lab === "TSLA") return 9;
     return 9;
   }
@@ -89,6 +104,11 @@
     if (lab === "AXOL") return AXOL_TYPE;
     if (lab === "LOFI") return LOFI_TYPE;
     if (lab === "MANIFEST") return MANIFEST_TYPE;
+    if (lab === "WAL") return WAL_TYPE;
+    if (lab === "DEEP") return DEEP_TYPE;
+    if (lab === "NS") return NS_TYPE;
+    if (lab === "SCA") return SCA_TYPE;
+    if (lab === "BLUE") return BLUE_TYPE;
     if (typeof window !== "undefined") {
       if (lab === "NVDA" && window.ARENA_STOCK_NVDA_TYPE) return window.ARENA_STOCK_NVDA_TYPE;
       if (lab === "AMC" && window.ARENA_STOCK_AMC_TYPE) return window.ARENA_STOCK_AMC_TYPE;
@@ -716,6 +736,11 @@
     if (lab === "AXOL") return "axol";
     if (lab === "LOFI") return "lofi";
     if (lab === "MANIFEST") return "manifest";
+    if (lab === "WAL") return "wal";
+    if (lab === "DEEP") return "deep";
+    if (lab === "NS") return "ns";
+    if (lab === "SCA") return "sca";
+    if (lab === "BLUE") return "blue";
     return "";
   }
 

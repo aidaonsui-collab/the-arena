@@ -143,6 +143,8 @@ main{padding:18px 0 72px}
 .diamond{width:11px;height:11px;transform:rotate(45deg);background:#fff;border-radius:2px}
 .feat-name{font-weight:650;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .feat-tick{font-size:12px;color:var(--muted);font-family:"IBM Plex Mono",monospace}
+.pair-quote{display:inline-flex;align-items:center;gap:5px;vertical-align:middle}
+.pair-quote-logo,.pair-quote .q-logo{width:14px;height:14px;border-radius:50%;object-fit:cover;flex:none;background:#F4EEF2}
 .pair-quote.gold{color:var(--gold)}
 .pair-quote.silver{color:var(--silver)}
 .btn-buy{margin-left:auto;background:var(--sui);color:#fff;border:0;border-radius:999px;padding:7px 12px;font-weight:650;font-size:13px;flex:none}
@@ -1124,6 +1126,21 @@ window.ARENA_LOFI_SUI_POOL = "0xd6147f5f50e2f9f593557e497c9ee0f2387652e2a4ad73ee
 window.ARENA_MANIFEST_TYPE = "0xc466c28d87b3d5cd34f3d5c088751532d71a38d93a8aae4551dd56272cfb4355::manifest::MANIFEST";
 window.ARENA_MANIFEST_METADATA = "0x2def4762956846ab63f9eac09f889e6e0a5888ddbdf6f8e358c8ee5463b688fb";
 window.ARENA_MANIFEST_SUI_POOL = "0x15a1adef56e1b716c29a6ce7df539fd7b8080da283199c92c6caa6f641a61c3f";
+window.ARENA_WAL_TYPE = "0x356a26eb9e012a68958082340d4c4116e7f55615cf27affcff209cf0ae544f59::wal::WAL";
+window.ARENA_WAL_METADATA = "0xb6a0c0bacb1c87c3be4dff20c22ef1012125b5724b5b0ff424f852a2651b23fa";
+window.ARENA_WAL_SUI_POOL = "0xe60bc7ade245b9f35b49686dfab0a18e5ca9176d49bef1b90f60d67d06315ff0";
+window.ARENA_DEEP_TYPE = "0xdeeb7a4662eec9f2f3def03fb937a663dddaa2e215b8078a284d026b7946c270::deep::DEEP";
+window.ARENA_DEEP_METADATA = "0x3f2afb7c5f245870a8b8a3808e6dd7042446a0e7504e9d2795372da053858cd9";
+window.ARENA_DEEP_SUI_POOL = "0xe01243f37f712ef87e556afb9b1d03d0fae13f96d324ec912daffc339dfdcbd2";
+window.ARENA_NS_TYPE = "0x5145494a5f5100e645e4b0aa950fa6b68f614e8c59e17bc5ded3495123a79178::ns::NS";
+window.ARENA_NS_METADATA = "0x279adec041f8ec5c2d419abf2c32713ae7930a9a3a1ff244c88e5ceced40db6e";
+window.ARENA_NS_SUI_POOL = "0x763f63cbada3a932c46972c6c6dcf1abd8a9a73331908a1d7ef24c2232d85520";
+window.ARENA_SCA_TYPE = "0x7016aae72cfc67f2fadf55769c0a7dd54291a583b63051a5ed71081cce836ac6::sca::SCA";
+window.ARENA_SCA_METADATA = "0x5d26a1e9a55c88147ac870bfa31b729d7f49f8804b8b3adfdf3582d301cca844";
+window.ARENA_SCA_SUI_POOL = "0x9661cca01a5b9b3536883568fa967a2943e237de11a97976795f5adb293892e9";
+window.ARENA_BLUE_TYPE = "0xe1b45a0e641b9955a20aa0ad1c1f4ad86aad8afb07296d4085e349a50e90bdca::blue::BLUE";
+window.ARENA_BLUE_METADATA = "0xf6d6cc0f3f0e6e838340c263d1cebb0529c4371913dc5139c1897388cc86977f";
+window.ARENA_BLUE_SUI_POOL = "0xde705d4f3ded922b729d9b923be08e1391dd4caeff8496326123934d0fb1c312";
 window.ARENA_USDC_SUI_POOL = "0x51e883ba7c0b566a26cbc8a94cd33eb0abd418a77cc1e60ad22fd9b1f29cd2ab";
 window.ARENA_CETUS_CLMM = "0x25ebb9a7c50eb17b3fa9c5a30fb8b5ad8f97caaf4928943acbcff7153dfee5e3";
 window.ARENA_CETUS_CONFIG = "0xdaa46292632c3c4d8f31f23ea0f9b36a28ff3677e9684980e4438403a67a3d8f";
@@ -1254,7 +1271,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   } catch (e) { state.watch = []; }
   var metaEdit = { open: false, saving: false, file: null, preview: "", artUrl: "", note: "", err: false, name: "", desc: "", x: "", tg: "", web: "", creator: "", openedCreator: "" };
   let hashLock = false;
-  const hop = { suiPerXaum: null, suiPerUsdy: null, suiPerXagm: null, suiPerVicefun: null, suiPerAxol: null, suiPerLofi: null, suiPerManifest: null, usd: null, suiUsd: null, usdyUsd: null, xagmUsd: null, xaumUsd: null, vicefunUsd: null, axolUsd: null, lofiUsd: null, manifestUsd: null, nvdaUsd: null, amcUsd: null, gmeUsd: null, tslaUsd: null, source: "" };
+  const hop = { suiPerXaum: null, suiPerUsdy: null, suiPerXagm: null, suiPerVicefun: null, suiPerAxol: null, suiPerLofi: null, suiPerManifest: null, usd: null, suiUsd: null, usdyUsd: null, xagmUsd: null, xaumUsd: null, vicefunUsd: null, axolUsd: null, lofiUsd: null, manifestUsd: null, walUsd: null, deepUsd: null, nsUsd: null, scaUsd: null, blueUsd: null, nvdaUsd: null, amcUsd: null, gmeUsd: null, tslaUsd: null, source: "" };
 
   const SHOT = /Headless/i.test(String(navigator.userAgent||"")) || /(?:^|[?&])shot=1(?:&|$)/.test(location.search);
   if (SHOT) document.documentElement.classList.add("shot");
@@ -1298,12 +1315,17 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     TSLA: { label:"TSLA", type:window.ARENA_STOCK_TSLA_TYPE, metadata:window.ARENA_STOCK_TSLA_METADATA, decimals:9, name:"Tesla wrap", what:"RH→Sui stock wrap (TSLA)", create:false, soon:true, stock:true, chips:["0.01","0.1","1","5","Max"], virtualHuman:"≈ $4.5k", pit:"", color:"#CC0000", logo:"/brand/quotes/tsla.png" },
     AXOL: { label:"AXOL", type:window.ARENA_AXOL_TYPE, metadata:window.ARENA_AXOL_METADATA, decimals:9, name:"AXOLcoin", what:"Axol the axolotl on Sui", create:true, chips:["1000","10000","50000","100000","Max"], virtualHuman:"≈ $4.5k", pit:"", color:"#FF7EB6", logo:"/brand/quotes/axol.png" },
     LOFI: { label:"LOFI", type:window.ARENA_LOFI_TYPE, metadata:window.ARENA_LOFI_METADATA, decimals:9, name:"LOFI", what:"Lofi the Yeti on Sui", create:true, chips:["100","500","1000","5000","Max"], virtualHuman:"≈ $4.5k", pit:"", color:"#7EC8E3", logo:"/brand/quotes/lofi.png" },
-    MANIFEST: { label:"MANIFEST", type:window.ARENA_MANIFEST_TYPE, metadata:window.ARENA_MANIFEST_METADATA, decimals:9, name:"MANIFEST", what:"Believe. Act. Freedom.", create:true, chips:["1000","10000","50000","100000","Max"], virtualHuman:"≈ $4.5k", pit:"", color:"#C9A227", logo:"/brand/quotes/manifest.png" }
+    MANIFEST: { label:"MANIFEST", type:window.ARENA_MANIFEST_TYPE, metadata:window.ARENA_MANIFEST_METADATA, decimals:9, name:"MANIFEST", what:"Believe. Act. Freedom.", create:true, chips:["1000","10000","50000","100000","Max"], virtualHuman:"≈ $4.5k", pit:"", color:"#C9A227", logo:"/brand/quotes/manifest.png" },
+    WAL: { label:"WAL", type:window.ARENA_WAL_TYPE, metadata:window.ARENA_WAL_METADATA, decimals:9, name:"Walrus", what:"Walrus protocol token", create:true, chips:["100","1000","10000","50000","Max"], virtualHuman:"≈ $4.5k", pit:"", color:"#F4F4F4", logo:"/brand/quotes/wal.png" },
+    DEEP: { label:"DEEP", type:window.ARENA_DEEP_TYPE, metadata:window.ARENA_DEEP_METADATA, decimals:6, name:"DeepBook", what:"DeepBook protocol token", create:true, chips:["100","1000","10000","50000","Max"], virtualHuman:"≈ $4.5k", pit:"", color:"#2F6BFF", logo:"/brand/quotes/deep.png" },
+    NS: { label:"NS", type:window.ARENA_NS_TYPE, metadata:window.ARENA_NS_METADATA, decimals:6, name:"SuiNS", what:"Sui Name Service token", create:true, chips:["100","1000","10000","50000","Max"], virtualHuman:"≈ $4.5k", pit:"", color:"#7C5CFF", logo:"/brand/quotes/ns.png" },
+    SCA: { label:"SCA", type:window.ARENA_SCA_TYPE, metadata:window.ARENA_SCA_METADATA, decimals:9, name:"Scallop", what:"Scallop protocol token", create:true, chips:["100","1000","10000","50000","Max"], virtualHuman:"≈ $4.5k", pit:"", color:"#C9B7A8", logo:"/brand/quotes/sca.png" },
+    BLUE: { label:"BLUE", type:window.ARENA_BLUE_TYPE, metadata:window.ARENA_BLUE_METADATA, decimals:9, name:"Bluefin", what:"Bluefin protocol token", create:true, chips:["100","1000","10000","50000","Max"], virtualHuman:"≈ $4.5k", pit:"", color:"#2F6FED", logo:"/brand/quotes/blue.png" }
   };
-  var CREATE_QUOTES = ["SUI","VICEFUN","XAUM","XAGM","USDY","AXOL","LOFI","MANIFEST"];
+  var CREATE_QUOTES = ["SUI","VICEFUN","WAL","DEEP","NS","SCA","BLUE","XAUM","XAGM","USDY","AXOL","LOFI","MANIFEST"];
   var CREATE_QUOTE_CATS = [
     { id:"all", label:"All", quotes: CREATE_QUOTES },
-    { id:"sui", label:"Sui", quotes: ["SUI","VICEFUN"] },
+    { id:"sui", label:"Sui", quotes: ["SUI","VICEFUN","WAL","DEEP","NS","SCA","BLUE"] },
     { id:"rwa", label:"RWA", quotes: ["XAUM","XAGM","USDY"] },
     { id:"memes", label:"Memes", quotes: ["AXOL","LOFI","MANIFEST"] }
   ];
@@ -1319,7 +1341,12 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     { id:"vicefun", label:"VICEFUN", quote:"VICEFUN", unit:"VICEFUN", blurb:"$VICEFUN · Instant holder rewards", color:"#FF2EA6", logo:"/brand/quotes/vicefun.png" },
     { id:"axol", label:"AXOL", quote:"AXOL", unit:"AXOL", blurb:"AXOL · Instant holder rewards", color:"#FF7EB6", logo:"/brand/quotes/axol.png" },
     { id:"lofi", label:"LOFI", quote:"LOFI", unit:"LOFI", blurb:"LOFI · Instant holder rewards", color:"#7EC8E3", logo:"/brand/quotes/lofi.png" },
-    { id:"manifest", label:"MANIFEST", quote:"MANIFEST", unit:"MANIFEST", blurb:"MANIFEST · Instant holder rewards", color:"#C9A227", logo:"/brand/quotes/manifest.png" }
+    { id:"manifest", label:"MANIFEST", quote:"MANIFEST", unit:"MANIFEST", blurb:"MANIFEST · Instant holder rewards", color:"#C9A227", logo:"/brand/quotes/manifest.png" },
+    { id:"wal", label:"WAL", quote:"WAL", unit:"WAL", blurb:"Walrus · Instant holder rewards", color:"#F4F4F4", logo:"/brand/quotes/wal.png" },
+    { id:"deep", label:"DEEP", quote:"DEEP", unit:"DEEP", blurb:"DeepBook · Instant holder rewards", color:"#2F6BFF", logo:"/brand/quotes/deep.png" },
+    { id:"ns", label:"NS", quote:"NS", unit:"NS", blurb:"SuiNS · Instant holder rewards", color:"#7C5CFF", logo:"/brand/quotes/ns.png" },
+    { id:"sca", label:"SCA", quote:"SCA", unit:"SCA", blurb:"Scallop · Instant holder rewards", color:"#C9B7A8", logo:"/brand/quotes/sca.png" },
+    { id:"blue", label:"BLUE", quote:"BLUE", unit:"BLUE", blurb:"Bluefin · Instant holder rewards", color:"#2F6FED", logo:"/brand/quotes/blue.png" }
   ];
   // Populated once Arena Move emits claim / distribution events. Scaffold only for now.
   var rewardsLedger = { updatedMs: 0, byCat: {}, distributions: [], claims: [] };
@@ -1678,7 +1705,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     if (q === "SUI") return "SUI swapped into TOKEN/SUI in the same transaction as seed, before the pool is public. 0 skips.";
     if (isStockQuote(q)) return "Spend "+q+" wrap from this wallet on TOKEN/"+q+" before the pool is public. Launch fee is still 1 SUI. 0 skips.";
     if (q === "USDY") return "Paid in SUI. Same tx hops SUI → USDC → USDY on Cetus, then buys TOKEN/USDY on Bluefin before the pool is public. 0 skips.";
-    if (q === "AXOL" || q === "LOFI" || q === "MANIFEST") return "Paid in SUI. Same tx hops SUI → "+q+" on Sui DEXs, then buys TOKEN/"+q+" on Bluefin before the pool is public. 0 skips.";
+    if (isSuiHopQuote(q)) return "Paid in SUI. Same tx hops SUI → "+q+" on Sui DEXs, then buys TOKEN/"+q+" on Bluefin before the pool is public. 0 skips.";
     return "Paid in SUI. Same tx hops SUI → "+q+", then buys TOKEN on Bluefin before the pool is public. 0 skips.";
   }
   function lpBlurb(){
@@ -3265,6 +3292,11 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     if (q === "AXOL") return hop.axolUsd || 0;
     if (q === "LOFI") return hop.lofiUsd || 0;
     if (q === "MANIFEST") return hop.manifestUsd || 0;
+    if (q === "WAL") return hop.walUsd || 0;
+    if (q === "DEEP") return hop.deepUsd || 0;
+    if (q === "NS") return hop.nsUsd || 0;
+    if (q === "SCA") return hop.scaUsd || 0;
+    if (q === "BLUE") return hop.blueUsd || 0;
     return hop.suiUsd || 0;
   }
   function quoteMark(q){
@@ -3606,7 +3638,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   function useDexChart(tk){
     if (!tk || !tk.bluefinPool) return false;
     var q = poolQuote(tk);
-    return q === "SUI" || q === "AXOL" || q === "LOFI" || q === "MANIFEST";
+    return q === "SUI" || isSuiHopQuote(q);
   }
   function dexEmbed(tk){
     var pool = (tk && tk.bluefinPool) || "";
@@ -4783,8 +4815,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   function pairQuoteHTML(q){
     q = String(q || "SUI");
     var klass = q === "XAUM" ? "gold" : (q === "XAGM" ? "silver" : "");
-    if (!klass) return escHtml(q);
-    return '<span class="pair-quote '+klass+'">'+escHtml(q)+'</span>';
+    return '<span class="pair-quote'+(klass?" "+klass:"")+'">'+quoteLogoHtml(q, "pair-quote-logo")+escHtml(q)+'</span>';
   }
   function avatar(k, sz){
     sz = sz || 42;
@@ -5626,7 +5657,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     {id:"gain", label:"Gainers"},
     {id:"new", label:"New"}
   ];
-  var SCR_QUOTES = ["All","SUI","USDY","XAGM","XAUM","AXOL","LOFI","MANIFEST"];
+  var SCR_QUOTES = ["All","SUI","USDY","XAGM","XAUM","WAL","DEEP","NS","SCA","BLUE","AXOL","LOFI","MANIFEST"];
   var SCR_COLS = [
     {id:"mcap", label:"Mcap", cls:"col-mcap"},
     {id:"age", label:"Age", cls:"col-age"},
@@ -6136,10 +6167,15 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     if (lab === "AXOL") return "axol";
     if (lab === "LOFI") return "lofi";
     if (lab === "MANIFEST") return "manifest";
+    if (lab === "WAL") return "wal";
+    if (lab === "DEEP") return "deep";
+    if (lab === "NS") return "ns";
+    if (lab === "SCA") return "sca";
+    if (lab === "BLUE") return "blue";
     return "";
   }
   function rewardsDec(unit){
-    if (unit === "USDY") return 6;
+    if (unit === "USDY" || unit === "DEEP" || unit === "NS") return 6;
     return 9;
   }
   function fmtRewardAmt(raw, unit){
@@ -8208,7 +8244,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
         '</div>'
       : '<div id="pay-route" style="display:none"></div>';
     return '<div class="ticket" id="swap-box">'+
-      '<div class="pit-kicker">'+kicker+' · '+(q === "SUI" || isMemeQuote(q) ? "7k" : "Bluefin")+'</div>'+
+      '<div class="pit-kicker">'+kicker+' · '+(q === "SUI" || isSuiHopQuote(q) ? "7k" : "Bluefin")+'</div>'+
       '<div style="font-size:22px;font-weight:700;letter-spacing:-.03em;margin:8px 0 10px">Swap</div>'+
       '<div class="sides">'+
         '<div id="btn-buy" data-side="Buy"'+(buyOn?' class="on-buy"':'')+'>Buy</div>'+
@@ -8233,7 +8269,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       '<div style="margin-top:10px;text-align:center;font-size:11px;color:var(--muted)">'+
         (stockQ
           ? ('Swaps this '+escHtml(tk.t)+'/'+escHtml(q)+' pool on Bluefin. Pay with '+escHtml(q)+' wrap.')
-          : (q === "SUI" || isMemeQuote(q)
+          : (q === "SUI" || isSuiHopQuote(q)
             ? 'Routes 7k aggregator across Sui DEXs, then this Instant pool. Powered by 7K Aggregator.'
             : 'Swaps this pool on Bluefin. Optional SUI hop if you toggle it.'))+
         ' LP locked forever. Anyone can collect. Token-side fees burn.'+
@@ -12046,6 +12082,35 @@ async function doBridgeDeposit(){
     q = String(q || "").toUpperCase();
     return q === "AXOL" || q === "LOFI" || q === "MANIFEST";
   }
+  var NATIVE_SUI_POOLS = {
+    WAL: { id: function(){ return window.ARENA_WAL_SUI_POOL; }, dex: "bluefin" },
+    DEEP: { id: function(){ return window.ARENA_DEEP_SUI_POOL; }, dex: "cetus" },
+    NS: { id: function(){ return window.ARENA_NS_SUI_POOL; }, dex: "cetus" },
+    SCA: { id: function(){ return window.ARENA_SCA_SUI_POOL; }, dex: "cetus" },
+    BLUE: { id: function(){ return window.ARENA_BLUE_SUI_POOL; }, dex: "bluefin" }
+  };
+  var nativeSuiSnaps = {};
+  function isSuiHopQuote(q){
+    q = String(q || "").toUpperCase();
+    return isMemeQuote(q) || !!NATIVE_SUI_POOLS[q];
+  }
+  async function loadNativeSuiPool(q){
+    q = String(q || "").toUpperCase();
+    var spec = NATIVE_SUI_POOLS[q];
+    if (!spec) throw new Error(q+" SUI pool missing");
+    if (nativeSuiSnaps[q] && nativeSuiSnaps[q].a) return nativeSuiSnaps[q];
+    var id = spec.id();
+    if (!id) throw new Error(q+" SUI pool missing");
+    nativeSuiSnaps[q] = await poolSnap(id);
+    return nativeSuiSnaps[q];
+  }
+  function hopOnNativePool(tx, q, fromType, coin){
+    q = String(q || "").toUpperCase();
+    var spec = NATIVE_SUI_POOLS[q];
+    if (!spec || !nativeSuiSnaps[q]) throw new Error(q+" SUI pool not loaded");
+    if (spec.dex === "bluefin") return bluefinHop(tx, nativeSuiSnaps[q], fromType, coin, 0);
+    return cetusHop(tx, nativeSuiSnaps[q], fromType, coin);
+  }
   function asBigAmt(v){
     if (typeof v === "bigint") return v;
     if (v && typeof v === "object") v = v.value || v.amount || "0";
@@ -12327,7 +12392,7 @@ async function doBridgeDeposit(){
       var vicePool = await loadVicefunSuiPool();
       return { tx: tx, coin: bluefinHop(tx, vicePool, SUI_TYPE, suiCoin, 0) };
     }
-    if (isMemeQuote(q)){
+    if (isSuiHopQuote(q)){
       try {
         var memeHop = await sevenkOnto(tx, suiCoin, SUI_TYPE, Qtype, amount);
         return { tx: memeHop.tx, coin: memeHop.coinOut };
@@ -12339,6 +12404,10 @@ async function doBridgeDeposit(){
         if (q === "MANIFEST"){
           var manPool = await loadManifestSuiPool();
           return { tx: tx, coin: bluefinHop(tx, manPool, SUI_TYPE, suiCoin, 0) };
+        }
+        if (NATIVE_SUI_POOLS[q]){
+          await loadNativeSuiPool(q);
+          return { tx: tx, coin: hopOnNativePool(tx, q, SUI_TYPE, suiCoin) };
         }
         throw e7;
       }
@@ -12501,7 +12570,7 @@ async function doBridgeDeposit(){
         var viceOut = bluefinHop(tx, insta, tokenTypeOf(tk), tokVice, 0);
         outCoin = bluefinHop(tx, viceHop, Qtype, viceOut, minOut);
       }
-    } else if (isMemeQuote(q)){
+    } else if (isSuiHopQuote(q)){
       if (state.side === "Buy"){
         var hopped = await hopSuiToQuoteOnTx(tx, q, amount);
         tx = hopped.tx;
@@ -12513,9 +12582,12 @@ async function doBridgeDeposit(){
           outCoin = cetusHop(tx, await loadAxolSuiPool(), Qtype, qOut);
         } else if (q === "MANIFEST"){
           outCoin = bluefinHop(tx, await loadManifestSuiPool(), Qtype, qOut, minOut);
+        } else if (NATIVE_SUI_POOLS[q]){
+          await loadNativeSuiPool(q);
+          outCoin = hopOnNativePool(tx, q, Qtype, qOut);
         } else {
           var estQ = estimatePoolOut(insta, tokenTypeOf(tk), amount);
-          if (!(estQ > 0n)) throw new Error("No LOFI in the pool to hop back to SUI");
+          if (!(estQ > 0n)) throw new Error("No "+q+" in the pool to hop back to SUI");
           var back = await sevenkOnto(tx, qOut, Qtype, SUI_TYPE, estQ);
           tx = back.tx;
           outCoin = back.coinOut;
@@ -13732,6 +13804,9 @@ async function doBridgeDeposit(){
       if (Number(d.axolUsd) > 0) hop.axolUsd = Number(d.axolUsd);
       if (Number(d.lofiUsd) > 0) hop.lofiUsd = Number(d.lofiUsd);
       if (Number(d.manifestUsd) > 0) hop.manifestUsd = Number(d.manifestUsd);
+      ["wal","deep","ns","sca","blue"].forEach(function(k){
+        if (Number(d[k+"Usd"]) > 0) hop[k+"Usd"] = Number(d[k+"Usd"]);
+      });
       if (Number(d.nvdaUsd) > 0) hop.nvdaUsd = Number(d.nvdaUsd);
       if (Number(d.amcUsd) > 0) hop.amcUsd = Number(d.amcUsd);
       const perVicefun = Number(d.suiPerVicefun);
@@ -13782,14 +13857,25 @@ async function doBridgeDeposit(){
     }
     loadStockUsd();
     function loadMemeUsd(){
-      var ids = [window.ARENA_AXOL_SUI_POOL, window.ARENA_LOFI_SUI_POOL, window.ARENA_MANIFEST_SUI_POOL];
-      Promise.all(ids.map(function(id){
+      var ids = [
+        ["axolUsd", window.ARENA_AXOL_SUI_POOL],
+        ["lofiUsd", window.ARENA_LOFI_SUI_POOL],
+        ["manifestUsd", window.ARENA_MANIFEST_SUI_POOL],
+        ["walUsd", window.ARENA_WAL_SUI_POOL],
+        ["deepUsd", window.ARENA_DEEP_SUI_POOL],
+        ["nsUsd", window.ARENA_NS_SUI_POOL],
+        ["scaUsd", window.ARENA_SCA_SUI_POOL],
+        ["blueUsd", window.ARENA_BLUE_SUI_POOL]
+      ];
+      Promise.all(ids.map(function(row){
+        var id = row[1];
         return id ? fetch("https://api.dexscreener.com/latest/dex/pairs/sui/"+id).then(function(r){ return r.json(); }).catch(function(){ return null; }) : Promise.resolve(null);
       })).then(function(rows){
         function px(j){ var p = j && j.pairs && j.pairs[0]; return p && Number(p.priceUsd) > 0 ? Number(p.priceUsd) : 0; }
-        if (px(rows[0]) > 0) hop.axolUsd = px(rows[0]);
-        if (px(rows[1]) > 0) hop.lofiUsd = px(rows[1]);
-        if (px(rows[2]) > 0) hop.manifestUsd = px(rows[2]);
+        rows.forEach(function(j, i){
+          var n = px(j);
+          if (n > 0) hop[ids[i][0]] = n;
+        });
         paintFirstBuyPreview();
       }).catch(function(){});
     }

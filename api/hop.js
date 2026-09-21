@@ -18,6 +18,16 @@ const LOFI_SUI_DEXSCREENER =
   "https://api.dexscreener.com/latest/dex/pairs/sui/0xd6147f5f50e2f9f593557e497c9ee0f2387652e2a4ad73ee28bd0bdef5e3f51d";
 const MANIFEST_SUI_DEXSCREENER =
   "https://api.dexscreener.com/latest/dex/pairs/sui/0x15a1adef56e1b716c29a6ce7df539fd7b8080da283199c92c6caa6f641a61c3f";
+const WAL_SUI_DEXSCREENER =
+  "https://api.dexscreener.com/latest/dex/pairs/sui/0xe60bc7ade245b9f35b49686dfab0a18e5ca9176d49bef1b90f60d67d06315ff0";
+const DEEP_SUI_DEXSCREENER =
+  "https://api.dexscreener.com/latest/dex/pairs/sui/0xe01243f37f712ef87e556afb9b1d03d0fae13f96d324ec912daffc339dfdcbd2";
+const NS_SUI_DEXSCREENER =
+  "https://api.dexscreener.com/latest/dex/pairs/sui/0x763f63cbada3a932c46972c6c6dcf1abd8a9a73331908a1d7ef24c2232d85520";
+const SCA_SUI_DEXSCREENER =
+  "https://api.dexscreener.com/latest/dex/pairs/sui/0x9661cca01a5b9b3536883568fa967a2943e237de11a97976795f5adb293892e9";
+const BLUE_SUI_DEXSCREENER =
+  "https://api.dexscreener.com/latest/dex/pairs/sui/0xde705d4f3ded922b729d9b923be08e1391dd4caeff8496326123934d0fb1c312";
 
 async function poolJson(url) {
   const r = await fetch(url, { cache: "no-store" });
@@ -35,7 +45,7 @@ function perSui(usd, suiUsd) {
 }
 
 export async function GET() {
-  const [usdy, xagm, xaum, suiUsdc, suiRes, vicefunPair, axolPair, lofiPair, manifestPair] = await Promise.all([
+  const [usdy, xagm, xaum, suiUsdc, suiRes, vicefunPair, axolPair, lofiPair, manifestPair, walPair, deepPair, nsPair, scaPair, bluePair] = await Promise.all([
     poolJson(USDY_USDC),
     poolJson(XAGM_USDC),
     poolJson(XAUM_USDC),
@@ -44,7 +54,12 @@ export async function GET() {
     poolJson(VICEFUN_SUI_DEXSCREENER),
     poolJson(AXOL_SUI_DEXSCREENER),
     poolJson(LOFI_SUI_DEXSCREENER),
-    poolJson(MANIFEST_SUI_DEXSCREENER)
+    poolJson(MANIFEST_SUI_DEXSCREENER),
+    poolJson(WAL_SUI_DEXSCREENER),
+    poolJson(DEEP_SUI_DEXSCREENER),
+    poolJson(NS_SUI_DEXSCREENER),
+    poolJson(SCA_SUI_DEXSCREENER),
+    poolJson(BLUE_SUI_DEXSCREENER)
   ]);
   let suiUsd = num(suiUsdc && (suiUsdc.last_price_usd || suiUsdc.last_price));
   if (!(suiUsd > 0) && suiRes && suiRes.ok) {
@@ -69,6 +84,11 @@ export async function GET() {
   const axol = dsUsd(axolPair);
   const lofi = dsUsd(lofiPair);
   const manifest = dsUsd(manifestPair);
+  const wal = dsUsd(walPair);
+  const deep = dsUsd(deepPair);
+  const ns = dsUsd(nsPair);
+  const sca = dsUsd(scaPair);
+  const blue = dsUsd(bluePair);
   if (!(usdyUsd > 0) && !(xagmUsd > 0) && !(xaumUsd > 0) && !(suiUsd > 0)) {
     return Response.json({ error: "hop unavailable" }, { status: 502 });
   }
@@ -81,6 +101,11 @@ export async function GET() {
     axolUsd: axol.usd,
     lofiUsd: lofi.usd,
     manifestUsd: manifest.usd,
+    walUsd: wal.usd,
+    deepUsd: deep.usd,
+    nsUsd: ns.usd,
+    scaUsd: sca.usd,
+    blueUsd: blue.usd,
     usd: xaumUsd || usdyUsd || xagmUsd,
     suiPerXaum,
     suiPerUsdy: perSui(usdyUsd, suiUsd),
@@ -89,6 +114,6 @@ export async function GET() {
     suiPerAxol: axol.native || perSui(axol.usd, suiUsd),
     suiPerLofi: lofi.native || perSui(lofi.usd, suiUsd),
     suiPerManifest: manifest.native || perSui(manifest.usd, suiUsd),
-    source: "Cetus USDY/USDC · Bluefin XAGM/USDC · Bluefin XAUM/USDC · Dexscreener VICEFUN/AXOL/LOFI/MANIFEST · DexPaprika SUI/USDC"
+    source: "Cetus USDY/USDC · Bluefin XAGM/USDC · Bluefin XAUM/USDC · Dexscreener VICEFUN/AXOL/LOFI/MANIFEST/WAL/DEEP/NS/SCA/BLUE · DexPaprika SUI/USDC"
   });
 }

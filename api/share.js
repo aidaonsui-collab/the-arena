@@ -47,6 +47,11 @@ function quoteLabel(v) {
   if (/::axol::AXOL/i.test(s) || s === "AXOL") return "AXOL";
   if (/::LOFI::LOFI/i.test(s) || s === "LOFI") return "LOFI";
   if (/::manifest::MANIFEST/i.test(s) || s === "MANIFEST") return "MANIFEST";
+  if (/::wal::WAL/i.test(s) || s === "WAL") return "WAL";
+  if (/::deep::DEEP/i.test(s) || s === "DEEP") return "DEEP";
+  if (/::ns::NS/i.test(s) || s === "NS") return "NS";
+  if (/::sca::SCA/i.test(s) || s === "SCA") return "SCA";
+  if (/::blue::BLUE/i.test(s) || s === "BLUE") return "BLUE";
   return "SUI";
 }
 
