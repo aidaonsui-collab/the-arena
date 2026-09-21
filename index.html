@@ -7431,85 +7431,26 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     if (s === norm(window.ARENA_USDY_TYPE)) return "tbills";
     return "";
   }
-  // Sui caps event pages at 50 regardless of what's asked for, on both
-  // JSON-RPC and GraphQL — GraphQL just answers each page far faster and
-  // more reliably in practice, and hands back already-parsed JSON instead of
-  // a {name} wrapper. gql() already routes through /api/sui-gql to dodge
-  // graphql.mainnet.sui.io's missing CORS headers, with a direct-fetch
-  // fallback for static previews with no serverless functions.
-  var BASKET_PUSH_QUERY =
-    "query($type: String!, $first: Int!, $after: String) { events(filter: { type: $type }, first: $first, after: $after) { pageInfo { hasNextPage endCursor } nodes { contents { json } } } }";
-  async function queryBasketPushEventsFor(vaultId, recipientAddr){
-    var wantVault = normSuiAddr(vaultId);
-    var wantAddr = normSuiAddr(recipientAddr);
-    if (!wantVault || !wantAddr) return [];
-    var failed = false;
-    async function pullOnePage(pkg, cursor){
-      // A silent under-count here reads as "this wallet earned less than it
-      // did" — worse than a slow answer, so a transient miss must not look
-      // like a real zero.
-      var lastErr = null;
-      for (var attempt = 0; attempt < 3; attempt++){
-        try {
-          return await gql(BASKET_PUSH_QUERY, {
-            type: pkg + "::events::BasketYieldPushEvent", first: 50, after: cursor
-          });
-        } catch (e) {
-          lastErr = e;
-          await new Promise(function(r){ setTimeout(r, 350 * (attempt + 1)); });
-        }
-      }
-      throw lastErr || new Error("events query failed");
-    }
-    async function pullPkg(pkg){
-      var out = [];
-      var cursor = null;
-      // A generous bound against a genuine infinite-loop bug, not a
-      // practical ceiling — an artificially low cap here is exactly what
-      // silently under-counted long-tenured wallets before: pagination just
-      // stopped partway through history and returned whatever partial sum
-      // it had gathered, indistinguishable from a wallet that truly earned
-      // less.
-      for (var page = 0; page < 5000; page++){
-        var res;
-        try {
-          res = await pullOnePage(pkg, cursor);
-        } catch (e) {
-          failed = true;
-          break;
-        }
-        var nodes = (res && res.events && res.events.nodes) || [];
-        for (var i = 0; i < nodes.length; i++){
-          var j = (nodes[i] && nodes[i].contents && nodes[i].contents.json) || {};
-          if (normSuiAddr(j.basket_id) !== wantVault) continue;
-          if (normSuiAddr(j.recipient) !== wantAddr) continue;
-          out.push({
-            asset: typeof j.asset === "string" ? j.asset : "",
-            amount: j.amount,
-            ts: Number(j.timestamp_ms) || 0
-          });
-        }
-        var pageInfo = res && res.events && res.events.pageInfo;
-        if (!pageInfo || !pageInfo.hasNextPage || !pageInfo.endCursor) break;
-        cursor = pageInfo.endCursor;
-      }
-      return out;
-    }
-    var perPkg = await Promise.all(BASKET_EVENT_PKGS.map(pullPkg));
-    if (failed) throw new Error("Couldn't reach Sui after retries — try again in a moment");
-    return [].concat.apply([], perPkg);
-  }
+  // A live per-lookup scan used to sit here: walk every BasketYieldPushEvent
+  // ever emitted (Sui hard-caps pages at 50, with no server-side filter by
+  // recipient) and sum the ones matching this wallet. Correct, but 5+
+  // minutes for an active holder. api/rewards-index.js now keeps a
+  // wallet -> {asset: rawAmount} index up to date on a cron, and
+  // api/rewards-lookup.js serves it back instantly — this just reads that.
   async function vicefunRewardsFor(addr){
-    var events = await queryBasketPushEventsFor(VICEFUN_REWARDS_VAULT, addr);
+    var wantAddr = normSuiAddr(addr);
+    if (!wantAddr) throw new Error("Invalid address");
+    var r = await fetch("/api/rewards-lookup?addr=" + encodeURIComponent(addr));
+    var j = {};
+    try { j = await r.json(); } catch (e) {}
+    if (!r.ok) throw new Error((j && j.error) || ("rewards-lookup " + r.status));
     var raw = { gold: 0n, silver: 0n, tbills: 0n };
-    var count = 0, firstMs = 0, lastMs = 0;
-    events.forEach(function(ev){
-      var catId = assetCatFromTypeName(ev.asset);
+    var count = 0;
+    (j.parts || []).forEach(function(p){
+      var catId = assetCatFromTypeName(p.asset);
       if (!catId) return;
-      raw[catId] = raw[catId] + asBigInt(ev.amount);
+      raw[catId] = raw[catId] + asBigInt(p.amount);
       count++;
-      if (!firstMs || (ev.ts && ev.ts < firstMs)) firstMs = ev.ts;
-      if (ev.ts > lastMs) lastMs = ev.ts;
     });
     var parts = ["gold","silver","tbills"].map(function(id){
       var cat = rewardsCat(id);
@@ -7527,7 +7468,10 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       };
     });
     var totalUsd = parts.reduce(function(s,pt){ return s + (pt.usd || 0); }, 0);
-    return { addr: addr, parts: parts, totalUsd: totalUsd, count: count, firstMs: firstMs, lastMs: lastMs };
+    return {
+      addr: addr, parts: parts, totalUsd: totalUsd, count: count,
+      indexUpdatedMs: j.indexUpdatedMs || 0
+    };
   }
   function drawRoundedRectPath(ctx, x, y, w, h, r){
     ctx.beginPath();
