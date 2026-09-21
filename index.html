@@ -604,6 +604,10 @@ html[data-route="launch"] .search-row{display:none}
 .create-card .social-row input{min-height:44px}
 .pair-head{display:flex;align-items:center;gap:8px;margin:18px 0 10px}
 .pair-head .create-lab{margin:0}
+.pair-cats{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 10px}
+.pair-cat{border:1px solid var(--line);background:transparent;color:var(--muted);border-radius:999px;padding:6px 12px;font-size:12px;font-weight:650;min-height:32px}
+.pair-cat:hover{color:var(--ink)}
+.pair-cat.on{border-color:var(--pink);color:var(--ink);background:color-mix(in srgb,var(--pink) 10%,var(--well));box-shadow:0 0 0 1px var(--pink)}
 .pair-chips{display:flex;flex-wrap:wrap;gap:8px}
 .pair-chip{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--line);background:var(--well);color:var(--ink);border-radius:999px;padding:7px 12px 7px 8px;font-size:13px;font-weight:650;min-height:40px}
 .pair-chip .q-logo,.pair-chip-logo{width:18px;height:18px;border-radius:50%;object-fit:cover;flex:none;background:#F4EEF2}
@@ -665,7 +669,7 @@ html[data-route="launch"] .search-row{display:none}
 .create-note{margin-top:10px;font-size:12px;color:var(--muted);text-align:right;line-height:1.45}
 .create-note.err{color:#FF6640}
 html[data-theme="pastel"] .create-card{border-color:var(--line);box-shadow:0 10px 28px rgba(255,46,166,.06)}
-html[data-theme="pastel"] .pair-chip.on,html[data-theme="pastel"] .split-preset.on{background:color-mix(in srgb,var(--pink) 12%,#fff)}
+html[data-theme="pastel"] .pair-chip.on,html[data-theme="pastel"] .pair-cat.on,html[data-theme="pastel"] .split-preset.on{background:color-mix(in srgb,var(--pink) 12%,#fff)}
 @media (max-width:960px){
   .create-cta{justify-content:stretch}
   .btn-launch{width:100%}
@@ -1330,7 +1334,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   let balance = 48.60;
   let xaumBal = 2.40;
 
-  const state = {route:"explore", sym:"VOLT", filter:"All", sort:"Market cap", time:"All", side:"Buy", amt:"1", connected:false, search:"", lName:"", lTick:"", lQuote:"SUI", lPath:"instadex", lMode:"Holders", lTokenAmt:"", lQuoteAmt:"", lFirstBuy:"1", lCap:"", lTokenCoin:"", lQuoteCoin:"", lCoinMode:"create", lDecimals:"9", lSupply:"1000000000", lDesc:"", lX:"", lTg:"", lWeb:"", lPublishedType:"", metricsWindow:"All", tapeTab:"trades", tapeOpen:"", tapePage:0, tapeAge:"age", tapeWallet:"", tapeFilterOpen:false, lFile:null, lArtUrl:"", lArtPreview:"", payWith:"", lNote:"", lNoteErr:false, chartTf:900, chartInd:{vol:true,ma7:false,ma25:false,ma99:false,ema:false}, bridgeTick:"NVDA", bridgeAmt:"", bridgeDir:"in", bridgeRhDest:"", bridgeNote:"", bridgeBusy:false, bridgePending:[], walletCheck:null, quoteOpen:false, rewardsTab:"all", lBasket:false, lBasketEqual:true, lBasketMode:0, lBasketOn:{XAUM:true,XAGM:true,USDY:true}, lBasketBps:{XAUM:3334,XAGM:3333,USDY:3333}, lSplitPreset:"vice", lSplit:{creator:6000,platform:500,rewards:3000,buyback:500}, lSocialsOpen:false, pfRange:"1M", pfFlash:"", lockTab:"create", lockKind:"lock", lockTok:"", lockAmt:"", lockDays:"30", lockSelf:"self", lockBen:"", lockCliff:"90", lockEnd:"365", lockNote:"", lockNoteErr:false, lockBusy:false, lockMine:[], lockAll:[], lockLoad:false, scrTab:"mcap", scrSort:"mcap", scrDir:-1, scrQuote:"All", scrBuyUsd:5, scrLiveOnly:false, scrFilters:false, watch:[]};
+  const state = {route:"explore", sym:"VOLT", filter:"All", sort:"Market cap", time:"All", side:"Buy", amt:"1", connected:false, search:"", lName:"", lTick:"", lQuote:"SUI", lPath:"instadex", lMode:"Holders", lTokenAmt:"", lQuoteAmt:"", lFirstBuy:"1", lCap:"", lTokenCoin:"", lQuoteCoin:"", lCoinMode:"create", lDecimals:"9", lSupply:"1000000000", lDesc:"", lX:"", lTg:"", lWeb:"", lPublishedType:"", metricsWindow:"All", tapeTab:"trades", tapeOpen:"", tapePage:0, tapeAge:"age", tapeWallet:"", tapeFilterOpen:false, lFile:null, lArtUrl:"", lArtPreview:"", payWith:"", lNote:"", lNoteErr:false, chartTf:900, chartInd:{vol:true,ma7:false,ma25:false,ma99:false,ema:false}, bridgeTick:"NVDA", bridgeAmt:"", bridgeDir:"in", bridgeRhDest:"", bridgeNote:"", bridgeBusy:false, bridgePending:[], walletCheck:null, quoteOpen:false, rewardsTab:"all", lBasket:false, lBasketEqual:true, lBasketMode:0, lBasketOn:{XAUM:true,XAGM:true,USDY:true}, lBasketBps:{XAUM:3334,XAGM:3333,USDY:3333}, lSplitPreset:"vice", lSplit:{creator:6000,platform:500,rewards:3000,buyback:500}, lSocialsOpen:false, lQuoteCat:"all", pfRange:"1M", pfFlash:"", lockTab:"create", lockKind:"lock", lockTok:"", lockAmt:"", lockDays:"30", lockSelf:"self", lockBen:"", lockCliff:"90", lockEnd:"365", lockNote:"", lockNoteErr:false, lockBusy:false, lockMine:[], lockAll:[], lockLoad:false, scrTab:"mcap", scrSort:"mcap", scrDir:-1, scrQuote:"All", scrBuyUsd:5, scrLiveOnly:false, scrFilters:false, watch:[]};
 
   try {
     var watchSaved = JSON.parse(localStorage.getItem("vice.watch.v1") || "[]");
@@ -1384,7 +1388,13 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     LOFI: { label:"LOFI", type:window.ARENA_LOFI_TYPE, metadata:window.ARENA_LOFI_METADATA, decimals:9, name:"LOFI", what:"Lofi the Yeti on Sui", create:true, chips:["100","500","1000","5000","Max"], virtualHuman:"≈ $4.5k", pit:"", color:"#7EC8E3", logo:"/brand/quotes/lofi.png" },
     MANIFEST: { label:"MANIFEST", type:window.ARENA_MANIFEST_TYPE, metadata:window.ARENA_MANIFEST_METADATA, decimals:9, name:"MANIFEST", what:"Believe. Act. Freedom.", create:true, chips:["1000","10000","50000","100000","Max"], virtualHuman:"≈ $4.5k", pit:"", color:"#C9A227", logo:"/brand/quotes/manifest.png" }
   };
-  var CREATE_QUOTES = ["SUI","USDY","XAGM","XAUM","VICEFUN","AXOL","LOFI","MANIFEST","NVDA","AMC","GME","TSLA"];
+  var CREATE_QUOTES = ["SUI","VICEFUN","XAUM","XAGM","USDY","AXOL","LOFI","MANIFEST"];
+  var CREATE_QUOTE_CATS = [
+    { id:"all", label:"All", quotes: CREATE_QUOTES },
+    { id:"sui", label:"Sui", quotes: ["SUI","VICEFUN"] },
+    { id:"rwa", label:"RWA", quotes: ["XAUM","XAGM","USDY"] },
+    { id:"memes", label:"Memes", quotes: ["AXOL","LOFI","MANIFEST"] }
+  ];
   // Holder-yield / basket dashboard. Pit path is sunset for Rewards > 0.
   var REWARDS_CATS = [
     { id:"gold", label:"Gold", quote:"XAUM", unit:"XAUM", blurb:"Matrixdock gold · Instant holder rewards", color:"#C9A97E", logo:"/brand/quotes/xaum.png" },
@@ -1504,8 +1514,33 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     var r = quoteRec(q);
     return !!(r && (r.soon || r.create === false) && r.stock);
   }
+  function createQuoteOn(q){
+    var lab = quoteRec(q).label;
+    return CREATE_QUOTES.indexOf(lab) >= 0;
+  }
+  function createQuoteLabel(q){
+    var lab = quoteRec(q).label;
+    if (lab === "XAUM") return "Gold";
+    if (lab === "XAGM") return "Silver";
+    if (lab === "USDY") return "T-bills";
+    return lab;
+  }
+  function visibleCreateQuotes(){
+    var id = state.lQuoteCat || "all";
+    var i;
+    for (i = 0; i < CREATE_QUOTE_CATS.length; i++){
+      if (CREATE_QUOTE_CATS[i].id === id) return CREATE_QUOTE_CATS[i].quotes.slice();
+    }
+    return CREATE_QUOTES.slice();
+  }
+  function quoteCatHTML(){
+    var cur = state.lQuoteCat || "all";
+    return '<div class="pair-cats" id="pair-cats">'+CREATE_QUOTE_CATS.map(function(c){
+      return '<button type="button" class="pair-cat'+(cur===c.id?" on":"")+'" data-quote-cat="'+c.id+'">'+escHtml(c.label)+'</button>';
+    }).join("")+'</div>';
+  }
   function quoteDropdownHTML(){
-    if (quoteSoon(state.lQuote)) state.lQuote = "SUI";
+    if (!createQuoteOn(state.lQuote) || quoteSoon(state.lQuote)) state.lQuote = "SUI";
     var cur = quoteRec(state.lQuote);
     var open = !!state.quoteOpen;
     var items = CREATE_QUOTES.map(function(q){
@@ -1514,7 +1549,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       var soon = quoteSoon(q);
       return '<button type="button" class="quote-dd-item'+(on?" on":"")+(soon?" soon":"")+'"'+(soon?' disabled aria-disabled="true"':' data-set="lQuote" data-val="'+q+'"')+'>'+
         quoteLogoHtml(q)+
-        '<span class="q-meta">'+escHtml(r.label)+'<small>'+escHtml(r.name||r.what||"")+'</small></span>'+
+        '<span class="q-meta">'+escHtml(createQuoteLabel(q))+'<small>'+escHtml(createQuoteLabel(q)===r.label ? (r.name||r.what||"") : r.label)+'</small></span>'+
         (soon?'<span class="q-soon">Soon</span>':'<span class="q-check">✓</span>')+'</button>';
     }).join("");
     return '<div class="quote-dd'+(open?" open":"")+'" id="quote-dd">'+
@@ -1529,17 +1564,20 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       '</div></div>';
   }
   function quoteChipsHTML(){
-    return '<div class="pair-chips" id="pair-chips">'+CREATE_QUOTES.map(function(q){
-      var r = quoteRec(q);
+    return '<div class="pair-chips" id="pair-chips">'+visibleCreateQuotes().map(function(q){
       var on = state.lQuote === q;
-      var soon = quoteSoon(q);
-      return '<button type="button" class="pair-chip'+(on?" on":"")+(soon?" soon":"")+'"'+(soon?' disabled aria-disabled="true"':' data-set="lQuote" data-val="'+q+'"')+'>'+
+      return '<button type="button" class="pair-chip'+(on?" on":"")+'" data-set="lQuote" data-val="'+q+'">'+
         quoteLogoHtml(q, "pair-chip-logo")+
-        escHtml(r.label)+
+        escHtml(createQuoteLabel(q))+
         (on ? '<span class="pair-check">✓</span>' : "")+
-        (soon ? '<span class="pair-soon">Soon</span>' : "")+
       '</button>';
     }).join("")+'</div>';
+  }
+  function paintQuoteCats(){
+    var host = $("#pair-cats");
+    if (host) host.outerHTML = quoteCatHTML();
+    var chips = $("#pair-chips");
+    if (chips) chips.outerHTML = quoteChipsHTML();
   }
   function icoInfo(title){
     return '<span class="ico-info" title="'+escAttr(title)+'"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 8h.01"/></svg></span>';
@@ -7870,6 +7908,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
               '<span class="create-lab">Paired asset</span>'+
               icoInfo("The quote your Instant pool is TOKEN/QUOTE against. Starting market cap is ≈ $4.5k on every quote. No quote is required for LP.")+
             '</div>'+
+            quoteCatHTML()+
             quoteChipsHTML()+
             quoteDropdownHTML()+
             '<div class="create-hint" id="l-quote-hint">'+escHtml(q.what)+'. TOKEN/'+escHtml(q.label)+'. No '+escHtml(q.label)+' required for LP.</div>'+
@@ -12865,11 +12904,18 @@ async function doBridgeDeposit(){
       socialsToggle.classList.toggle("open", !!state.lSocialsOpen);
       return;
     }
+    const quoteCat = e.target.closest("[data-quote-cat]");
+    if (quoteCat){
+      var cat = quoteCat.getAttribute("data-quote-cat") || "all";
+      state.lQuoteCat = state.lQuoteCat === cat && cat !== "all" ? "all" : cat;
+      if (state.route === "launch") paintQuoteCats();
+      return;
+    }
     const set = e.target.closest("[data-set]");
     if (set){
       const key = set.getAttribute("data-set");
       const val = set.getAttribute("data-val");
-      if (key === "lQuote" && quoteSoon(val)) return;
+      if (key === "lQuote" && (quoteSoon(val) || !createQuoteOn(val))) return;
       state[key] = val;
       if (key === "lQuote"){
         state.quoteOpen = false;
