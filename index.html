@@ -6257,18 +6257,18 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
             '<span>'+escHtml(p.amtLabel)+'</span>'+
             '<span class="rw-card-line-usd">'+escHtml(fmtRewardUsd(p.raw, p.cat))+'</span></div>';
         }).join("")
-      : '<div class="rw-card-empty">No rewards collected yet by this wallet — hold $VICEFUN to start earning.</div>';
+      : '<div class="rw-card-empty">This wallet hasn’t collected any rewards yet.</div>';
     return '' +
       '<div class="rw-card" id="rw-share-card">' +
         '<div class="rw-card-head">' +
           '<img src="/brand/vice-mark.png" alt="" class="rw-card-mark">' +
-          '<div><div class="rw-card-brand">VICE</div><div class="rw-card-tag">Real RWA rewards on Sui</div></div>' +
+          '<div><div class="rw-card-brand">VICE</div><div class="rw-card-tag">Gold &middot; Silver &middot; T-bills, on Sui</div></div>' +
         '</div>' +
-        '<div class="rw-card-k">Rewards collected</div>' +
+        '<div class="rw-card-k">Total rewards</div>' +
         '<div class="rw-card-total">'+escHtml(fmtUsdCard(res.totalUsd))+'</div>' +
         '<div class="rw-card-breakdown">'+lines+'</div>' +
-        '<div class="rw-card-sub">for doing nothing but holding $VICEFUN</div>' +
-        '<div class="rw-card-foot"><span>vicefun.com</span><span>Hold Vice · Collect gold</span></div>' +
+        '<div class="rw-card-sub">Paid automatically to $VICEFUN holders — no staking, no claiming.</div>' +
+        '<div class="rw-card-foot"><span>vicefun.com</span><span>Real-world assets, on-chain</span></div>' +
       '</div>';
   }
   function rewardsLookupHTML(){
@@ -6276,8 +6276,8 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     var res = L.result;
     return '' +
       '<div class="dist-panel rw-lookup">' +
-        '<h2>Your golden eggs</h2>' +
-        '<div class="dist-lede" style="margin:6px 0 16px">Paste any wallet to see the gold, silver, and T-bill rewards it has collected from holding $VICEFUN — then share the card.</div>' +
+        '<h2>Check your $VICEFUN rewards</h2>' +
+        '<div class="dist-lede" style="margin:6px 0 16px">Enter any wallet to add up its gold, silver, and T-bill rewards from holding $VICEFUN, then share the card.</div>' +
         '<div class="rw-lookup-row">' +
           '<input id="rw-addr" type="text" inputmode="text" placeholder="0x…" value="'+escAttr(L.addr || "")+'" autocomplete="off" spellcheck="false">' +
           '<button type="button" class="btn" data-rw-lookup-go'+(L.busy ? " disabled" : "")+'>'+(L.busy ? "Looking up…" : "Look up")+'</button>' +
@@ -7557,25 +7557,25 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     ctx.fillText("VICE", hx, 108);
     ctx.fillStyle = "#caa14a";
     ctx.font = "600 13px Arial, sans-serif";
-    ctx.fillText("REAL RWA REWARDS ON SUI", hx, 130);
+    ctx.fillText("GOLD · SILVER · T-BILLS, ON SUI", hx, 130);
 
     ctx.fillStyle = "#caa14a";
     ctx.font = "600 15px Arial, sans-serif";
-    ctx.fillText("REWARDS COLLECTED", x, 222);
+    ctx.fillText("TOTAL REWARDS", x, 222);
 
     ctx.fillStyle = "#f2d98a";
     ctx.font = "800 76px Georgia, 'Times New Roman', serif";
     ctx.fillText(fmtUsdCard(res.totalUsd), x, 305);
 
     var parts = (res.parts || []).filter(function(p){ return p.amtHuman > 0; });
-    var breakdown = parts.length ? parts.map(function(p){ return p.amtLabel; }).join("   ·   ") : "No rewards collected yet";
+    var breakdown = parts.length ? parts.map(function(p){ return p.amtLabel; }).join("   ·   ") : "Nothing collected yet";
     ctx.fillStyle = "#c9c2d8";
     ctx.font = "500 21px Arial, sans-serif";
     ctx.fillText(fitCanvasText(ctx, breakdown, W - 2 * x), x, 348);
 
     ctx.fillStyle = "#9a93ab";
     ctx.font = "italic 18px Georgia, 'Times New Roman', serif";
-    ctx.fillText("for doing nothing but holding $VICEFUN", x, 396);
+    ctx.fillText(fitCanvasText(ctx, "Paid automatically to $VICEFUN holders — no staking, no claiming.", W - 2 * x), x, 396);
 
     ctx.strokeStyle = "rgba(202,161,74,0.3)";
     ctx.lineWidth = 1;
@@ -7585,7 +7585,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     ctx.font = "700 15px Arial, sans-serif";
     ctx.fillText("vicefun.com", x, H - 58);
     ctx.textAlign = "right";
-    ctx.fillText("HOLD VICE · COLLECT GOLD", W - 84, H - 58);
+    ctx.fillText("REAL-WORLD ASSETS, ON-CHAIN", W - 84, H - 58);
     ctx.textAlign = "left";
   }
   function fitCanvasText(ctx, str, maxW){
@@ -7662,7 +7662,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   function rewardsShareX(){
     var res = rewardsCardLookup.result;
     var usd = fmtUsdCard(res ? res.totalUsd : 0);
-    var text = "I've collected " + usd + " of real gold, silver & T-bills just for holding $VICEFUN — paste the card I just copied ⬆️\n\nLook up yours:";
+    var text = "$VICEFUN has paid me " + usd + " in real gold, silver & T-bills — no staking, no claiming. Paste the card I just copied ⬆️\n\nCheck what you've earned:";
     var url = "https://vicefun.com/#/distributions";
     window.open("https://twitter.com/intent/tweet?text=" + encodeURIComponent(text) + "&url=" + encodeURIComponent(url), "_blank", "noopener");
   }
