@@ -7431,35 +7431,46 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     if (s === norm(window.ARENA_USDY_TYPE)) return "tbills";
     return "";
   }
+  // Sui caps event pages at 50 regardless of what's asked for, on both
+  // JSON-RPC and GraphQL — GraphQL just answers each page far faster and
+  // more reliably in practice, and hands back already-parsed JSON instead of
+  // a {name} wrapper. gql() already routes through /api/sui-gql to dodge
+  // graphql.mainnet.sui.io's missing CORS headers, with a direct-fetch
+  // fallback for static previews with no serverless functions.
+  var BASKET_PUSH_QUERY =
+    "query($type: String!, $first: Int!, $after: String) { events(filter: { type: $type }, first: $first, after: $after) { pageInfo { hasNextPage endCursor } nodes { contents { json } } } }";
   async function queryBasketPushEventsFor(vaultId, recipientAddr){
     var wantVault = normSuiAddr(vaultId);
     var wantAddr = normSuiAddr(recipientAddr);
     if (!wantVault || !wantAddr) return [];
-    var seen = {};
     var failed = false;
     async function pullOnePage(pkg, cursor){
-      // rpcJson already falls back across RPC_EXEC internally; this retries
-      // the whole call a few times on top of that, because a silent
-      // under-count here reads as "this wallet earned less than it did" —
-      // worse than a slow answer, so a transient miss must not look like a
-      // real zero.
+      // A silent under-count here reads as "this wallet earned less than it
+      // did" — worse than a slow answer, so a transient miss must not look
+      // like a real zero.
       var lastErr = null;
       for (var attempt = 0; attempt < 3; attempt++){
         try {
-          return await rpcJson("suix_queryEvents", [
-            { MoveEventType: pkg + "::events::BasketYieldPushEvent" }, cursor, 200, true
-          ]);
+          return await gql(BASKET_PUSH_QUERY, {
+            type: pkg + "::events::BasketYieldPushEvent", first: 50, after: cursor
+          });
         } catch (e) {
           lastErr = e;
           await new Promise(function(r){ setTimeout(r, 350 * (attempt + 1)); });
         }
       }
-      throw lastErr || new Error("suix_queryEvents failed");
+      throw lastErr || new Error("events query failed");
     }
     async function pullPkg(pkg){
       var out = [];
       var cursor = null;
-      for (var page = 0; page < 40; page++){
+      // A generous bound against a genuine infinite-loop bug, not a
+      // practical ceiling — an artificially low cap here is exactly what
+      // silently under-counted long-tenured wallets before: pagination just
+      // stopped partway through history and returned whatever partial sum
+      // it had gathered, indistinguishable from a wallet that truly earned
+      // less.
+      for (var page = 0; page < 5000; page++){
         var res;
         try {
           res = await pullOnePage(pkg, cursor);
@@ -7467,24 +7478,20 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
           failed = true;
           break;
         }
-        var data = (res && res.data) || [];
-        for (var i = 0; i < data.length; i++){
-          var ev = data[i];
-          var pj = ev.parsedJson || {};
-          if (normSuiAddr(pj.basket_id) !== wantVault) continue;
-          if (normSuiAddr(pj.recipient) !== wantAddr) continue;
-          var key = ((ev.id && ev.id.txDigest) || "") + ":" + ((ev.id && ev.id.eventSeq) || "");
-          if (seen[key]) continue;
-          seen[key] = 1;
-          var assetName = pj.asset && (pj.asset.name != null ? pj.asset.name : pj.asset);
+        var nodes = (res && res.events && res.events.nodes) || [];
+        for (var i = 0; i < nodes.length; i++){
+          var j = (nodes[i] && nodes[i].contents && nodes[i].contents.json) || {};
+          if (normSuiAddr(j.basket_id) !== wantVault) continue;
+          if (normSuiAddr(j.recipient) !== wantAddr) continue;
           out.push({
-            asset: typeof assetName === "string" ? assetName : "",
-            amount: pj.amount,
-            ts: Number(ev.timestampMs || pj.timestamp_ms) || 0
+            asset: typeof j.asset === "string" ? j.asset : "",
+            amount: j.amount,
+            ts: Number(j.timestamp_ms) || 0
           });
         }
-        if (!res || !res.hasNextPage || !res.nextCursor) break;
-        cursor = res.nextCursor;
+        var pageInfo = res && res.events && res.events.pageInfo;
+        if (!pageInfo || !pageInfo.hasNextPage || !pageInfo.endCursor) break;
+        cursor = pageInfo.endCursor;
       }
       return out;
     }
@@ -7774,7 +7781,9 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     var eventUsd = distEventUsd();
     var paidN = distPaidWalletCount();
     var paidBars = paidWalletSeries.length ? paidWalletSeries : (paidN ? [paidN] : []);
-    var cards = REWARDS_CATS.map(function(cat){
+    var cards = REWARDS_CATS.filter(function(cat){
+      return cat.id === "gold" || cat.id === "silver" || cat.id === "tbills";
+    }).map(function(cat){
       var tot = rewardsTotals(cat);
       return '<div class="rewards-card">'+
         '<div class="rw-top">'+
@@ -7826,6 +7835,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
           '<div class="dist-stat"><div class="k">Wallets</div><div class="v">'+paidN+'</div><div class="s">received airdrops</div>'+distBarsHTML(paidBars, "muted")+'</div>'+
         '</div>'+
         '<div class="rewards-grid">'+cards+'</div>'+
+        rewardsLookupHTML()+
         '<div class="rewards-claim">'+
           '<button type="button" class="btn" data-rewards-claim disabled>'+escHtml(claimLabel)+'</button>'+
           pendingPillHTML()+
@@ -7840,7 +7850,6 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
           '</div>'+
           '<div class="dist-panel"><h2>Collected</h2>'+distCollectRows()+'</div>'+
         '</div>'+
-        rewardsLookupHTML()+
       footerHTML()+'</div></div>';
   }
   function quoteRowsVolUsd(tk, rows){
