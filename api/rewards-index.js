@@ -1,5 +1,6 @@
 import { put } from "@vercel/blob";
 import { readJsonBlob, rememberJsonBlob } from "./_blob-json.js";
+import { keeperAuthOk } from "./_keeper-auth.js";
 
 /**
  * Blob store for the holder-rewards index. The walk itself runs on Jessica's
@@ -8,15 +9,8 @@ import { readJsonBlob, rememberJsonBlob } from "./_blob-json.js";
  */
 const BLOB_PATH = "rewards-index/vicefun.json";
 
-function authOk(request) {
-  const secret = process.env.CRON_SECRET || process.env.ARENA_SETTLE_SECRET || "";
-  if (!secret) return !process.env.VERCEL;
-  const raw = request.headers.get("authorization") || "";
-  return raw === "Bearer " + secret;
-}
-
 export async function GET(request) {
-  if (!authOk(request)) return Response.json({ error: "unauthorized" }, { status: 401 });
+  if (!keeperAuthOk(request)) return Response.json({ error: "unauthorized" }, { status: 401 });
   const state = (await readJsonBlob(BLOB_PATH, null)) || { wallets: {}, cursors: {}, updatedMs: 0 };
   const url = new URL(request.url);
   if (url.searchParams.get("dump") === "1") {
@@ -31,7 +25,7 @@ export async function GET(request) {
 }
 
 export async function POST(request) {
-  if (!authOk(request)) return Response.json({ error: "unauthorized" }, { status: 401 });
+  if (!keeperAuthOk(request)) return Response.json({ error: "unauthorized" }, { status: 401 });
   let body;
   try {
     body = await request.json();

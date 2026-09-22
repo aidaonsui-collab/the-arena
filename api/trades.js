@@ -1,5 +1,6 @@
 import { put } from "@vercel/blob";
 import { readJsonBlob, rememberJsonBlob } from "./_blob-json.js";
+import { keeperAuthOk } from "./_keeper-auth.js";
 
 const TICKER_RE = /^[A-Z][A-Z0-9_.\-]{0,15}$/;
 const MAX_LIMIT = 500;
@@ -55,10 +56,7 @@ function blobPath(ticker) {
 }
 
 function authOk(request) {
-  const secret = process.env.CRON_SECRET || process.env.ARENA_SETTLE_SECRET || "";
-  if (!secret) return !process.env.VERCEL;
-  const raw = request.headers.get("authorization") || "";
-  return raw === "Bearer " + secret;
+  return keeperAuthOk(request);
 }
 
 async function loadTicker(ticker) {

@@ -1,16 +1,10 @@
 import { put } from "@vercel/blob";
 import { readJsonBlob, rememberJsonBlob } from "./_blob-json.js";
+import { keeperAuthOk } from "./_keeper-auth.js";
 
 const HOP_BLOB = "hop.json";
 const HOP_FRESH_MS = 10 * 60 * 1000;
 const HOP_CACHE = "public, s-maxage=60, stale-while-revalidate=180";
-
-function authOk(request) {
-  const secret = process.env.CRON_SECRET || process.env.ARENA_SETTLE_SECRET || "";
-  if (!secret) return !process.env.VERCEL;
-  const raw = request.headers.get("authorization") || "";
-  return raw === "Bearer " + secret;
-}
 
 const SUI_USD =
   "https://api.coingecko.com/api/v3/simple/price?ids=sui&vs_currencies=usd";
@@ -156,7 +150,7 @@ export async function GET() {
 }
 
 export async function POST(request) {
-  if (!authOk(request)) return Response.json({ error: "unauthorized" }, { status: 401 });
+  if (!keeperAuthOk(request)) return Response.json({ error: "unauthorized" }, { status: 401 });
   let body;
   try {
     body = await request.json();

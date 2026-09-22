@@ -1,15 +1,9 @@
 import { put } from "@vercel/blob";
 import { readJsonBlob, rememberJsonBlob } from "./_blob-json.js";
+import { keeperAuthOk } from "./_keeper-auth.js";
 
 const BLOB_PATH = "screener.json";
 const CACHE = "public, s-maxage=25, stale-while-revalidate=60";
-
-function authOk(request) {
-  const secret = process.env.CRON_SECRET || process.env.ARENA_SETTLE_SECRET || "";
-  if (!secret) return !process.env.VERCEL;
-  const raw = request.headers.get("authorization") || "";
-  return raw === "Bearer " + secret;
-}
 
 function json(body, status, extra) {
   return Response.json(body, {
@@ -27,7 +21,7 @@ export async function GET() {
 }
 
 export async function POST(request) {
-  if (!authOk(request)) return json({ error: "unauthorized" }, 401);
+  if (!keeperAuthOk(request)) return json({ error: "unauthorized" }, 401);
   let body;
   try {
     body = await request.json();
