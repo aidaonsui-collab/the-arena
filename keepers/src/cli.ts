@@ -3,6 +3,8 @@ const job = process.argv[2];
 const jobs: Record<string, () => Promise<unknown>> = {
   reflections: async () => (await import("./jobs/indexReflections.ts")).runIndexReflections(),
   trades: async () => (await import("./jobs/indexTrades.ts")).runIndexTrades(),
+  hop: async () => (await import("./jobs/publishHop.ts")).runPublishHop(),
+  "index-rewards": async () => (await import("./jobs/indexRewards.ts")).runIndexRewards(),
   pit: async () => (await import("./jobs/refreshPitState.ts")).runRefreshPitState(),
   ring: async () => (await import("./jobs/ringPit.ts")).runRingPit(),
   settle: async () => ({
@@ -24,7 +26,7 @@ const jobs: Record<string, () => Promise<unknown>> = {
 
 if (!job || !jobs[job]) {
   console.error(
-    "usage: tsx src/cli.ts <reflections|trades|pit|ring|settle|instadex|collect|withdraw|convert-basket|push-yield|push-vice|push-basket>",
+    "usage: tsx src/cli.ts <reflections|trades|hop|index-rewards|pit|ring|settle|instadex|collect|withdraw|convert-basket|push-yield|push-vice|push-basket>",
   );
   process.exit(1);
 }

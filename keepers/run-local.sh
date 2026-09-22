@@ -43,7 +43,9 @@ run_job() {
 
 # Fight Night standing + Instant tape. Chain work stays on this Mac; Vercel only stores blobs.
 run_job pit
+run_job hop || true
 run_job trades
+run_job index-rewards || true
 
 # Buy/burn only if a winner bell is waiting (ticker, no digest, not skipped).
 APP_URL="${ARENA_APP_URL:-https://the-arena-vert.vercel.app}"

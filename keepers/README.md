@@ -13,7 +13,9 @@ Cron jobs for The Arena launchpad.
 | `*/5 * * * *` | `/api/settle` | Only if `/api/pit-state` has an unsettled 24h MC winner. AdminCap drains `Pit<SUI>`, hops to quote, Bluefin-buys, burns. Then leftover curve `pool::settle_pit` if an on-chain winner is pending. |
 | `0 * * * *` | `/api/collect` | Poke collect on Instadex locks with accrued LP fees. Path: `HolderYieldKey` → `collect_instadex_fees_holder_yield`; `BasketYieldKey` → `collect_instadex_fees_basket_yield`; else pit `collect_instadex_fees`. Yield mode from launch/migrate events, with **lock DF fallback** so migrated Instant flips without allowlist. Burns coin A; Instant quote 60/5/25/10 creator/platform/rewards-or-vault/VICE buyback after `set_instant_lp_split`. Then `withdraw` (platform 5%; buyback bag stays until `push-vice` distributes to $VICEFUN holders). Home Mac LaunchAgent every 30m (`ARENA_COLLECT_EVERY_S=1800`). |
 | `*/15 * * * *` | `/api/convert-basket` | Discover `BasketYieldVault`s with `quote_staging` via `BasketYieldLaunch`/`Funded` GraphQL events. `take_quote_for_convert` → SUI→USDC→RWA hop (same Cetus/Bluefin pools as `settleInstadex`) → `deposit_converted_asset` per weight leg. |
-| every 5 min (Air) | `tsx src/cli.ts trades` | Index Bluefin AssetSwap per Instant pool into SQLite (`keepers/data/trades.sqlite`) and publish `/api/trades` for the token-page tape. Same job sums `InstadexBurnEvent` and pool reserves to `/api/token-stats` so About MC and Burned stay in sync. |
+| every tick (Air) | `tsx src/cli.ts hop` | Fetch quote prices and POST `/api/hop`. The site serves that blob. |
+| every tick (Air) | `tsx src/cli.ts trades` | Index Bluefin AssetSwap per Instant pool into SQLite (`keepers/data/trades.sqlite`), publish `/api/trades` for the token-page tape, and POST one `/api/screener` snapshot so Explore does not call trades/stats per token. |
+| every tick (Air) | `tsx src/cli.ts index-rewards` | Walk basket-yield push events and POST `/api/rewards-index`. Not a Vercel cron. |
 
 HTTP cron routes require `Authorization: Bearer $CRON_SECRET` (Vercel Cron sends this). The CLI (`npx tsx src/cli.ts …`) does not.
 

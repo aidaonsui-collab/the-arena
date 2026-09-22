@@ -20,6 +20,7 @@ import {
   tickers,
   tradeCount,
   tradesForTicker,
+  tradesSince,
   upsertPool,
   type TradeRow,
 } from "../tradesDb.ts";
@@ -49,11 +50,18 @@ function padId(v: unknown): string {
 
 function quoteLabel(quote: string): string {
   const s = String(quote || "");
+  const tail = (s.split("::").pop() || "").toUpperCase();
+  const known = ["SUI", "USDY", "XAGM", "XAUM", "VICEFUN", "AXOL", "LOFI", "MANIFEST", "WAL", "DEEP", "NS", "SCA", "BLUE", "NVDA", "AMC"];
+  if (known.includes(tail)) return tail;
   if (!s || s === SUI || /::sui::SUI$/i.test(s)) return "SUI";
   if (s === "USDY" || s === USDY || /usdy/i.test(s)) return "USDY";
   if (s === "XAGM" || s === XAGM || /xagm/i.test(s)) return "XAGM";
   if (s === "XAUM" || s === XAUM || /xaum/i.test(s)) return "XAUM";
-  return "SUI";
+  return tail || "SUI";
+}
+
+function quoteDec(quote: string): number {
+  return quote === "USDY" || quote === "DEEP" || quote === "NS" ? 6 : 9;
 }
 
 function mistStr(v: unknown): string {
@@ -375,18 +383,94 @@ async function snapshotPools(): Promise<number> {
 }
 
 async function hopUsd(): Promise<Record<string, number>> {
+  const out: Record<string, number> = { SUI: 0, XAUM: 0, XAGM: 0, USDY: 1 };
   try {
     const r = await fetch(`${APP_URL}/api/hop`);
     const j = (await r.json()) as Record<string, number>;
-    return {
-      SUI: Number(j.suiUsd) || 0,
-      XAUM: Number(j.xaumUsd) || Number(j.usd) || 0,
-      XAGM: Number(j.xagmUsd) || 0,
-      USDY: Number(j.usdyUsd) || 1,
-    };
+    out.SUI = Number(j.suiUsd) || 0;
+    out.XAUM = Number(j.xaumUsd) || Number(j.usd) || 0;
+    out.XAGM = Number(j.xagmUsd) || 0;
+    out.USDY = Number(j.usdyUsd) || 1;
+    for (const k of ["VICEFUN", "AXOL", "LOFI", "MANIFEST", "WAL", "DEEP", "NS", "SCA", "BLUE", "NVDA", "AMC"]) {
+      out[k] = Number(j[k.toLowerCase() + "Usd"]) || 0;
+    }
   } catch {
-    return { SUI: 0, XAUM: 0, XAGM: 0, USDY: 1 };
+    /* prices stay empty; MC falls back to 0 */
   }
+  return out;
+}
+
+async function publishScreener(hop: Record<string, number>) {
+  const secret = process.env.ARENA_SETTLE_SECRET || process.env.CRON_SECRET || "";
+  if (!secret) return { skipped: "no CRON_SECRET" };
+  const since = Date.now() - 86400000;
+  const byTicker = new Map<string, ReturnType<typeof listPools>>();
+  for (const p of listPools()) {
+    const rows = byTicker.get(p.ticker) || [];
+    rows.push(p);
+    byTicker.set(p.ticker, rows);
+  }
+  const tokens = [];
+  for (const [ticker, rows] of byTicker) {
+    const pool = rows[0];
+    const quote = pool.quote || "SUI";
+    const dec = quoteDec(quote);
+    const usd = hop[quote] || 0;
+    const day = tradesSince(ticker, since);
+    let vol = 0;
+    let buys = 0;
+    let sells = 0;
+    const traders: Record<string, 1> = {};
+    const samples: number[] = [];
+    let first = 0;
+    let last = 0;
+    for (const tr of day) {
+      const quoteAmt = Number(tr.quote_amount) / 10 ** dec;
+      const tokAmt = Number(tr.token_amount) / 1e9;
+      if (usd > 0 && quoteAmt > 0) vol += quoteAmt * usd;
+      if (tr.is_buy) buys++;
+      else sells++;
+      if (tr.trader) traders[String(tr.trader).toLowerCase()] = 1;
+      if (tokAmt > 0 && quoteAmt > 0 && usd > 0) {
+        const mc = (quoteAmt / tokAmt) * 1e9 * usd;
+        if (mc > 0 && mc < 1e12) {
+          if (!first) first = mc;
+          last = mc;
+          samples.push(mc);
+        }
+      }
+    }
+    let pts = samples;
+    if (pts.length > 24) {
+      const spark: number[] = [];
+      for (let i = 0; i < 24; i++) spark.push(pts[Math.round((i * (pts.length - 1)) / 23)]);
+      pts = spark;
+    }
+    tokens.push({
+      ticker,
+      mcUsd: poolMcUsd(pool.sqrt || "0", quote, hop),
+      burned: burnMistForTicker(ticker),
+      coinA: pool.coin_a || "0",
+      coinB: pool.coin_b || "0",
+      sqrt: pool.sqrt || "0",
+      quote,
+      pool: pool.pool_id,
+      vol24: vol,
+      chg24: first > 0 && last > 0 ? ((last - first) / first) * 100 : 0,
+      pts,
+      buys,
+      sells,
+      traders: Object.keys(traders).length,
+    });
+  }
+  const r = await fetch(`${APP_URL}/api/screener`, {
+    method: "POST",
+    headers: { "content-type": "application/json", authorization: `Bearer ${secret}` },
+    body: JSON.stringify({ tokens }),
+  });
+  const raw = await r.text();
+  if (!r.ok) throw new Error(raw.slice(0, 180) || `screener ${r.status}`);
+  return { tokens: tokens.length };
 }
 
 const Q64 = 2 ** 64;
@@ -395,7 +479,7 @@ function poolMcUsd(sqrt: string, quote: string, hop: Record<string, number>): nu
   const u = hop[quote] || 0;
   if (!(s > 0) || !(u > 0)) return 0;
   const raw = (s / Q64) * (s / Q64);
-  const decB = quote === "USDY" ? 6 : 9;
+  const decB = quoteDec(quote);
   const px = raw * Math.pow(10, 9 - decB);
   if (!(px > 0) || !isFinite(px)) return 0;
   const n = px * 1e9 * u;
@@ -521,6 +605,12 @@ export async function runIndexTrades() {
   } catch (e) {
     stats = { error: e instanceof Error ? e.message : String(e) };
   }
+  let screener: unknown = null;
+  try {
+    screener = await publishScreener(await hopUsd());
+  } catch (e) {
+    screener = { error: e instanceof Error ? e.message : String(e) };
+  }
 
   return {
     discovered,
@@ -532,6 +622,7 @@ export async function runIndexTrades() {
     backfillLeft: listPools().filter((p) => !p.backfill_done).length,
     published,
     stats,
+    screener,
     poolErrors,
     stageErrors,
   };

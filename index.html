@@ -4170,7 +4170,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     if (!tk || tk.missing || !tk.t || tk.tapeBusy) return;
     var onScr = state.route === "explore";
     if (!viewingToken(tk) && !onScr) return;
-    var tapeTtl = viewingToken(tk) ? 25000 : 60000;
+    var tapeTtl = viewingToken(tk) ? 120000 : 60000;
     if (tk.tapeLoaded && tk.tapeAt && Date.now() - tk.tapeAt < tapeTtl && !(viewingToken(tk) && state.tapeWallet)) return;
     tk.tapeBusy = true;
     var url = "/api/trades?t="+encodeURIComponent(tk.t)+"&limit=500";
@@ -4217,7 +4217,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       tk.tapeAt = Date.now();
       applyTape(j, false);
       // Pull a few older pages so charts get real history, not only the latest window.
-      return pageMore(onScr ? 0 : 4);
+      return pageMore(onScr || tk.tapeFull ? 0 : 4).then(function(){ tk.tapeFull = true; });
     }).then(function(){ tk.tapeBusy = false; }).catch(function(){ tk.tapeBusy = false; });
   }
   function loadMoreTape(tk){
@@ -4544,7 +4544,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   function hydrateTokenStats(tk){
     if (!tk || tk.missing || !tk.t || tk.statsBusy) return;
     if (!viewingToken(tk) && state.route !== "explore") return;
-    var statsTtl = viewingToken(tk) ? 25000 : 60000;
+    var statsTtl = viewingToken(tk) ? 120000 : 60000;
     if (tk.statsHydrated && tk.statsAt && Date.now() - tk.statsAt < statsTtl) return;
     tk.statsBusy = true;
     fetch("/api/token-stats?t="+encodeURIComponent(tk.t)).then(function(r){ return r.json(); }).then(function(j){
@@ -5726,7 +5726,13 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     if (quoteAmt > 0 && u > 0) return quoteAmt * u * 2;
     return 0;
   }
+  function scrFeed(k){
+    if (!k || !k.feed || state.route === "token") return null;
+    return k.feed;
+  }
   function scrChgOf(k){
+    var feed = scrFeed(k);
+    if (feed && feed.chg != null) return Number(feed.chg) || 0;
     var q = poolQuote(k);
     var cut = Date.now() - 86400000;
     var rows = scrTape(k).slice().sort(function(a,b){ return (a.ts||0) - (b.ts||0); });
@@ -5741,6 +5747,8 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     return ((last - first) / first) * 100;
   }
   function scrPts(k){
+    var feed = scrFeed(k);
+    if (feed && feed.pts && feed.pts.length) return feed.pts;
     var q = poolQuote(k);
     var rows = scrTape(k).slice().sort(function(a,b){ return (a.ts||0) - (b.ts||0); });
     var pts = [];
@@ -5792,6 +5800,8 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     return "top " + p + "%";
   }
   function scrVolUsd(k){
+    var feed = scrFeed(k);
+    if (feed && feed.vol != null) return Number(feed.vol) || 0;
     var q = poolQuote(k);
     var px = quoteUsd(q);
     var n = 0;
@@ -5804,18 +5814,24 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   }
   function scrRow(k){
     var tape = scrTape24(k);
+    var feed = scrFeed(k);
     var buys = 0, sells = 0, traders = {};
-    tape.forEach(function(r){
-      if (r.is_buy) buys++; else sells++;
-      var who = String(r.trader || "").toLowerCase();
-      if (who) traders[who] = 1;
-    });
+    if (feed){
+      buys = Number(feed.buys) || 0;
+      sells = Number(feed.sells) || 0;
+    } else {
+      tape.forEach(function(r){
+        if (r.is_buy) buys++; else sells++;
+        var who = String(r.trader || "").toLowerCase();
+        if (who) traders[who] = 1;
+      });
+    }
     var mcap = usdCap(k) || 0;
     var ch = scrChgOf(k);
     k.ch = ch;
     var last = tape[0];
     var px = last ? (fillMcUsd(last, poolQuote(k)) / VIRTUAL_SUPPLY) : (mcap > 0 ? mcap / VIRTUAL_SUPPLY : 0);
-    var traderN = Object.keys(traders).length;
+    var traderN = feed ? (Number(feed.traders) || 0) : Object.keys(traders).length;
     var holdN = scrHolders(k);
     return {
       k: k,
@@ -7878,43 +7894,12 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     });
   }
   function refreshBooksVol(){
-    if (state.route !== "metrics" || booksVolBusy) return;
-    var need = T.filter(function(tk){
-      return tk && tk.t && !tk.missing && !isHiddenToken(tk) && (tk.bluefinPool || tk.pool)
-        && !(tk.booksVolAt && Date.now() - tk.booksVolAt < 120000);
-    });
-    if (!need.length) return;
-    booksVolBusy = true;
-    var left = need.length;
-    function done(){
-      left--;
-      if (left > 0) return;
-      booksVolBusy = false;
-      if (state.route === "metrics") renderScreen();
-    }
-    need.forEach(function(tk){
-      function pull(acc, before, pagesLeft){
-        var url = "/api/trades?t="+encodeURIComponent(tk.t)+"&limit=500";
-        if (tk.bluefinPool) url += "&pool="+encodeURIComponent(tk.bluefinPool);
-        if (before) url += "&before="+before;
-        return fetch(url, { cache: "no-store" }).then(function(r){ return r.json(); }).then(function(j){
-          var trades = (j && j.trades) || [];
-          acc = acc.concat(trades);
-          var more = pagesLeft > 1 && Number(j && j.count) > acc.length && Number(j && j.nextBefore);
-          if (more) return pull(acc, j.nextBefore, pagesLeft - 1);
-          return acc;
-        });
-      }
-      pull([], 0, 4).then(function(trades){
-        tk.booksTape = trades || [];
-        if (trades && trades.length) tk.tapeRows = trades;
-        tk.booksVolAt = Date.now();
-        done();
-      }).catch(function(){ done(); });
-    });
+    if (state.route !== "metrics") return;
+    hydrateScreener();
   }
   function booksVolUsdOf(tk){
     if (!tk) return 0;
+    if (tk.feed && tk.feed.vol != null) return Number(tk.feed.vol) || 0;
     var rows = (tk.booksTape && tk.booksTape.length) ? tk.booksTape : (tk.tapeRows || []);
     var n = quoteRowsVolUsd(tk, rows);
     if (typeof tk.booksVolUsd === "number" && tk.booksVolUsd > n) return tk.booksVolUsd;
@@ -10306,19 +10291,41 @@ async function doBridgeDeposit(){
     return wasOpen;
   }
   var scrHydrateAt = 0;
-  function hydrateScreener(){
-    if (state.route !== "explore") return;
-    var now = Date.now();
-    if (now - scrHydrateAt < 8000) return;
-    scrHydrateAt = now;
-    var list = T.filter(function(k){ return k && !k.missing && !isHiddenToken(k); });
-    list.forEach(function(tk, i){
-      setTimeout(function(){
-        if (state.route !== "explore") return;
-        hydrateTokenStats(tk);
-        hydrateTape(tk);
-      }, Math.min(i * 80, 2400));
+  function applyScreener(j){
+    var rows = (j && j.tokens) || [];
+    var by = {};
+    rows.forEach(function(r){
+      if (r && r.ticker) by[String(r.ticker).toUpperCase()] = r;
     });
+    T.forEach(function(tk){
+      if (!tk || !tk.t) return;
+      var r = by[String(tk.t).toUpperCase()];
+      if (!r) return;
+      if (Number(r.mcUsd) > 0) tk.statsMcUsd = Number(r.mcUsd);
+      if (r.burned && String(r.burned) !== "0") noteBurnedMist(tk, r.burned);
+      if (r.sqrt){
+        tk.poolSnap = { sqrt: String(r.sqrt), coinABig: r.coinA || "0", coinBBig: r.coinB || "0" };
+        tk._poolSnapAt = Date.now();
+      }
+      tk.feed = {
+        vol: Number(r.vol24) || 0,
+        chg: Number(r.chg24) || 0,
+        pts: Array.isArray(r.pts) ? r.pts : [],
+        buys: Number(r.buys) || 0,
+        sells: Number(r.sells) || 0,
+        traders: Number(r.traders) || 0
+      };
+      tk.statsHydrated = true;
+      tk.statsAt = Date.now();
+    });
+    if (state.route === "explore" || state.route === "metrics") scheduleExploreList();
+  }
+  function hydrateScreener(){
+    if (state.route !== "explore" && state.route !== "metrics") return;
+    var now = Date.now();
+    if (now - scrHydrateAt < 45000) return;
+    scrHydrateAt = now;
+    fetch("/api/screener").then(function(r){ return r.json(); }).then(applyScreener).catch(function(){});
   }
   function themeNow(){
     return document.documentElement.getAttribute("data-theme") === "pastel" ? "pastel" : "dark";

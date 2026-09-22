@@ -1,3 +1,17 @@
+import { put } from "@vercel/blob";
+import { readJsonBlob, rememberJsonBlob } from "./_blob-json.js";
+
+const HOP_BLOB = "hop.json";
+const HOP_FRESH_MS = 10 * 60 * 1000;
+const HOP_CACHE = "public, s-maxage=60, stale-while-revalidate=180";
+
+function authOk(request) {
+  const secret = process.env.CRON_SECRET || process.env.ARENA_SETTLE_SECRET || "";
+  if (!secret) return !process.env.VERCEL;
+  const raw = request.headers.get("authorization") || "";
+  return raw === "Bearer " + secret;
+}
+
 const SUI_USD =
   "https://api.coingecko.com/api/v3/simple/price?ids=sui&vs_currencies=usd";
 const SUI_USDC =
@@ -44,7 +58,7 @@ function perSui(usd, suiUsd) {
   return usd > 0 && suiUsd > 0 ? usd / suiUsd : 0;
 }
 
-export async function GET() {
+async function liveHop() {
   const [usdy, xagm, xaum, suiUsdc, suiRes, vicefunPair, axolPair, lofiPair, manifestPair, walPair, deepPair, nsPair, scaPair, bluePair] = await Promise.all([
     poolJson(USDY_USDC),
     poolJson(XAGM_USDC),
@@ -90,9 +104,9 @@ export async function GET() {
   const sca = dsUsd(scaPair);
   const blue = dsUsd(bluePair);
   if (!(usdyUsd > 0) && !(xagmUsd > 0) && !(xaumUsd > 0) && !(suiUsd > 0)) {
-    return Response.json({ error: "hop unavailable" }, { status: 502 });
+    return null;
   }
-  return Response.json({
+  return {
     suiUsd,
     usdyUsd,
     xagmUsd,
@@ -114,6 +128,50 @@ export async function GET() {
     suiPerAxol: axol.native || perSui(axol.usd, suiUsd),
     suiPerLofi: lofi.native || perSui(lofi.usd, suiUsd),
     suiPerManifest: manifest.native || perSui(manifest.usd, suiUsd),
-    source: "Cetus USDY/USDC · Bluefin XAGM/USDC · Bluefin XAUM/USDC · Dexscreener VICEFUN/AXOL/LOFI/MANIFEST/WAL/DEEP/NS/SCA/BLUE · DexPaprika SUI/USDC"
+    source: "Air · Dexscreener + DexPaprika",
+    updatedMs: Date.now(),
+  };
+}
+
+async function storeHop(row) {
+  await put(HOP_BLOB, JSON.stringify(row), {
+    access: "public",
+    addRandomSuffix: false,
+    allowOverwrite: true,
+    contentType: "application/json",
+    cacheControlMaxAge: 30,
   });
+  rememberJsonBlob(HOP_BLOB, row);
+}
+
+export async function GET() {
+  const cached = await readJsonBlob(HOP_BLOB, null);
+  if (cached && Number(cached.suiUsd) > 0 && Date.now() - Number(cached.updatedMs || 0) < HOP_FRESH_MS) {
+    return Response.json(cached, { headers: { "cache-control": HOP_CACHE } });
+  }
+  const live = await liveHop();
+  if (!live) return Response.json({ error: "hop unavailable" }, { status: 502 });
+  try { await storeHop(live); } catch (e) {}
+  return Response.json(live, { headers: { "cache-control": HOP_CACHE } });
+}
+
+export async function POST(request) {
+  if (!authOk(request)) return Response.json({ error: "unauthorized" }, { status: 401 });
+  let body;
+  try {
+    body = await request.json();
+  } catch {
+    return Response.json({ error: "invalid json" }, { status: 400 });
+  }
+  if (!(Number(body && body.suiUsd) > 0)) {
+    return Response.json({ error: "suiUsd required" }, { status: 400 });
+  }
+  const row = Object.assign({}, body, { updatedMs: Date.now(), source: body.source || "Air" });
+  try {
+    await storeHop(row);
+  } catch (e) {
+    const why = e && e.message ? String(e.message) : "blob put failed";
+    return Response.json({ error: why.slice(0, 180) }, { status: 502 });
+  }
+  return Response.json({ ok: true, updatedMs: row.updatedMs });
 }

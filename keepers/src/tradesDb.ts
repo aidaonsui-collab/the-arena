@@ -168,6 +168,12 @@ export function insertTrade(row: TradeRow): boolean {
   return Number(r.changes || 0) > 0;
 }
 
+export function tradesSince(ticker: string, sinceMs: number): TradeRow[] {
+  return tradesDb()
+    .prepare(`SELECT * FROM trades WHERE ticker=? AND ts>=? ORDER BY ts ASC`)
+    .all(ticker, sinceMs) as TradeRow[];
+}
+
 export function tradesForTicker(ticker: string, poolId?: string): TradeRow[] {
   const d = tradesDb();
   if (poolId) {
