@@ -334,9 +334,9 @@ export async function runCollectInstadex() {
       continue;
     }
     const fees = await accrued(L.lockId);
-    // Instant CLMM fees sit in fee_growth until collect. token_*_fee is usually 0.
-    // Skip only if the NFT is empty and growth says nothing is pending.
-    if (BigInt(fees.liquidity || "0") <= 0n && fees.a <= 0 && fees.b <= 0) {
+    // Liquidity sitting in the NFT is not a fee. Skip unless coin A or coin B
+    // is actually pending. Empty collects were the gas leak.
+    if (fees.a <= 0 && fees.b <= 0) {
       results.push({ lockId: L.lockId, skipped: true, reason: "no accrued fees", fees });
       continue;
     }

@@ -7689,21 +7689,6 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       if (state.route === "pit") renderScreen();
     }).catch(function(){});
   }
-  function distCollectRows(){
-    var rows = (rewardsLedger.claims || []).slice().sort(function(a,b){ return (b.ts||0)-(a.ts||0); }).slice(0, 12);
-    if (!rows.length){
-      return '<div class="dist-collect-row"><div><strong>None yet</strong><div class="when">Claims of gold, silver, and T-bills land here</div></div></div>';
-    }
-    return rows.map(function(c){
-      var cat = c.cat ? rewardsCat(c.cat) : null;
-      var unit = cat ? cat.unit : "RWA";
-      var usd = cat ? rewardUsd(c.amount, cat) : 0;
-      return '<div class="dist-collect-row">'+
-        '<div><strong>'+escHtml(cat ? cat.label : "RWA")+'</strong>'+
-          '<div class="when">'+escHtml(fmtRewardAmt(c.amount, unit))+(c.ts ? " · "+agoOf(c.ts) : "")+'</div></div>'+
-        '<div class="mono">'+escHtml(usd ? fmtUsd(usd) : "—")+'</div></div>';
-    }).join("");
-  }
   function rewardsDistRows(){
     var tab = state.rewardsTab || "all";
     var rows = (rewardsLedger.distributions || []).filter(function(d){
@@ -7795,14 +7780,11 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
           pendingPillHTML()+
           '<div class="note">'+escHtml(claimNote)+'</div>'+
         '</div>'+
-        '<div class="dist-split">'+
-          '<div class="dist-panel">'+
-            '<div class="dist-head"><h2>Distribution history</h2><div class="pills">'+pills+'</div></div>'+
-            (distN ? "" : '<div class="dist-pending"><strong>Waiting on the first drop</strong><span>Collect LP on Instant pairs with Rewards %. Holder-yield and basket events fill this list. The pit is sunset.</span></div>')+
-            '<table class="rewards-table"><thead><tr><th>Time</th><th>RWA</th><th>Amount</th><th>Launch</th><th></th></tr></thead>'+
-            '<tbody>'+rewardsDistRows()+'</tbody></table>'+
-          '</div>'+
-          '<div class="dist-panel"><h2>Collected</h2>'+distCollectRows()+'</div>'+
+        '<div class="dist-panel">'+
+          '<div class="dist-head"><h2>Distribution history</h2><div class="pills">'+pills+'</div></div>'+
+          (distN ? "" : '<div class="dist-pending"><strong>Waiting on the first drop</strong><span>Collect LP on Instant pairs with Rewards %. Holder-yield and basket events fill this list. The pit is sunset.</span></div>')+
+          '<table class="rewards-table"><thead><tr><th>Time</th><th>RWA</th><th>Amount</th><th>Launch</th><th></th></tr></thead>'+
+          '<tbody>'+rewardsDistRows()+'</tbody></table>'+
         '</div>'+
       footerHTML()+'</div></div>';
   }
