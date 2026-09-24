@@ -1,7 +1,8 @@
 /// PTB for arena::basket::create + deposit + finish_seed.
-/// The share coin must come from the zero-supply basket template. Each leg's
-/// `coin` argument is the exact seed payment; surplus is destroyed because
-/// deposit returns it and a PTB cannot drop a coin.
+/// The share coin must come from the zero-supply basket template. Deposit
+/// returns any surplus. With no sender, that surplus must be a zero coin.
+/// With a sender, the surplus goes back to that address so a swap can
+/// overshoot the exact seed amount.
 
 function pureU64(tx, v) {
   const n = typeof v === "bigint" ? v : BigInt(String(v));
@@ -64,11 +65,15 @@ export function appendBasketSeed(tx, opts) {
       typeArguments: [basketType, leg.type],
       arguments: [vault, receipt, leg.coin],
     });
-    tx.moveCall({
-      target: "0x2::coin::destroy_zero",
-      typeArguments: [leg.type],
-      arguments: [one(leftover)],
-    });
+    if (opts.sender) {
+      tx.transferObjects([one(leftover)], opts.sender);
+    } else {
+      tx.moveCall({
+        target: "0x2::coin::destroy_zero",
+        typeArguments: [leg.type],
+        arguments: [one(leftover)],
+      });
+    }
   }
   tx.moveCall({
     target: pkg + "::basket::finish_seed",

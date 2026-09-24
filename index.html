@@ -1265,7 +1265,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   let balance = 48.60;
   let xaumBal = 2.40;
 
-  const state = {route:"explore", sym:"VOLT", filter:"All", sort:"Market cap", time:"All", side:"Buy", amt:"1", connected:false, search:"", lName:"", lTick:"", lQuote:"SUI", lPath:"instadex", lMode:"Holders", lTokenAmt:"", lQuoteAmt:"", lFirstBuy:"1", lCap:"", lTokenCoin:"", lQuoteCoin:"", lCoinMode:"create", lDecimals:"9", lSupply:"1000000000", lDesc:"", lX:"", lTg:"", lWeb:"", lPublishedType:"", metricsWindow:"All", tapeTab:"trades", tapeOpen:"", tapePage:0, tapeAge:"age", tapeWallet:"", tapeFilterOpen:false, lFile:null, lArtUrl:"", lArtPreview:"", payWith:"", lNote:"", lNoteErr:false, chartTf:900, chartInd:{vol:true,ma7:false,ma25:false,ma99:false,ema:false}, bridgeTick:"NVDA", bridgeAmt:"", bridgeDir:"in", bridgeRhDest:"", bridgeNote:"", bridgeBusy:false, bridgePending:[], walletCheck:null, quoteOpen:false, rewardsTab:"all", lBasket:false, lBasketEqual:true, lBasketMode:0, lBasketOn:{XAUM:true,XAGM:true,USDY:true}, lBasketBps:{XAUM:3334,XAGM:3333,USDY:3333}, lSplitPreset:"vice", lSplit:{creator:6000,platform:500,rewards:3000,buyback:500}, lSocialsOpen:false, lQuoteCat:"all", createKind:"token", bLegs:[{q:"SUI", weight:"50"},{q:"XAUM", weight:"50"}], bUsd:"1", bSeed:"1000", bCap:"1000000", bCapId:"", bCoinType:"", pfRange:"1M", pfFlash:"", lockTab:"create", lockKind:"lock", lockTok:"", lockAmt:"", lockDays:"30", lockSelf:"self", lockBen:"", lockCliff:"90", lockEnd:"365", lockNote:"", lockNoteErr:false, lockBusy:false, lockMine:[], lockAll:[], lockLoad:false, scrTab:"mcap", scrSort:"mcap", scrDir:-1, scrQuote:"All", scrBuyUsd:5, scrLiveOnly:false, scrFilters:false, watch:[]};
+  const state = {route:"explore", sym:"VOLT", filter:"All", sort:"Market cap", time:"All", side:"Buy", amt:"1", connected:false, search:"", lName:"", lTick:"", lQuote:"SUI", lPath:"instadex", lMode:"Holders", lTokenAmt:"", lQuoteAmt:"", lFirstBuy:"1", lCap:"", lTokenCoin:"", lQuoteCoin:"", lCoinMode:"create", lDecimals:"9", lSupply:"1000000000", lDesc:"", lX:"", lTg:"", lWeb:"", lPublishedType:"", metricsWindow:"All", tapeTab:"trades", tapeOpen:"", tapePage:0, tapeAge:"age", tapeWallet:"", tapeFilterOpen:false, lFile:null, lArtUrl:"", lArtPreview:"", payWith:"", lNote:"", lNoteErr:false, chartTf:900, chartInd:{vol:true,ma7:false,ma25:false,ma99:false,ema:false}, bridgeTick:"NVDA", bridgeAmt:"", bridgeDir:"in", bridgeRhDest:"", bridgeNote:"", bridgeBusy:false, bridgePending:[], walletCheck:null, quoteOpen:false, rewardsTab:"all", lBasket:false, lBasketEqual:true, lBasketMode:0, lBasketOn:{XAUM:true,XAGM:true,USDY:true}, lBasketBps:{XAUM:3334,XAGM:3333,USDY:3333}, lSplitPreset:"vice", lSplit:{creator:6000,platform:500,rewards:3000,buyback:500}, lSocialsOpen:false, lQuoteCat:"all", createKind:"token", bLegs:[{q:"SUI", weight:"50"},{q:"XAUM", weight:"50"}], bUsd:"1", bPay:"sui", bSeed:"1000", bCap:"1000000", bCapId:"", bCoinType:"", pfRange:"1M", pfFlash:"", lockTab:"create", lockKind:"lock", lockTok:"", lockAmt:"", lockDays:"30", lockSelf:"self", lockBen:"", lockCliff:"90", lockEnd:"365", lockNote:"", lockNoteErr:false, lockBusy:false, lockMine:[], lockAll:[], lockLoad:false, scrTab:"mcap", scrSort:"mcap", scrDir:-1, scrQuote:"All", scrBuyUsd:5, scrLiveOnly:false, scrFilters:false, watch:[]};
 
   try {
     var watchSaved = JSON.parse(localStorage.getItem("vice.watch.v1") || "[]");
@@ -8159,11 +8159,20 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       if (!(units > 0n)) return { error: lab+" amount rounds to zero. Raise dollars per share." };
       var pay = units * seed;
       if (pay > 18446744073709551615n) return { error: lab+" seed amount overflows" };
+      var suiIn = 0n;
+      if (lab !== "SUI"){
+        var suiPx = quoteUsd("SUI");
+        if (!(suiPx > 0)) return { error: "No USD price for SUI yet" };
+        var suiHuman = (Number(seed) * human * px / suiPx) * 1.03;
+        suiIn = toSmallestBig(basketHumanStr(suiHuman, 9), 9);
+        if (!(suiIn > 0n)) return { error: "SUI amount for "+lab+" rounds to zero" };
+      }
       out.push({
         q: lab,
         type: rec.type,
         units: units,
         pay: pay,
+        suiIn: suiIn,
         decimals: rec.decimals,
         human: human,
         pct: raw[j] / sum * 100,
@@ -8181,10 +8190,16 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       return;
     }
     var seedN = Number(plan.seed);
-    el.textContent = "Seed locks " + plan.legs.map(function(l){
+    var line = "Seed locks " + plan.legs.map(function(l){
       var amt = seedN * l.human;
       return basketHumanStr(amt, l.decimals)+" "+l.q+" ("+l.pct.toFixed(0)+"% · "+fmtUsd(amt * l.px)+")";
     }).join(", ")+".";
+    if (state.bPay !== "hold"){
+      var sui = 0n;
+      plan.legs.forEach(function(l){ sui += l.q === "SUI" ? l.pay : l.suiIn; });
+      line += " Pay about "+fromBase(sui, 9).toFixed(3)+" SUI, with 3% extra on the swaps.";
+    }
+    el.textContent = line;
   }
   function wholeBig(s){
     var t = String(s == null ? "" : s).trim();
@@ -8209,7 +8224,10 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
         '<div><div class="create-lab">Weight</div><input data-b-weight="'+i+'" inputmode="decimal" value="'+escAttr(leg.weight)+'"></div>'+
       '</div>';
     }).join("");
-    var note = state.lNote || "Publishes a coin with no supply. The vault mints the seed and locks that floor. You need the seed amount of each asset in this wallet.";
+    var paySui = state.bPay !== "hold";
+    var note = state.lNote || (paySui
+      ? "Publishes a coin with no supply. Seeding swaps SUI into the recipe, then locks that seed in the vault."
+      : "Publishes a coin with no supply. Seeding takes each asset from this wallet.");
     if (!window.ARENA_BASKET_PACKAGE){
       note = state.lNote || "Publishes the share coin only. Seeding waits until the basket vault is on mainnet.";
     }
@@ -8255,6 +8273,10 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
         '<section class="create-card">'+
           '<h2>Recipe</h2>'+
           '<p class="create-sub">Weights are shares of each dollar of the basket. Prices turn them into the fixed units the vault locks.</p>'+
+          '<div class="pair-cats" style="margin:8px 0 12px">'+
+            '<button type="button" class="pair-cat'+(paySui?" on":"")+'" data-b-pay="sui">Pay with SUI</button>'+
+            '<button type="button" class="pair-cat'+(!paySui?" on":"")+'" data-b-pay="hold">Use wallet assets</button>'+
+          '</div>'+
           legHTML+
           '<div class="create-field create-nt">'+
             '<div><div class="create-lab">Dollars per share</div><input id="b-usd" inputmode="decimal" value="'+escAttr(state.bUsd)+'"></div>'+
@@ -11903,18 +11925,28 @@ async function doBridgeDeposit(){
       var Transaction = await loadTransaction();
       var tx = new Transaction();
       tx.setSender(suiSession.address);
-      if (typeof tx.setGasBudget === "function") tx.setGasBudget(300000000);
+      if (typeof tx.setGasBudget === "function") tx.setGasBudget(500000000);
+      var paySui = state.bPay !== "hold";
+      var suiNeed = 500000000n;
+      for (var s = 0; s < planned.length; s++){
+        if (planned[s].q === "SUI") suiNeed += planned[s].pay;
+        else if (paySui) suiNeed += planned[s].suiIn;
+      }
+      var suiBal = await coinBalanceOf(suiSession.address, SUI_TYPE);
+      if (suiBal < suiNeed){
+        throw new Error("Need about "+fromBase(suiNeed, 9).toFixed(3)+" SUI for the seed and gas. This wallet has "+fromBase(suiBal, 9).toFixed(3)+" SUI.");
+      }
       var seedLegs = [];
       for (var k = 0; k < planned.length; k++){
         var leg = planned[k];
         var coinArg;
-        if (normType(leg.type) === normType(SUI_TYPE)){
-          var suiBal = await coinBalanceOf(suiSession.address, SUI_TYPE);
-          if (suiBal < leg.pay + 300000000n){
-            throw new Error("Need "+fromBase(leg.pay + 300000000n, 9).toFixed(3)+" SUI for the seed and gas.");
-          }
+        if (leg.q === "SUI"){
           var gasSplit = tx.splitCoins(tx.gas, [txAmt(leg.pay)]);
           coinArg = Array.isArray(gasSplit) ? gasSplit[0] : gasSplit;
+        } else if (paySui){
+          var hopped = await hopSuiToQuoteOnTx(tx, leg.q, leg.suiIn);
+          tx = hopped.tx;
+          coinArg = hopped.coin;
         } else {
           var coins = await coinsOf(suiSession.address, leg.type);
           coinArg = takeCoin(tx, coins, leg.pay);
@@ -11928,6 +11960,7 @@ async function doBridgeDeposit(){
         treasuryId: capId,
         seedShares: seed,
         depositCap: cap,
+        sender: paySui ? suiSession.address : "",
         legs: seedLegs
       });
       if (btn) btn.textContent = "Sign 2 of 2 · seed vault…";
@@ -12734,6 +12767,12 @@ async function doBridgeDeposit(){
       var xaumUsdc = await loadXaumUsdcPool();
       return { tx: tx, coin: bluefinHop(tx, xaumUsdc, usdc, goldUsdc.coinOut, 0) };
     }
+    if (q === "XAGM"){
+      var silverUsdc = await sevenkOnto(tx, suiCoin, SUI_TYPE, usdc, amount);
+      tx = silverUsdc.tx;
+      var xagmUsdc = await poolSnap(window.ARENA_XAGM_USDC_POOL);
+      return { tx: tx, coin: bluefinHop(tx, xagmUsdc, usdc, silverUsdc.coinOut, 0) };
+    }
     if (q === "VICEFUN"){
       // 7k does not index VICEFUN — hop SUI → VICEFUN on the platform Bluefin pool.
       var vicePool = await loadVicefunSuiPool();
@@ -13265,6 +13304,13 @@ async function doBridgeDeposit(){
       state.createKind = kindBtn.getAttribute("data-create-kind") === "basket" ? "basket" : "token";
       state.lNote = "";
       state.lNoteErr = false;
+      if (state.route === "launch") renderScreen();
+      return;
+    }
+    var payBtn = e.target.closest("[data-b-pay]");
+    if (payBtn){
+      readBasketForm();
+      state.bPay = payBtn.getAttribute("data-b-pay") === "hold" ? "hold" : "sui";
       if (state.route === "launch") renderScreen();
       return;
     }

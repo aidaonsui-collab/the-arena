@@ -69,4 +69,26 @@ for (const [modName, fn] of calls) {
   }
 }
 if ((json.match(/"function": "deposit"/g) || []).length !== 2) throw new Error("expected one deposit per leg");
+if (!json.includes('"function": "destroy_zero"')) throw new Error("exact seed should destroy zero surplus");
+
+const zap = new Transaction();
+zap.setSender(sender);
+const zapSui = zap.splitCoins(zap.gas, [zap.pure.u64(2_000)]);
+const zapOther = zap.splitCoins(zap.gas, [zap.pure.u64(9_000)]);
+appendBasketSeed(zap, {
+  packageId: pkg,
+  basketType: "0x" + "33".repeat(32) + "::goldbag::GOLDBAG",
+  treasuryId: "0x" + "44".repeat(32),
+  seedShares: 1000n,
+  depositCap: 1_000_000n,
+  sender,
+  legs: [
+    { type: "0x2::sui::SUI", units: 2n, coin: Array.isArray(zapSui) ? zapSui[0] : zapSui },
+    { type: "0x" + "55".repeat(32) + "::tcoin::TCOIN", units: 5n, coin: Array.isArray(zapOther) ? zapOther[0] : zapOther },
+  ],
+});
+const zapRaw = await zap.toJSON();
+const zapJson = typeof zapRaw === "string" ? zapRaw : JSON.stringify(zapRaw);
+if (zapJson.includes('"function": "destroy_zero"')) throw new Error("swap seed must return surplus");
+if (!zapJson.includes("TransferObjects")) throw new Error("swap seed missing surplus transfer");
 console.log("basket coin + seed tx ok", mod.length);
