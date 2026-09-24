@@ -9,7 +9,7 @@ import { dirname, join } from "path";
 import { fileURLToPath } from "url";
 import { Transaction } from "@mysten/sui/transactions";
 import { build, TEMPLATE } from "../api/basket-coin-module.js";
-import { appendBasketSeed, appendBasketMint, legsFromVaultContent } from "../js/basket-seed.js";
+import { appendBasketSeed, appendBasketMint, appendBasketRedeem, legsFromVaultContent, redeemPayout, vaultShareFields, balanceTypeFromFieldType, balanceAmountFromField } from "../js/basket-seed.js";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const raw = Buffer.from(readFileSync(join(root, "api/basket-coin-template.b64"), "utf8").trim(), "base64");
@@ -154,4 +154,37 @@ if (parsed[1].units !== "10000000" || !parsed[1].type.endsWith("::xaum::XAUM")) 
   throw new Error("vault recipe second leg failed: " + JSON.stringify(parsed));
 }
 if (legsFromVaultContent({ fields: {} }).length !== 0) throw new Error("empty recipe should be empty");
+
+const redeemTx = new Transaction();
+redeemTx.setSender(sender);
+const shareCoin = redeemTx.splitCoins(redeemTx.gas, [redeemTx.pure.u64(1)]);
+appendBasketRedeem(redeemTx, {
+  packageId: pkg,
+  basketType: "0x" + "33".repeat(32) + "::goldbag::GOLDBAG",
+  vaultId: "0x" + "77".repeat(32),
+  sender,
+  sharesCoin: Array.isArray(shareCoin) ? shareCoin[0] : shareCoin,
+  legs: [
+    { type: "0x2::sui::SUI" },
+    { type: "0x" + "55".repeat(32) + "::tcoin::TCOIN" },
+  ],
+});
+const redeemRaw = await redeemTx.toJSON();
+const redeemJson = typeof redeemRaw === "string" ? redeemRaw : JSON.stringify(redeemRaw);
+for (const fn of ["start_redeem", "withdraw", "finish_redeem"]) {
+  if (!redeemJson.includes(`"function": "${fn}"`)) throw new Error("redeem tx missing " + fn);
+}
+if ((redeemJson.split('"function": "withdraw"').length - 1) !== 2) throw new Error("redeem tx should withdraw both assets");
+if (!/TransferObjects/i.test(redeemJson)) throw new Error("redeem tx should return the assets");
+if (redeemPayout(7, 1, 3) !== 2n) throw new Error("redeem payout should floor");
+if (redeemPayout(0, 1, 3) !== 0n) throw new Error("empty balance pays 0");
+const shares = vaultShareFields({ fields: { total_shares: "150", seed_shares: "100" } });
+if (shares.total !== "150" || shares.seed !== "100") throw new Error("vault share fields");
+const fieldType = "0x2::dynamic_field::Field<0x1::type_name::TypeName, 0x2::balance::Balance<0x2::sui::SUI>>";
+if (balanceTypeFromFieldType(fieldType) !== "0x2::sui::SUI") throw new Error("balance type parse");
+const nested = "0x2::dynamic_field::Field<0x1::type_name::TypeName, 0x2::balance::Balance<0xaaa::m::T<0xbbb::u::U>>>";
+if (balanceTypeFromFieldType(nested) !== "0xaaa::m::T<0xbbb::u::U>") throw new Error("nested balance type parse");
+if (balanceAmountFromField({ fields: { value: { fields: { value: "42" } } } }) !== "42") {
+  throw new Error("balance amount parse");
+}
 console.log("basket coin + seed tx ok", mod.length);

@@ -128,6 +128,85 @@ export function appendBasketMint(tx, opts) {
   });
 }
 
+/// Burn `sharesCoin` and send one coin per recipe leg back to `sender`.
+/// The vault aborts if this would take supply below the seed.
+export function appendBasketRedeem(tx, opts) {
+  const pkg = String(opts.packageId || "");
+  const basketType = String(opts.basketType || "");
+  const legs = opts.legs || [];
+  if (!pkg) throw new Error("Basket package is not set");
+  if (!basketType) throw new Error("Basket coin type is not set");
+  if (!opts.vaultId) throw new Error("Basket vault is not set");
+  if (!opts.sharesCoin) throw new Error("Share coin is not set");
+  if (!opts.sender) throw new Error("Redeem needs a wallet address");
+  if (legs.length < 2 || legs.length > 8) throw new Error("Basket needs 2 to 8 assets");
+  const receipt = tx.moveCall({
+    target: pkg + "::basket::start_redeem",
+    typeArguments: [basketType],
+    arguments: [tx.object(opts.vaultId), opts.sharesCoin],
+  });
+  for (const leg of legs) {
+    if (!leg.type) throw new Error("Each asset needs a coin type");
+    const out = tx.moveCall({
+      target: pkg + "::basket::withdraw",
+      typeArguments: [basketType, leg.type],
+      arguments: [tx.object(opts.vaultId), one(receipt)],
+    });
+    tx.transferObjects([one(out)], opts.sender);
+  }
+  tx.moveCall({
+    target: pkg + "::basket::finish_redeem",
+    typeArguments: [basketType],
+    arguments: [tx.object(opts.vaultId), one(receipt)],
+  });
+}
+
+/// Floor of balance * shares / supply. Dust stays in the vault.
+export function redeemPayout(balance, shares, supply) {
+  const b = BigInt(balance);
+  const s = BigInt(shares);
+  const t = BigInt(supply);
+  if (t <= 0n || s <= 0n || b <= 0n) return 0n;
+  return (b * s) / t;
+}
+
+export function vaultShareFields(content) {
+  const fields = content && (content.fields || content.json || content);
+  const total = fields && fields.total_shares != null ? fields.total_shares : "0";
+  const seed = fields && fields.seed_shares != null ? fields.seed_shares : "0";
+  return { total: String(total), seed: String(seed) };
+}
+
+/// Coin type inside `Field<TypeName, Balance<T>>`.
+export function balanceTypeFromFieldType(objectType) {
+  const s = String(objectType || "");
+  const key = "::balance::Balance<";
+  const i = s.lastIndexOf(key);
+  if (i < 0) return "";
+  const rest = s.slice(i + key.length);
+  let depth = 0;
+  for (let k = 0; k < rest.length; k++) {
+    const ch = rest[k];
+    if (ch === "<") depth += 1;
+    else if (ch === ">") {
+      if (depth === 0) return rest.slice(0, k);
+      depth -= 1;
+    }
+  }
+  return "";
+}
+
+export function balanceAmountFromField(content) {
+  const fields = content && (content.fields || content.json || content);
+  if (!fields) return "0";
+  const value = fields.value != null ? fields.value : fields;
+  if (value == null) return "0";
+  if (typeof value === "string" || typeof value === "number" || typeof value === "bigint") return String(value);
+  if (value.fields && value.fields.value != null) return String(value.fields.value);
+  if (value.value != null && typeof value.value !== "object") return String(value.value);
+  return "0";
+}
+
 function assetTypeName(asset) {
   if (!asset) return "";
   if (typeof asset === "string") return asset;
