@@ -1265,7 +1265,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   let balance = 48.60;
   let xaumBal = 2.40;
 
-  const state = {route:"explore", sym:"VOLT", filter:"All", sort:"Market cap", time:"All", side:"Buy", amt:"1", connected:false, search:"", lName:"", lTick:"", lQuote:"SUI", lPath:"instadex", lMode:"Holders", lTokenAmt:"", lQuoteAmt:"", lFirstBuy:"1", lCap:"", lTokenCoin:"", lQuoteCoin:"", lCoinMode:"create", lDecimals:"9", lSupply:"1000000000", lDesc:"", lX:"", lTg:"", lWeb:"", lPublishedType:"", metricsWindow:"All", tapeTab:"trades", tapeOpen:"", tapePage:0, tapeAge:"age", tapeWallet:"", tapeFilterOpen:false, lFile:null, lArtUrl:"", lArtPreview:"", payWith:"", lNote:"", lNoteErr:false, chartTf:900, chartInd:{vol:true,ma7:false,ma25:false,ma99:false,ema:false}, bridgeTick:"NVDA", bridgeAmt:"", bridgeDir:"in", bridgeRhDest:"", bridgeNote:"", bridgeBusy:false, bridgePending:[], walletCheck:null, quoteOpen:false, rewardsTab:"all", lBasket:false, lBasketEqual:true, lBasketMode:0, lBasketOn:{XAUM:true,XAGM:true,USDY:true}, lBasketBps:{XAUM:3334,XAGM:3333,USDY:3333}, lSplitPreset:"vice", lSplit:{creator:6000,platform:500,rewards:3000,buyback:500}, lSocialsOpen:false, lQuoteCat:"all", createKind:"token", bLegs:[{q:"SUI", units:"1"},{q:"XAUM", units:"0.01"}], bSeed:"1000", bCap:"1000000", bCapId:"", bCoinType:"", pfRange:"1M", pfFlash:"", lockTab:"create", lockKind:"lock", lockTok:"", lockAmt:"", lockDays:"30", lockSelf:"self", lockBen:"", lockCliff:"90", lockEnd:"365", lockNote:"", lockNoteErr:false, lockBusy:false, lockMine:[], lockAll:[], lockLoad:false, scrTab:"mcap", scrSort:"mcap", scrDir:-1, scrQuote:"All", scrBuyUsd:5, scrLiveOnly:false, scrFilters:false, watch:[]};
+  const state = {route:"explore", sym:"VOLT", filter:"All", sort:"Market cap", time:"All", side:"Buy", amt:"1", connected:false, search:"", lName:"", lTick:"", lQuote:"SUI", lPath:"instadex", lMode:"Holders", lTokenAmt:"", lQuoteAmt:"", lFirstBuy:"1", lCap:"", lTokenCoin:"", lQuoteCoin:"", lCoinMode:"create", lDecimals:"9", lSupply:"1000000000", lDesc:"", lX:"", lTg:"", lWeb:"", lPublishedType:"", metricsWindow:"All", tapeTab:"trades", tapeOpen:"", tapePage:0, tapeAge:"age", tapeWallet:"", tapeFilterOpen:false, lFile:null, lArtUrl:"", lArtPreview:"", payWith:"", lNote:"", lNoteErr:false, chartTf:900, chartInd:{vol:true,ma7:false,ma25:false,ma99:false,ema:false}, bridgeTick:"NVDA", bridgeAmt:"", bridgeDir:"in", bridgeRhDest:"", bridgeNote:"", bridgeBusy:false, bridgePending:[], walletCheck:null, quoteOpen:false, rewardsTab:"all", lBasket:false, lBasketEqual:true, lBasketMode:0, lBasketOn:{XAUM:true,XAGM:true,USDY:true}, lBasketBps:{XAUM:3334,XAGM:3333,USDY:3333}, lSplitPreset:"vice", lSplit:{creator:6000,platform:500,rewards:3000,buyback:500}, lSocialsOpen:false, lQuoteCat:"all", createKind:"token", bLegs:[{q:"SUI", weight:"50"},{q:"XAUM", weight:"50"}], bUsd:"1", bSeed:"1000", bCap:"1000000", bCapId:"", bCoinType:"", pfRange:"1M", pfFlash:"", lockTab:"create", lockKind:"lock", lockTok:"", lockAmt:"", lockDays:"30", lockSelf:"self", lockBen:"", lockCliff:"90", lockEnd:"365", lockNote:"", lockNoteErr:false, lockBusy:false, lockMine:[], lockAll:[], lockLoad:false, scrTab:"mcap", scrSort:"mcap", scrDir:-1, scrQuote:"All", scrBuyUsd:5, scrLiveOnly:false, scrFilters:false, watch:[]};
 
   try {
     var watchSaved = JSON.parse(localStorage.getItem("vice.watch.v1") || "[]");
@@ -8109,13 +8109,82 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     var legs = [];
     for (var i = 0; i < quotes.length; i++){
       var units = document.querySelector('[data-b-units="'+i+'"]');
-      legs.push({ q: quotes[i].value, units: units ? units.value : "" });
+      var weight = document.querySelector('[data-b-weight="'+i+'"]');
+      legs.push({ q: quotes[i].value, weight: weight ? weight.value : "" });
     }
     state.bLegs = legs;
     var seed = $("#b-seed");
     var cap = $("#b-cap");
+    var usd = $("#b-usd");
     if (seed) state.bSeed = seed.value;
     if (cap) state.bCap = cap.value;
+    if (usd) state.bUsd = usd.value;
+  }
+  function basketHumanStr(n, decimals){
+    if (!(n > 0) || !isFinite(n)) return "0";
+    var d = Math.min(Math.max(decimals == null ? 6 : Number(decimals), 0), 8);
+    return n.toFixed(d).replace(/\.?0+$/, "");
+  }
+  function basketPlan(){
+    var legs = state.bLegs || [];
+    if (legs.length < 2 || legs.length > 5) return { error: "Use 2 to 5 assets" };
+    var seed = wholeBig(state.bSeed);
+    var capN = wholeBig(state.bCap);
+    if (!(seed > 0n)) return { error: "Seed shares must be a whole number above 0" };
+    if (capN < seed) return { error: "Share cap must be at least the seed" };
+    var usd = Number(state.bUsd);
+    if (!(usd > 0)) return { error: "Dollars per share must be above 0" };
+    var raw = [];
+    var sum = 0;
+    var seen = {};
+    for (var i = 0; i < legs.length; i++){
+      var q = String(legs[i].q || "");
+      if (CREATE_QUOTES.indexOf(q) < 0) return { error: "Asset "+(i+1)+" is not on the Create list" };
+      if (seen[q]) return { error: q+" is listed twice" };
+      seen[q] = 1;
+      var w = Number(legs[i].weight);
+      if (!(w > 0)) return { error: q+" weight must be above 0" };
+      raw.push(w);
+      sum += w;
+    }
+    var out = [];
+    for (var j = 0; j < legs.length; j++){
+      var lab = String(legs[j].q);
+      var px = quoteUsd(lab);
+      if (!(px > 0)) return { error: "No USD price for "+lab+" yet" };
+      var rec = quoteRec(lab);
+      var human = (raw[j] / sum) * usd / px;
+      var unitsStr = basketHumanStr(human, rec.decimals);
+      var units = toSmallestBig(unitsStr, rec.decimals);
+      if (!(units > 0n)) return { error: lab+" amount rounds to zero. Raise dollars per share." };
+      var pay = units * seed;
+      if (pay > 18446744073709551615n) return { error: lab+" seed amount overflows" };
+      out.push({
+        q: lab,
+        type: rec.type,
+        units: units,
+        pay: pay,
+        decimals: rec.decimals,
+        human: human,
+        pct: raw[j] / sum * 100,
+        px: px
+      });
+    }
+    return { legs: out, seed: seed, cap: capN, usd: usd };
+  }
+  function paintBasketCost(){
+    var el = $("#b-cost");
+    if (!el || state.createKind !== "basket") return;
+    var plan = basketPlan();
+    if (plan.error){
+      el.textContent = plan.error;
+      return;
+    }
+    var seedN = Number(plan.seed);
+    el.textContent = "Seed locks " + plan.legs.map(function(l){
+      var amt = seedN * l.human;
+      return basketHumanStr(amt, l.decimals)+" "+l.q+" ("+l.pct.toFixed(0)+"% · "+fmtUsd(amt * l.px)+")";
+    }).join(", ")+".";
   }
   function wholeBig(s){
     var t = String(s == null ? "" : s).trim();
@@ -8130,14 +8199,14 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     var artInner = state.lArtPreview
       ? '<img src="'+escUrl(state.lArtPreview)+'" alt="">'
       : (state.lTick ? escHtml(state.lTick.charAt(0)) : "B");
-    var legs = (state.bLegs && state.bLegs.length >= 2) ? state.bLegs : [{q:"SUI", units:"1"},{q:"XAUM", units:"0.01"}];
+    var legs = (state.bLegs && state.bLegs.length >= 2) ? state.bLegs : [{q:"SUI", weight:"50"},{q:"XAUM", weight:"50"}];
     var legHTML = legs.map(function(leg, i){
       var opts = CREATE_QUOTES.map(function(q){
         return '<option value="'+q+'"'+(leg.q===q?" selected":"")+'>'+escHtml(createQuoteLabel(q))+'</option>';
       }).join("");
       return '<div class="create-field create-nt">'+
         '<div><div class="create-lab">Asset '+(i+1)+'</div><select data-b-quote="'+i+'">'+opts+'</select></div>'+
-        '<div><div class="create-lab">Units per share</div><input data-b-units="'+i+'" inputmode="decimal" value="'+escAttr(leg.units)+'"></div>'+
+        '<div><div class="create-lab">Weight</div><input data-b-weight="'+i+'" inputmode="decimal" value="'+escAttr(leg.weight)+'"></div>'+
       '</div>';
     }).join("");
     var note = state.lNote || "Publishes a coin with no supply. The vault mints the seed and locks that floor. You need the seed amount of each asset in this wallet.";
@@ -8185,12 +8254,16 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
         '</section>'+
         '<section class="create-card">'+
           '<h2>Recipe</h2>'+
-          '<p class="create-sub">2 to 5 assets from the Create list. Units are the human amount of that asset locked per share.</p>'+
+          '<p class="create-sub">Weights are shares of each dollar of the basket. Prices turn them into the fixed units the vault locks.</p>'+
           legHTML+
           '<div class="create-field create-nt">'+
+            '<div><div class="create-lab">Dollars per share</div><input id="b-usd" inputmode="decimal" value="'+escAttr(state.bUsd)+'"></div>'+
             '<div><div class="create-lab">Seed shares</div><input id="b-seed" inputmode="numeric" value="'+escAttr(state.bSeed)+'"></div>'+
-            '<div><div class="create-lab">Share cap</div><input id="b-cap" inputmode="numeric" value="'+escAttr(state.bCap)+'"></div>'+
           '</div>'+
+          '<div class="create-field">'+
+            '<div class="create-lab">Share cap</div><input id="b-cap" inputmode="numeric" value="'+escAttr(state.bCap)+'">'+
+          '</div>'+
+          '<div class="create-hint" id="b-cost">Waiting for prices…</div>'+
           '<div style="display:flex;gap:8px;margin-top:8px">'+
             (legs.length < 5 ? '<button type="button" class="create-reset" data-b-add>Add asset</button>' : '')+
             (legs.length > 2 ? '<button type="button" class="create-reset" data-b-remove>Remove last</button>' : '')+
@@ -11269,6 +11342,7 @@ async function doBridgeDeposit(){
     dropTv();
     const map = {explore:exploreHTML, pit:pitHTML, token:tokenHTML, launch:launchHTML, metrics:metricsHTML, bridge:bridgeHTML, lock:vicelockHTML};
     host.innerHTML = (map[state.route] || exploreHTML)();
+    if (state.route === "launch" && state.createKind === "basket") paintBasketCost();
     stopLivingHero();
     var ticketSlot = host.querySelector("#swap-box.ticket-cetus");
     if (keepTicket && ticketSlot && keepSwapSym && keepSwapSym === String(state.sym || "").toUpperCase()){
@@ -11744,26 +11818,11 @@ async function doBridgeDeposit(){
       if (!wantTick) throw new Error("Ticker required");
       var ident = tickerToIdent(wantTick);
       if (!ident) throw new Error("Ticker needs at least one letter or digit");
-      var seed = wholeBig(state.bSeed);
-      var cap = wholeBig(state.bCap);
-      if (!(seed > 0n)) throw new Error("Seed shares must be a whole number above 0");
-      if (cap < seed) throw new Error("Share cap must be at least the seed");
-      var legs = state.bLegs || [];
-      if (legs.length < 2 || legs.length > 5) throw new Error("Use 2 to 5 assets");
-      var seen = {};
-      var planned = [];
-      for (var i = 0; i < legs.length; i++){
-        var q = String(legs[i].q || "");
-        if (CREATE_QUOTES.indexOf(q) < 0) throw new Error("Asset "+(i+1)+" is not on the Create list");
-        if (seen[q]) throw new Error(q+" is listed twice");
-        seen[q] = 1;
-        var rec = quoteRec(q);
-        var units = toSmallestBig(legs[i].units, rec.decimals);
-        if (!(units > 0n)) throw new Error("Units per share for "+q+" must be above 0");
-        var pay = units * seed;
-        if (pay > 18446744073709551615n) throw new Error(q+" seed amount overflows");
-        planned.push({ q: q, type: rec.type, units: units, pay: pay, decimals: rec.decimals });
-      }
+      var plan = basketPlan();
+      if (plan.error) throw new Error(plan.error);
+      var seed = plan.seed;
+      var cap = plan.cap;
+      var planned = plan.legs;
       if (state.lFile && !state.lArtUrl){
         if (btn) btn.textContent = "Uploading art…";
         state.lArtUrl = await uploadArt(state.lFile);
@@ -13211,7 +13270,7 @@ async function doBridgeDeposit(){
     }
     if (e.target.closest("[data-b-add]")){
       readBasketForm();
-      if (state.bLegs.length < 5) state.bLegs.push({ q: "USDY", units: "1" });
+      if (state.bLegs.length < 5) state.bLegs.push({ q: "USDY", weight: "50" });
       if (state.route === "launch") renderScreen();
       return;
     }
@@ -13828,6 +13887,10 @@ async function doBridgeDeposit(){
         el.style.display = !qf || t.indexOf(qf) >= 0 ? "" : "none";
       });
     }
+    if (e.target && (e.target.hasAttribute && e.target.hasAttribute("data-b-weight") || e.target.id === "b-seed" || e.target.id === "b-usd" || e.target.id === "b-cap")){
+      readBasketForm();
+      paintBasketCost();
+    }
     if (e.target && e.target.id === "l-name"){
       state.lName = e.target.value;
     }
@@ -13879,6 +13942,11 @@ async function doBridgeDeposit(){
     if (e.target && e.target.id === "m-creator") metaEdit.creator = e.target.value.trim();
   });
   document.addEventListener("change", function(e){
+    if (e.target && e.target.hasAttribute && e.target.hasAttribute("data-b-quote")){
+      readBasketForm();
+      paintBasketCost();
+      return;
+    }
     if (e.target && e.target.id === "m-art"){
       const file = e.target.files && e.target.files[0];
       const note = $("#m-art-note");
@@ -14140,6 +14208,7 @@ async function doBridgeDeposit(){
       paintTicket();
       paintCaps();
       paintFirstBuyPreview();
+      paintBasketCost();
       if (lw.chart && state.route === "token") applyLwData(findT(state.sym));
       if (state.route === "metrics" || state.route === "pit") renderScreen();
       else if (state.route === "explore") paintExploreList();
@@ -14190,6 +14259,7 @@ async function doBridgeDeposit(){
           if (n > 0) hop[ids[i][0]] = n;
         });
         paintFirstBuyPreview();
+        paintBasketCost();
       }).catch(function(){});
     }
     loadMemeUsd();
