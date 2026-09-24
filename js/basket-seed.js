@@ -89,3 +89,41 @@ export function appendBasketSeed(tx, opts) {
     });
   }
 }
+
+export function appendBasketMint(tx, opts) {
+  const pkg = String(opts.packageId || "");
+  const basketType = String(opts.basketType || "");
+  const legs = opts.legs || [];
+  const shares = BigInt(opts.shares);
+  if (!pkg) throw new Error("Basket package is not set");
+  if (!basketType) throw new Error("Basket coin type is not set");
+  if (!opts.vaultId) throw new Error("Basket vault is not set");
+  if (!(shares > 0n)) throw new Error("Share amount must be > 0");
+  if (legs.length < 2 || legs.length > 8) throw new Error("Basket needs 2 to 8 assets");
+  const receipt = tx.moveCall({
+    target: pkg + "::basket::start_mint",
+    typeArguments: [basketType],
+    arguments: [tx.object(opts.vaultId), pureU64(tx, shares)],
+  });
+  for (const leg of legs) {
+    if (!leg.coin) throw new Error("Each asset needs a payment coin");
+    const leftover = tx.moveCall({
+      target: pkg + "::basket::deposit",
+      typeArguments: [basketType, leg.type],
+      arguments: [tx.object(opts.vaultId), one(receipt), leg.coin],
+    });
+    if (opts.sender) tx.transferObjects([one(leftover)], opts.sender);
+    else {
+      tx.moveCall({
+        target: "0x2::coin::destroy_zero",
+        typeArguments: [leg.type],
+        arguments: [one(leftover)],
+      });
+    }
+  }
+  return tx.moveCall({
+    target: pkg + "::basket::finish_mint",
+    typeArguments: [basketType],
+    arguments: [tx.object(opts.vaultId), one(receipt)],
+  });
+}

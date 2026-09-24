@@ -1504,12 +1504,14 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     var next = (state.liveBaskets || []).filter(function(b){
       return b && normType(b.type) !== normType(row.type);
     });
+    var prev = findLiveBasket(row.type) || findLiveBasket(row.ticker);
     next.push({
       ticker: String(row.ticker).toUpperCase(),
-      name: row.name || row.ticker,
+      name: row.name || (prev && prev.name) || row.ticker,
       type: row.type,
-      usd: Number(row.usd) || 0,
-      vaultId: row.vaultId || ""
+      usd: Number(row.usd) || (prev && Number(prev.usd)) || 0,
+      vaultId: row.vaultId || (prev && prev.vaultId) || "",
+      legs: (row.legs && row.legs.length) ? row.legs : ((prev && prev.legs) || [])
     });
     state.liveBaskets = next;
     try { localStorage.setItem("vice.baskets.v1", JSON.stringify(next)); } catch (e) {}
@@ -1747,11 +1749,15 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     }
     return null;
   }
+  function basketCanMint(q){
+    var saved = findLiveBasket(q);
+    return !!(window.ARENA_BASKET_PACKAGE && saved && saved.vaultId && saved.legs && saved.legs.length >= 2);
+  }
   function basketAsQuote(b){
     return {
       label: b.ticker,
       type: b.type,
-      decimals: 9,
+      decimals: 0,
       name: b.name || b.ticker,
       what: "Basket share",
       create: true,
@@ -1824,7 +1830,10 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   function firstBuyHint(){
     var rec = quoteRec(state.lQuote);
     var q = rec.label;
-    if (rec.basket) return "Spend "+q+" from this wallet on TOKEN/"+q+" before the pool is public. There is no SUI hop into the basket. 0 skips.";
+    if (rec.basket) {
+      if (basketCanMint(q)) return "Paid in SUI. The same transaction mints "+q+" from its vault, then buys TOKEN/"+q+" before the pool is public. 0 skips.";
+      return "Spend "+q+" from this wallet on TOKEN/"+q+" before the pool is public. There is no SUI hop into the basket. 0 skips.";
+    }
     if (q === "SUI") return "SUI swapped into TOKEN/SUI in the same transaction as seed, before the pool is public. 0 skips.";
     if (isStockQuote(q)) return "Spend "+q+" wrap from this wallet on TOKEN/"+q+" before the pool is public. Launch fee is still 1 SUI. 0 skips.";
     if (q === "USDY") return "Paid in SUI. Same tx hops SUI → USDC → USDY on Cetus, then buys TOKEN/USDY on Bluefin before the pool is public. 0 skips.";
@@ -8416,7 +8425,9 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       ? ("Pay 1 SUI launch fee. First buy of "+state.lFirstBuy+" "+payUnit+" lands in the same transaction as seed.")
       : "Pay 1 SUI launch fee. 0 quote LP.");
     if (!state.lNote && findLiveBasket(state.lQuote)){
-      note = "Paired with a basket share. A first buy spends that share from this wallet. There is no SUI hop into the basket.";
+      note = basketCanMint(state.lQuote)
+        ? "Paired with a basket share. A first buy mints that share from SUI in the same transaction."
+        : "Paired with a basket share. A first buy spends that share from this wallet. There is no SUI hop into the basket.";
     }
     return '<div class="shell" data-screen-label="Launch">'+
       '<div class="create-page">'+
@@ -11976,7 +11987,7 @@ async function doBridgeDeposit(){
               ticker: wantTick,
               symbol: wantTick.toUpperCase(),
               name: wantName,
-              decimals: TOKEN_DECIMALS,
+              decimals: 0,
               description: metaDesc,
               icon: state.lArtUrl || "",
               sender: suiSession.address
@@ -11991,7 +12002,7 @@ async function doBridgeDeposit(){
             ticker: wantTick,
             symbol: wantTick.toUpperCase(),
             name: wantName,
-            decimals: TOKEN_DECIMALS,
+            decimals: 0,
             description: metaDesc,
             icon: state.lArtUrl || ""
           });
@@ -12061,7 +12072,7 @@ async function doBridgeDeposit(){
         seedLegs.push({ type: leg.type, units: leg.units, coin: coinArg });
       }
       var seedMod = await loadBasketSeed();
-      var virtualQuote = toSmallestBig(basketHumanStr(INSTANT_START_USD / plan.usd, 9), 9);
+      var virtualQuote = toSmallestBig(basketHumanStr(INSTANT_START_USD / plan.usd, 0), 0);
       if (!(virtualQuote > 0n)) throw new Error("Instant open price rounds to zero. Raise dollars per share.");
       seedMod.appendBasketSeed(tx, {
         packageId: basketPkg,
@@ -12083,7 +12094,11 @@ async function doBridgeDeposit(){
         ticker: String(wantTick || "").toUpperCase(),
         name: wantName,
         type: coinType,
-        usd: plan.usd
+        usd: plan.usd,
+        vaultId: await basketVaultIdFromSeed(seedRes, seedDigest),
+        legs: planned.map(function(l){
+          return { q: l.q, type: l.type, units: l.units.toString(), decimals: l.decimals };
+        })
       });
       setLaunchNote("Basket seeded"+(seedDigest ? " · "+seedDigest.slice(0, 8) : "")+". It is now a paired asset.", false);
     } catch (err) {
@@ -12093,6 +12108,96 @@ async function doBridgeDeposit(){
       launching = false;
       if (btn){ btn.disabled = false; btn.textContent = launchBtnLabel(); }
     }
+  }
+  function basketVaultFromEvents(evs){
+    if (!evs || !evs.length) return "";
+    for (var i = 0; i < evs.length; i++){
+      var ev = evs[i] || {};
+      var t = String(ev.type || "");
+      var j = ev.parsedJson || (ev.contents && ev.contents.json) || {};
+      if (t.indexOf("BasketCreatedEvent") < 0) continue;
+      if (j.vault_id) return String(j.vault_id);
+    }
+    return "";
+  }
+  async function basketVaultIdFromSeed(result, digest){
+    var id = basketVaultFromEvents(result && result.events);
+    if (id) return id;
+    if (!digest) return "";
+    try {
+      var txr = await fetchPublishTx(digest);
+      id = basketVaultFromEvents(txr && txr.events);
+      if (id) return id;
+    } catch (e) {}
+    return "";
+  }
+  function basketLegDecimals(leg){
+    if (leg && leg.decimals != null && leg.decimals !== ""){
+      var n = Number(leg.decimals);
+      if (isFinite(n) && n >= 0) return n;
+    }
+    if (leg && leg.q) return Number(quoteRec(leg.q).decimals);
+    return 9;
+  }
+  function basketMintPlan(basket, shares){
+    var legsIn = basket && basket.legs;
+    if (!legsIn || legsIn.length < 2) return { error: "Basket recipe is missing" };
+    var plan = [];
+    var suiNeed = 0n;
+    for (var i = 0; i < legsIn.length; i++){
+      var leg = legsIn[i];
+      var pay;
+      try { pay = BigInt(leg.units) * BigInt(shares); }
+      catch (e) { return { error: "Basket recipe units are not a number" }; }
+      if (!(pay > 0n)) return { error: "Each basket asset needs units per share" };
+      var suiIn = 0n;
+      if (leg.q === "SUI") suiNeed += pay;
+      else {
+        var human = Number(pay) / Math.pow(10, basketLegDecimals(leg));
+        var px = quoteUsd(leg.q);
+        var suiPx = quoteUsd("SUI");
+        if (!(px > 0) || !(suiPx > 0)) return { error: "No USD price for "+leg.q };
+        suiIn = toSmallestBig(basketHumanStr(human * px / suiPx * 1.03, 9), 9);
+        if (!(suiIn > 0n)) return { error: "SUI amount for "+leg.q+" rounds to zero" };
+        suiNeed += suiIn;
+      }
+      plan.push({ q: leg.q, type: leg.type, pay: pay, suiIn: suiIn });
+    }
+    return { legs: plan, suiNeed: suiNeed };
+  }
+  async function basketFirstBuyCoin(tx, basket, shares){
+    var pkg = String(window.ARENA_BASKET_PACKAGE || "");
+    if (!pkg || !basket || !basket.vaultId || !basket.legs || basket.legs.length < 2){
+      return { tx: tx, coin: await takeSwapCoin(tx, basket.type, shares) };
+    }
+    var planned = basketMintPlan(basket, shares);
+    if (planned.error) throw new Error(planned.error);
+    var bal = await coinBalanceOf(suiSession.address, SUI_TYPE);
+    if (bal < planned.suiNeed) throw new Error("Need about "+fromBase(planned.suiNeed, 9).toFixed(3)+" SUI to mint the first buy.");
+    var legs = [];
+    for (var k = 0; k < planned.legs.length; k++){
+      var item = planned.legs[k];
+      var coinArg;
+      if (item.q === "SUI"){
+        var sp = tx.splitCoins(tx.gas, [txAmt(item.pay)]);
+        coinArg = Array.isArray(sp) ? sp[0] : sp;
+      } else {
+        var hopped = await hopSuiToQuoteOnTx(tx, item.q, item.suiIn);
+        tx = hopped.tx;
+        coinArg = hopped.coin;
+      }
+      legs.push({ type: item.type, coin: coinArg });
+    }
+    var mod = await loadBasketSeed();
+    var minted = mod.appendBasketMint(tx, {
+      packageId: pkg,
+      basketType: basket.type,
+      vaultId: basket.vaultId,
+      shares: shares,
+      sender: suiSession.address,
+      legs: legs
+    });
+    return { tx: tx, coin: Array.isArray(minted) ? minted[0] : minted };
   }
   async function doLaunch(){
     var btn = $("#launch-go");
@@ -12113,17 +12218,25 @@ async function doBridgeDeposit(){
       var launchQuote = launchRec.label;
       var stockBuy = isStockQuote(launchQuote);
       var spendQuote = !!(launchRec.basket || launchRec.stock);
-      var firstBuyDec = spendQuote ? (launchRec.decimals || 9) : 9;
+      var basketMint = !!(launchRec.basket && basketCanMint(launchQuote));
+      var firstBuyDec = 9;
+      if (spendQuote && launchRec.decimals != null && launchRec.decimals !== "") firstBuyDec = Number(launchRec.decimals);
       var firstBuy = toSmallestBig(state.lFirstBuy, firstBuyDec);
       state.lCoinMode = "create";
       var creating = true;
       if (firstBuy > 0n){
         var suiBal = await coinBalanceOf(suiSession.address, SUI_TYPE);
-        var suiNeed = BigInt(LAUNCH_FEE) + 400000000n + (spendQuote ? 0n : firstBuy);
-        if (suiBal < suiNeed){
-          throw new Error("Need about "+fromBase(suiNeed, 9).toFixed(2)+" SUI for the 1 SUI launch fee"+(stockBuy ? " and gas" : (launchQuote==="SUI" ? ", first buy, and gas" : ", hop, and gas"))+". This wallet has "+fromBase(suiBal, 9).toFixed(2)+" SUI.");
+        var suiNeed = BigInt(LAUNCH_FEE) + (basketMint ? 900000000n : 400000000n) + (spendQuote ? 0n : firstBuy);
+        if (basketMint){
+          var mintPlan = basketMintPlan(findLiveBasket(launchQuote), firstBuy);
+          if (mintPlan.error) throw new Error(mintPlan.error);
+          suiNeed += mintPlan.suiNeed;
         }
-        if (spendQuote){
+        if (suiBal < suiNeed){
+          var feeWhy = basketMint ? ", the basket mint, and gas" : (stockBuy ? " and gas" : (launchQuote==="SUI" ? ", first buy, and gas" : ", hop, and gas"));
+          throw new Error("Need about "+fromBase(suiNeed, 9).toFixed(2)+" SUI for the 1 SUI launch fee"+feeWhy+". This wallet has "+fromBase(suiBal, 9).toFixed(2)+" SUI.");
+        }
+        if (spendQuote && !basketMint){
           var qBal = await coinBalanceOf(suiSession.address, quoteRec(launchQuote).type);
           if (qBal < firstBuy){
             throw new Error("Need "+fromBaseStr(firstBuy, firstBuyDec)+" "+launchQuote+(isStockQuote(launchQuote)?" wrap":"")+" in this wallet for the first buy. "+(isStockQuote(launchQuote)?"Bridge it first, or s":"S")+"et first buy to 0. Wallet has "+fromBaseStr(qBal, firstBuyDec)+" "+launchQuote+".");
@@ -12280,7 +12393,7 @@ async function doBridgeDeposit(){
       }
       var tx = new Transaction();
       tx.setSender(suiSession.address);
-      if (typeof tx.setGasBudget === "function") tx.setGasBudget(firstBuy > 0n ? 400000000 : 200000000);
+      if (typeof tx.setGasBudget === "function") tx.setGasBudget(basketMint ? 900000000 : (firstBuy > 0n ? 400000000 : 200000000));
       var tokenArg = tx.object(tokenCoinId);
       var feeSplit = tx.splitCoins(tx.gas, [txAmt(LAUNCH_FEE)]);
       var feeArg = Array.isArray(feeSplit) ? feeSplit[0] : feeSplit;
@@ -12313,7 +12426,9 @@ async function doBridgeDeposit(){
           var buySplit = tx.splitCoins(tx.gas, [txAmt(firstBuy)]);
           buyArg = Array.isArray(buySplit) ? buySplit[0] : buySplit;
         } else if (findLiveBasket(launchQuote)){
-          buyArg = await takeSwapCoin(tx, Qtype, firstBuy);
+          var mintedBuy = await basketFirstBuyCoin(tx, findLiveBasket(launchQuote), firstBuy);
+          tx = mintedBuy.tx;
+          buyArg = mintedBuy.coin;
         } else if (stockBuy){
           buyArg = await takeSwapCoin(tx, Qtype, firstBuy);
         } else {

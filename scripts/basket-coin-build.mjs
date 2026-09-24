@@ -9,7 +9,7 @@ import { dirname, join } from "path";
 import { fileURLToPath } from "url";
 import { Transaction } from "@mysten/sui/transactions";
 import { build, TEMPLATE } from "../api/basket-coin-module.js";
-import { appendBasketSeed } from "../js/basket-seed.js";
+import { appendBasketSeed, appendBasketMint } from "../js/basket-seed.js";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const raw = Buffer.from(readFileSync(join(root, "api/basket-coin-template.b64"), "utf8").trim(), "base64");
@@ -115,5 +115,26 @@ const quotedRaw = await quoted.toJSON();
 const quotedJson = typeof quotedRaw === "string" ? quotedRaw : JSON.stringify(quotedRaw);
 if (!quotedJson.includes('"function": "finish_seed_with_quote"')) {
   throw new Error("quote seed missing finish_seed_with_quote");
+}
+
+const mintTx = new Transaction();
+mintTx.setSender(sender);
+const mSui = mintTx.splitCoins(mintTx.gas, [mintTx.pure.u64(2)]);
+const mOther = mintTx.splitCoins(mintTx.gas, [mintTx.pure.u64(5)]);
+appendBasketMint(mintTx, {
+  packageId: pkg,
+  basketType: "0x" + "33".repeat(32) + "::goldbag::GOLDBAG",
+  vaultId: "0x" + "77".repeat(32),
+  shares: 1n,
+  sender,
+  legs: [
+    { type: "0x2::sui::SUI", units: 2n, coin: Array.isArray(mSui) ? mSui[0] : mSui },
+    { type: "0x" + "55".repeat(32) + "::tcoin::TCOIN", units: 5n, coin: Array.isArray(mOther) ? mOther[0] : mOther },
+  ],
+});
+const mintRaw = await mintTx.toJSON();
+const mintJson = typeof mintRaw === "string" ? mintRaw : JSON.stringify(mintRaw);
+for (const fn of ["start_mint", "deposit", "finish_mint"]) {
+  if (!mintJson.includes(`"function": "${fn}"`)) throw new Error("mint tx missing " + fn);
 }
 console.log("basket coin + seed tx ok", mod.length);
