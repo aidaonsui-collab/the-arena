@@ -598,6 +598,17 @@ html[data-route="launch"] .search-row{display:none}
 .create-main{min-width:0;display:flex;flex-direction:column;gap:16px}
 .create-card{background:var(--card);border:1px solid color-mix(in srgb,var(--ink) 8%,transparent);border-radius:22px;padding:22px 22px 24px;box-shadow:none}
 .create-card h2{margin:0;font-size:20px;font-weight:700;letter-spacing:-.03em}
+.reward-panel{margin-top:18px;padding-top:16px;border-top:1px solid color-mix(in srgb,var(--ink) 8%,transparent)}
+.reward-panel h3{margin:2px 0 0;font-size:18px;font-weight:700;letter-spacing:-.03em}
+.reward-kicker{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--pink)}
+.reward-panel .create-sub{margin:8px 0 0}
+.reward-picks{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:14px}
+.reward-pick{display:flex;align-items:center;gap:10px;width:100%;border:1px solid var(--line);background:var(--well);border-radius:16px;padding:10px 12px;text-align:left;color:var(--muted);cursor:pointer}
+.reward-pick img,.reward-pick .q-logo{width:36px;height:36px;border-radius:12px;object-fit:cover;flex:none}
+.reward-pick b{display:block;color:var(--ink);font-size:14px;font-weight:700;letter-spacing:-.02em;text-transform:none}
+.reward-pick small{display:block;margin-top:1px;font-size:11px;letter-spacing:.04em;color:var(--muted)}
+.reward-pick.on{border-color:color-mix(in srgb,var(--pink) 50%,var(--line));background:color-mix(in srgb,var(--pink) 9%,var(--card));box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--pink) 35%,transparent)}
+.reward-note{margin:12px 0 0;font-size:12px;line-height:1.45;color:var(--muted)}
 .create-sub{margin:6px 0 18px;color:var(--muted);font-size:13px;line-height:1.45}
 .create-card label,.create-lab{display:block;font-size:13px;font-weight:600;color:var(--ink);letter-spacing:0;text-transform:none;margin:0 0 8px}
 .create-lab .opt,.create-lab .hint{font-weight:500;color:var(--muted);font-size:12px}
@@ -709,6 +720,9 @@ html[data-theme="pastel"] .pair-chip.on,html[data-theme="pastel"] .pair-cat.on,h
 }
 @media (max-width:560px){
   .create-card{padding:16px;border-radius:18px}
+  .reward-picks{gap:8px}
+  .reward-pick{padding:8px;gap:8px}
+  .reward-pick b{font-size:13px}
   .pair-chips{flex-wrap:nowrap;overflow-x:auto;padding-bottom:4px;-webkit-overflow-scrolling:touch}
   .pair-chip{flex:none}
   .create-page .quote-dd-btn .q-sel{display:none}
@@ -1271,6 +1285,11 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     var watchSaved = JSON.parse(localStorage.getItem("vice.watch.v1") || "[]");
     if (Array.isArray(watchSaved)) state.watch = watchSaved.map(String);
   } catch (e) { state.watch = []; }
+  state.liveBaskets = [];
+  try {
+    var basketSaved = JSON.parse(localStorage.getItem("vice.baskets.v1") || "[]");
+    if (Array.isArray(basketSaved)) state.liveBaskets = basketSaved.filter(function(b){ return b && b.ticker && b.type; });
+  } catch (e2) { state.liveBaskets = []; }
   var metaEdit = { open: false, saving: false, file: null, preview: "", artUrl: "", note: "", err: false, name: "", desc: "", x: "", tg: "", web: "", creator: "", openedCreator: "" };
   let hashLock = false;
   const hop = { suiPerXaum: null, suiPerUsdy: null, suiPerXagm: null, suiPerVicefun: null, suiPerAxol: null, suiPerLofi: null, suiPerManifest: null, usd: null, suiUsd: null, usdyUsd: null, xagmUsd: null, xaumUsd: null, vicefunUsd: null, axolUsd: null, lofiUsd: null, manifestUsd: null, walUsd: null, deepUsd: null, nsUsd: null, scaUsd: null, blueUsd: null, nvdaUsd: null, amcUsd: null, gmeUsd: null, tslaUsd: null, source: "" };
@@ -1329,7 +1348,8 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     { id:"all", label:"All", quotes: CREATE_QUOTES },
     { id:"sui", label:"Sui", quotes: ["SUI","VICEFUN","WAL","DEEP","NS","SCA","BLUE"] },
     { id:"rwa", label:"RWA", quotes: ["XAUM","XAGM","USDY"] },
-    { id:"memes", label:"Memes", quotes: ["AXOL","LOFI","MANIFEST"] }
+    { id:"memes", label:"Memes", quotes: ["AXOL","LOFI","MANIFEST"] },
+    { id:"basket", label:"Basket", quotes: [] }
   ];
   // Holder-yield / basket dashboard. Pit path is sunset for Rewards > 0.
   var REWARDS_CATS = [
@@ -1468,6 +1488,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     return !!(r && (r.soon || r.create === false) && r.stock);
   }
   function createQuoteOn(q){
+    if (findLiveBasket(q) || findLiveBasket(quoteRec(q).label)) return true;
     var lab = quoteRec(q).label;
     return CREATE_QUOTES.indexOf(lab) >= 0;
   }
@@ -1478,13 +1499,62 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     if (lab === "USDY") return "T-bills";
     return lab;
   }
+  function rememberLiveBasket(row){
+    if (!row || !row.ticker || !row.type) return;
+    var next = (state.liveBaskets || []).filter(function(b){
+      return b && normType(b.type) !== normType(row.type);
+    });
+    next.push({
+      ticker: String(row.ticker).toUpperCase(),
+      name: row.name || row.ticker,
+      type: row.type,
+      usd: Number(row.usd) || 0,
+      vaultId: row.vaultId || ""
+    });
+    state.liveBaskets = next;
+    try { localStorage.setItem("vice.baskets.v1", JSON.stringify(next)); } catch (e) {}
+  }
+  async function hydrateLiveBaskets(){
+    var pkg = String(window.ARENA_BASKET_PACKAGE || "");
+    if (!pkg || state.basketsHydrating) return;
+    state.basketsHydrating = true;
+    try {
+      var data = await gql(
+        "query($t:String!){ events(last:50, filter:{ type:$t }){ nodes { contents { json } } } }",
+        { t: pkg + "::basket::BasketCreatedEvent" }
+      );
+      var nodes = (data && data.events && data.events.nodes) || [];
+      nodes.forEach(function(n){
+        var j = (n.contents && n.contents.json) || {};
+        var type = typeNameStr(j.basket_type);
+        if (!type || type.indexOf("::") < 0) return;
+        var ticker = type.split("::").pop();
+        if (findLiveBasket(type)) return;
+        rememberLiveBasket({ ticker: ticker, name: ticker, type: type, usd: 0, vaultId: j.vault_id || "" });
+      });
+      if (state.route === "launch") paintQuoteCats();
+    } catch (e) {}
+    state.basketsHydrating = false;
+  }
+  function liveBasketTickers(){
+    var out = [];
+    (state.liveBaskets || []).forEach(function(b){
+      if (b && b.ticker && out.indexOf(b.ticker) < 0) out.push(b.ticker);
+    });
+    return out;
+  }
   function visibleCreateQuotes(){
     var id = state.lQuoteCat || "all";
+    if (id === "basket") return liveBasketTickers();
     var i;
+    var base = CREATE_QUOTES.slice();
     for (i = 0; i < CREATE_QUOTE_CATS.length; i++){
-      if (CREATE_QUOTE_CATS[i].id === id) return CREATE_QUOTE_CATS[i].quotes.slice();
+      if (CREATE_QUOTE_CATS[i].id === id){ base = CREATE_QUOTE_CATS[i].quotes.slice(); break; }
     }
-    return CREATE_QUOTES.slice();
+    if (id === "all"){
+      liveBasketTickers().forEach(function(t){ if (base.indexOf(t) < 0) base.push(t); });
+    }
+    return base;
   }
   function quoteCatHTML(){
     var cur = state.lQuoteCat || "all";
@@ -1514,10 +1584,22 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       '<div class="quote-dd-menu" role="listbox">'+
         '<input id="l-quote-search" type="search" placeholder="Filter quotes" autocomplete="off">'+
         items+
+        liveBasketTickers().map(function(q){
+          var r = quoteRec(q);
+          var on = state.lQuote === q;
+          return '<button type="button" class="quote-dd-item'+(on?" on":"")+'" data-set="lQuote" data-val="'+escAttr(q)+'">'+
+            quoteLogoHtml(q)+
+            '<span class="q-meta">'+escHtml(r.label)+'<small>Basket share</small></span>'+
+            '<span class="q-check">✓</span></button>';
+        }).join("")+
       '</div></div>';
   }
   function quoteChipsHTML(){
-    return '<div class="pair-chips" id="pair-chips">'+visibleCreateQuotes().map(function(q){
+    var quotes = visibleCreateQuotes();
+    if (!quotes.length && state.lQuoteCat === "basket"){
+      return '<div class="pair-chips" id="pair-chips"><span class="create-hint">No baskets yet. Create one on the Basket tab.</span></div>';
+    }
+    return '<div class="pair-chips" id="pair-chips">'+quotes.map(function(q){
       var on = state.lQuote === q;
       return '<button type="button" class="pair-chip'+(on?" on":"")+'" data-set="lQuote" data-val="'+q+'">'+
         quoteLogoHtml(q, "pair-chip-logo")+
@@ -1654,8 +1736,40 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     if (!raw || raw === "0x") return 0n;
     return BigInt(raw);
   }
+  function findLiveBasket(q){
+    var s = String(q || "");
+    var list = state.liveBaskets || [];
+    for (var i = 0; i < list.length; i++){
+      var b = list[i];
+      if (!b) continue;
+      if (String(b.ticker || "").toUpperCase() === s.toUpperCase()) return b;
+      if (b.type && normType(b.type) === normType(s)) return b;
+    }
+    return null;
+  }
+  function basketAsQuote(b){
+    return {
+      label: b.ticker,
+      type: b.type,
+      decimals: 9,
+      name: b.name || b.ticker,
+      what: "Basket share",
+      create: true,
+      basket: true,
+      chips: ["1","5","10","25","Max"],
+      virtualHuman: "≈ $4.5k",
+      pit: "",
+      color: "#FF2EA6",
+      logo: ""
+    };
+  }
   function quoteRec(q){
-    var lab = (Index && Index.quoteLabel) ? Index.quoteLabel(q) : String(q || "SUI");
+    var raw = String(q || "");
+    var direct = findLiveBasket(raw);
+    if (direct) return basketAsQuote(direct);
+    var lab = (Index && Index.quoteLabel) ? Index.quoteLabel(q) : (raw || "SUI");
+    var named = findLiveBasket(lab);
+    if (named) return basketAsQuote(named);
     return QUOTES[lab] || QUOTES.SUI;
   }
   function quoteDecimalsOf(q){ return quoteRec(q).decimals; }
@@ -3310,6 +3424,8 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     return tr > 0 ? Number(r.quote_real) / tr : 0;
   }
   function quoteUsd(q){
+    var basketPx = findLiveBasket(q);
+    if (basketPx && Number(basketPx.usd) > 0) return Number(basketPx.usd);
     q = String(q || "").toUpperCase();
     if (q === "USDY") return hop.usdyUsd > 0 ? hop.usdyUsd : 1;
     if (q === "XAGM") return hop.xagmUsd || 0;
@@ -6389,41 +6505,21 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     if (!force && q !== "SUI"){
       return '<div style="font-size:12px;color:var(--muted);margin-top:8px">Holder yield · Collect LP sends the Rewards slice in '+escHtml(q)+' wrap to holders of this token. The pit is sunset.</div>';
     }
-    var on = true;
-    var equal = state.lBasketEqual !== false;
-    var mode = Number(state.lBasketMode) || 0;
-    var chips = BASKET_RWA.map(function(lab){
+    state.lBasketEqual = true;
+    state.lBasketMode = 0;
+    var picks = BASKET_RWA.map(function(lab){
       var sel = !!(state.lBasketOn && state.lBasketOn[lab]);
-      var klass = lab === "XAUM" ? " quote-xaum" : (lab === "XAGM" ? " quote-xagm" : "");
-      return '<button type="button" class="pill'+klass+(sel?" on":"")+'" data-basket-asset="'+lab+'">'+lab+'</button>';
+      return '<button type="button" class="reward-pick'+(sel?" on":"")+'" data-basket-asset="'+lab+'">'+
+        quoteLogoHtml(lab, "reward-logo")+
+        '<span><b>'+escHtml(createQuoteLabel(lab))+'</b><small>'+escHtml(lab)+'</small></span>'+
+      '</button>';
     }).join("");
-    var bpsInputs = "";
-    if (on && !equal){
-      bpsInputs = '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px">'+BASKET_RWA.map(function(lab){
-        if (!(state.lBasketOn && state.lBasketOn[lab])) return "";
-        var v = (state.lBasketBps && state.lBasketBps[lab] != null) ? state.lBasketBps[lab] : 0;
-        return '<label style="font-size:11px;color:var(--muted)">'+lab+' %<input id="l-basket-bps-'+lab+'" data-basket-bps="'+lab+'" inputmode="decimal" value="'+escAttr(bpsToPct(v))+'" style="display:block;margin-top:4px;width:88px"></label>';
-      }).join("")+'</div>'+
-        '<div style="font-size:11px;color:var(--muted);margin-top:4px">Custom weights must sum to 100%.</div>';
-    }
-    return '<div style="margin-top:10px">'+
-      '<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between">'+
-        '<label style="margin:0">Basket rewards</label>'+
-        '<button type="button" class="pill on" disabled>On</button>'+
-      '</div>'+
-      (on
-        ? ('<div style="font-size:12px;color:var(--muted);margin-top:6px">Holders earn selected RWAs from Instant pit-bps (SUI quote stays). New baskets <strong style="color:var(--ink);font-weight:650">auto-distribute</strong> (push-mode) — no Claim. Pick 1–3 · equal or custom. All-at-once / rotating apply only if a vault is claim-mode.</div>'+
-           '<div class="pills" style="margin-top:8px">'+chips+'</div>'+
-           '<div class="pills" style="margin-top:8px">'+
-             '<button type="button" class="pill'+(equal?" on":"")+'" data-basket-equal="1">Equal</button>'+
-             '<button type="button" class="pill'+(!equal?" on":"")+'" data-basket-equal="0">Custom bps</button>'+
-           '</div>'+
-           '<div class="pills" style="margin-top:8px">'+
-             '<button type="button" class="pill'+(mode===0?" on":"")+'" data-basket-mode="0">All-at-once</button>'+
-             '<button type="button" class="pill'+(mode===1?" on":"")+'" data-basket-mode="1">Rotating</button>'+
-           '</div>'+
-           '<div style="font-size:11px;color:var(--muted);margin-top:6px">Payout style (claim-mode only). Live push vaults skip Claim entirely.</div>'+bpsInputs)
-        : '<div style="font-size:12px;color:var(--muted);margin-top:6px">Off · standard Instant (pit collect). Toggle on for v2 basket yield.</div>')+
+    return '<div class="reward-panel">'+
+      '<div class="reward-kicker">Holder rewards</div>'+
+      '<h3>Gold, silver, and T-bills</h3>'+
+      '<p class="create-sub">An equal split, paid out together. Fees are pushed to holders automatically.</p>'+
+      '<div class="reward-picks">'+picks+'</div>'+
+      '<p class="reward-note">Leave at least one on. The share of each is equal.</p>'+
     '</div>';
   }
   var SPLIT_PRESETS = {
@@ -8312,6 +8408,9 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     var note = state.lNote || (Number(state.lFirstBuy)>0
       ? ("Pay 1 SUI launch fee. First buy of "+state.lFirstBuy+" "+payUnit+" lands in the same transaction as seed.")
       : "Pay 1 SUI launch fee. 0 quote LP.");
+    if (!state.lNote && findLiveBasket(state.lQuote)){
+      note = "Paired with a basket share. A first buy spends that share from this wallet. There is no SUI hop into the basket.";
+    }
     return '<div class="shell" data-screen-label="Launch">'+
       '<div class="create-page">'+
       '<div class="create-head">'+
@@ -11365,6 +11464,7 @@ async function doBridgeDeposit(){
     const map = {explore:exploreHTML, pit:pitHTML, token:tokenHTML, launch:launchHTML, metrics:metricsHTML, bridge:bridgeHTML, lock:vicelockHTML};
     host.innerHTML = (map[state.route] || exploreHTML)();
     if (state.route === "launch" && state.createKind === "basket") paintBasketCost();
+    if (state.route === "launch") hydrateLiveBaskets();
     stopLivingHero();
     var ticketSlot = host.querySelector("#swap-box.ticket-cetus");
     if (keepTicket && ticketSlot && keepSwapSym && keepSwapSym === String(state.sym || "").toUpperCase()){
@@ -11972,7 +12072,13 @@ async function doBridgeDeposit(){
       var seedRes = await walletExec(tx);
       var seedDigest = txDigest(seedRes);
       state.bCapId = "";
-      setLaunchNote("Basket seeded"+(seedDigest ? " · "+seedDigest.slice(0, 8) : "")+".", false);
+      rememberLiveBasket({
+        ticker: String(wantTick || "").toUpperCase(),
+        name: wantName,
+        type: coinType,
+        usd: plan.usd
+      });
+      setLaunchNote("Basket seeded"+(seedDigest ? " · "+seedDigest.slice(0, 8) : "")+". It is now a paired asset.", false);
     } catch (err) {
       var msg = (err && err.message) ? err.message : String(err || "Basket create failed");
       setLaunchNote(msg, true);
@@ -12197,6 +12303,8 @@ async function doBridgeDeposit(){
         if (launchQuote === "SUI"){
           var buySplit = tx.splitCoins(tx.gas, [txAmt(firstBuy)]);
           buyArg = Array.isArray(buySplit) ? buySplit[0] : buySplit;
+        } else if (findLiveBasket(launchQuote)){
+          buyArg = await takeSwapCoin(tx, Qtype, firstBuy);
         } else if (stockBuy){
           buyArg = await takeSwapCoin(tx, Qtype, firstBuy);
         } else {
@@ -12227,11 +12335,13 @@ async function doBridgeDeposit(){
           state.lBasketEqual = true;
         }
         state.lBasket = true;
+        state.lBasketEqual = true;
+        state.lBasketMode = 0;
         var legs = normalizeBasketBps(basketSelectedLegs());
         if (!legs.length) throw new Error("Pick 1–3 basket assets (XAUM · XAGM · USDY)");
         if (legs.length > 3) throw new Error("Basket supports at most 3 assets");
-        var equal = state.lBasketEqual !== false;
-        var mode = Number(state.lBasketMode) || 0;
+        var equal = true;
+        var mode = 0;
         var weightArgs = legs.map(function(leg){ return txPure(tx, "u64", txAmt(leg.bps)); });
         weightArgs.push(txPure(tx, "bool", equal));
         weightArgs.push(txPure(tx, "u8", mode));
@@ -13131,11 +13241,13 @@ async function doBridgeDeposit(){
         });
       } else if (String(q).toUpperCase() === "SUI"){
         state.lBasket = true;
+        state.lBasketEqual = true;
+        state.lBasketMode = 0;
         var legs = normalizeBasketBps(basketSelectedLegs());
         if (!legs.length) throw new Error("Pick 1–3 basket assets (XAUM · XAGM · USDY)");
         if (legs.length > 3) throw new Error("Basket supports at most 3 assets");
-        var equal = state.lBasketEqual !== false;
-        var mode = Number(state.lBasketMode) || 0;
+        var equal = true;
+        var mode = 0;
         var weightArgs = legs.map(function(leg){ return txPure(tx, "u64", txAmt(leg.bps)); });
         weightArgs.push(txPure(tx, "bool", equal));
         weightArgs.push(txPure(tx, "u8", mode));
@@ -13634,18 +13746,6 @@ async function doBridgeDeposit(){
       var countOn = BASKET_RWA.filter(function(x){ return x === labA ? nextOn : state.lBasketOn[x]; }).length;
       if (!nextOn && countOn < 1) return;
       state.lBasketOn[labA] = nextOn;
-      if (state.route === "launch" || state.route === "token") renderScreen();
-      return;
-    }
-    const basketEqual = e.target.closest("[data-basket-equal]");
-    if (basketEqual){
-      state.lBasketEqual = basketEqual.getAttribute("data-basket-equal") !== "0";
-      if (state.route === "launch" || state.route === "token") renderScreen();
-      return;
-    }
-    const basketMode = e.target.closest("[data-basket-mode]");
-    if (basketMode){
-      state.lBasketMode = Number(basketMode.getAttribute("data-basket-mode")) || 0;
       if (state.route === "launch" || state.route === "token") renderScreen();
       return;
     }
