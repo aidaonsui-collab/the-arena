@@ -11954,6 +11954,8 @@ async function doBridgeDeposit(){
         seedLegs.push({ type: leg.type, units: leg.units, coin: coinArg });
       }
       var seedMod = await loadBasketSeed();
+      var virtualQuote = toSmallestBig(basketHumanStr(INSTANT_START_USD / plan.usd, 9), 9);
+      if (!(virtualQuote > 0n)) throw new Error("Instant open price rounds to zero. Raise dollars per share.");
       seedMod.appendBasketSeed(tx, {
         packageId: basketPkg,
         basketType: coinType,
@@ -11961,6 +11963,8 @@ async function doBridgeDeposit(){
         seedShares: seed,
         depositCap: cap,
         sender: paySui ? suiSession.address : "",
+        configId: window.ARENA_CONFIG,
+        virtualQuote: virtualQuote,
         legs: seedLegs
       });
       if (btn) btn.textContent = "Sign 2 of 2 · seed vault…";

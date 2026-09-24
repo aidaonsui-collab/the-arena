@@ -267,6 +267,15 @@ public fun set_instant_virtual_quote<Q>(config: &mut Config, _: &AdminCap, v: u6
     }
 }
 
+/// First Instant open price for a new basket share. Does not overwrite a quote
+/// admin already calibrated, and does not require AdminCap in the creator PTB.
+public(package) fun add_instant_virtual_quote_once<Q>(config: &mut Config, v: u64) {
+    assert!(v > 0, errors::zero_amount());
+    let key = InstantVirtualQuoteKey<Q> {};
+    assert!(!df::exists(&config.id, key), errors::quote_taken());
+    df::add(&mut config.id, key, v);
+}
+
 public fun take_platform<Q>(config: &mut Config, fee: Balance<Q>) {
     if (fee.value() == 0) {
         fee.destroy_zero();

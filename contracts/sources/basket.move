@@ -6,6 +6,7 @@
 /// refuses to take supply below `seed_shares`.
 module arena::basket;
 
+use arena::config::{Self, Config};
 use std::type_name::{Self, TypeName};
 use sui::balance::{Self, Balance};
 use sui::coin::{Self, Coin, TreasuryCap};
@@ -150,9 +151,30 @@ public fun deposit<BASKET, T>(
 }
 
 public fun finish_seed<BASKET>(
-    mut vault: BasketVault<BASKET>,
+    vault: BasketVault<BASKET>,
     receipt: MintReceipt<BASKET>,
 ) {
+    transfer::share_object(complete_seed(vault, receipt));
+}
+
+/// Same seed as `finish_seed`, and writes the Instant open price for this share
+/// coin once. Later launches read `config::instant_virtual_quote` instead of
+/// the 0.01-unit fallback.
+public fun finish_seed_with_quote<BASKET>(
+    config: &mut Config,
+    vault: BasketVault<BASKET>,
+    receipt: MintReceipt<BASKET>,
+    virtual_quote: u64,
+) {
+    let vault = complete_seed(vault, receipt);
+    config::add_instant_virtual_quote_once<BASKET>(config, virtual_quote);
+    transfer::share_object(vault);
+}
+
+fun complete_seed<BASKET>(
+    mut vault: BasketVault<BASKET>,
+    receipt: MintReceipt<BASKET>,
+): BasketVault<BASKET> {
     assert!(receipt.seed, E_NOT_SEED);
     consume_mint_receipt(&vault, receipt);
     let seed_shares = vault.seed_shares;
@@ -166,7 +188,7 @@ public fun finish_seed<BASKET>(
         seed_shares: vault.seed_shares,
         deposit_cap: vault.deposit_cap,
     });
-    transfer::share_object(vault);
+    vault
 }
 
 public fun start_mint<BASKET>(

@@ -3,6 +3,7 @@ module arena::basket_tests;
 
 use arena::basket::{Self, BasketVault};
 use arena::bcoin::{Self, BCOIN};
+use arena::config::{Self, Config};
 use arena::tcoin::TCOIN;
 use arena::tcoin2::TCOIN2;
 use std::type_name;
@@ -213,6 +214,40 @@ fun test_deposit_cap_aborts() {
         basket::destroy_receipt_for_testing(receipt);
         ts::return_shared(vault);
     };
+    scenario.end();
+}
+
+#[test]
+fun test_seed_with_quote_sets_instant_open() {
+    let mut scenario = ts::begin(ADMIN);
+    config::init_for_testing(scenario.ctx());
+    scenario.next_tx(ADMIN);
+    let mut config = scenario.take_shared<Config>();
+    assert!(config.instant_virtual_quote<BCOIN>() == 10_000_000, 0);
+    let (cap, meta) = bcoin::treasury(scenario.ctx());
+    transfer::public_freeze_object(meta);
+    let (mut vault, mut receipt) = basket::create<BCOIN>(cap, recipe_sui_tcoin(), 10, 100, scenario.ctx());
+    seal(&mut vault, &mut receipt, scenario.ctx());
+    basket::finish_seed_with_quote(&mut config, vault, receipt, 4_500_000_000_000);
+    assert!(config.instant_virtual_quote<BCOIN>() == 4_500_000_000_000, 1);
+    ts::return_shared(config);
+    scenario.end();
+}
+
+#[test]
+#[expected_failure(abort_code = 48)]
+fun test_seed_quote_cannot_be_set_twice() {
+    let mut scenario = ts::begin(ADMIN);
+    config::init_for_testing(scenario.ctx());
+    scenario.next_tx(ADMIN);
+    let mut config = scenario.take_shared<Config>();
+    let (cap, meta) = bcoin::treasury(scenario.ctx());
+    transfer::public_freeze_object(meta);
+    let (mut vault, mut receipt) = basket::create<BCOIN>(cap, recipe_sui_tcoin(), 10, 100, scenario.ctx());
+    seal(&mut vault, &mut receipt, scenario.ctx());
+    basket::finish_seed_with_quote(&mut config, vault, receipt, 4_500_000_000_000);
+    config::add_instant_virtual_quote_once<BCOIN>(&mut config, 1);
+    ts::return_shared(config);
     scenario.end();
 }
 

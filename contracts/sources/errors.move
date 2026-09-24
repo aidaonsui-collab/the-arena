@@ -71,6 +71,8 @@ const E_NO_YIELD_TO_DETACH: u64 = 45;
 const E_USE_PUSH_DISTRIBUTE: u64 = 46;
 /// Nothing to push (zero amount or pot too small).
 const E_NOTHING_TO_PUSH: u64 = 47;
+/// Instant virtual quote for this type is already set.
+const E_QUOTE_TAKEN: u64 = 48;
 
 public fun paused(): u64 { E_PAUSED }
 public fun invalid_fee(): u64 { E_INVALID_FEE }
@@ -119,4 +121,5 @@ public fun yield_mode_conflict(): u64 { E_YIELD_MODE_CONFLICT }
 public fun no_yield_to_detach(): u64 { E_NO_YIELD_TO_DETACH }
 public fun use_push_distribute(): u64 { E_USE_PUSH_DISTRIBUTE }
 public fun nothing_to_push(): u64 { E_NOTHING_TO_PUSH }
+public fun quote_taken(): u64 { E_QUOTE_TAKEN }
 

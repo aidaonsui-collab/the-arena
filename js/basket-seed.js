@@ -75,9 +75,17 @@ export function appendBasketSeed(tx, opts) {
       });
     }
   }
-  tx.moveCall({
-    target: pkg + "::basket::finish_seed",
-    typeArguments: [basketType],
-    arguments: [vault, receipt],
-  });
+  if (opts.virtualQuote && opts.configId) {
+    tx.moveCall({
+      target: pkg + "::basket::finish_seed_with_quote",
+      typeArguments: [basketType],
+      arguments: [tx.object(opts.configId), vault, receipt, pureU64(tx, opts.virtualQuote)],
+    });
+  } else {
+    tx.moveCall({
+      target: pkg + "::basket::finish_seed",
+      typeArguments: [basketType],
+      arguments: [vault, receipt],
+    });
+  }
 }

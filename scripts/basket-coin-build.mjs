@@ -91,4 +91,29 @@ const zapRaw = await zap.toJSON();
 const zapJson = typeof zapRaw === "string" ? zapRaw : JSON.stringify(zapRaw);
 if (zapJson.includes('"function": "destroy_zero"')) throw new Error("swap seed must return surplus");
 if (!zapJson.includes("TransferObjects")) throw new Error("swap seed missing surplus transfer");
+if (!zapJson.includes('"function": "finish_seed"')) throw new Error("plain seed missing finish_seed");
+if (zapJson.includes("finish_seed_with_quote")) throw new Error("plain seed should not register a quote");
+
+const quoted = new Transaction();
+quoted.setSender(sender);
+const qSui = quoted.splitCoins(quoted.gas, [quoted.pure.u64(2_000)]);
+const qOther = quoted.splitCoins(quoted.gas, [quoted.pure.u64(5_000)]);
+appendBasketSeed(quoted, {
+  packageId: pkg,
+  basketType: "0x" + "33".repeat(32) + "::goldbag::GOLDBAG",
+  treasuryId: "0x" + "44".repeat(32),
+  configId: "0x" + "66".repeat(32),
+  virtualQuote: 4_500_000_000_000n,
+  seedShares: 1000n,
+  depositCap: 1_000_000n,
+  legs: [
+    { type: "0x2::sui::SUI", units: 2n, coin: Array.isArray(qSui) ? qSui[0] : qSui },
+    { type: "0x" + "55".repeat(32) + "::tcoin::TCOIN", units: 5n, coin: Array.isArray(qOther) ? qOther[0] : qOther },
+  ],
+});
+const quotedRaw = await quoted.toJSON();
+const quotedJson = typeof quotedRaw === "string" ? quotedRaw : JSON.stringify(quotedRaw);
+if (!quotedJson.includes('"function": "finish_seed_with_quote"')) {
+  throw new Error("quote seed missing finish_seed_with_quote");
+}
 console.log("basket coin + seed tx ok", mod.length);
