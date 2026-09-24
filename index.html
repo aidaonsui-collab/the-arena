@@ -3591,6 +3591,10 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   function fromQuoteAmt(raw, q){
     return fromBase(raw, quoteDecimalsOf(q));
   }
+  function humanQuote(raw, q){
+    if (quoteRec(q).basket) return fromQuoteAmt(raw, q);
+    return fromMist(raw);
+  }
   function fillMcUsd(r, q){
     const tok = fromMist(r && r.token_amount);
     const quote = fromQuoteAmt(r && r.quote_amount, q);
@@ -5785,7 +5789,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   function footerHTML(){
     return '<footer class="footer">'+
       '<div><div class="brand-name" style="margin-bottom:8px">vice.</div>'+
-        '<p style="margin:0;max-width:42ch">Fair launches on Sui. Instant seeds Bluefin in block one. T-bills hop Cetus. Quote is SUI, USDY, XAGM, or XAUM. LP locked forever.</p></div>'+
+        '<p style="margin:0;max-width:42ch">Fair launches on Sui. Instant seeds Bluefin in block one. Pair with SUI, gold, silver, T-bills, or a basket share. LP locked forever.</p></div>'+
       '<div><h4>Product</h4><div data-go="explore">The Strip</div><div data-go="pit">Distributions</div><div data-go="metrics">Books</div><div data-go="lock">Vicelock</div><div data-go="launch">Create</div><a href="https://x.com/ViceFun" target="_blank" rel="noopener">X</a></div>'+
       '<div><h4>Fees</h4>Bluefin 2% on the pair (keeps 20%).<br>Our 80% quote split: 5% platform + 5% VICE buyback minimum, rest creator/rewards. Rewards go to holders on Collect LP.<br>Bridge 1%. Token-side LP fees burn.</div></footer>';
   }
@@ -11494,6 +11498,13 @@ async function doBridgeDeposit(){
     });
     return rows;
   }
+  function basketChartUnits(q){
+    var rec = quoteRec(q);
+    if (!rec || !rec.basket) return { price: 1, volume: 1e9 };
+    var d = Number(rec.decimals);
+    if (!isFinite(d) || d < 0) d = 0;
+    return { price: Math.pow(10, 9 - d), volume: Math.pow(10, d) };
+  }
   function tvBars(sym, intervalMs){
     const tk = findT(sym || state.sym);
     if (!Index || !Index.toCandles) return [];
@@ -11502,13 +11513,14 @@ async function doBridgeDeposit(){
       const hist = Index.generateDemoHistory([tk]);
       trades = hist.trades || [];
     }
+    var units = basketChartUnits(poolQuote(tk));
     return Index.toCandles(trades, intervalMs || 60000).map(function(c){
       const t = Number(c.time);
       const ms = t > 0 && t < 1e12 ? t * 1000 : t;
       return {
         time: ms,
-        open: c.open, high: c.high, low: c.low, close: c.close,
-        volume: fromMist(c.volume)
+        open: c.open * units.price, high: c.high * units.price, low: c.low * units.price, close: c.close * units.price,
+        volume: Number(c.volume) / units.volume
       };
     });
   }
@@ -11742,7 +11754,7 @@ async function doBridgeDeposit(){
     });
     const q = l.quoteLabel || (Index ? Index.quoteLabel(l.quote) : "SUI");
     noteBasketQuote(l.quote, q);
-    const cap = fromMist(l.quote_amount) || 0;
+    const cap = humanQuote(l.quote_amount, q) || 0;
     if (!tk){
       tk = {
         t: sym || "TOK",
@@ -11977,7 +11989,7 @@ async function doBridgeDeposit(){
   function applyLiveTrade(ev){
     const k = T.find(function(t){ return matchesPool(ev, t); });
     if (!k) return;
-    const amt = fromMist(ev.quote_amount);
+    const amt = humanQuote(ev.quote_amount, poolQuote(k));
     const gold = poolQuote(k) !== "SUI";
     k.buckets[11] += gold ? amt * 40 : amt; k.fbuckets[11] += 1;
     if (isDexBout(k)){

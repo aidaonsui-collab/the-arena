@@ -9,7 +9,7 @@ import { dirname, join } from "path";
 import { fileURLToPath } from "url";
 import { Transaction } from "@mysten/sui/transactions";
 import { build, TEMPLATE } from "../api/basket-coin-module.js";
-import { appendBasketSeed, appendBasketMint, appendBasketRedeem, legsFromVaultContent, redeemPayout, sharesFromSuiBudget, vaultShareFields, balanceTypeFromFieldType, balanceAmountFromField } from "../js/basket-seed.js";
+import { appendBasketSeed, appendBasketMint, appendBasketRedeem, legsFromVaultContent, redeemPayout, sharesFromSuiBudget, chartUnitsForQuoteDecimals, vaultShareFields, balanceTypeFromFieldType, balanceAmountFromField } from "../js/basket-seed.js";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const raw = Buffer.from(readFileSync(join(root, "api/basket-coin-template.b64"), "utf8").trim(), "base64");
@@ -178,6 +178,12 @@ if ((redeemJson.split('"function": "withdraw"').length - 1) !== 2) throw new Err
 if (!/TransferObjects/i.test(redeemJson)) throw new Error("redeem tx should return the assets");
 if (redeemPayout(7, 1, 3) !== 2n) throw new Error("redeem payout should floor");
 if (sharesFromSuiBudget(1_000_000_000n, 99_266_670n) !== 10n) throw new Error("sui budget should buy whole shares");
+const nine = chartUnitsForQuoteDecimals(9);
+const whole = chartUnitsForQuoteDecimals(0);
+if (nine.price !== 1 || nine.volume !== 1e9) throw new Error("9-decimal quote should stay raw");
+if (whole.price !== 1e9 || whole.volume !== 1) throw new Error("whole-share quote scale");
+const basketMc = (10 / 1e15) * whole.price * 1e9 * 1;
+if (basketMc !== 10000) throw new Error("basket candle market cap");
 if (sharesFromSuiBudget(50n, 99n) !== 0n) throw new Error("a short budget buys no share");
 if (redeemPayout(0, 1, 3) !== 0n) throw new Error("empty balance pays 0");
 const shares = vaultShareFields({ fields: { total_shares: "150", seed_shares: "100" } });

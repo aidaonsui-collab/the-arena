@@ -161,6 +161,14 @@ export function appendBasketRedeem(tx, opts) {
   });
 }
 
+/// Candle prices are raw quote/token. A 9-decimal quote cancels.
+/// A 0-decimal share needs 10^(9-decimals) on price and 10^decimals on volume.
+export function chartUnitsForQuoteDecimals(decimals) {
+  const d = Number(decimals);
+  const dec = Number.isFinite(d) && d >= 0 ? d : 9;
+  return { price: 10 ** (9 - dec), volume: 10 ** dec };
+}
+
 /// Whole shares affordable when each share costs `suiPerShare` base units.
 export function sharesFromSuiBudget(suiBudget, suiPerShare) {
   const budget = BigInt(suiBudget);
