@@ -1797,10 +1797,15 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     var mark = quoteMarkUrl(rec);
     return ' style="--quote-logo:url(\''+escAttr(rec.logo)+'\');--quote-mark:url(\''+escAttr(mark)+'\');--quote-tint:'+escAttr(rec.color||'#1c101c')+'"';
   }
+  function launchSpendsQuote(){
+    var rec = quoteRec(state.lQuote);
+    return !!(rec && (rec.basket || rec.stock));
+  }
   function firstBuyPreview(){
     var buy = Number(state.lFirstBuy);
     if (!(buy > 0)) return "0 skips the first buy.";
-    var q = isStockQuote(state.lQuote) ? quoteRec(state.lQuote).label : "SUI";
+    var rec0 = quoteRec(state.lQuote);
+    var q = (rec0.basket || rec0.stock) ? rec0.label : "SUI";
     var u = quoteUsd(q);
     if (!(u > 0)) return "Estimate loads with "+q+" price…";
     var buyUsd = buy * u * 0.98;
@@ -1817,7 +1822,9 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     if (el) el.textContent = firstBuyPreview();
   }
   function firstBuyHint(){
-    var q = quoteRec(state.lQuote).label;
+    var rec = quoteRec(state.lQuote);
+    var q = rec.label;
+    if (rec.basket) return "Spend "+q+" from this wallet on TOKEN/"+q+" before the pool is public. There is no SUI hop into the basket. 0 skips.";
     if (q === "SUI") return "SUI swapped into TOKEN/SUI in the same transaction as seed, before the pool is public. 0 skips.";
     if (isStockQuote(q)) return "Spend "+q+" wrap from this wallet on TOKEN/"+q+" before the pool is public. Launch fee is still 1 SUI. 0 skips.";
     if (q === "USDY") return "Paid in SUI. Same tx hops SUI → USDC → USDY on Cetus, then buys TOKEN/USDY on Bluefin before the pool is public. 0 skips.";
@@ -1835,7 +1842,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       '<li>Indefinite LP lock</li>'+
       '<li>TOKEN/'+q+' · ≈ $4.5k start</li>'+
       '<li>1 SUI launch fee</li>'+
-      '<li>First buy in '+(quoteRec(q).stock ? q : "SUI")+'</li>'+
+      '<li>First buy in '+((quoteRec(q).stock || quoteRec(q).basket) ? q : "SUI")+'</li>'+
     '</ul>';
   }
   var SDK_URLS = [
@@ -8398,7 +8405,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     state.lPath = "instadex";
     state.lCoinMode = "create";
     var q = quoteRec(state.lQuote);
-    var payUnit = isStockQuote(state.lQuote) ? q.label : "SUI";
+    var payUnit = launchSpendsQuote() ? q.label : "SUI";
     var descLen = String(state.lDesc || "").length;
     var socialsOn = !!state.lSocialsOpen;
     var me = suiSession.address;
@@ -12102,19 +12109,21 @@ async function doBridgeDeposit(){
       if (!suiSession.address) await connectWallet();
       var capId = (state.lCap || "").trim();
       var tokenCoinId = (state.lTokenCoin || "").trim();
-      var launchQuote = quoteRec(state.lQuote).label;
+      var launchRec = quoteRec(state.lQuote);
+      var launchQuote = launchRec.label;
       var stockBuy = isStockQuote(launchQuote);
-      var firstBuyDec = stockBuy ? quoteDecimalsOf(launchQuote) : 9;
+      var spendQuote = !!(launchRec.basket || launchRec.stock);
+      var firstBuyDec = spendQuote ? (launchRec.decimals || 9) : 9;
       var firstBuy = toSmallestBig(state.lFirstBuy, firstBuyDec);
       state.lCoinMode = "create";
       var creating = true;
       if (firstBuy > 0n){
         var suiBal = await coinBalanceOf(suiSession.address, SUI_TYPE);
-        var suiNeed = BigInt(LAUNCH_FEE) + 400000000n + (stockBuy ? 0n : firstBuy);
+        var suiNeed = BigInt(LAUNCH_FEE) + 400000000n + (spendQuote ? 0n : firstBuy);
         if (suiBal < suiNeed){
           throw new Error("Need about "+fromBase(suiNeed, 9).toFixed(2)+" SUI for the 1 SUI launch fee"+(stockBuy ? " and gas" : (launchQuote==="SUI" ? ", first buy, and gas" : ", hop, and gas"))+". This wallet has "+fromBase(suiBal, 9).toFixed(2)+" SUI.");
         }
-        if (stockBuy){
+        if (spendQuote){
           var qBal = await coinBalanceOf(suiSession.address, quoteRec(launchQuote).type);
           if (qBal < firstBuy){
             throw new Error("Need "+fromBaseStr(firstBuy, firstBuyDec)+" "+launchQuote+(isStockQuote(launchQuote)?" wrap":"")+" in this wallet for the first buy. "+(isStockQuote(launchQuote)?"Bridge it first, or s":"S")+"et first buy to 0. Wallet has "+fromBaseStr(qBal, firstBuyDec)+" "+launchQuote+".");
