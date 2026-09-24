@@ -953,6 +953,8 @@ html[data-route="explore"] main{padding-top:10px;padding-bottom:24px}
 .scr-hot{font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--bg);background:var(--pink);border-radius:999px;padding:2px 6px}
 .scr-coin-meta{display:flex;align-items:center;flex-wrap:wrap;gap:6px;color:var(--muted);font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:11px;font-weight:500}
 .scr-quote-logo{width:14px;height:14px;border-radius:50%;object-fit:cover;flex:none;display:block;background:color-mix(in srgb,var(--ink) 8%,transparent)}
+.scr-quote-name{display:inline-flex;align-items:center;gap:3px;min-width:0;max-width:92px;color:var(--muted);font-size:10px;font-weight:650;letter-spacing:.01em}
+.scr-quote-name em{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-style:normal}
 .col-rew{width:92px;min-width:80px}
 .scr-rew{display:inline-flex;align-items:center;justify-content:flex-end}
 .scr-rew-logo{width:18px;height:18px;border-radius:50%;object-fit:cover;display:block;flex:none;border:1.5px solid var(--card);background:var(--lift)}
@@ -1608,7 +1610,10 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
         changed = true;
       }
     } catch (e) {}
-    if ((changed || attempted) && state.route === "token"){
+    if ((changed || attempted) && state.route === "explore"){
+      paintScreenerQuotes();
+      paintExploreList();
+    } else if ((changed || attempted) && state.route === "token"){
       renderScreen();
     } else if (state.route === "launch" && state.createKind === "basket" && state.bView === "redeem" && (changed || attempted)){
       renderScreen();
@@ -1617,6 +1622,33 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       if (state.createKind !== "basket") paintBasketQuoteCopy();
     }
     state.basketsHydrating = false;
+  }
+  function screenerQuotes(){
+    var out = SCR_QUOTES.slice();
+    liveBasketTickers().forEach(function(q){
+      if (q && out.indexOf(q) < 0) out.push(q);
+    });
+    return out;
+  }
+  function paintScreenerQuotes(){
+    var sel = $("#scr-quote");
+    if (!sel) return;
+    var cur = state.scrQuote || "All";
+    var quotes = screenerQuotes();
+    sel.innerHTML = quotes.map(function(q){
+      return '<option value="'+escAttr(q)+'">'+(q==="All"?"All quotes":q)+'</option>';
+    }).join("");
+    if (quotes.indexOf(cur) < 0) cur = "All";
+    state.scrQuote = cur;
+    sel.value = cur;
+  }
+  function scrQuoteMark(q, withName){
+    var rec = quoteRec(q);
+    var logo = quoteLogoHtml(q, "scr-quote-logo");
+    if (withName && rec && rec.basket && !quoteLogoUrl(q)){
+      return '<span class="scr-quote-name" title="'+escAttr("Basket share · "+q)+'">'+logo+'<em>'+escHtml(q)+'</em></span>';
+    }
+    return '<span title="'+escAttr(q)+'">'+logo+'</span>';
   }
   function liveBasketTickers(){
     var out = [];
@@ -3342,6 +3374,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   }
   function paintExploreList(){
     if (state.route !== "explore") return;
+    paintScreenerQuotes();
     var board = $("#scr-board");
     if (board){
       var all = T.filter(function(k){ return !isHiddenToken(k); }).map(scrRow);
@@ -6284,7 +6317,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       '<td class="col-rank">'+rank+'</td>'+
       '<td class="col-coin"><div class="scr-coin">'+scrStarBtn(r.ticker, r.watched)+scrAv(r.k, 32)+
         '<div class="scr-coin-copy"><div class="scr-coin-name">'+escHtml(r.name)+hot+'</div>'+
-        '<div class="scr-coin-meta">$'+escHtml(r.ticker)+'<span title="'+escAttr(r.quote)+'">'+quoteLogoHtml(r.quote, "scr-quote-logo")+'</span>'+(String(r.ticker).toUpperCase()==="VICEFUN"?'<span class="scr-coin-tag">platform token</span>':'')+'</div></div></div></td>'+
+        '<div class="scr-coin-meta">$'+escHtml(r.ticker)+scrQuoteMark(r.quote, true)+(String(r.ticker).toUpperCase()==="VICEFUN"?'<span class="scr-coin-tag">platform token</span>':'')+'</div></div></div></td>'+
       '<td class="col-tape">'+scrSpark(r.pts, up)+'</td>'+
       '<td class="col-mcap">'+scrFmtCompact(r.mcap)+'<div class="chg '+(up?"up":"down")+'">'+scrChgText(r.ch)+'</div></td>'+
       '<td class="col-age">'+scrFmtAgeH(r.ageH)+'</td>'+
@@ -6301,7 +6334,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     var hot = r.status === "Graduating" ? '<span class="scr-hot">Hot</span>' : "";
     return '<article class="mrow" data-go="token:'+escAttr(r.ticker)+'">'+
       '<div class="mrow-id"><span class="mrow-rank">'+rank+'</span>'+scrAv(r.k, 44)+
-        '<div class="mrow-copy"><div class="mrow-tick"><span class="mrow-sym">'+escHtml(r.ticker)+'</span><span title="'+escAttr(r.quote)+'">'+quoteLogoHtml(r.quote, "scr-quote-logo")+'</span>'+hot+'</div><div class="mrow-name">'+(String(r.ticker).toUpperCase()==="VICEFUN"?"platform token":escHtml(r.name))+'</div></div>'+
+        '<div class="mrow-copy"><div class="mrow-tick"><span class="mrow-sym">'+escHtml(r.ticker)+'</span>'+scrQuoteMark(r.quote)+hot+'</div><div class="mrow-name">'+(String(r.ticker).toUpperCase()==="VICEFUN"?"platform token":escHtml(r.name)+(quoteRec(r.quote).basket?" · "+escHtml(r.quote):""))+'</div></div>'+
         scrStarBtn(r.ticker, r.watched)+'</div>'+
       '<div class="mrow-spark">'+scrSpark(r.pts, up, 108, 44)+'</div>'+
       '<div class="mrow-cell"><span class="mrow-k">Mcap</span>'+scrFmtCompact(r.mcap)+'<span class="chg '+(up?"up":"down")+'">'+scrChgText(r.ch)+'</span></div>'+
@@ -6350,8 +6383,8 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     var empty = !rows.length
       ? '<div class="scr-empty" id="scr-empty"><h2>'+(tab==="watch"?"Nothing on your rail":"No pairs match")+'</h2><p>'+(tab==="watch"?"Star a pair to keep it here.":"Try another quote, clear filters, or search a different ticker.")+'</p></div>'
       : "";
-    var quotes = SCR_QUOTES.map(function(q){
-      return '<option value="'+q+'"'+(state.scrQuote===q?" selected":"")+'>'+(q==="All"?"All quotes":q)+'</option>';
+    var quotes = screenerQuotes().map(function(q){
+      return '<option value="'+escAttr(q)+'"'+(state.scrQuote===q?" selected":"")+'>'+(q==="All"?"All quotes":escHtml(q))+'</option>';
     }).join("");
     return '<div data-screen-label="The Strip" id="scr-board" class="shell scr">'+
       '<div class="scr-launch-row"><button type="button" class="scr-launch" data-go="launch">Launch</button></div>'+
@@ -11826,7 +11859,7 @@ async function doBridgeDeposit(){
       if (state.bView === "redeem") paintBasketRedeem();
       else paintBasketCost();
     }
-    if (state.route === "launch" || state.route === "token") hydrateLiveBaskets();
+    if (state.route === "launch" || state.route === "token" || state.route === "explore") hydrateLiveBaskets();
     stopLivingHero();
     var ticketSlot = host.querySelector("#swap-box.ticket-cetus");
     if (keepTicket && ticketSlot && keepSwapSym && keepSwapSym === String(state.sym || "").toUpperCase()){
