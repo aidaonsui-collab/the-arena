@@ -8822,14 +8822,16 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     const canCollect = !!(tk.lockId && tk.bluefinPool);
     const alt = q !== "SUI";
     const stockQ = isStockQuote(q);
-    if (stockQ) state.payWith = q;
+    const basketQ = !!findLiveBasket(q);
+    const suiLocked = stockQ || (basketQ && !basketCanMint(q));
+    if (suiLocked) state.payWith = q;
     const buyOn = state.side !== "Sell";
     const payAsset = buyOn ? (alt && state.payWith === "SUI" ? "SUI" : q) : tk.t;
     const recvAsset = buyOn ? tk.t : (alt && state.payWith === "SUI" ? "SUI" : q);
     const amtVal = escAttr(state.amt || (alt && state.payWith !== "SUI" ? quoteRec(q).chips[0] : "1"));
     const payToggle = alt
       ? '<div class="chips" id="pay-route" style="margin-top:10px">'+
-          '<div data-pay="SUI" class="'+(stockQ?"disabled":(state.payWith==="SUI"?"on":""))+'"'+(stockQ?' aria-disabled="true" title="This pool is TOKEN/'+escAttr(q)+'. Pay with '+escAttr(q)+' wrap."':'')+'>'+(buyOn?"Pay SUI":"Get SUI")+'</div>'+
+          '<div data-pay="SUI" class="'+(suiLocked?"disabled":(state.payWith==="SUI"?"on":""))+'"'+(suiLocked?' aria-disabled="true" title="'+(basketQ?"This pool is TOKEN/"+escAttr(q)+". Pay with the basket share until its vault recipe is available.":"This pool is TOKEN/"+escAttr(q)+". Pay with "+escAttr(q)+" wrap.")+'"':'')+'>'+(buyOn?"Pay SUI":(basketCanMint(q)?"Redeem":"Get SUI"))+'</div>'+
           '<div data-pay="'+escAttr(q)+'"'+(state.payWith!=="SUI"?' class="on"':'')+'>'+(buyOn?"Pay "+q:"Get "+q)+'</div>'+
         '</div>'
       : '<div id="pay-route" style="display:none"></div>';
@@ -8859,9 +8861,13 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       '<div style="margin-top:10px;text-align:center;font-size:11px;color:var(--muted)">'+
         (stockQ
           ? ('Swaps this '+escHtml(tk.t)+'/'+escHtml(q)+' pool on Bluefin. Pay with '+escHtml(q)+' wrap.')
+          : (basketQ
+            ? (basketCanMint(q)
+              ? 'Pay SUI mints the basket share from its vault, then swaps this pool. Redeem returns the recipe.'
+              : 'This pool trades the basket share. SUI pay waits until the vault recipe is available.')
           : (q === "SUI" || isSuiHopQuote(q)
             ? 'Routes 7k aggregator across Sui DEXs, then this Instant pool. Powered by 7K Aggregator.'
-            : 'Swaps this pool on Bluefin. Optional SUI hop if you toggle it.'))+
+            : 'Swaps this pool on Bluefin. Optional SUI hop if you toggle it.')))+
         ' LP locked forever. Anyone can collect. Token-side fees burn.'+
         (tk.bluefinPool ? ' · <a href="https://trade.bluefin.io/swap?pool='+escAttr(tk.bluefinPool)+'" target="_blank" rel="noopener">Bluefin</a>' : '')+
       '</div>'+
@@ -11142,8 +11148,23 @@ async function doBridgeDeposit(){
   function swapNeedsHop(tk){
     return altQuote(tk) && state.payWith === "SUI";
   }
+  function basketSharesForSui(basket, suiMist){
+    var one = basketMintPlan(basket, 1n);
+    if (one.error) return { error: one.error };
+    if (!(one.suiNeed > 0n)) return { error: "Cannot price one share" };
+    var budget = BigInt(suiMist);
+    var shares = budget / one.suiNeed;
+    if (!(shares > 0n)) return { error: "That SUI amount is below one " + (basket.ticker || "share") + "." };
+    var plan = basketMintPlan(basket, shares);
+    if (plan.error) return { error: plan.error };
+    return { shares: shares, suiNeed: plan.suiNeed };
+  }
   function hopPathText(tk){
     var q = poolQuote(tk);
+    if (basketCanMint(q)){
+      if (state.side === "Buy") return "SUI → mint " + q + " → " + tk.t;
+      return tk.t + " → " + q + " → recipe";
+    }
     if (q === "USDY"){
       if (state.side === "Buy") return "SUI → USDC → USDY (Cetus) → " + tk.t;
       return tk.t + " → USDY → USDC (Cetus) → SUI";
@@ -11202,9 +11223,12 @@ async function doBridgeDeposit(){
       $$("[data-pay]", route).forEach(function(el){
         var isSui = el.getAttribute("data-pay") === "SUI";
         var stockQ = isStockQuote(q);
-        el.classList.toggle("disabled", !!(isSui && stockQ));
-        el.classList.toggle("on", stockQ ? !isSui : (el.getAttribute("data-pay") === (state.payWith === "SUI" ? "SUI" : q)));
-        el.textContent = buyOn ? (isSui ? "Pay SUI" : "Pay "+q) : (isSui ? "Get SUI" : "Get "+q);
+        var suiLocked = stockQ || (!!findLiveBasket(q) && !basketCanMint(q));
+        el.classList.toggle("disabled", !!(isSui && suiLocked));
+        if (isSui && suiLocked) el.setAttribute("aria-disabled", "true");
+        else el.removeAttribute("aria-disabled");
+        el.classList.toggle("on", suiLocked ? !isSui : (el.getAttribute("data-pay") === (state.payWith === "SUI" ? "SUI" : q)));
+        el.textContent = buyOn ? (isSui ? "Pay SUI" : "Pay "+q) : (isSui ? (basketCanMint(q) ? "Redeem" : "Get SUI") : "Get "+q);
       });
     }
     const chipHost = $("#amt-chips");
@@ -11226,7 +11250,7 @@ async function doBridgeDeposit(){
       if (hopEl) hopEl.textContent = swapQuote.error;
     } else if (swapQuote && swapQuote.amountOut){
       const outN = fromBase(swapQuote.amountOut, swapOutDecimals(tk));
-      if (rec) rec.textContent = (swapQuote.estimated ? "~ " : "") + fmtSwapAmt(outN) + " " + outAsset;
+      if (rec) rec.textContent = swapQuote.receiveText || ((swapQuote.estimated ? "~ " : "") + fmtSwapAmt(outN) + " " + outAsset);
       if (venue) venue.textContent = venueLabel(swapQuote);
       const hops = (swapQuote.hops && swapQuote.hops.length) ? swapQuote.hops.join(" → ") : "";
       if (hopRow) hopRow.style.display = hops || swapNeedsHop(tk) ? "" : "none";
@@ -13151,11 +13175,85 @@ async function doBridgeDeposit(){
     if (j && j.ok && j.amountOut && String(j.amountOut) !== "0") return j;
     throw new Error((j && j.error) || "No aggregator route");
   }
+  async function quoteBasketSwap(tk, amount, seq){
+    var qLab = poolQuote(tk);
+    var basket = findLiveBasket(qLab);
+    if (!basket || !basketCanMint(qLab)){
+      swapQuote = { error: "This basket cannot be minted from SUI yet." };
+      paintSwapBox();
+      return;
+    }
+    var insta;
+    try { insta = await poolSnap(tk.bluefinPool); }
+    catch (err) {
+      if (seq !== swapQuoteSeq) return;
+      swapQuote = { error: (err && err.message) ? err.message : "Pool unavailable" };
+      paintSwapBox();
+      return;
+    }
+    if (seq !== swapQuoteSeq) return;
+    if (state.side !== "Sell"){
+      var priced = basketSharesForSui(basket, amount);
+      if (priced.error){
+        swapQuote = { error: priced.error };
+        paintSwapBox();
+        return;
+      }
+      var outAmt = estimatePoolOut(insta, quoteTypeOf(tk), priced.shares);
+      swapQuote = {
+        venue: "bluefin",
+        amountIn: String(amount),
+        amountOut: outAmt > 0n ? String(outAmt) : "",
+        hops: [priced.shares.toString() + " " + qLab + " minted from " + fromBase(priced.suiNeed, 9).toFixed(3) + " SUI", tk.t + " pool"],
+        hopOut: priced.shares.toString() + " " + qLab + " from " + fromBase(priced.suiNeed, 9).toFixed(3) + " SUI",
+        estimated: true,
+        pending: !(outAmt > 0n),
+        basketMint: true,
+        basketShares: priced.shares.toString()
+      };
+      paintSwapBox();
+      return;
+    }
+    if (!(Number(insta.coinB) > 0)){
+      swapQuote = { error: "No quote in the pool yet. A buy has to land first.", venue: "bluefin" };
+      paintSwapBox();
+      return;
+    }
+    var shareOut = estimatePoolOut(insta, tokenTypeOf(tk), amount);
+    if (!(shareOut > 0n)){
+      swapQuote = { error: "This sell returns no basket shares." };
+      paintSwapBox();
+      return;
+    }
+    var receiveText = shareOut.toString() + " " + qLab + ", then the recipe";
+    try {
+      var snap = await loadBasketVaultSnap(basket);
+      if (seq !== swapQuoteSeq) return;
+      var preview = redeemPreviewText(basket, shareOut, snap, null);
+      if (preview) receiveText = preview;
+    } catch (e) {}
+    if (seq !== swapQuoteSeq) return;
+    swapQuote = {
+      venue: "bluefin",
+      amountIn: String(amount),
+      amountOut: String(shareOut),
+      hops: [tk.t + " pool", qLab + " → recipe"],
+      receiveText: receiveText,
+      estimated: true,
+      basketRedeem: true,
+      basketShares: shareOut.toString()
+    };
+    paintSwapBox();
+  }
   async function fetchSwapQuote(){
     var tk = findT(state.sym);
     if (!tk || !tk.bluefinPool || state.route !== "token") return;
     var seq = ++swapQuoteSeq;
     var amount = humanToBase(state.amt, swapPayDecimals(tk));
+    if (amount > 0n && basketCanMint(poolQuote(tk)) && state.payWith === "SUI"){
+      quoteBasketSwap(tk, amount, seq);
+      return;
+    }
     if (amount <= 0n){
       swapQuote = { error: "Enter an amount" };
       paintSwapBox();
@@ -13522,6 +13620,30 @@ async function doBridgeDeposit(){
         var stockUsdcSui = await loadUsdcSuiPool();
         outCoin = cetusHop(tx, stockUsdcSui, usdc, stockUsdcOut);
       }
+    } else if (findLiveBasket(q) && basketCanMint(q)){
+      var basket = findLiveBasket(q);
+      if (state.side === "Buy"){
+        var priced = basketSharesForSui(basket, amount);
+        if (priced.error) throw new Error(priced.error);
+        if (typeof tx.setGasBudget === "function") tx.setGasBudget(900000000);
+        var minted = await basketFirstBuyCoin(tx, basket, priced.shares);
+        tx = minted.tx;
+        outCoin = bluefinHop(tx, insta, Qtype, minted.coin, minOut);
+      } else {
+        if (typeof tx.setGasBudget === "function") tx.setGasBudget(400000000);
+        var tokBasket = await takeSwapCoin(tx, tokenTypeOf(tk), amount);
+        var shareCoin = bluefinHop(tx, insta, tokenTypeOf(tk), tokBasket, 0);
+        var redeemMod = await loadBasketSeed();
+        redeemMod.appendBasketRedeem(tx, {
+          packageId: String(window.ARENA_BASKET_PACKAGE || ""),
+          basketType: basket.type,
+          vaultId: basket.vaultId,
+          sender: suiSession.address,
+          sharesCoin: shareCoin,
+          legs: basket.legs.map(function(leg){ return { type: leg.type }; })
+        });
+        outCoin = null;
+      }
     } else if (q === "VICEFUN"){
       var viceHop = await loadVicefunSuiPool();
       if (state.side === "Buy"){
@@ -13571,7 +13693,7 @@ async function doBridgeDeposit(){
         outCoin = cetusHop(tx, usdcSui, usdc, usdcOut);
       }
     }
-    tx.transferObjects([outCoin], suiSession.address);
+    if (outCoin) tx.transferObjects([outCoin], suiSession.address);
     return walletExecSigned(tx);
   }
   async function swapVia7k(tk, amount){
@@ -14091,7 +14213,7 @@ async function doBridgeDeposit(){
     if (pay){
       if (pay.classList.contains("disabled") || pay.getAttribute("aria-disabled") === "true") return;
       var payQ = poolQuote(state.sym);
-      if (isStockQuote(payQ) && pay.getAttribute("data-pay") === "SUI") return;
+      if ((isStockQuote(payQ) || (findLiveBasket(payQ) && !basketCanMint(payQ))) && pay.getAttribute("data-pay") === "SUI") return;
       state.payWith = pay.getAttribute("data-pay");
       if (state.route === "token" && isDexBout(findT(state.sym))){
         state.amt = state.payWith === "SUI" ? "1" : quoteRec(poolQuote(state.sym)).chips[0];

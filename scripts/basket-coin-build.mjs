@@ -9,7 +9,7 @@ import { dirname, join } from "path";
 import { fileURLToPath } from "url";
 import { Transaction } from "@mysten/sui/transactions";
 import { build, TEMPLATE } from "../api/basket-coin-module.js";
-import { appendBasketSeed, appendBasketMint, appendBasketRedeem, legsFromVaultContent, redeemPayout, vaultShareFields, balanceTypeFromFieldType, balanceAmountFromField } from "../js/basket-seed.js";
+import { appendBasketSeed, appendBasketMint, appendBasketRedeem, legsFromVaultContent, redeemPayout, sharesFromSuiBudget, vaultShareFields, balanceTypeFromFieldType, balanceAmountFromField } from "../js/basket-seed.js";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const raw = Buffer.from(readFileSync(join(root, "api/basket-coin-template.b64"), "utf8").trim(), "base64");
@@ -177,6 +177,8 @@ for (const fn of ["start_redeem", "withdraw", "finish_redeem"]) {
 if ((redeemJson.split('"function": "withdraw"').length - 1) !== 2) throw new Error("redeem tx should withdraw both assets");
 if (!/TransferObjects/i.test(redeemJson)) throw new Error("redeem tx should return the assets");
 if (redeemPayout(7, 1, 3) !== 2n) throw new Error("redeem payout should floor");
+if (sharesFromSuiBudget(1_000_000_000n, 99_266_670n) !== 10n) throw new Error("sui budget should buy whole shares");
+if (sharesFromSuiBudget(50n, 99n) !== 0n) throw new Error("a short budget buys no share");
 if (redeemPayout(0, 1, 3) !== 0n) throw new Error("empty balance pays 0");
 const shares = vaultShareFields({ fields: { total_shares: "150", seed_shares: "100" } });
 if (shares.total !== "150" || shares.seed !== "100") throw new Error("vault share fields");

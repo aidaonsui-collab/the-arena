@@ -161,6 +161,14 @@ export function appendBasketRedeem(tx, opts) {
   });
 }
 
+/// Whole shares affordable when each share costs `suiPerShare` base units.
+export function sharesFromSuiBudget(suiBudget, suiPerShare) {
+  const budget = BigInt(suiBudget);
+  const one = BigInt(suiPerShare);
+  if (budget <= 0n || one <= 0n) return 0n;
+  return budget / one;
+}
+
 /// Floor of balance * shares / supply. Dust stays in the vault.
 export function redeemPayout(balance, shares, supply) {
   const b = BigInt(balance);
