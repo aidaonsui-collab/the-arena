@@ -1084,6 +1084,8 @@ window.ARENA_PACKAGE_ID = "0x5cfddf8ba23be6835644a8ea22482ff6ebb0081e42cc1bc052b
 window.ARENA_INSTADEX_PACKAGE = "0xcf7835ae4e3f8a3d4eb4bd9d14cb4a3dbdd80e70908feb6c433688a31e119de3";
 window.ARENA_COLLECT_PACKAGE = "0x1c808e5fe7f14703a72cae3cd71ebba98b3a9a97dc530feed6222595bfb4a853";
 window.ARENA_CALL_PACKAGE = window.ARENA_COLLECT_PACKAGE;
+// arena::basket is in this repo and not on mainnet until the next Arena upgrade.
+window.ARENA_BASKET_PACKAGE = window.ARENA_BASKET_PACKAGE || "";
 // Compatible-upgrade event types keep the package id that first defined them.
 window.ARENA_HOLDER_YIELD_EVENT_PACKAGE = "0xe2dee7a21e382d47d8f13e39801c86987a88e9ebd5fb8801efd1b974e4e4d9a2"; // v11 launch/fund/claim
 window.ARENA_HOLDER_YIELD_PUSH_EVENT_PACKAGE = "0x97158e99b999f8e7ad729d1e7de8c10e4f3550f25557a392fbca3296b000a984"; // HolderYieldPushEvent origin
@@ -1263,7 +1265,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   let balance = 48.60;
   let xaumBal = 2.40;
 
-  const state = {route:"explore", sym:"VOLT", filter:"All", sort:"Market cap", time:"All", side:"Buy", amt:"1", connected:false, search:"", lName:"", lTick:"", lQuote:"SUI", lPath:"instadex", lMode:"Holders", lTokenAmt:"", lQuoteAmt:"", lFirstBuy:"1", lCap:"", lTokenCoin:"", lQuoteCoin:"", lCoinMode:"create", lDecimals:"9", lSupply:"1000000000", lDesc:"", lX:"", lTg:"", lWeb:"", lPublishedType:"", metricsWindow:"All", tapeTab:"trades", tapeOpen:"", tapePage:0, tapeAge:"age", tapeWallet:"", tapeFilterOpen:false, lFile:null, lArtUrl:"", lArtPreview:"", payWith:"", lNote:"", lNoteErr:false, chartTf:900, chartInd:{vol:true,ma7:false,ma25:false,ma99:false,ema:false}, bridgeTick:"NVDA", bridgeAmt:"", bridgeDir:"in", bridgeRhDest:"", bridgeNote:"", bridgeBusy:false, bridgePending:[], walletCheck:null, quoteOpen:false, rewardsTab:"all", lBasket:false, lBasketEqual:true, lBasketMode:0, lBasketOn:{XAUM:true,XAGM:true,USDY:true}, lBasketBps:{XAUM:3334,XAGM:3333,USDY:3333}, lSplitPreset:"vice", lSplit:{creator:6000,platform:500,rewards:3000,buyback:500}, lSocialsOpen:false, lQuoteCat:"all", pfRange:"1M", pfFlash:"", lockTab:"create", lockKind:"lock", lockTok:"", lockAmt:"", lockDays:"30", lockSelf:"self", lockBen:"", lockCliff:"90", lockEnd:"365", lockNote:"", lockNoteErr:false, lockBusy:false, lockMine:[], lockAll:[], lockLoad:false, scrTab:"mcap", scrSort:"mcap", scrDir:-1, scrQuote:"All", scrBuyUsd:5, scrLiveOnly:false, scrFilters:false, watch:[]};
+  const state = {route:"explore", sym:"VOLT", filter:"All", sort:"Market cap", time:"All", side:"Buy", amt:"1", connected:false, search:"", lName:"", lTick:"", lQuote:"SUI", lPath:"instadex", lMode:"Holders", lTokenAmt:"", lQuoteAmt:"", lFirstBuy:"1", lCap:"", lTokenCoin:"", lQuoteCoin:"", lCoinMode:"create", lDecimals:"9", lSupply:"1000000000", lDesc:"", lX:"", lTg:"", lWeb:"", lPublishedType:"", metricsWindow:"All", tapeTab:"trades", tapeOpen:"", tapePage:0, tapeAge:"age", tapeWallet:"", tapeFilterOpen:false, lFile:null, lArtUrl:"", lArtPreview:"", payWith:"", lNote:"", lNoteErr:false, chartTf:900, chartInd:{vol:true,ma7:false,ma25:false,ma99:false,ema:false}, bridgeTick:"NVDA", bridgeAmt:"", bridgeDir:"in", bridgeRhDest:"", bridgeNote:"", bridgeBusy:false, bridgePending:[], walletCheck:null, quoteOpen:false, rewardsTab:"all", lBasket:false, lBasketEqual:true, lBasketMode:0, lBasketOn:{XAUM:true,XAGM:true,USDY:true}, lBasketBps:{XAUM:3334,XAGM:3333,USDY:3333}, lSplitPreset:"vice", lSplit:{creator:6000,platform:500,rewards:3000,buyback:500}, lSocialsOpen:false, lQuoteCat:"all", createKind:"token", bLegs:[{q:"SUI", units:"1"},{q:"XAUM", units:"0.01"}], bSeed:"1000", bCap:"1000000", bCapId:"", bCoinType:"", pfRange:"1M", pfFlash:"", lockTab:"create", lockKind:"lock", lockTok:"", lockAmt:"", lockDays:"30", lockSelf:"self", lockBen:"", lockCliff:"90", lockEnd:"365", lockNote:"", lockNoteErr:false, lockBusy:false, lockMine:[], lockAll:[], lockLoad:false, scrTab:"mcap", scrSort:"mcap", scrDir:-1, scrQuote:"All", scrBuyUsd:5, scrLiveOnly:false, scrFilters:false, watch:[]};
 
   try {
     var watchSaved = JSON.parse(localStorage.getItem("vice.watch.v1") || "[]");
@@ -1741,6 +1743,8 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   // ticker `gladius` gives module `gladius` and struct `GLADIUS`.
   // ---------------------------------------------------------------------------
   var COIN_TEMPLATE_B64 = "oRzrCwcAAAUKAQAMAgwkAzAzBGMOBXGBAQfyAdsBCM0DYAatBCAKzQQFDNIEYgATAQ4CBwIUAhUCFgADAgABAgcBAAACAAwBAAECAQwBAAECBAwBAAEEBQIABQYHAAAKAAEAAQ0BBQEAARIHBQEAAggJCgECAgsLDAEAAw8HAQEMAxARAQEMBBEODwAFDAYEAAEEAgQDCAQIBQ0GEAYSAggABwgFAAYKAgsBAQgGCwEBCAYLAwEIAAsCAQgACwQBCAABAgEIBgELAQEJAAEKAgEJAAEIAAcJAAIKAgoCCgILAQEIBgcIBQILBAEJAAsDAQkAAwcLBAEJAAMHCAUBCwIBCQABCwMBCAABBggFAQUBCwQBCAACCQAFAQsCAQgABENvaW4MQ29pbk1ldGFkYXRhBk9wdGlvbghURU1QTEFURQtUcmVhc3VyeUNhcAlUeENvbnRleHQDVXJsBGNvaW4PY3JlYXRlX2N1cnJlbmN5C2R1bW15X2ZpZWxkBGluaXQEbWludBVuZXdfdW5zYWZlX2Zyb21fYnl0ZXMEbm9uZQZvcHRpb24UcHVibGljX2ZyZWV6ZV9vYmplY3QPcHVibGljX3RyYW5zZmVyBnNlbmRlcgRzb21lCHRlbXBsYXRlCHRyYW5zZmVyCnR4X2NvbnRleHQDdXJsAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACAgEJAwgAgMakfo0DAAoCAgFTCgICAU4KAgEACgICAS0AAgEJAQAAAAACLAcFDAIOAkEDBgIAAAAAAAAAIwQKOAAMAwUOBwURCDgBDAMLAwwECwAHAAcCBwMHBAsECgE4AgwFDAcNBwcBCgE4AwwGCwU4BAsHCgEuEQc4BQsGCwEuEQc4BgIAAA==";
+  // contracts/basket-coin. init freezes metadata and returns the TreasuryCap. It does not mint.
+  var BASKET_COIN_B64 = "oRzrCwcAAAUKAQAMAgweAyotBFcKBWFlB8YB0QEIlwNgBvcDFgqNBAUMkgRPABEBDAIGAhICEwIUAAICAAEBBwEAAAIADAEAAQIDDAEAAQQEAgAFBQcAAAkAAQABCwEFAQABEAcFAQACBwkKAQIDDQcBAQwDDg8BAQwEDwwNAAUKBgQAAQQCBAMIBAsFDgIIAAcIBAAFCgILAQEIBQsBAQgFCwIBCAALAwEIAAECAQgFAQsBAQkAAQoCAQkAAQgABwkAAgoCCgIKAgsBAQgFBwgEAgsDAQkACwIBCQABCwIBCAABBggEAQUBCwMBCAACCQAFDENvaW5NZXRhZGF0YQZPcHRpb24IVEVNUExBVEULVHJlYXN1cnlDYXAJVHhDb250ZXh0A1VybARjb2luD2NyZWF0ZV9jdXJyZW5jeQtkdW1teV9maWVsZARpbml0FW5ld191bnNhZmVfZnJvbV9ieXRlcwRub25lBm9wdGlvbhRwdWJsaWNfZnJlZXplX29iamVjdA9wdWJsaWNfdHJhbnNmZXIGc2VuZGVyBHNvbWUIdGVtcGxhdGUIdHJhbnNmZXIKdHhfY29udGV4dAN1cmwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAICAQkKAgIBUwoCAgFOCgIBAAoCAgEtAAIBCAEAAAAAAiIHBAwCDgJBAwYCAAAAAAAAACMECjgADAMFDgcEEQc4AQwDCwMMBAsABwAHAQcCBwMLBAoBOAIMBQwGCwU4AwsGCwEuEQY4BAIAAA==";
   var TPL_VERSION = "0.4.1";
   var TPL_URLS = [
     "https://esm.sh/@mysten/move-bytecode-template@" + TPL_VERSION,
@@ -1861,6 +1865,27 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     return { bytes: bytes, ident: ident, upper: upper };
   }
 
+  function buildBasketCoinModule(tpl, opts){
+    var ident = tickerToIdent(opts.ticker);
+    if (!ident) throw new Error("Ticker must contain at least one letter or digit");
+    var upper = ident.toUpperCase();
+    var bytes = tpl.update_identifiers(b64ToBytes(BASKET_COIN_B64), {
+      TEMPLATE: upper,
+      template: ident
+    });
+    bytes = tpl.update_constants(bytes, bcsU8(opts.decimals), bcsU8(TPL_DEFAULTS.decimals), "U8");
+    var vecs = uniquifyVecs(opts.symbol, opts.name, opts.description || "", opts.icon || "");
+    bytes = tpl.update_constants(bytes, bcsString(vecs.symbol), bcsString(TPL_DEFAULTS.symbol), "Vector(U8)");
+    bytes = tpl.update_constants(bytes, bcsString(vecs.name), bcsString(TPL_DEFAULTS.name), "Vector(U8)");
+    bytes = tpl.update_constants(bytes, bcsString(vecs.description), bcsString(TPL_DEFAULTS.description), "Vector(U8)");
+    bytes = tpl.update_constants(bytes, bcsString(vecs.icon), bcsString(TPL_DEFAULTS.icon), "Vector(U8)");
+    bytes = bytes instanceof Uint8Array ? new Uint8Array(bytes) : new Uint8Array(bytes);
+    if (bytes.length < 64 || bytes[0] !== 0xa1 || bytes[1] !== 0x1c || bytes[2] !== 0xeb || bytes[3] !== 0x0b){
+      throw new Error("Patched basket coin bytecode is not a valid Move module. Reload and try again.");
+    }
+    return { bytes: bytes, ident: ident, upper: upper };
+  }
+
   function txDigest(result){
     if (!result) return "";
     if (typeof result === "string") return result;
@@ -1949,7 +1974,8 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     );
     return data && data.transaction;
   }
-  async function waitForPublish(digest, ident){
+  async function waitForPublish(digest, ident, opts){
+    var needCoin = !opts || opts.needCoin !== false;
     var last = "";
     for (var i = 0; i < 20; i++){
       try {
@@ -1964,8 +1990,8 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
           }
           var made = readPublishResult(tx, ident);
           made.digest = digest;
-          if (made.packageId && made.capId && made.coinId) return made;
-          if (made.packageId) last = "package "+made.packageId.slice(0,10)+" indexed, waiting on TreasuryCap/Coin";
+          if (made.packageId && made.capId && (!needCoin || made.coinId)) return made;
+          if (made.packageId) last = "package "+made.packageId.slice(0,10)+" indexed, waiting on TreasuryCap"+(needCoin ? "/Coin" : "");
         }
       } catch (e) {
         last = (e && e.message) ? e.message : String(e);
@@ -2286,6 +2312,10 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   function launchBtnLabel(){
     if (launching) return "Launching…";
     if (!hasSuiWallet() && !suiSession.address) return "No Sui wallet found";
+    if (state.createKind === "basket"){
+      if (!suiSession.address) return "Connect wallet to create";
+      return window.ARENA_BASKET_PACKAGE ? "Create basket" : "Publish basket coin";
+    }
     if (!suiSession.address) return "Connect wallet to launch";
     return "Launch Instadex";
   }
@@ -8073,7 +8103,107 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       '<p class="m-note">'+src+' Instant volume is Bluefin AssetSwap per pool. Curve keepers still use TradeEvent.</p>'+
       footerHTML()+'</div>';
   }
+  function readBasketForm(){
+    var quotes = document.querySelectorAll("[data-b-quote]");
+    if (!quotes.length) return;
+    var legs = [];
+    for (var i = 0; i < quotes.length; i++){
+      var units = document.querySelector('[data-b-units="'+i+'"]');
+      legs.push({ q: quotes[i].value, units: units ? units.value : "" });
+    }
+    state.bLegs = legs;
+    var seed = $("#b-seed");
+    var cap = $("#b-cap");
+    if (seed) state.bSeed = seed.value;
+    if (cap) state.bCap = cap.value;
+  }
+  function wholeBig(s){
+    var t = String(s == null ? "" : s).trim();
+    if (!/^[0-9]+$/.test(t)) return 0n;
+    return BigInt(t);
+  }
+  function basketLaunchHTML(){
+    state.lPath = "instadex";
+    state.lCoinMode = "create";
+    var descLen = String(state.lDesc || "").length;
+    var socialsOn = !!state.lSocialsOpen;
+    var artInner = state.lArtPreview
+      ? '<img src="'+escUrl(state.lArtPreview)+'" alt="">'
+      : (state.lTick ? escHtml(state.lTick.charAt(0)) : "B");
+    var legs = (state.bLegs && state.bLegs.length >= 2) ? state.bLegs : [{q:"SUI", units:"1"},{q:"XAUM", units:"0.01"}];
+    var legHTML = legs.map(function(leg, i){
+      var opts = CREATE_QUOTES.map(function(q){
+        return '<option value="'+q+'"'+(leg.q===q?" selected":"")+'>'+escHtml(createQuoteLabel(q))+'</option>';
+      }).join("");
+      return '<div class="create-field create-nt">'+
+        '<div><div class="create-lab">Asset '+(i+1)+'</div><select data-b-quote="'+i+'">'+opts+'</select></div>'+
+        '<div><div class="create-lab">Units per share</div><input data-b-units="'+i+'" inputmode="decimal" value="'+escAttr(leg.units)+'"></div>'+
+      '</div>';
+    }).join("");
+    var note = state.lNote || "Publishes a coin with no supply. The vault mints the seed and locks that floor. You need the seed amount of each asset in this wallet.";
+    if (!window.ARENA_BASKET_PACKAGE){
+      note = state.lNote || "Publishes the share coin only. Seeding waits until the basket vault is on mainnet.";
+    }
+    return '<div class="shell" data-screen-label="Launch">'+
+      '<div class="create-page">'+
+      '<div class="create-head">'+
+        '<div class="pit-kicker">Launch</div>'+
+        '<h1>Create a basket</h1>'+
+        '<div class="pair-cats" style="margin-top:14px">'+
+          '<button type="button" class="pair-cat" data-create-kind="token">Token</button>'+
+          '<button type="button" class="pair-cat on" data-create-kind="basket">Basket</button>'+
+        '</div>'+
+      '</div>'+
+      '<div class="create-main">'+
+        '<section class="create-card">'+
+          '<h2>Share coin</h2>'+
+          '<p class="create-sub">No supply is minted at publish. The vault mints the seed and will not let it be redeemed.</p>'+
+          '<div class="create-field">'+
+            '<div class="create-lab">Token image</div>'+
+            '<label class="create-drop" id="l-art-drop">'+
+              '<input id="l-art" type="file" accept="image/png,image/jpeg,image/webp,image/gif">'+
+              '<div class="create-drop-ico" id="l-art-preview">'+artInner+'</div>'+
+              '<div class="create-drop-copy"><strong>Click to choose a file, or drop an image in.</strong></div>'+
+            '</label>'+
+          '</div>'+
+          '<div class="create-field create-nt">'+
+            '<div><div class="create-lab">Name</div><input id="l-name" maxlength="32" value="'+escAttr(state.lName)+'"></div>'+
+            '<div><div class="create-lab">Ticker</div><input id="l-tick" maxlength="12" value="'+escAttr(state.lTick)+'"></div>'+
+          '</div>'+
+          '<div class="create-field">'+
+            '<div class="create-labrow"><span class="create-lab">Description <span class="opt">optional</span></span><span class="create-count">'+descLen+'/280</span></div>'+
+            '<textarea id="l-desc" maxlength="280">'+escHtml(state.lDesc)+'</textarea>'+
+          '</div>'+
+          '<button type="button" class="create-socials-btn'+(socialsOn?" open":"")+'" data-socials-toggle>Add social links</button>'+
+          '<div class="create-socials" id="l-socials"'+(socialsOn?"":" hidden")+'>'+
+            '<div class="social-row">'+
+              '<input id="l-x" spellcheck="false" placeholder="x.com/handle" value="'+escAttr(state.lX)+'">'+
+              '<input id="l-tg" spellcheck="false" placeholder="t.me/handle" value="'+escAttr(state.lTg)+'">'+
+              '<input id="l-web" spellcheck="false" placeholder="https://site" value="'+escAttr(state.lWeb)+'">'+
+            '</div>'+
+          '</div>'+
+        '</section>'+
+        '<section class="create-card">'+
+          '<h2>Recipe</h2>'+
+          '<p class="create-sub">2 to 5 assets from the Create list. Units are the human amount of that asset locked per share.</p>'+
+          legHTML+
+          '<div class="create-field create-nt">'+
+            '<div><div class="create-lab">Seed shares</div><input id="b-seed" inputmode="numeric" value="'+escAttr(state.bSeed)+'"></div>'+
+            '<div><div class="create-lab">Share cap</div><input id="b-cap" inputmode="numeric" value="'+escAttr(state.bCap)+'"></div>'+
+          '</div>'+
+          '<div style="display:flex;gap:8px;margin-top:8px">'+
+            (legs.length < 5 ? '<button type="button" class="create-reset" data-b-add>Add asset</button>' : '')+
+            (legs.length > 2 ? '<button type="button" class="create-reset" data-b-remove>Remove last</button>' : '')+
+          '</div>'+
+        '</section>'+
+        '<div class="create-cta">'+
+          '<button type="button" class="btn-launch" id="launch-go">'+escHtml(launchBtnLabel())+'</button>'+
+        '</div>'+
+        '<div id="launch-note" class="create-note'+(state.lNoteErr?" err":"")+'">'+escHtml(note)+'</div>'+
+      '</div></div>'+footerHTML()+'</div>';
+  }
   function launchHTML(){
+    if (state.createKind === "basket") return basketLaunchHTML();
     state.lPath = "instadex";
     state.lCoinMode = "create";
     var q = quoteRec(state.lQuote);
@@ -8092,6 +8222,10 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       '<div class="create-head">'+
         '<div class="pit-kicker">Launch</div>'+
         '<h1>Create a token</h1>'+
+        '<div class="pair-cats" style="margin-top:14px">'+
+          '<button type="button" class="pair-cat on" data-create-kind="token">Token</button>'+
+          '<button type="button" class="pair-cat" data-create-kind="basket">Basket</button>'+
+        '</div>'+
       '</div>'+
       '<div class="create-main">'+
           '<section class="create-card">'+
@@ -11586,6 +11720,171 @@ async function doBridgeDeposit(){
       });
     });
   }
+  var BasketSeedMod = null;
+  async function loadBasketSeed(){
+    if (BasketSeedMod) return BasketSeedMod;
+    BasketSeedMod = await import("/js/basket-seed.js");
+    return BasketSeedMod;
+  }
+  async function doBasketCreate(){
+    var btn = $("#launch-go");
+    if (launching) return;
+    readBasketForm();
+    try {
+      if (!hasSuiWallet() && !suiSession.address){
+        setLaunchNote("Install Slush or another Sui wallet. Nothing was sent.", true);
+        return;
+      }
+      launching = true;
+      if (btn){ btn.disabled = true; btn.textContent = "Connecting…"; }
+      if (!suiSession.address) await connectWallet();
+      var wantName = (state.lName || "").trim();
+      var wantTick = (state.lTick || "").trim();
+      if (!wantName) throw new Error("Name required");
+      if (!wantTick) throw new Error("Ticker required");
+      var ident = tickerToIdent(wantTick);
+      if (!ident) throw new Error("Ticker needs at least one letter or digit");
+      var seed = wholeBig(state.bSeed);
+      var cap = wholeBig(state.bCap);
+      if (!(seed > 0n)) throw new Error("Seed shares must be a whole number above 0");
+      if (cap < seed) throw new Error("Share cap must be at least the seed");
+      var legs = state.bLegs || [];
+      if (legs.length < 2 || legs.length > 5) throw new Error("Use 2 to 5 assets");
+      var seen = {};
+      var planned = [];
+      for (var i = 0; i < legs.length; i++){
+        var q = String(legs[i].q || "");
+        if (CREATE_QUOTES.indexOf(q) < 0) throw new Error("Asset "+(i+1)+" is not on the Create list");
+        if (seen[q]) throw new Error(q+" is listed twice");
+        seen[q] = 1;
+        var rec = quoteRec(q);
+        var units = toSmallestBig(legs[i].units, rec.decimals);
+        if (!(units > 0n)) throw new Error("Units per share for "+q+" must be above 0");
+        var pay = units * seed;
+        if (pay > 18446744073709551615n) throw new Error(q+" seed amount overflows");
+        planned.push({ q: q, type: rec.type, units: units, pay: pay, decimals: rec.decimals });
+      }
+      if (state.lFile && !state.lArtUrl){
+        if (btn) btn.textContent = "Uploading art…";
+        state.lArtUrl = await uploadArt(state.lFile);
+      }
+      var metaDesc = encodeMetadataDescription(
+        state.lDesc || "",
+        requireSocial("X", state.lX, normX(state.lX)),
+        requireSocial("Telegram", state.lTg, normTg(state.lTg)),
+        requireSocial("website", state.lWeb, normWeb(state.lWeb))
+      );
+      if (metaDesc.length > 512) throw new Error("Description plus socials is too long");
+      var capId = (state.bCapId || "").trim();
+      var coinType = (state.bCoinType || "").trim();
+      if (!capId){
+        if (btn) btn.textContent = "Building coin…";
+        var built = null;
+        try {
+          var modRes = await fetch("/api/basket-coin-module", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({
+              ticker: wantTick,
+              symbol: wantTick.toUpperCase(),
+              name: wantName,
+              decimals: TOKEN_DECIMALS,
+              description: metaDesc,
+              icon: state.lArtUrl || "",
+              sender: suiSession.address
+            })
+          });
+          var modJson = await modRes.json();
+          if (!modRes.ok || !modJson.b64) throw new Error(modJson.error || "basket-coin-module failed");
+          built = { bytes: b64ToBytes(modJson.b64), ident: modJson.ident, upper: modJson.upper, b64: modJson.b64 };
+        } catch (modErr) {
+          var tplLib = await loadMoveTemplate();
+          built = buildBasketCoinModule(tplLib, {
+            ticker: wantTick,
+            symbol: wantTick.toUpperCase(),
+            name: wantName,
+            decimals: TOKEN_DECIMALS,
+            description: metaDesc,
+            icon: state.lArtUrl || ""
+          });
+          built.b64 = bytesToB64(built.bytes);
+        }
+        var TransactionP = await loadTransaction();
+        var ptx = new TransactionP();
+        ptx.setSender(suiSession.address);
+        var STD = "0x0000000000000000000000000000000000000000000000000000000000000001";
+        var SUI_FRM = "0x0000000000000000000000000000000000000000000000000000000000000002";
+        var pub = ptx.publish({ modules: [built.b64], dependencies: [STD, SUI_FRM] });
+        ptx.transferObjects([Array.isArray(pub) ? pub[0] : pub], suiSession.address);
+        if (typeof ptx.setGasBudget === "function") ptx.setGasBudget(100000000);
+        if (btn) btn.textContent = "Sign 1 of 2 · publish coin…";
+        setLaunchNote("Publishing "+built.upper+" with an empty supply. Signature 1 of 2.", false);
+        var pubRes = await walletExec(ptx);
+        var digest = txDigest(pubRes);
+        var made = readPublishResult(pubRes, built.ident);
+        if (!made.packageId){
+          if (!digest) throw new Error("Wallet did not return a publish digest.");
+          setLaunchNote("Publish sent ("+digest.slice(0, 8)+"…). Waiting for the TreasuryCap…", false);
+          made = await waitForPublish(digest, built.ident, { needCoin: false });
+        }
+        if (!made.packageId || !made.capId){
+          throw new Error("Publish did not return a TreasuryCap. Check wallet history before retrying.");
+        }
+        capId = made.capId;
+        coinType = made.coinType;
+        state.bCapId = capId;
+        state.bCoinType = coinType;
+      }
+      var basketPkg = String(window.ARENA_BASKET_PACKAGE || "");
+      if (!basketPkg){
+        setLaunchNote("Share coin is live. TreasuryCap "+capId.slice(0, 10)+"…. Seeding stays off until the basket vault is published.", false);
+        return;
+      }
+      if (btn) btn.textContent = "Building seed…";
+      var Transaction = await loadTransaction();
+      var tx = new Transaction();
+      tx.setSender(suiSession.address);
+      if (typeof tx.setGasBudget === "function") tx.setGasBudget(300000000);
+      var seedLegs = [];
+      for (var k = 0; k < planned.length; k++){
+        var leg = planned[k];
+        var coinArg;
+        if (normType(leg.type) === normType(SUI_TYPE)){
+          var suiBal = await coinBalanceOf(suiSession.address, SUI_TYPE);
+          if (suiBal < leg.pay + 300000000n){
+            throw new Error("Need "+fromBase(leg.pay + 300000000n, 9).toFixed(3)+" SUI for the seed and gas.");
+          }
+          var gasSplit = tx.splitCoins(tx.gas, [txAmt(leg.pay)]);
+          coinArg = Array.isArray(gasSplit) ? gasSplit[0] : gasSplit;
+        } else {
+          var coins = await coinsOf(suiSession.address, leg.type);
+          coinArg = takeCoin(tx, coins, leg.pay);
+        }
+        seedLegs.push({ type: leg.type, units: leg.units, coin: coinArg });
+      }
+      var seedMod = await loadBasketSeed();
+      seedMod.appendBasketSeed(tx, {
+        packageId: basketPkg,
+        basketType: coinType,
+        treasuryId: capId,
+        seedShares: seed,
+        depositCap: cap,
+        legs: seedLegs
+      });
+      if (btn) btn.textContent = "Sign 2 of 2 · seed vault…";
+      setLaunchNote("Seeding the vault. The seed shares stay inside it.", false);
+      var seedRes = await walletExec(tx);
+      var seedDigest = txDigest(seedRes);
+      state.bCapId = "";
+      setLaunchNote("Basket seeded"+(seedDigest ? " · "+seedDigest.slice(0, 8) : "")+".", false);
+    } catch (err) {
+      var msg = (err && err.message) ? err.message : String(err || "Basket create failed");
+      setLaunchNote(msg, true);
+    } finally {
+      launching = false;
+      if (btn){ btn.disabled = false; btn.textContent = launchBtnLabel(); }
+    }
+  }
   async function doLaunch(){
     var btn = $("#launch-go");
     if (launching) return;
@@ -12901,8 +13200,33 @@ async function doBridgeDeposit(){
     }
   }
   document.addEventListener("click", function(e){
+    const kindBtn = e.target.closest("[data-create-kind]");
+    if (kindBtn){
+      readBasketForm();
+      state.createKind = kindBtn.getAttribute("data-create-kind") === "basket" ? "basket" : "token";
+      state.lNote = "";
+      state.lNoteErr = false;
+      if (state.route === "launch") renderScreen();
+      return;
+    }
+    if (e.target.closest("[data-b-add]")){
+      readBasketForm();
+      if (state.bLegs.length < 5) state.bLegs.push({ q: "USDY", units: "1" });
+      if (state.route === "launch") renderScreen();
+      return;
+    }
+    if (e.target.closest("[data-b-remove]")){
+      readBasketForm();
+      if (state.bLegs.length > 2) state.bLegs.pop();
+      if (state.route === "launch") renderScreen();
+      return;
+    }
     const launch = e.target.closest("#launch-go");
-    if (launch){ doLaunch(); return; }
+    if (launch){
+      if (state.createKind === "basket") doBasketCreate();
+      else doLaunch();
+      return;
+    }
     const collect = e.target.closest("#collect-go");
     if (collect){ doCollect(); return; }
     const migrate = e.target.closest("#migrate-go");

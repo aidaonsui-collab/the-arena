@@ -1,0 +1,7 @@
+[package]
+name = "basket_coin"
+edition = "2024.beta"
+license = "Apache-2.0"
+
+[addresses]
+basket_coin = "0x0"
