@@ -127,3 +127,32 @@ export function appendBasketMint(tx, opts) {
     arguments: [tx.object(opts.vaultId), one(receipt)],
   });
 }
+
+function assetTypeName(asset) {
+  if (!asset) return "";
+  if (typeof asset === "string") return asset;
+  if (asset.fields) return assetTypeName(asset.fields);
+  if (asset.address && asset.module) return String(asset.address) + "::" + asset.module + "::" + (asset.name || "");
+  if (typeof asset.name === "string") return asset.name;
+  return "";
+}
+
+/// Recipe stored on a shared BasketVault. Accepts the object content, its
+/// fields, or the recipe vector itself.
+export function legsFromVaultContent(content) {
+  if (!content) return [];
+  if (Array.isArray(content)) return legsFromVaultContent({ recipe: content });
+  const fields = content.fields || content.json || content;
+  const recipe = fields && (fields.recipe || (fields.fields && fields.fields.recipe));
+  if (!Array.isArray(recipe)) return [];
+  const out = [];
+  for (const leg of recipe) {
+    const row = leg && (leg.fields || leg);
+    if (!row) continue;
+    const type = assetTypeName(row.asset);
+    const units = row.units_per_share != null ? row.units_per_share : row.units;
+    if (!type || units == null || String(units) === "0") continue;
+    out.push({ type: String(type), units: String(units) });
+  }
+  return out;
+}

@@ -1516,26 +1516,102 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     state.liveBaskets = next;
     try { localStorage.setItem("vice.baskets.v1", JSON.stringify(next)); } catch (e) {}
   }
+  function quoteForCoinType(type){
+    var n = normType(type);
+    if (!n) return null;
+    var keys = Object.keys(QUOTES);
+    for (var i = 0; i < keys.length; i++){
+      var rec = QUOTES[keys[i]];
+      if (rec && rec.type && normType(rec.type) === n) return { q: keys[i], decimals: rec.decimals, type: rec.type };
+    }
+    return null;
+  }
+  function legsFromVault(raw){
+    if (!raw || raw.length < 2 || raw.length > 8) return [];
+    var out = [];
+    var seen = {};
+    for (var i = 0; i < raw.length; i++){
+      var hit = quoteForCoinType(raw[i] && raw[i].type);
+      if (!hit || CREATE_QUOTES.indexOf(hit.q) < 0 || seen[hit.q]) return [];
+      seen[hit.q] = 1;
+      var units = String(raw[i].units == null ? "" : raw[i].units);
+      if (!/^[0-9]+$/.test(units) || units === "0") return [];
+      out.push({ q: hit.q, type: hit.type, units: units, decimals: hit.decimals });
+    }
+    return out.length >= 2 ? out : [];
+  }
   async function hydrateLiveBaskets(){
     var pkg = String(window.ARENA_BASKET_PACKAGE || "");
     if (!pkg || state.basketsHydrating) return;
     state.basketsHydrating = true;
+    state.basketRecipeTried = state.basketRecipeTried || {};
+    var changed = false;
+    var attempted = false;
     try {
       var data = await gql(
         "query($t:String!){ events(last:50, filter:{ type:$t }){ nodes { contents { json } } } }",
         { t: pkg + "::basket::BasketCreatedEvent" }
       );
       var nodes = (data && data.events && data.events.nodes) || [];
+      var wanted = [];
+      var seen = {};
       nodes.forEach(function(n){
         var j = (n.contents && n.contents.json) || {};
         var type = typeNameStr(j.basket_type);
         if (!type || type.indexOf("::") < 0) return;
-        var ticker = type.split("::").pop();
-        if (findLiveBasket(type)) return;
-        rememberLiveBasket({ ticker: ticker, name: ticker, type: type, usd: 0, vaultId: j.vault_id || "" });
+        var key = normType(type);
+        if (seen[key]) return;
+        seen[key] = 1;
+        wanted.push({ ticker: type.split("::").pop(), type: type, vaultId: String(j.vault_id || "") });
       });
-      if (state.route === "launch") paintQuoteCats();
+      (state.liveBaskets || []).forEach(function(b){
+        if (!b || !b.type) return;
+        var key = normType(b.type);
+        if (seen[key]){
+          for (var i = 0; i < wanted.length; i++){
+            if (normType(wanted[i].type) === key && !wanted[i].vaultId) wanted[i].vaultId = b.vaultId || "";
+          }
+          return;
+        }
+        seen[key] = 1;
+        wanted.push({ ticker: b.ticker, name: b.name, type: b.type, vaultId: b.vaultId || "", usd: b.usd, legs: b.legs });
+      });
+      var mod = null;
+      for (var w = 0; w < wanted.length; w++){
+        var row = wanted[w];
+        var prev = findLiveBasket(row.type) || findLiveBasket(row.ticker);
+        var vaultId = row.vaultId || (prev && prev.vaultId) || "";
+        var legs = (prev && prev.legs && prev.legs.length) ? prev.legs.slice() : [];
+        var ready = legs.length >= 2 && legs.every(function(l){ return l && l.q && l.type && l.units; });
+        if (!ready && vaultId && !state.basketRecipeTried[vaultId]){
+          state.basketRecipeTried[vaultId] = 1;
+          attempted = true;
+          try {
+            if (!mod) mod = await loadBasketSeed();
+            var obj = await moveObjectRpc(vaultId);
+            var parsed = legsFromVault(mod.legsFromVaultContent(obj && obj.json));
+            if (parsed.length >= 2) legs = parsed;
+          } catch (e) {}
+        }
+        var nextLegs = legs.length >= 2 ? legs : ((prev && prev.legs) || []);
+        var sameLegs = !!(prev && (prev.legs || []).length === nextLegs.length);
+        var sameVault = !!(prev && (prev.vaultId || "") === (vaultId || ""));
+        if (prev && sameVault && sameLegs) continue;
+        rememberLiveBasket({
+          ticker: (prev && prev.ticker) || row.ticker,
+          name: (prev && prev.name) || row.name || row.ticker,
+          type: (prev && prev.type) || row.type,
+          usd: (prev && Number(prev.usd)) || Number(row.usd) || 0,
+          vaultId: vaultId,
+          legs: legs.length >= 2 ? legs : undefined
+        });
+        changed = true;
+      }
     } catch (e) {}
+    if ((changed || attempted) && state.route === "launch"){
+      if (changed) paintQuoteCats();
+      if (state.createKind !== "basket") paintBasketQuoteCopy();
+    }
     state.basketsHydrating = false;
   }
   function liveBasketTickers(){
@@ -1616,8 +1692,8 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     var chips = $("#pair-chips");
     if (chips) chips.outerHTML = quoteChipsHTML();
   }
-  function icoInfo(title){
-    return '<span class="ico-info" title="'+escAttr(title)+'"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 8h.01"/></svg></span>';
+  function icoInfo(title, id){
+    return '<span class="ico-info"'+(id ? ' id="'+id+'"' : '')+' title="'+escAttr(title)+'"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 8h.01"/></svg></span>';
   }
   function paintLaunchArtLetter(){
     var dropIco = $("#l-art-preview");
@@ -1826,6 +1902,46 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   function paintFirstBuyPreview(){
     var el = $("#l-first-buy-preview");
     if (el) el.textContent = firstBuyPreview();
+  }
+  function basketQuoteHint(q){
+    var base = (q.what || "Basket share")+". TOKEN/"+q.label+". No "+q.label+" required for LP.";
+    if (!q.basket) return base;
+    var saved = findLiveBasket(q.label);
+    if (!saved || !saved.legs || saved.legs.length < 2){
+      if (saved && saved.vaultId && state.basketRecipeTried && state.basketRecipeTried[saved.vaultId]){
+        return "Basket share. A first buy spends this share from the wallet.";
+      }
+      return "Basket share. The recipe loads from the vault when it is available.";
+    }
+    var parts = [];
+    for (var i = 0; i < saved.legs.length; i++){
+      var leg = saved.legs[i];
+      if (!leg || !leg.q) return "Basket share. The recipe loads from the vault when it is available.";
+      var dec = basketLegDecimals(leg);
+      var human = Number(leg.units) / Math.pow(10, dec);
+      parts.push(basketHumanStr(human, dec)+" "+createQuoteLabel(leg.q));
+    }
+    return "Per share: "+parts.join(" + ")+".";
+  }
+  function paintBasketQuoteCopy(){
+    if (state.route !== "launch" || state.createKind === "basket") return;
+    var q = quoteRec(state.lQuote);
+    var hint = $("#l-quote-hint");
+    if (hint) hint.textContent = basketQuoteHint(q);
+    var info = $("#l-first-buy-info");
+    if (info) info.setAttribute("title", firstBuyHint());
+    var unit = $("#l-first-buy-unit");
+    if (unit) unit.textContent = launchSpendsQuote() ? q.label : "SUI";
+    paintFirstBuyPreview();
+    if (!state.lNote){
+      var note = $("#launch-note");
+      if (note && findLiveBasket(state.lQuote)){
+        note.classList.remove("err");
+        note.textContent = basketCanMint(state.lQuote)
+          ? "Paired with a basket share. A first buy mints that share from SUI in the same transaction."
+          : "Paired with a basket share. A first buy spends that share from this wallet. There is no SUI hop into the basket.";
+      }
+    }
   }
   function firstBuyHint(){
     var rec = quoteRec(state.lQuote);
@@ -3439,9 +3555,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     const tr = Number(r.token_reserve);
     return tr > 0 ? Number(r.quote_real) / tr : 0;
   }
-  function quoteUsd(q){
-    var basketPx = findLiveBasket(q);
-    if (basketPx && Number(basketPx.usd) > 0) return Number(basketPx.usd);
+  function assetUsd(q){
     q = String(q || "").toUpperCase();
     if (q === "USDY") return hop.usdyUsd > 0 ? hop.usdyUsd : 1;
     if (q === "XAGM") return hop.xagmUsd || 0;
@@ -3460,6 +3574,28 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     if (q === "SCA") return hop.scaUsd || 0;
     if (q === "BLUE") return hop.blueUsd || 0;
     return hop.suiUsd || 0;
+  }
+  function basketUsdFromLegs(legs){
+    if (!legs || legs.length < 2) return 0;
+    var sum = 0;
+    for (var i = 0; i < legs.length; i++){
+      var leg = legs[i];
+      if (!leg || !leg.q) return 0;
+      var px = assetUsd(leg.q);
+      if (!(px > 0)) return 0;
+      var human = Number(leg.units) / Math.pow(10, basketLegDecimals(leg));
+      if (!(human > 0) || !isFinite(human)) return 0;
+      sum += human * px;
+    }
+    return sum;
+  }
+  function quoteUsd(q){
+    var basketPx = findLiveBasket(q);
+    if (basketPx){
+      if (Number(basketPx.usd) > 0) return Number(basketPx.usd);
+      return basketUsdFromLegs(basketPx.legs);
+    }
+    return assetUsd(q);
   }
   function quoteMark(q){
     var rec = quoteRec(q);
@@ -8484,7 +8620,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
             quoteCatHTML()+
             quoteChipsHTML()+
             quoteDropdownHTML()+
-            '<div class="create-hint" id="l-quote-hint">'+escHtml(q.what)+'. TOKEN/'+escHtml(q.label)+'. No '+escHtml(q.label)+' required for LP.</div>'+
+            '<div class="create-hint" id="l-quote-hint">'+escHtml(basketQuoteHint(q))+'</div>'+
           '</section>'+
           '<section class="create-card">'+
             '<div class="create-adv-head">'+
@@ -8495,7 +8631,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
             splitPanelHTML()+
             '<div class="create-dev">'+
               '<div>'+
-                '<div class="create-lab">First buy <span class="opt">optional</span> '+icoInfo(firstBuyHint())+'</div>'+
+                '<div class="create-lab">First buy <span class="opt">optional</span> '+icoInfo(firstBuyHint(), "l-first-buy-info")+'</div>'+
                 '<div class="create-buy">'+
                   '<input id="l-first-buy" inputmode="decimal" placeholder="'+(isStockQuote(state.lQuote)?"0.1":"1")+'" value="'+escAttr(state.lFirstBuy)+'">'+
                   '<span class="create-buy-unit" id="l-first-buy-unit">'+escHtml(payUnit)+'</span>'+

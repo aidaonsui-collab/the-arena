@@ -9,7 +9,7 @@ import { dirname, join } from "path";
 import { fileURLToPath } from "url";
 import { Transaction } from "@mysten/sui/transactions";
 import { build, TEMPLATE } from "../api/basket-coin-module.js";
-import { appendBasketSeed, appendBasketMint } from "../js/basket-seed.js";
+import { appendBasketSeed, appendBasketMint, legsFromVaultContent } from "../js/basket-seed.js";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const raw = Buffer.from(readFileSync(join(root, "api/basket-coin-template.b64"), "utf8").trim(), "base64");
@@ -137,4 +137,21 @@ const mintJson = typeof mintRaw === "string" ? mintRaw : JSON.stringify(mintRaw)
 for (const fn of ["start_mint", "deposit", "finish_mint"]) {
   if (!mintJson.includes(`"function": "${fn}"`)) throw new Error("mint tx missing " + fn);
 }
+
+const suiName = "0".repeat(63) + "2::sui::SUI";
+const parsed = legsFromVaultContent({
+  fields: {
+    recipe: [
+      { fields: { asset: { fields: { name: suiName } }, units_per_share: "1000000000" } },
+      { type: "0x1::type_name::TypeName", fields: { asset: "0x9d29::xaum::XAUM", units_per_share: "10000000" } },
+    ],
+  },
+});
+if (parsed.length !== 2 || parsed[0].type !== suiName || parsed[0].units !== "1000000000") {
+  throw new Error("vault recipe parse failed: " + JSON.stringify(parsed));
+}
+if (parsed[1].units !== "10000000" || !parsed[1].type.endsWith("::xaum::XAUM")) {
+  throw new Error("vault recipe second leg failed: " + JSON.stringify(parsed));
+}
+if (legsFromVaultContent({ fields: {} }).length !== 0) throw new Error("empty recipe should be empty");
 console.log("basket coin + seed tx ok", mod.length);
