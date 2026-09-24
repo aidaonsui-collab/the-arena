@@ -1296,7 +1296,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   let balance = 48.60;
   let xaumBal = 2.40;
 
-  const state = {route:"explore", sym:"VOLT", filter:"All", sort:"Market cap", time:"All", side:"Buy", amt:"1", connected:false, search:"", lName:"", lTick:"", lQuote:"SUI", lPath:"instadex", lMode:"Holders", lTokenAmt:"", lQuoteAmt:"", lFirstBuy:"1", lCap:"", lTokenCoin:"", lQuoteCoin:"", lCoinMode:"create", lDecimals:"9", lSupply:"1000000000", lDesc:"", lX:"", lTg:"", lWeb:"", lPublishedType:"", metricsWindow:"All", tapeTab:"trades", tapeOpen:"", tapePage:0, tapeAge:"age", tapeWallet:"", tapeFilterOpen:false, lFile:null, lArtUrl:"", lArtPreview:"", payWith:"", lNote:"", lNoteErr:false, chartTf:900, chartInd:{vol:true,ma7:false,ma25:false,ma99:false,ema:false}, bridgeTick:"NVDA", bridgeAmt:"", bridgeDir:"in", bridgeRhDest:"", bridgeNote:"", bridgeBusy:false, bridgePending:[], walletCheck:null, quoteOpen:false, rewardsTab:"all", lBasket:false, lBasketEqual:true, lBasketMode:0, lBasketOn:{XAUM:true,XAGM:true,USDY:true}, lBasketBps:{XAUM:3334,XAGM:3333,USDY:3333}, lSplitPreset:"vice", lSplit:{creator:6000,platform:500,rewards:3000,buyback:500}, lSocialsOpen:false, lQuoteCat:"all", createKind:"token", bView:"create", bRedeem:"", bRedeemAmt:"1", bLegs:[{q:"SUI", weight:"50"},{q:"XAUM", weight:"50"}], bUsd:"1", bPay:"sui", bSeed:"1000", bCap:"1000000", bCapId:"", bCoinType:"", pfRange:"1M", pfFlash:"", lockTab:"create", lockKind:"lock", lockTok:"", lockAmt:"", lockDays:"30", lockSelf:"self", lockBen:"", lockCliff:"90", lockEnd:"365", lockNote:"", lockNoteErr:false, lockBusy:false, lockMine:[], lockAll:[], lockLoad:false, scrTab:"mcap", scrSort:"mcap", scrDir:-1, scrQuote:"All", scrBuyUsd:5, scrLiveOnly:false, scrFilters:false, watch:[]};
+  const state = {route:"explore", sym:"VOLT", filter:"All", sort:"Market cap", time:"All", side:"Buy", amt:"1", connected:false, search:"", lName:"", lTick:"", lQuote:"SUI", lPath:"instadex", lMode:"Holders", lTokenAmt:"", lQuoteAmt:"", lFirstBuy:"1", lCap:"", lTokenCoin:"", lQuoteCoin:"", lCoinMode:"create", lDecimals:"9", lSupply:"1000000000", lDesc:"", lX:"", lTg:"", lWeb:"", lPublishedType:"", metricsWindow:"All", tapeTab:"trades", tapeOpen:"", tapePage:0, tapeAge:"age", tapeWallet:"", tapeFilterOpen:false, lFile:null, lArtUrl:"", lArtPreview:"", payWith:"", lNote:"", lNoteErr:false, chartTf:900, chartInd:{vol:true,ma7:false,ma25:false,ma99:false,ema:false}, bridgeTick:"NVDA", bridgeAmt:"", bridgeDir:"in", bridgeRhDest:"", bridgeNote:"", bridgeBusy:false, bridgePending:[], walletCheck:null, quoteOpen:false, rewardsTab:"all", lBasket:false, lBasketEqual:true, lBasketMode:0, lBasketOn:{XAUM:true,XAGM:true,USDY:true}, lBasketBps:{XAUM:3334,XAGM:3333,USDY:3333}, lSplitPreset:"vice", lSplit:{creator:6000,platform:500,rewards:3000,buyback:500}, lSocialsOpen:false, lQuoteCat:"all", createKind:"token", bView:"create", bRedeem:"", bRedeemAmt:"1", bLegs:[{q:"SUI", weight:"50"},{q:"XAUM", weight:"50"},{q:"USDY", weight:"50"}], bUsd:"1", bPay:"sui", bSeed:"1000", bCap:"1000000", bCapId:"", bCoinType:"", pfRange:"1M", pfFlash:"", lockTab:"create", lockKind:"lock", lockTok:"", lockAmt:"", lockDays:"30", lockSelf:"self", lockBen:"", lockCliff:"90", lockEnd:"365", lockNote:"", lockNoteErr:false, lockBusy:false, lockMine:[], lockAll:[], lockLoad:false, scrTab:"mcap", scrSort:"mcap", scrDir:-1, scrQuote:"All", scrBuyUsd:5, scrLiveOnly:false, scrFilters:false, watch:[]};
 
   try {
     var watchSaved = JSON.parse(localStorage.getItem("vice.watch.v1") || "[]");
@@ -8465,7 +8465,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   }
   function basketPlan(){
     var legs = state.bLegs || [];
-    if (legs.length < 2 || legs.length > 5) return { error: "Use 2 to 5 assets" };
+    if (legs.length < 2 || legs.length > 3) return { error: "Use 2 or 3 assets" };
     var seed = wholeBig(state.bSeed);
     var capN = wholeBig(state.bCap);
     if (!(seed > 0n)) return { error: "Seed shares must be a whole number above 0" };
@@ -8684,7 +8684,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
         '<div id="launch-note" class="create-note'+(state.lNoteErr?" err":"")+'">'+escHtml(note)+'</div>'+
       '</div></div>'+footerHTML()+'</div>';
   }
-  var bLegCat = ["all", "all"];
+  var bLegCat = ["all", "all", "all"];
   function basketLegQuotes(cat){
     var id = cat || "all";
     var i;
@@ -8747,7 +8747,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     var artInner = state.lArtPreview
       ? '<img src="'+escUrl(state.lArtPreview)+'" alt="">'
       : (state.lTick ? escHtml(state.lTick.charAt(0)) : "B");
-    var legs = (state.bLegs && state.bLegs.length >= 2) ? state.bLegs : [{q:"SUI", weight:"50"},{q:"XAUM", weight:"50"}];
+    var legs = (state.bLegs && state.bLegs.length >= 2) ? state.bLegs : [{q:"SUI", weight:"50"},{q:"XAUM", weight:"50"},{q:"USDY", weight:"50"}];
     var legHTML = legs.map(function(leg, i){ return basketLegHTML(leg, i, legs); }).join("");
     var paySui = state.bPay !== "hold";
     var note = state.lNote || (paySui
@@ -8806,7 +8806,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
           '</div>'+
           '<div class="create-hint" id="b-cost">Waiting for prices…</div>'+
           '<div style="display:flex;gap:8px;margin-top:8px">'+
-            (legs.length < 5 ? '<button type="button" class="create-reset" data-b-add>Add asset</button>' : '')+
+            (legs.length < 3 ? '<button type="button" class="create-reset" data-b-add>Add asset</button>' : '')+
             (legs.length > 2 ? '<button type="button" class="create-reset" data-b-remove>Remove last</button>' : '')+
           '</div>'+
         '</section>'+
@@ -14222,7 +14222,7 @@ async function doBridgeDeposit(){
     }
     if (e.target.closest("[data-b-add]")){
       readBasketForm();
-      if (state.bLegs.length < 5){
+      if (state.bLegs.length < 3){
         state.bLegs.push({ q: freeBasketQuote(), weight: "50" });
         bLegCat.push("all");
       }
