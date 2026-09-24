@@ -651,6 +651,20 @@ html[data-route="launch"] .search-row{display:none}
 .pair-chip.soon{opacity:.5;cursor:not-allowed}
 .pair-chip .pair-soon{font-size:10px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:#0b0a0c;background:var(--sui);border-radius:999px;padding:2px 6px}
 .pair-check{color:var(--pink);font-size:12px}
+.pair-chip.taken{opacity:.38;cursor:not-allowed}
+.b-leg + .b-leg{margin-top:18px;padding-top:16px;border-top:1px solid color-mix(in srgb,var(--ink) 8%,transparent)}
+.b-leg-top{display:grid;grid-template-columns:minmax(0,1fr) 168px;gap:12px 16px;align-items:start}
+.b-leg-top .create-lab{margin-bottom:8px}
+.b-leg-top .pair-cats{margin:0}
+.b-leg > .pair-chips{margin-top:10px}
+.b-leg .pair-chips .create-hint{margin-top:0}
+.create-card .b-leg-search .quote-dd-btn{display:flex;margin:0;cursor:text;font-weight:650}
+.b-leg-search .quote-dd-btn svg{flex:none;color:var(--muted)}
+.create-card .b-leg-search input[type=search]{
+  flex:1;width:auto;min-width:0;min-height:0;height:24px;border:0;border-radius:0;padding:0;background:transparent;box-shadow:none;font-weight:500;font-size:13px;color:var(--ink)
+}
+.create-card .b-leg-search input[type=search]:focus{border:0;background:transparent;outline:none}
+.b-leg-search:focus-within .quote-dd-btn{border-color:var(--sui);background:var(--well-focus)}
 .create-page .quote-dd{max-width:none;margin-top:10px}
 .create-page .quote-dd-btn{border-radius:12px;min-height:46px;padding:8px 12px}
 .create-page .quote-dd-btn .q-search-ph{flex:1;color:var(--muted);font-weight:500;font-size:13px}
@@ -726,6 +740,7 @@ html[data-theme="pastel"] .pair-chip.on,html[data-theme="pastel"] .pair-cat.on,h
   .pair-chips{flex-wrap:nowrap;overflow-x:auto;padding-bottom:4px;-webkit-overflow-scrolling:touch}
   .pair-chip{flex:none}
   .create-page .quote-dd-btn .q-sel{display:none}
+  .b-leg-top{grid-template-columns:1fr}
   .create-page{padding-bottom:28px}
 }
 .vol-bars{display:flex;align-items:flex-end;gap:4px;height:120px;padding:8px 0 0}
@@ -8669,6 +8684,61 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
         '<div id="launch-note" class="create-note'+(state.lNoteErr?" err":"")+'">'+escHtml(note)+'</div>'+
       '</div></div>'+footerHTML()+'</div>';
   }
+  var bLegCat = ["all", "all"];
+  function basketLegQuotes(cat){
+    var id = cat || "all";
+    var i;
+    for (i = 0; i < CREATE_QUOTE_CATS.length; i++){
+      if (CREATE_QUOTE_CATS[i].id === id) return CREATE_QUOTE_CATS[i].quotes.slice();
+    }
+    return CREATE_QUOTES.slice();
+  }
+  function freeBasketQuote(){
+    var used = {};
+    (state.bLegs || []).forEach(function(l){ if (l && l.q) used[l.q] = 1; });
+    var i;
+    for (i = 0; i < CREATE_QUOTES.length; i++){
+      if (!used[CREATE_QUOTES[i]]) return CREATE_QUOTES[i];
+    }
+    return "USDY";
+  }
+  function basketLegHTML(leg, i, legs){
+    var cat = bLegCat[i] || "all";
+    var used = {};
+    var j;
+    for (j = 0; j < legs.length; j++){
+      if (j !== i && legs[j] && legs[j].q) used[legs[j].q] = 1;
+    }
+    var cats = '<div class="pair-cats">'+CREATE_QUOTE_CATS.map(function(c){
+      return '<button type="button" class="pair-cat'+(cat===c.id?" on":"")+'" data-b-leg="'+i+'" data-b-leg-cat="'+c.id+'">'+escHtml(c.label)+'</button>';
+    }).join("")+'</div>';
+    var quotes = basketLegQuotes(cat);
+    var chips = quotes.length
+      ? '<div class="pair-chips">'+quotes.map(function(q){
+          var on = leg.q === q;
+          var taken = !on && used[q];
+          return '<button type="button" class="pair-chip'+(on?" on":"")+(taken?" taken":"")+'" data-b-pick="'+i+'" data-val="'+escAttr(q)+'"'+(on?' aria-pressed="true"':'')+(taken?" disabled":"")+'>'+
+            quoteLogoHtml(q, "pair-chip-logo")+
+            escHtml(createQuoteLabel(q))+
+            (on ? '<span class="pair-check">✓</span>' : "")+
+          '</button>';
+        }).join("")+'</div>'
+      : '<div class="pair-chips"><span class="create-hint">Basket shares are paired on the token page. A recipe uses Sui, RWA, and meme assets.</span></div>';
+    var search = '<div class="quote-dd b-leg-search">'+
+      '<label class="quote-dd-btn">'+
+        '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3-3"/></svg>'+
+        '<input type="search" data-b-find="'+i+'" placeholder="Search paired assets" autocomplete="off" aria-label="Search assets for asset '+(i+1)+'">'+
+        '<span class="q-sel">'+quoteLogoHtml(leg.q)+'<span>'+escHtml(createQuoteLabel(leg.q || ""))+'</span></span>'+
+      '</label></div>';
+    return '<div class="b-leg" data-b-leg="'+i+'">'+
+      '<div class="b-leg-top">'+
+        '<div><div class="create-lab">Asset '+(i+1)+'</div>'+cats+'</div>'+
+        '<div><div class="create-lab">Weight</div><input data-b-weight="'+i+'" inputmode="decimal" value="'+escAttr(leg.weight)+'"></div>'+
+      '</div>'+
+      chips+search+
+      '<input type="hidden" data-b-quote="'+i+'" value="'+escAttr(leg.q || "")+'">'+
+    '</div>';
+  }
   function basketLaunchHTML(){
     state.lPath = "instadex";
     state.lCoinMode = "create";
@@ -8678,15 +8748,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       ? '<img src="'+escUrl(state.lArtPreview)+'" alt="">'
       : (state.lTick ? escHtml(state.lTick.charAt(0)) : "B");
     var legs = (state.bLegs && state.bLegs.length >= 2) ? state.bLegs : [{q:"SUI", weight:"50"},{q:"XAUM", weight:"50"}];
-    var legHTML = legs.map(function(leg, i){
-      var opts = CREATE_QUOTES.map(function(q){
-        return '<option value="'+q+'"'+(leg.q===q?" selected":"")+'>'+escHtml(createQuoteLabel(q))+'</option>';
-      }).join("");
-      return '<div class="create-field create-nt">'+
-        '<div><div class="create-lab">Asset '+(i+1)+'</div><select data-b-quote="'+i+'">'+opts+'</select></div>'+
-        '<div><div class="create-lab">Weight</div><input data-b-weight="'+i+'" inputmode="decimal" value="'+escAttr(leg.weight)+'"></div>'+
-      '</div>';
-    }).join("");
+    var legHTML = legs.map(function(leg, i){ return basketLegHTML(leg, i, legs); }).join("");
     var paySui = state.bPay !== "hold";
     var note = state.lNote || (paySui
       ? "Publishes a coin with no supply. Seeding swaps SUI into the recipe, then locks that seed in the vault."
@@ -14138,15 +14200,41 @@ async function doBridgeDeposit(){
       if (state.route === "launch") renderScreen();
       return;
     }
+    var legCat = e.target.closest("[data-b-leg-cat]");
+    if (legCat){
+      readBasketForm();
+      var legI = Number(legCat.getAttribute("data-b-leg"));
+      var nextCat = legCat.getAttribute("data-b-leg-cat") || "all";
+      if (legI >= 0) bLegCat[legI] = (bLegCat[legI] === nextCat && nextCat !== "all") ? "all" : nextCat;
+      if (state.route === "launch") renderScreen();
+      return;
+    }
+    var legPick = e.target.closest("[data-b-pick]");
+    if (legPick && !legPick.disabled){
+      var pickI = legPick.getAttribute("data-b-pick");
+      var hiddenQ = document.querySelector('[data-b-quote="'+pickI+'"]');
+      if (hiddenQ) hiddenQ.value = legPick.getAttribute("data-val") || "";
+      readBasketForm();
+      if (state.route === "launch") renderScreen();
+      var onChip = document.querySelector('.b-leg[data-b-leg="'+pickI+'"] .pair-chip.on');
+      if (onChip && onChip.scrollIntoView) onChip.scrollIntoView({ inline:"nearest", block:"nearest" });
+      return;
+    }
     if (e.target.closest("[data-b-add]")){
       readBasketForm();
-      if (state.bLegs.length < 5) state.bLegs.push({ q: "USDY", weight: "50" });
+      if (state.bLegs.length < 5){
+        state.bLegs.push({ q: freeBasketQuote(), weight: "50" });
+        bLegCat.push("all");
+      }
       if (state.route === "launch") renderScreen();
       return;
     }
     if (e.target.closest("[data-b-remove]")){
       readBasketForm();
-      if (state.bLegs.length > 2) state.bLegs.pop();
+      if (state.bLegs.length > 2){
+        state.bLegs.pop();
+        bLegCat.pop();
+      }
       if (state.route === "launch") renderScreen();
       return;
     }
@@ -14563,7 +14651,7 @@ async function doBridgeDeposit(){
       if (state.quoteOpen && qSearch) qSearch.focus();
       return;
     }
-    if (state.quoteOpen && !e.target.closest("#quote-dd")){
+    if (state.quoteOpen && !e.target.closest("#quote-dd") && !e.target.closest(".b-leg")){
       state.quoteOpen = false;
       if (state.route === "launch") renderScreen();
     }
@@ -14749,6 +14837,16 @@ async function doBridgeDeposit(){
     if (e.target && e.target.id === "b-redeem-amt"){
       state.bRedeemAmt = e.target.value.trim();
       paintBasketRedeem();
+    }
+    if (e.target && e.target.hasAttribute && e.target.hasAttribute("data-b-find")){
+      var findLeg = e.target.closest("[data-b-leg]");
+      var findQ = String(e.target.value || "").trim().toLowerCase();
+      if (findLeg){
+        findLeg.querySelectorAll("[data-b-pick]").forEach(function(el){
+          var name = ((el.getAttribute("data-val") || "") + " " + (el.textContent || "")).toLowerCase();
+          el.hidden = !!(findQ && name.indexOf(findQ) < 0);
+        });
+      }
     }
     if (e.target && (e.target.hasAttribute && e.target.hasAttribute("data-b-weight") || e.target.id === "b-seed" || e.target.id === "b-usd" || e.target.id === "b-cap")){
       readBasketForm();
