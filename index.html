@@ -1608,7 +1608,9 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
         changed = true;
       }
     } catch (e) {}
-    if (state.route === "launch" && state.createKind === "basket" && state.bView === "redeem" && (changed || attempted)){
+    if ((changed || attempted) && state.route === "token"){
+      renderScreen();
+    } else if (state.route === "launch" && state.createKind === "basket" && state.bView === "redeem" && (changed || attempted)){
       renderScreen();
     } else if ((changed || attempted) && state.route === "launch"){
       if (changed) paintQuoteCats();
@@ -1854,7 +1856,36 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     var lab = (Index && Index.quoteLabel) ? Index.quoteLabel(q) : (raw || "SUI");
     var named = findLiveBasket(lab);
     if (named) return basketAsQuote(named);
-    return QUOTES[lab] || QUOTES.SUI;
+    if (QUOTES[lab]) return QUOTES[lab];
+    if (raw.indexOf("::") >= 0 && lab && lab !== "SUI"){
+      return basketAsQuote({ ticker: lab, name: lab, type: raw });
+    }
+    return QUOTES.SUI;
+  }
+  function noteBasketQuote(raw, label){
+    var type = typeNameStr(raw) || "";
+    if (type.indexOf("::") < 0) return;
+    var lab = String(label || "").toUpperCase() || type.split("::").pop();
+    if (!lab || QUOTES[lab]) return;
+    if (findLiveBasket(type) || findLiveBasket(lab)) return;
+    rememberLiveBasket({ ticker: lab, name: lab, type: type, usd: 0 });
+  }
+  function launchFor(sym){
+    var id = (sym && sym.t) ? sym.t : (sym || state.sym);
+    var tk = findT(id);
+    if (!tk) return null;
+    return bus.launches[tk.t] || bus.launches[id] || (tk.bluefinPool && bus.launches[tk.bluefinPool]) || (sym && sym.bluefinPool && bus.launches[sym.bluefinPool]) || null;
+  }
+  function tokenQuoteRec(tk){
+    var launch = launchFor(tk);
+    var raw = launch && (typeNameStr(launch.quote) || launch.quoteLabel || launch.quote);
+    if (raw) return quoteRec(raw);
+    return quoteRec(poolQuote(tk));
+  }
+  function tokenBasketLine(tk){
+    var rec = tokenQuoteRec(tk);
+    if (!rec || !rec.basket) return "";
+    return basketQuoteHint(rec);
   }
   function quoteDecimalsOf(q){ return quoteRec(q).decimals; }
   function isStockQuote(q){
@@ -3907,8 +3938,8 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     const tk = findT(id);
     const rec = bus.index && bus.index.pools && (bus.index.pools[tk.t] || bus.index.pools[id]);
     if (rec && rec.quote) return quoteRec(rec.quote).label;
-    const launch = bus.launches[tk.t] || bus.launches[id] || (tk.bluefinPool && bus.launches[tk.bluefinPool]) || (sym && sym.bluefinPool && bus.launches[sym.bluefinPool]);
-    if (launch) return quoteRec(launch.quoteLabel || launch.quote).label;
+    const launch = launchFor(sym) || launchFor(tk);
+    if (launch) return quoteRec(typeNameStr(launch.quote) || launch.quoteLabel || launch.quote).label;
     if (given) return quoteRec(given).label;
     return quoteRec(tk.q || tk.quote || "SUI").label;
   }
@@ -8922,7 +8953,8 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       (escUrl(tk.telegram) ? '<a class="about-link" href="'+escUrl(tk.telegram)+'" target="_blank" rel="noopener">Telegram</a>' : '')+
       (tk.creator ? '<a class="about-link" id="creator-link" data-creator="'+escAttr(tk.creator)+'" href="'+escAttr(accountUrl(tk.creator))+'" target="_blank" rel="noopener">Creator · '+escHtml(traderLabel(tk.creator))+'</a>' : '')+
       '<a class="about-link" href="'+dex+'" target="_blank" rel="noopener">Dexscreener</a>'+
-      '<button type="button" class="about-link" data-copy="'+escAttr(demoTypeId(tk))+'">Contract</button>';
+      '<button type="button" class="about-link" data-copy="'+escAttr(demoTypeId(tk))+'">Contract</button>'+
+      (findLiveBasket(q) ? '<button type="button" class="about-link" data-basket-redeem="'+escAttr(q)+'">Redeem '+escHtml(q)+'</button>' : '');
     if (tk.creator) resolveSuins([tk.creator]);
     scheduleHolders(tk);
     const holdN = holderCountOf(tk);
@@ -8950,7 +8982,9 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       '<div class="back" data-go="explore">← Explore</div>'+
       '<div class="token-head">'+
         '<div style="display:flex;align-items:center;gap:14px;min-width:0">'+avatar(tk,52)+
-          '<div><h1>'+escHtml(tk.n)+'</h1><div class="feat-tick" style="margin-top:6px">'+escHtml(tk.t)+' / '+pairQuoteHTML(q)+'</div></div></div>'+
+          '<div><h1>'+escHtml(tk.n)+'</h1><div class="feat-tick" style="margin-top:6px">'+escHtml(tk.t)+' / '+pairQuoteHTML(q)+'</div>'+
+            (tokenBasketLine(tk) ? '<div class="about-s" id="basket-recipe-line" style="margin-top:6px">'+escHtml(tokenBasketLine(tk))+'</div>' : '')+
+          '</div></div>'+
         '<div class="badges">'+
           '<span class="badge">'+tk.st+'</span>'+
           (insta ? '' : '<span class="badge">Pot · '+tk.mode+'</span>')+
@@ -11049,7 +11083,12 @@ async function doBridgeDeposit(){
     return n >= 0 && n <= 18 ? n : 9;
   }
   function quoteTypeOf(tk){
-    return padType(quoteRec(poolQuote(tk)).type);
+    var rec = quoteRec(poolQuote(tk));
+    if (rec && rec.type && String(rec.type).indexOf("::") >= 0) return padType(rec.type);
+    var launch = launchFor(tk);
+    var raw = launch && typeNameStr(launch.quote);
+    if (raw && raw.indexOf("::") >= 0) return padType(raw);
+    return padType(rec && rec.type);
   }
   function tokenTypeOf(tk){
     return normType(typeNameStr(tk.token) || demoTypeId(tk));
@@ -11669,6 +11708,7 @@ async function doBridgeDeposit(){
       return (sym && k.t === sym) || (bf && k.bluefinPool === bf);
     });
     const q = l.quoteLabel || (Index ? Index.quoteLabel(l.quote) : "SUI");
+    noteBasketQuote(l.quote, q);
     const cap = fromMist(l.quote_amount) || 0;
     if (!tk){
       tk = {
@@ -11786,7 +11826,7 @@ async function doBridgeDeposit(){
       if (state.bView === "redeem") paintBasketRedeem();
       else paintBasketCost();
     }
-    if (state.route === "launch") hydrateLiveBaskets();
+    if (state.route === "launch" || state.route === "token") hydrateLiveBaskets();
     stopLivingHero();
     var ticketSlot = host.querySelector("#swap-box.ticket-cetus");
     if (keepTicket && ticketSlot && keepSwapSym && keepSwapSym === String(state.sym || "").toUpperCase()){
@@ -14006,6 +14046,16 @@ async function doBridgeDeposit(){
       state.lNote = "";
       state.lNoteErr = false;
       if (state.route === "launch") renderScreen();
+      return;
+    }
+    var redeemLink = e.target.closest("[data-basket-redeem]");
+    if (redeemLink){
+      state.createKind = "basket";
+      state.bView = "redeem";
+      state.bRedeem = redeemLink.getAttribute("data-basket-redeem") || "";
+      state.lNote = "";
+      state.lNoteErr = false;
+      go("launch");
       return;
     }
     var viewBtn = e.target.closest("[data-b-view]");
