@@ -1681,20 +1681,21 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   }
   function visibleCreateQuotes(){
     var id = state.lQuoteCat || "all";
-    if (id === "basket") return liveBasketTickers();
+    if (id === "basket") return basketPreviewOn() ? liveBasketTickers() : CREATE_QUOTES.slice();
     var i;
     var base = CREATE_QUOTES.slice();
     for (i = 0; i < CREATE_QUOTE_CATS.length; i++){
       if (CREATE_QUOTE_CATS[i].id === id){ base = CREATE_QUOTE_CATS[i].quotes.slice(); break; }
     }
-    if (id === "all"){
+    if (id === "all" && basketPreviewOn()){
       liveBasketTickers().forEach(function(t){ if (base.indexOf(t) < 0) base.push(t); });
     }
     return base;
   }
   function quoteCatHTML(){
     var cur = state.lQuoteCat || "all";
-    return '<div class="pair-cats" id="pair-cats">'+CREATE_QUOTE_CATS.map(function(c){
+    var cats = basketPreviewOn() ? CREATE_QUOTE_CATS : CREATE_QUOTE_CATS.filter(function(c){ return c.id !== "basket"; });
+    return '<div class="pair-cats" id="pair-cats">'+cats.map(function(c){
       return '<button type="button" class="pair-cat'+(cur===c.id?" on":"")+'" data-quote-cat="'+c.id+'">'+escHtml(c.label)+'</button>';
     }).join("")+'</div>';
   }
@@ -8570,6 +8571,19 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     }
     el.textContent = line;
   }
+  function basketPreviewOn(){
+    var host = "";
+    try { host = String(location.hostname || "").toLowerCase(); } catch (e) { host = ""; }
+    if (host === "vicefun.com" || host === "www.vicefun.com" || host === "the-arena-vert.vercel.app") return false;
+    return true;
+  }
+  function createKindToggleHTML(on){
+    if (!basketPreviewOn()) return "";
+    return '<div class="pair-cats" style="margin-top:14px">'+
+      '<button type="button" class="pair-cat'+(on==="token"?" on":"")+'" data-create-kind="token">Token</button>'+
+      '<button type="button" class="pair-cat'+(on==="basket"?" on":"")+'" data-create-kind="basket">Basket</button>'+
+    '</div>';
+  }
   function wholeBig(s){
     var t = String(s == null ? "" : s).trim();
     if (!/^[0-9]+$/.test(t)) return 0n;
@@ -8580,10 +8594,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     return '<div class="create-head">'+
       '<div class="pit-kicker">Launch</div>'+
       '<h1>'+escHtml(title)+'</h1>'+
-      '<div class="pair-cats" style="margin-top:14px">'+
-        '<button type="button" class="pair-cat" data-create-kind="token">Token</button>'+
-        '<button type="button" class="pair-cat on" data-create-kind="basket">Basket</button>'+
-      '</div>'+
+      createKindToggleHTML("basket")+
       (redeem ? '<div class="pair-cats" style="margin-top:10px"><button type="button" class="pair-cat" data-b-view="create">Create a basket</button></div>' : '')+
     '</div>';
   }
@@ -8873,6 +8884,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       '</div></div>'+footerHTML()+'</div>';
   }
   function launchHTML(){
+    if (state.createKind === "basket" && !basketPreviewOn()) state.createKind = "token";
     if (state.createKind === "basket") return basketLaunchHTML();
     state.lPath = "instadex";
     state.lCoinMode = "create";
@@ -8897,10 +8909,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       '<div class="create-head">'+
         '<div class="pit-kicker">Launch</div>'+
         '<h1>Create a token</h1>'+
-        '<div class="pair-cats" style="margin-top:14px">'+
-          '<button type="button" class="pair-cat on" data-create-kind="token">Token</button>'+
-          '<button type="button" class="pair-cat" data-create-kind="basket">Basket</button>'+
-        '</div>'+
+        createKindToggleHTML("token")+
       '</div>'+
       '<div class="create-main">'+
           '<section class="create-card">'+
@@ -14345,7 +14354,7 @@ async function doBridgeDeposit(){
     const kindBtn = e.target.closest("[data-create-kind]");
     if (kindBtn){
       readBasketForm();
-      state.createKind = kindBtn.getAttribute("data-create-kind") === "basket" ? "basket" : "token";
+      state.createKind = kindBtn.getAttribute("data-create-kind") === "basket" && basketPreviewOn() ? "basket" : "token";
       state.lNote = "";
       state.lNoteErr = false;
       if (state.route === "launch") renderScreen();
@@ -14353,6 +14362,7 @@ async function doBridgeDeposit(){
     }
     var redeemLink = e.target.closest("[data-basket-redeem]");
     if (redeemLink){
+      if (!basketPreviewOn()) return;
       state.createKind = "basket";
       state.bView = "redeem";
       state.bRedeem = redeemLink.getAttribute("data-basket-redeem") || "";
