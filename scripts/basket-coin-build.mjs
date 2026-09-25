@@ -9,7 +9,7 @@ import { dirname, join } from "path";
 import { fileURLToPath } from "url";
 import { Transaction } from "@mysten/sui/transactions";
 import { build, TEMPLATE } from "../api/basket-coin-module.js";
-import { appendBasketSeed, appendBasketMint, appendBasketRedeem, legsFromVaultContent, redeemPayout, sharesFromSuiBudget, chartUnitsForQuoteDecimals, vaultShareFields, balanceTypeFromFieldType, balanceAmountFromField } from "../js/basket-seed.js";
+import { appendBasketSeed, appendBasketMint, appendBasketRedeem, legsFromVaultContent, redeemPayout, sharesFromSuiBudget, chartUnitsForQuoteDecimals, vaultShareFields, balanceTypeFromFieldType, balanceAmountFromField, mintDeposit, redeemNet } from "../js/basket-seed.js";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const raw = Buffer.from(readFileSync(join(root, "api/basket-coin-template.b64"), "utf8").trim(), "base64");
@@ -48,6 +48,7 @@ appendBasketSeed(tx, {
   treasuryId: "0x" + "44".repeat(32),
   seedShares: 1000n,
   depositCap: 1_000_000n,
+  protocolRecipient: "0x" + "11".repeat(32),
   legs: [
     { type: "0x2::sui::SUI", units: 2n, coin: Array.isArray(sui) ? sui[0] : sui },
     { type: "0x" + "55".repeat(32) + "::tcoin::TCOIN", units: 5n, coin: Array.isArray(other) ? other[0] : other },
@@ -81,6 +82,7 @@ appendBasketSeed(zap, {
   treasuryId: "0x" + "44".repeat(32),
   seedShares: 1000n,
   depositCap: 1_000_000n,
+  protocolRecipient: "0x" + "11".repeat(32),
   sender,
   legs: [
     { type: "0x2::sui::SUI", units: 2n, coin: Array.isArray(zapSui) ? zapSui[0] : zapSui },
@@ -106,6 +108,7 @@ appendBasketSeed(quoted, {
   virtualQuote: 4_500_000_000_000n,
   seedShares: 1000n,
   depositCap: 1_000_000n,
+  protocolRecipient: "0x" + "11".repeat(32),
   legs: [
     { type: "0x2::sui::SUI", units: 2n, coin: Array.isArray(qSui) ? qSui[0] : qSui },
     { type: "0x" + "55".repeat(32) + "::tcoin::TCOIN", units: 5n, coin: Array.isArray(qOther) ? qOther[0] : qOther },
@@ -177,6 +180,9 @@ for (const fn of ["start_redeem", "withdraw", "finish_redeem"]) {
 if ((redeemJson.split('"function": "withdraw"').length - 1) !== 2) throw new Error("redeem tx should withdraw both assets");
 if (!/TransferObjects/i.test(redeemJson)) throw new Error("redeem tx should return the assets");
 if (redeemPayout(7, 1, 3) !== 2n) throw new Error("redeem payout should floor");
+if (mintDeposit(10000n, 10) !== 10045n) throw new Error("mint deposit should add 0.10% and 0.35%");
+if (redeemNet(10000n, 10) !== 9970n) throw new Error("redeem payout should keep 0.10% and 0.20%");
+if (mintDeposit(200n, 0) !== 201n) throw new Error("protocol mint fee should round up");
 if (sharesFromSuiBudget(1_000_000_000n, 99_266_670n) !== 10n) throw new Error("sui budget should buy whole shares");
 const nine = chartUnitsForQuoteDecimals(9);
 const whole = chartUnitsForQuoteDecimals(0);

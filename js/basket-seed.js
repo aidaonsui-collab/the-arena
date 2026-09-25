@@ -17,6 +17,32 @@ function one(result) {
   return Array.isArray(result) ? result[0] : result;
 }
 
+function pureAddress(tx, addr) {
+  if (tx.pure && typeof tx.pure.address === "function") return tx.pure.address(addr);
+  if (typeof tx.pure === "function") return tx.pure("address", addr);
+  throw new Error("Transaction.pure.address missing");
+}
+
+export function ceilBps(base, bps) {
+  const amount = BigInt(base);
+  const fee = BigInt(bps || 0);
+  if (amount <= 0n || fee <= 0n) return 0n;
+  return (amount * fee + 9999n) / 10000n;
+}
+
+/// Backing plus the creator fee and the 0.35% protocol mint fee.
+export function mintDeposit(base, ownerBps) {
+  const amount = BigInt(base);
+  return amount + ceilBps(amount, ownerBps) + ceilBps(amount, 35);
+}
+
+/// Redeem payout after the creator fee and the 0.20% protocol fee.
+export function redeemNet(gross, ownerBps) {
+  const amount = BigInt(gross);
+  const fee = (amount * BigInt(ownerBps || 0)) / 10000n + (amount * 20n) / 10000n;
+  return fee >= amount ? 0n : amount - fee;
+}
+
 export function appendBasketSeed(tx, opts) {
   const pkg = String(opts.packageId || "");
   const basketType = String(opts.basketType || "");
@@ -27,8 +53,13 @@ export function appendBasketSeed(tx, opts) {
   if (legs.length < 2 || legs.length > 8) throw new Error("Basket needs 2 to 8 assets");
   const seed = BigInt(opts.seedShares);
   const cap = BigInt(opts.depositCap);
+  const mintFee = BigInt(opts.mintFeeBps || 0);
+  const redeemFee = BigInt(opts.redeemFeeBps || 0);
+  const recipient = String(opts.protocolRecipient || "");
   if (!(seed > 0n)) throw new Error("Seed shares must be > 0");
   if (cap < seed) throw new Error("Deposit cap is below the seed");
+  if (mintFee > 100n || redeemFee > 100n) throw new Error("Basket fee is above 1%");
+  if (!recipient) throw new Error("Protocol fee recipient is not set");
   const seen = new Set();
   for (const leg of legs) {
     const t = String(leg.type || "");
@@ -55,7 +86,15 @@ export function appendBasketSeed(tx, opts) {
   const created = tx.moveCall({
     target: pkg + "::basket::create",
     typeArguments: [basketType],
-    arguments: [tx.object(opts.treasuryId), recipe, pureU64(tx, seed), pureU64(tx, cap)],
+    arguments: [
+      tx.object(opts.treasuryId),
+      recipe,
+      pureU64(tx, seed),
+      pureU64(tx, cap),
+      pureU64(tx, mintFee),
+      pureU64(tx, redeemFee),
+      pureAddress(tx, recipient),
+    ],
   });
   const vault = created[0];
   const receipt = created[1];
@@ -129,7 +168,7 @@ export function appendBasketMint(tx, opts) {
 }
 
 /// Burn `sharesCoin` and send one coin per recipe leg back to `sender`.
-/// The vault aborts if this would take supply below the seed.
+/// The vault keeps the creator and protocol fees from each asset.
 export function appendBasketRedeem(tx, opts) {
   const pkg = String(opts.packageId || "");
   const basketType = String(opts.basketType || "");
@@ -190,7 +229,9 @@ export function vaultShareFields(content) {
   const fields = content && (content.fields || content.json || content);
   const total = fields && fields.total_shares != null ? fields.total_shares : "0";
   const seed = fields && fields.seed_shares != null ? fields.seed_shares : "0";
-  return { total: String(total), seed: String(seed) };
+  const redeemFee = fields && fields.redeem_fee_bps != null ? fields.redeem_fee_bps : "0";
+  const mintFee = fields && fields.mint_fee_bps != null ? fields.mint_fee_bps : "0";
+  return { total: String(total), seed: String(seed), redeemFeeBps: String(redeemFee), mintFeeBps: String(mintFee) };
 }
 
 /// Coin type inside `Field<TypeName, Balance<T>>`.

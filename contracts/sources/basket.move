@@ -1,9 +1,11 @@
 /// Fixed-recipe basket share vault. Not `arena::basket_yield`.
 ///
-/// One shared object holds component `Balance`s and the share `TreasuryCap`.
-/// Mint and redeem are the only uses of that cap. There is no withdraw, pause,
-/// or recipe edit. The creator seed is minted into the vault and `redeem`
-/// refuses to take supply below `seed_shares`.
+/// One share is a fixed amount of every asset. The creator receives the first
+/// shares and can redeem them. Mint and redeem are the only uses of the
+/// treasury. Holder backing cannot be withdrawn. Each asset pays a creator
+/// fee, up to 1%, and a protocol fee of 0.35% on mint and 0.20% on redeem.
+/// Protocol fees sit in their own bucket until anyone sweeps them to the
+/// recipient stored on the vault.
 module arena::basket;
 
 use arena::config::{Self, Config};
@@ -25,21 +27,28 @@ const E_WRONG_TYPE: u64 = 6;
 const E_LEG_DONE: u64 = 7;
 const E_LEG_OPEN: u64 = 8;
 const E_SHORT: u64 = 9;
-const E_SEED_FLOOR: u64 = 10;
 const E_IS_SEED: u64 = 11;
 const E_OVERFLOW: u64 = 12;
 const E_PREMINTED: u64 = 13;
 const E_NOT_SEEDED: u64 = 14;
 const E_NOT_SEED: u64 = 15;
+const E_FEE: u64 = 16;
+const E_NOT_CREATOR: u64 = 18;
 
 const MIN_LEGS: u64 = 2;
 const MAX_LEGS: u64 = 8;
 const U64_MAX: u128 = 18446744073709551615;
+const PROTOCOL_MINT_BPS: u64 = 35;
+const PROTOCOL_REDEEM_BPS: u64 = 20;
+const MAX_OWNER_FEE_BPS: u64 = 100;
 
 public struct BasketLeg has store, copy, drop {
     asset: TypeName,
     units_per_share: u64,
 }
+
+public struct OwnerFeeKey<phantom T> has copy, drop, store {}
+public struct ProtocolFeeKey<phantom T> has copy, drop, store {}
 
 public struct BasketVault<phantom BASKET> has key {
     id: UID,
@@ -48,9 +57,11 @@ public struct BasketVault<phantom BASKET> has key {
     total_shares: u64,
     seed_shares: u64,
     deposit_cap: u64,
-    /// Share coins that back the floor. Not redeemable.
-    seed: Balance<BASKET>,
     creator: address,
+    seeded: bool,
+    mint_fee_bps: u64,
+    redeem_fee_bps: u64,
+    protocol_recipient: address,
 }
 
 /// Hot potato. Filled by `deposit`, consumed by `finish_seed` or `finish_mint`.
@@ -75,6 +86,8 @@ public struct BasketCreatedEvent has copy, drop {
     creator: address,
     seed_shares: u64,
     deposit_cap: u64,
+    mint_fee_bps: u64,
+    redeem_fee_bps: u64,
 }
 
 public struct BasketMintEvent has copy, drop {
@@ -89,6 +102,10 @@ public struct BasketRedeemEvent has copy, drop {
     redeemer: address,
 }
 
+public fun protocol_mint_bps(): u64 { PROTOCOL_MINT_BPS }
+public fun protocol_redeem_bps(): u64 { PROTOCOL_REDEEM_BPS }
+public fun max_owner_fee_bps(): u64 { MAX_OWNER_FEE_BPS }
+
 public fun new_leg(asset: TypeName, units_per_share: u64): BasketLeg {
     BasketLeg { asset, units_per_share }
 }
@@ -98,11 +115,16 @@ public fun create<BASKET>(
     recipe: vector<BasketLeg>,
     seed_shares: u64,
     deposit_cap: u64,
+    mint_fee_bps: u64,
+    redeem_fee_bps: u64,
+    protocol_recipient: address,
     ctx: &mut TxContext,
 ): (BasketVault<BASKET>, MintReceipt<BASKET>) {
     assert!(coin::total_supply(&treasury) == 0, E_PREMINTED);
     assert!(seed_shares > 0, E_ZERO_AMOUNT);
     assert!(deposit_cap >= seed_shares, E_CAP);
+    assert!(mint_fee_bps <= MAX_OWNER_FEE_BPS && redeem_fee_bps <= MAX_OWNER_FEE_BPS, E_FEE);
+    assert!(protocol_recipient != @0x0, E_FEE);
     validate_recipe(&recipe);
     let n = recipe.length();
     let mut deposited = vector[];
@@ -120,8 +142,11 @@ public fun create<BASKET>(
         total_shares: 0,
         seed_shares,
         deposit_cap,
-        seed: balance::zero<BASKET>(),
         creator: ctx.sender(),
+        seeded: false,
+        mint_fee_bps,
+        redeem_fee_bps,
+        protocol_recipient,
     };
     let receipt = MintReceipt<BASKET> {
         vault_id,
@@ -132,7 +157,7 @@ public fun create<BASKET>(
     (vault, receipt)
 }
 
-/// Pull the exact leg amount. Surplus comes back to the caller.
+/// Pull backing plus the creator and protocol mint fees. Surplus comes back.
 public fun deposit<BASKET, T>(
     vault: &mut BasketVault<BASKET>,
     receipt: &mut MintReceipt<BASKET>,
@@ -142,10 +167,21 @@ public fun deposit<BASKET, T>(
     assert!(object::id(vault) == receipt.vault_id, E_WRONG_VAULT);
     let idx = leg_index<T>(&vault.recipe);
     assert!(!*vector::borrow(&receipt.deposited, idx), E_LEG_DONE);
-    let need = mul(vault.recipe[idx].units_per_share, receipt.shares);
+    let base = mul(vault.recipe[idx].units_per_share, receipt.shares);
+    let owner = ceil_bps(base, vault.mint_fee_bps);
+    let proto = ceil_bps(base, PROTOCOL_MINT_BPS);
+    let need = add_u64(add_u64(base, owner), proto);
     assert!(payment.value() >= need, E_SHORT);
-    let pay = payment.split(need, ctx);
-    join_component<BASKET, T>(vault, pay.into_balance());
+    let backing = payment.split(base, ctx);
+    join_component<BASKET, T>(vault, backing.into_balance());
+    if (owner > 0) {
+        let fee = payment.split(owner, ctx);
+        join_owner_fee<BASKET, T>(vault, fee.into_balance());
+    };
+    if (proto > 0) {
+        let fee = payment.split(proto, ctx);
+        join_protocol_fee<BASKET, T>(vault, fee.into_balance());
+    };
     *vector::borrow_mut(&mut receipt.deposited, idx) = true;
     payment
 }
@@ -153,8 +189,11 @@ public fun deposit<BASKET, T>(
 public fun finish_seed<BASKET>(
     vault: BasketVault<BASKET>,
     receipt: MintReceipt<BASKET>,
+    ctx: &mut TxContext,
 ) {
-    transfer::share_object(complete_seed(vault, receipt));
+    let (vault, shares) = complete_seed(vault, receipt, ctx);
+    transfer::public_transfer(shares, ctx.sender());
+    transfer::share_object(vault);
 }
 
 /// Same seed as `finish_seed`, and writes the Instant open price for this share
@@ -165,37 +204,42 @@ public fun finish_seed_with_quote<BASKET>(
     vault: BasketVault<BASKET>,
     receipt: MintReceipt<BASKET>,
     virtual_quote: u64,
+    ctx: &mut TxContext,
 ) {
-    let vault = complete_seed(vault, receipt);
+    let (vault, shares) = complete_seed(vault, receipt, ctx);
     config::add_instant_virtual_quote_once<BASKET>(config, virtual_quote);
+    transfer::public_transfer(shares, ctx.sender());
     transfer::share_object(vault);
 }
 
 fun complete_seed<BASKET>(
     mut vault: BasketVault<BASKET>,
     receipt: MintReceipt<BASKET>,
-): BasketVault<BASKET> {
+    ctx: &mut TxContext,
+): (BasketVault<BASKET>, Coin<BASKET>) {
     assert!(receipt.seed, E_NOT_SEED);
     consume_mint_receipt(&vault, receipt);
-    let seed_shares = vault.seed_shares;
-    let minted = coin::mint_balance(&mut vault.treasury, seed_shares);
-    vault.seed.join(minted);
-    vault.total_shares = vault.seed_shares;
+    let shares = vault.seed_shares;
+    let minted = coin::mint(&mut vault.treasury, shares, ctx);
+    vault.total_shares = shares;
+    vault.seeded = true;
     event::emit(BasketCreatedEvent {
         vault_id: object::id(&vault),
         basket_type: type_name::with_defining_ids<BASKET>(),
         creator: vault.creator,
         seed_shares: vault.seed_shares,
         deposit_cap: vault.deposit_cap,
+        mint_fee_bps: vault.mint_fee_bps,
+        redeem_fee_bps: vault.redeem_fee_bps,
     });
-    vault
+    (vault, minted)
 }
 
 public fun start_mint<BASKET>(
     vault: &BasketVault<BASKET>,
     shares: u64,
 ): MintReceipt<BASKET> {
-    assert!(vault.total_shares >= vault.seed_shares && vault.seed_shares > 0, E_NOT_SEEDED);
+    assert!(vault.seeded, E_NOT_SEEDED);
     assert!(shares > 0, E_ZERO_AMOUNT);
     let next = add_u64(vault.total_shares, shares);
     assert!(next <= vault.deposit_cap, E_CAP);
@@ -240,7 +284,7 @@ public fun start_redeem<BASKET>(
 ): RedeemReceipt<BASKET> {
     let n = shares.value();
     assert!(n > 0, E_ZERO_AMOUNT);
-    assert!(vault.total_shares - n >= vault.seed_shares, E_SEED_FLOOR);
+    assert!(n <= vault.total_shares, E_CAP);
     let supply_before = vault.total_shares;
     coin::burn(&mut vault.treasury, shares);
     vault.total_shares = vault.total_shares - n;
@@ -274,10 +318,25 @@ public fun withdraw<BASKET, T>(
     assert!(!*vector::borrow(&receipt.withdrawn, idx), E_LEG_DONE);
     let tn = type_name::with_defining_ids<T>();
     let bal = df::borrow_mut<TypeName, Balance<T>>(&mut vault.id, tn);
-    let out = mul_div_floor(bal.value(), receipt.shares, receipt.supply_before);
-    let piece = bal.split(out);
+    let gross = mul_div_floor(bal.value(), receipt.shares, receipt.supply_before);
+    let owner = floor_bps(gross, vault.redeem_fee_bps);
+    let proto = floor_bps(gross, PROTOCOL_REDEEM_BPS);
+    let fees = add_u64(owner, proto);
+    assert!(fees <= gross, E_OVERFLOW);
+    let payout = gross - fees;
+    let mut taken = bal.split(gross);
+    let payout_bal = taken.split(payout);
+    if (owner > 0) {
+        let fee = taken.split(owner);
+        join_owner_fee<BASKET, T>(vault, fee);
+    };
+    if (proto > 0) {
+        let fee = taken.split(proto);
+        join_protocol_fee<BASKET, T>(vault, fee);
+    };
+    balance::destroy_zero(taken);
     *vector::borrow_mut(&mut receipt.withdrawn, idx) = true;
-    coin::from_balance(piece, ctx)
+    coin::from_balance(payout_bal, ctx)
 }
 
 public fun finish_redeem<BASKET>(vault: &BasketVault<BASKET>, receipt: RedeemReceipt<BASKET>) {
@@ -286,20 +345,50 @@ public fun finish_redeem<BASKET>(vault: &BasketVault<BASKET>, receipt: RedeemRec
     let RedeemReceipt<BASKET> { vault_id: _, shares: _, supply_before: _, withdrawn: _ } = receipt;
 }
 
+/// Move the creator's fee for this asset into holder backing.
+public fun accrete<BASKET, T>(vault: &mut BasketVault<BASKET>) {
+    let key = OwnerFeeKey<T> {};
+    assert!(df::exists_with_type<OwnerFeeKey<T>, Balance<T>>(&vault.id, key), E_ZERO_AMOUNT);
+    let bal = df::remove<OwnerFeeKey<T>, Balance<T>>(&mut vault.id, key);
+    assert!(bal.value() > 0, E_ZERO_AMOUNT);
+    join_component<BASKET, T>(vault, bal);
+}
+
+public fun withdraw_owner_fees<BASKET, T>(
+    vault: &mut BasketVault<BASKET>,
+    ctx: &mut TxContext,
+): Coin<T> {
+    assert!(ctx.sender() == vault.creator, E_NOT_CREATOR);
+    take_owner_fee<BASKET, T>(vault, ctx)
+}
+
+public fun sweep_protocol_fees<BASKET, T>(vault: &mut BasketVault<BASKET>, ctx: &mut TxContext) {
+    let coin = take_protocol_fee<BASKET, T>(vault, ctx);
+    transfer::public_transfer(coin, vault.protocol_recipient);
+}
+
 public fun total_shares<BASKET>(vault: &BasketVault<BASKET>): u64 { vault.total_shares }
 
 public fun seed_shares<BASKET>(vault: &BasketVault<BASKET>): u64 { vault.seed_shares }
 
 public fun deposit_cap<BASKET>(vault: &BasketVault<BASKET>): u64 { vault.deposit_cap }
 
-public fun seed_balance<BASKET>(vault: &BasketVault<BASKET>): u64 { vault.seed.value() }
+public fun mint_fee_bps<BASKET>(vault: &BasketVault<BASKET>): u64 { vault.mint_fee_bps }
+
+public fun redeem_fee_bps<BASKET>(vault: &BasketVault<BASKET>): u64 { vault.redeem_fee_bps }
+
+public fun protocol_recipient<BASKET>(vault: &BasketVault<BASKET>): address { vault.protocol_recipient }
 
 public fun component_value<BASKET, T>(vault: &BasketVault<BASKET>): u64 {
-    let tn = type_name::with_defining_ids<T>();
-    if (!df::exists_with_type<TypeName, Balance<T>>(&vault.id, tn)) {
-        return 0
-    };
-    df::borrow<TypeName, Balance<T>>(&vault.id, tn).value()
+    bucket_value<BASKET, TypeName, T>(vault, type_name::with_defining_ids<T>())
+}
+
+public fun owner_fee_value<BASKET, T>(vault: &BasketVault<BASKET>): u64 {
+    bucket_value<BASKET, OwnerFeeKey<T>, T>(vault, OwnerFeeKey<T> {})
+}
+
+public fun protocol_fee_value<BASKET, T>(vault: &BasketVault<BASKET>): u64 {
+    bucket_value<BASKET, ProtocolFeeKey<T>, T>(vault, ProtocolFeeKey<T> {})
 }
 
 public fun leg_count<BASKET>(vault: &BasketVault<BASKET>): u64 { vault.recipe.length() }
@@ -333,6 +422,45 @@ fun join_component<BASKET, T>(vault: &mut BasketVault<BASKET>, piece: Balance<T>
         df::add<TypeName, Balance<T>>(&mut vault.id, tn, balance::zero<T>());
     };
     df::borrow_mut<TypeName, Balance<T>>(&mut vault.id, tn).join(piece);
+}
+
+fun join_owner_fee<BASKET, T>(vault: &mut BasketVault<BASKET>, piece: Balance<T>) {
+    let key = OwnerFeeKey<T> {};
+    if (!df::exists_with_type<OwnerFeeKey<T>, Balance<T>>(&vault.id, key)) {
+        df::add<OwnerFeeKey<T>, Balance<T>>(&mut vault.id, key, balance::zero<T>());
+    };
+    df::borrow_mut<OwnerFeeKey<T>, Balance<T>>(&mut vault.id, OwnerFeeKey<T> {}).join(piece);
+}
+
+fun join_protocol_fee<BASKET, T>(vault: &mut BasketVault<BASKET>, piece: Balance<T>) {
+    let key = ProtocolFeeKey<T> {};
+    if (!df::exists_with_type<ProtocolFeeKey<T>, Balance<T>>(&vault.id, key)) {
+        df::add<ProtocolFeeKey<T>, Balance<T>>(&mut vault.id, key, balance::zero<T>());
+    };
+    df::borrow_mut<ProtocolFeeKey<T>, Balance<T>>(&mut vault.id, ProtocolFeeKey<T> {}).join(piece);
+}
+
+fun take_owner_fee<BASKET, T>(vault: &mut BasketVault<BASKET>, ctx: &mut TxContext): Coin<T> {
+    let key = OwnerFeeKey<T> {};
+    assert!(df::exists_with_type<OwnerFeeKey<T>, Balance<T>>(&vault.id, key), E_ZERO_AMOUNT);
+    let bal = df::remove<OwnerFeeKey<T>, Balance<T>>(&mut vault.id, key);
+    assert!(bal.value() > 0, E_ZERO_AMOUNT);
+    coin::from_balance(bal, ctx)
+}
+
+fun take_protocol_fee<BASKET, T>(vault: &mut BasketVault<BASKET>, ctx: &mut TxContext): Coin<T> {
+    let key = ProtocolFeeKey<T> {};
+    assert!(df::exists_with_type<ProtocolFeeKey<T>, Balance<T>>(&vault.id, key), E_ZERO_AMOUNT);
+    let bal = df::remove<ProtocolFeeKey<T>, Balance<T>>(&mut vault.id, key);
+    assert!(bal.value() > 0, E_ZERO_AMOUNT);
+    coin::from_balance(bal, ctx)
+}
+
+fun bucket_value<BASKET, K: copy + drop + store, T>(vault: &BasketVault<BASKET>, key: K): u64 {
+    if (!df::exists_with_type<K, Balance<T>>(&vault.id, key)) {
+        return 0
+    };
+    df::borrow<K, Balance<T>>(&vault.id, key).value()
 }
 
 fun validate_recipe(recipe: &vector<BasketLeg>) {
@@ -384,6 +512,19 @@ fun mul(a: u64, b: u64): u64 {
 fun add_u64(a: u64, b: u64): u64 {
     let r = (a as u128) + (b as u128);
     assert!(r <= U64_MAX, E_OVERFLOW);
+    r as u64
+}
+
+fun ceil_bps(base: u64, bps: u64): u64 {
+    if (bps == 0 || base == 0) return 0;
+    let r = ((base as u128) * (bps as u128) + 9999) / 10000;
+    assert!(r <= U64_MAX, E_OVERFLOW);
+    r as u64
+}
+
+fun floor_bps(base: u64, bps: u64): u64 {
+    if (bps == 0 || base == 0) return 0;
+    let r = (base as u128) * (bps as u128) / 10000;
     r as u64
 }
 

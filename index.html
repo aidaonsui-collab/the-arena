@@ -1296,7 +1296,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   let balance = 48.60;
   let xaumBal = 2.40;
 
-  const state = {route:"explore", sym:"VOLT", filter:"All", sort:"Market cap", time:"All", side:"Buy", amt:"1", connected:false, search:"", lName:"", lTick:"", lQuote:"SUI", lPath:"instadex", lMode:"Holders", lTokenAmt:"", lQuoteAmt:"", lFirstBuy:"1", lCap:"", lTokenCoin:"", lQuoteCoin:"", lCoinMode:"create", lDecimals:"9", lSupply:"1000000000", lDesc:"", lX:"", lTg:"", lWeb:"", lPublishedType:"", metricsWindow:"All", tapeTab:"trades", tapeOpen:"", tapePage:0, tapeAge:"age", tapeWallet:"", tapeFilterOpen:false, lFile:null, lArtUrl:"", lArtPreview:"", payWith:"", lNote:"", lNoteErr:false, chartTf:900, chartInd:{vol:true,ma7:false,ma25:false,ma99:false,ema:false}, bridgeTick:"NVDA", bridgeAmt:"", bridgeDir:"in", bridgeRhDest:"", bridgeNote:"", bridgeBusy:false, bridgePending:[], walletCheck:null, quoteOpen:false, rewardsTab:"all", lBasket:false, lBasketEqual:true, lBasketMode:0, lBasketOn:{XAUM:true,XAGM:true,USDY:true}, lBasketBps:{XAUM:3334,XAGM:3333,USDY:3333}, lSplitPreset:"vice", lSplit:{creator:6000,platform:500,rewards:3000,buyback:500}, lSocialsOpen:false, lQuoteCat:"all", createKind:"token", bView:"create", bRedeem:"", bRedeemAmt:"1", bLegs:[{q:"SUI", weight:"50"},{q:"XAUM", weight:"50"},{q:"USDY", weight:"50"}], bUsd:"1", bPay:"sui", bSeed:"1000", bCap:"1000000", bCapId:"", bCoinType:"", pfRange:"1M", pfFlash:"", lockTab:"create", lockKind:"lock", lockTok:"", lockAmt:"", lockDays:"30", lockSelf:"self", lockBen:"", lockCliff:"90", lockEnd:"365", lockNote:"", lockNoteErr:false, lockBusy:false, lockMine:[], lockAll:[], lockLoad:false, scrTab:"mcap", scrSort:"mcap", scrDir:-1, scrQuote:"All", scrBuyUsd:5, scrLiveOnly:false, scrFilters:false, watch:[]};
+  const state = {route:"explore", sym:"VOLT", filter:"All", sort:"Market cap", time:"All", side:"Buy", amt:"1", connected:false, search:"", lName:"", lTick:"", lQuote:"SUI", lPath:"instadex", lMode:"Holders", lTokenAmt:"", lQuoteAmt:"", lFirstBuy:"1", lCap:"", lTokenCoin:"", lQuoteCoin:"", lCoinMode:"create", lDecimals:"9", lSupply:"1000000000", lDesc:"", lX:"", lTg:"", lWeb:"", lPublishedType:"", metricsWindow:"All", tapeTab:"trades", tapeOpen:"", tapePage:0, tapeAge:"age", tapeWallet:"", tapeFilterOpen:false, lFile:null, lArtUrl:"", lArtPreview:"", payWith:"", lNote:"", lNoteErr:false, chartTf:900, chartInd:{vol:true,ma7:false,ma25:false,ma99:false,ema:false}, bridgeTick:"NVDA", bridgeAmt:"", bridgeDir:"in", bridgeRhDest:"", bridgeNote:"", bridgeBusy:false, bridgePending:[], walletCheck:null, quoteOpen:false, rewardsTab:"all", lBasket:false, lBasketEqual:true, lBasketMode:0, lBasketOn:{XAUM:true,XAGM:true,USDY:true}, lBasketBps:{XAUM:3334,XAGM:3333,USDY:3333}, lSplitPreset:"vice", lSplit:{creator:6000,platform:500,rewards:3000,buyback:500}, lSocialsOpen:false, lQuoteCat:"all", createKind:"token", bView:"create", bRedeem:"", bRedeemAmt:"1", bLegs:[{q:"SUI", weight:"50"},{q:"XAUM", weight:"50"},{q:"USDY", weight:"50"}], bUsd:"1", bPay:"sui", bSeed:"1000", bFee:"0", bCap:"1000000", bCapId:"", bCoinType:"", pfRange:"1M", pfFlash:"", lockTab:"create", lockKind:"lock", lockTok:"", lockAmt:"", lockDays:"30", lockSelf:"self", lockBen:"", lockCliff:"90", lockEnd:"365", lockNote:"", lockNoteErr:false, lockBusy:false, lockMine:[], lockAll:[], lockLoad:false, scrTab:"mcap", scrSort:"mcap", scrDir:-1, scrQuote:"All", scrBuyUsd:5, scrLiveOnly:false, scrFilters:false, watch:[]};
 
   try {
     var watchSaved = JSON.parse(localStorage.getItem("vice.watch.v1") || "[]");
@@ -1528,7 +1528,9 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       type: row.type,
       usd: Number(row.usd) || (prev && Number(prev.usd)) || 0,
       vaultId: row.vaultId || (prev && prev.vaultId) || "",
-      legs: (row.legs && row.legs.length) ? row.legs : ((prev && prev.legs) || [])
+      legs: (row.legs && row.legs.length) ? row.legs : ((prev && prev.legs) || []),
+      mintFeeBps: row.mintFeeBps != null ? Number(row.mintFeeBps) : ((prev && Number(prev.mintFeeBps)) || 0),
+      redeemFeeBps: row.redeemFeeBps != null ? Number(row.redeemFeeBps) : ((prev && Number(prev.redeemFeeBps)) || 0)
     });
     state.liveBaskets = next;
     try { localStorage.setItem("vice.baskets.v1", JSON.stringify(next)); } catch (e) {}
@@ -1608,6 +1610,11 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
             var obj = await moveObjectRpc(vaultId);
             var parsed = legsFromVault(mod.legsFromVaultContent(obj && obj.json));
             if (parsed.length >= 2) legs = parsed;
+            var fields = obj && obj.json && (obj.json.fields || obj.json);
+            if (fields){
+              if (fields.mint_fee_bps != null) row.mintFeeBps = Number(fields.mint_fee_bps) || 0;
+              if (fields.redeem_fee_bps != null) row.redeemFeeBps = Number(fields.redeem_fee_bps) || 0;
+            }
           } catch (e) {}
         }
         var nextLegs = legs.length >= 2 ? legs : ((prev && prev.legs) || []);
@@ -8455,13 +8462,37 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     var cap = $("#b-cap");
     var usd = $("#b-usd");
     if (seed) state.bSeed = seed.value;
+    var fee = $("#b-fee");
+    if (fee) state.bFee = fee.value;
     if (cap) state.bCap = cap.value;
     if (usd) state.bUsd = usd.value;
+    else state.bUsd = "1";
+    if (!cap){
+      var locked = wholeBig(state.bSeed);
+      var floor = 1000000n;
+      state.bCap = (locked > floor ? locked : floor).toString();
+    }
   }
   function basketHumanStr(n, decimals){
     if (!(n > 0) || !isFinite(n)) return "0";
     var d = Math.min(Math.max(decimals == null ? 6 : Number(decimals), 0), 8);
     return n.toFixed(d).replace(/\.?0+$/, "");
+  }
+  function basketOwnerBps(){
+    var n = Number(state.bFee);
+    if (!isFinite(n) || n <= 0) return 0;
+    var bps = Math.round(n * 100);
+    return bps > 100 ? 100 : bps;
+  }
+  function basketMintDeposit(base, ownerBps){
+    var owner = ownerBps > 0 ? (base * BigInt(ownerBps) + 9999n) / 10000n : 0n;
+    var proto = (base * 35n + 9999n) / 10000n;
+    return base + owner + proto;
+  }
+  function basketRedeemNet(gross, ownerBps){
+    var bps = Number(ownerBps) || 0;
+    var fee = (gross * BigInt(bps)) / 10000n + (gross * 20n) / 10000n;
+    return fee >= gross ? 0n : gross - fee;
   }
   function basketPlan(){
     var legs = state.bLegs || [];
@@ -8495,13 +8526,14 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       var unitsStr = basketHumanStr(human, rec.decimals);
       var units = toSmallestBig(unitsStr, rec.decimals);
       if (!(units > 0n)) return { error: lab+" amount rounds to zero. Raise dollars per share." };
-      var pay = units * seed;
+      var pay = basketMintDeposit(units * seed, basketOwnerBps());
       if (pay > 18446744073709551615n) return { error: lab+" seed amount overflows" };
       var suiIn = 0n;
       if (lab !== "SUI"){
         var suiPx = quoteUsd("SUI");
         if (!(suiPx > 0)) return { error: "No USD price for SUI yet" };
-        var suiHuman = (Number(seed) * human * px / suiPx) * 1.03;
+        var paidHuman = Number(pay) / Math.pow(10, rec.decimals);
+        var suiHuman = (paidHuman * px / suiPx) * 1.03;
         suiIn = toSmallestBig(basketHumanStr(suiHuman, 9), 9);
         if (!(suiIn > 0n)) return { error: "SUI amount for "+lab+" rounds to zero" };
       }
@@ -8527,11 +8559,10 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       el.textContent = plan.error;
       return;
     }
-    var seedN = Number(plan.seed);
-    var line = "Seed locks " + plan.legs.map(function(l){
-      var amt = seedN * l.human;
-      return basketHumanStr(amt, l.decimals)+" "+l.q+" ("+l.pct.toFixed(0)+"% · "+fmtUsd(amt * l.px)+")";
-    }).join(", ")+".";
+    var line = "You receive " + plan.seed.toString() + " shares. You pay " + plan.legs.map(function(l){
+      var amt = Number(l.pay) / Math.pow(10, l.decimals);
+      return basketHumanStr(amt, l.decimals)+" "+l.q+" ("+l.pct.toFixed(0)+"% · "+fmtUsd(Number(plan.seed) * l.human * l.px)+")";
+    }).join(", ")+", including the 0.35% protocol fee"+(basketOwnerBps() ? " and your "+(basketOwnerBps()/100)+"% fee" : "")+".";
     if (state.bPay !== "hold"){
       var sui = 0n;
       plan.legs.forEach(function(l){ sui += l.q === "SUI" ? l.pay : l.suiIn; });
@@ -8553,10 +8584,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
         '<button type="button" class="pair-cat" data-create-kind="token">Token</button>'+
         '<button type="button" class="pair-cat on" data-create-kind="basket">Basket</button>'+
       '</div>'+
-      '<div class="pair-cats" style="margin-top:10px">'+
-        '<button type="button" class="pair-cat'+(!redeem?" on":"")+'" data-b-view="create">Create</button>'+
-        '<button type="button" class="pair-cat'+(redeem?" on":"")+'" data-b-view="redeem">Redeem</button>'+
-      '</div>'+
+      (redeem ? '<div class="pair-cats" style="margin-top:10px"><button type="button" class="pair-cat" data-b-view="create">Create a basket</button></div>' : '')+
     '</div>';
   }
   function selectedRedeemBasket(){
@@ -8593,7 +8621,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       for (var i = 0; i < rows.length; i++){
         var row = rows[i] || {};
         var typ = mod.balanceTypeFromFieldType(row.objectType);
-        if (!typ || !row.objectId) continue;
+        if (!typ || !row.objectId || String(row.objectType || "").indexOf("FeeKey") >= 0) continue;
         var field = await moveObjectRpc(row.objectId);
         bals[normType(typ)] = mod.balanceAmountFromField(field && field.json);
       }
@@ -8604,29 +8632,33 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     var seed = 0n;
     try { total = BigInt(shares.total); } catch (e) { total = 0n; }
     try { seed = BigInt(shares.seed); } catch (e2) { seed = 0n; }
-    basketVaultSnap = { id: basket.vaultId, at: Date.now(), total: total, seed: seed, bals: bals };
+    var redeemFee = Number(shares.redeemFeeBps);
+    if (!(redeemFee >= 0)) redeemFee = Number(basket.redeemFeeBps) || 0;
+    basketVaultSnap = { id: basket.vaultId, at: Date.now(), total: total, seed: seed, redeemFee: redeemFee, bals: bals };
     return basketVaultSnap;
   }
   function redeemPreviewText(basket, shares, snap, wallet){
-    if (!basket) return "No baskets yet. Create one on this tab.";
+    if (!basket) return "No baskets yet. Create one first.";
     if (!basket.vaultId) return "This basket has no vault yet.";
     if (!basket.legs || basket.legs.length < 2) return "The recipe is not loaded yet.";
     if (!snap) return "Reading the vault…";
     if (!(snap.total > 0n)) return "This vault has no shares yet.";
-    var room = snap.total > snap.seed ? snap.total - snap.seed : 0n;
+    var room = snap.total;
     if (!(shares > 0n)) return "Enter a whole number of shares. " + room.toString() + " can be redeemed.";
-    if (shares > room) return "Only " + room.toString() + " shares can be redeemed. " + snap.seed.toString() + " seed shares stay in the vault.";
+    if (shares > room) return "Only " + room.toString() + " shares are outstanding.";
     var parts = [];
+    var feeBps = Number(snap.redeemFee) || 0;
     for (var i = 0; i < basket.legs.length; i++){
       var leg = basket.legs[i];
       var bal = 0n;
       try { bal = BigInt(snap.bals[normType(leg.type)] || "0"); } catch (e) { bal = 0n; }
-      var pay = (bal * shares) / snap.total;
+      var gross = (bal * shares) / snap.total;
+      var pay = basketRedeemNet(gross, feeBps);
       var dec = basketLegDecimals(leg);
       parts.push(fromBaseStr(pay, dec) + " " + createQuoteLabel(leg.q || ""));
     }
     var noun = shares === 1n ? " share returns " : " shares return ";
-    var line = shares.toString() + noun + joinAnd(parts) + ". " + room.toString() + " can be redeemed. " + snap.seed.toString() + " seed shares stay in the vault.";
+    var line = shares.toString() + noun + joinAnd(parts) + ". A 0.20% protocol fee stays in the basket.";
     if (wallet != null) line += " Wallet has " + wallet.toString() + ".";
     return line;
   }
@@ -8660,7 +8692,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       var on = basket && normType(b.type) === normType(basket.type);
       return '<option value="'+escAttr(b.ticker)+'"'+(on?" selected":"")+'>'+escHtml(b.ticker)+'</option>';
     }).join("");
-    var note = state.lNote || "Burns the shares and sends each asset back to this wallet. The seed stays in the vault.";
+    var note = state.lNote || "Burns the shares and sends each asset back to this wallet, after the protocol fee.";
     if (!window.ARENA_BASKET_PACKAGE) note = state.lNote || "Redeem sends once the basket vault is on mainnet.";
     return '<div class="shell" data-screen-label="Launch">'+
       '<div class="create-page">'+
@@ -8671,7 +8703,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
           '<p class="create-sub">Whole shares only. The vault pays each asset in proportion to what it holds, and keeps the seed.</p>'+
           (list.length
             ? '<div class="create-field"><div class="create-lab">Basket</div><select id="b-redeem">'+opts+'</select></div>'
-            : '<div class="create-hint">No baskets yet. Create one on this tab.</div>')+
+            : '<div class="create-hint">No baskets yet. Create one first.</div>')+
           '<div class="create-field">'+
             '<div class="create-labrow"><span class="create-lab">Shares</span><button type="button" class="create-reset" data-b-redeem-max>Max</button></div>'+
             '<input id="b-redeem-amt" inputmode="numeric" value="'+escAttr(state.bRedeemAmt)+'">'+
@@ -8791,18 +8823,21 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
         '</section>'+
         '<section class="create-card">'+
           '<h2>Recipe</h2>'+
-          '<p class="create-sub">Weights are shares of each dollar of the basket. Prices turn them into the fixed units the vault locks.</p>'+
+          '<p class="create-sub">The weights split each dollar across these assets.</p>'+
           '<div class="pair-cats" style="margin:8px 0 12px">'+
             '<button type="button" class="pair-cat'+(paySui?" on":"")+'" data-b-pay="sui">Pay with SUI</button>'+
             '<button type="button" class="pair-cat'+(!paySui?" on":"")+'" data-b-pay="hold">Use wallet assets</button>'+
           '</div>'+
           legHTML+
-          '<div class="create-field create-nt">'+
-            '<div><div class="create-lab">Dollars per share</div><input id="b-usd" inputmode="decimal" value="'+escAttr(state.bUsd)+'"></div>'+
-            '<div><div class="create-lab">Seed shares</div><input id="b-seed" inputmode="numeric" value="'+escAttr(state.bSeed)+'"></div>'+
+          '<div class="create-field">'+
+            '<div class="create-lab">Dollars to put in</div>'+
+            '<input id="b-seed" inputmode="numeric" value="'+escAttr(state.bSeed)+'">'+
+            '<div class="create-hint">You pay this and receive the shares. One share is $1 of the recipe. You can redeem those shares for the assets.</div>'+
           '</div>'+
           '<div class="create-field">'+
-            '<div class="create-lab">Share cap</div><input id="b-cap" inputmode="numeric" value="'+escAttr(state.bCap)+'">'+
+            '<div class="create-lab">Your fee <span class="opt">optional, up to 1%</span></div>'+
+            '<input id="b-fee" inputmode="decimal" value="'+escAttr(state.bFee)+'">'+
+            '<div class="create-hint">Taken from each asset when someone mints or redeems. The protocol takes 0.35% on mint and 0.20% on redeem.</div>'+
           '</div>'+
           '<div class="create-hint" id="b-cost">Waiting for prices…</div>'+
           '<div style="display:flex;gap:8px;margin-top:8px">'+
@@ -12531,13 +12566,16 @@ async function doBridgeDeposit(){
         treasuryId: capId,
         seedShares: seed,
         depositCap: cap,
+        mintFeeBps: basketOwnerBps(),
+        redeemFeeBps: basketOwnerBps(),
+        protocolRecipient: window.ARENA_SWAP_PARTNER || "0x92a32ac7fd525f8bd37ed359423b8d7d858cad26224854dfbff1914b75ee658b",
         sender: paySui ? suiSession.address : "",
         configId: window.ARENA_CONFIG,
         virtualQuote: virtualQuote,
         legs: seedLegs
       });
       if (btn) btn.textContent = "Sign 2 of 2 · seed vault…";
-      setLaunchNote("Seeding the vault. The seed shares stay inside it.", false);
+      setLaunchNote("Paying the recipe. The shares come back to this wallet.", false);
       var seedRes = await walletExec(tx);
       var seedDigest = txDigest(seedRes);
       state.bCapId = "";
@@ -12546,6 +12584,8 @@ async function doBridgeDeposit(){
         name: wantName,
         type: coinType,
         usd: plan.usd,
+        mintFeeBps: basketOwnerBps(),
+        redeemFeeBps: basketOwnerBps(),
         vaultId: await basketVaultIdFromSeed(seedRes, seedDigest),
         legs: planned.map(function(l){
           return { q: l.q, type: l.type, units: l.units.toString(), decimals: l.decimals };
@@ -12582,8 +12622,8 @@ async function doBridgeDeposit(){
       if (!suiSession.address) await connectWallet();
       var snap = await loadBasketVaultSnap(basket);
       if (!snap) throw new Error("Could not read the vault.");
-      var room = snap.total > snap.seed ? snap.total - snap.seed : 0n;
-      if (shares > room) throw new Error("Only " + room.toString() + " shares can be redeemed. The seed stays in the vault.");
+      var room = snap.total;
+      if (shares > room) throw new Error("Only " + room.toString() + " shares are outstanding.");
       var held = await coinBalanceOf(suiSession.address, basket.type);
       if (held < shares) throw new Error("Wallet has " + held.toString() + " " + basket.ticker + ". Redeem needs " + shares.toString() + ".");
       var suiBal = await coinBalanceOf(suiSession.address, SUI_TYPE);
@@ -12605,7 +12645,7 @@ async function doBridgeDeposit(){
         legs: basket.legs.map(function(leg){ return { type: leg.type }; })
       });
       if (btn) btn.textContent = "Sign to redeem…";
-      setLaunchNote("Burning " + shares.toString() + " " + basket.ticker + ". The seed stays in the vault.", false);
+      setLaunchNote("Burning " + shares.toString() + " " + basket.ticker + ". The assets come back after the protocol fee.", false);
       var res = await walletExec(tx);
       var digest = txDigest(res);
       basketVaultSnap.at = 0;
@@ -12656,10 +12696,11 @@ async function doBridgeDeposit(){
     var suiNeed = 0n;
     for (var i = 0; i < legsIn.length; i++){
       var leg = legsIn[i];
-      var pay;
-      try { pay = BigInt(leg.units) * BigInt(shares); }
+      var base;
+      try { base = BigInt(leg.units) * BigInt(shares); }
       catch (e) { return { error: "Basket recipe units are not a number" }; }
-      if (!(pay > 0n)) return { error: "Each basket asset needs units per share" };
+      if (!(base > 0n)) return { error: "Each basket asset needs units per share" };
+      var pay = basketMintDeposit(base, Number(basket.mintFeeBps) || 0);
       var suiIn = 0n;
       if (leg.q === "SUI") suiNeed += pay;
       else {
@@ -14178,7 +14219,7 @@ async function doBridgeDeposit(){
       var maxBasket = selectedRedeemBasket();
       if (!maxBasket) return;
       loadBasketVaultSnap(maxBasket).then(function(snap){
-        var room = snap && snap.total > snap.seed ? snap.total - snap.seed : 0n;
+        var room = snap && snap.total > 0n ? snap.total : 0n;
         var apply = function(held){
           var n = held != null && held < room ? held : room;
           state.bRedeemAmt = n.toString();
@@ -14848,7 +14889,7 @@ async function doBridgeDeposit(){
         });
       }
     }
-    if (e.target && (e.target.hasAttribute && e.target.hasAttribute("data-b-weight") || e.target.id === "b-seed" || e.target.id === "b-usd" || e.target.id === "b-cap")){
+    if (e.target && (e.target.hasAttribute && e.target.hasAttribute("data-b-weight") || e.target.id === "b-seed" || e.target.id === "b-fee" || e.target.id === "b-usd" || e.target.id === "b-cap")){
       readBasketForm();
       paintBasketCost();
     }
