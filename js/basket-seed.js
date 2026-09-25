@@ -17,6 +17,10 @@ function one(result) {
   return Array.isArray(result) ? result[0] : result;
 }
 
+function clockArg(tx) {
+  return tx.object("0x6");
+}
+
 function pureAddress(tx, addr) {
   if (tx.pure && typeof tx.pure.address === "function") return tx.pure.address(addr);
   if (typeof tx.pure === "function") return tx.pure("address", addr);
@@ -142,7 +146,7 @@ export function appendBasketMint(tx, opts) {
   const receipt = tx.moveCall({
     target: pkg + "::basket::start_mint",
     typeArguments: [basketType],
-    arguments: [tx.object(opts.vaultId), pureU64(tx, shares)],
+    arguments: [tx.object(opts.vaultId), pureU64(tx, shares), clockArg(tx)],
   });
   for (const leg of legs) {
     if (!leg.coin) throw new Error("Each asset needs a payment coin");
@@ -182,22 +186,33 @@ export function appendBasketRedeem(tx, opts) {
   const receipt = tx.moveCall({
     target: pkg + "::basket::start_redeem",
     typeArguments: [basketType],
-    arguments: [tx.object(opts.vaultId), opts.sharesCoin],
+    arguments: [tx.object(opts.vaultId), opts.sharesCoin, clockArg(tx)],
   });
+  const coins = [];
   for (const leg of legs) {
     if (!leg.type) throw new Error("Each asset needs a coin type");
+    if (leg.excluded) {
+      tx.moveCall({
+        target: pkg + "::basket::forfeit",
+        typeArguments: [basketType, leg.type],
+        arguments: [tx.object(opts.vaultId), one(receipt)],
+      });
+      continue;
+    }
     const out = tx.moveCall({
       target: pkg + "::basket::withdraw",
       typeArguments: [basketType, leg.type],
       arguments: [tx.object(opts.vaultId), one(receipt)],
     });
-    tx.transferObjects([one(out)], opts.sender);
+    if (opts.keepCoins) coins.push({ q: leg.q || "", type: leg.type, units: leg.units || "0", coin: one(out) });
+    else tx.transferObjects([one(out)], opts.sender);
   }
   tx.moveCall({
     target: pkg + "::basket::finish_redeem",
     typeArguments: [basketType],
     arguments: [tx.object(opts.vaultId), one(receipt)],
   });
+  return coins;
 }
 
 /// Candle prices are raw quote/token. A 9-decimal quote cancels.
