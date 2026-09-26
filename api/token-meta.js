@@ -1,6 +1,7 @@
 import { put } from "@vercel/blob";
 import { readJsonBlob, rememberJsonBlob } from "./_blob-json.js";
 import { verifyPersonalMessageSignature } from "@mysten/sui/verify";
+import { zkLoginVerifyClient } from "./_zklogin-verify.js";
 import { normalizeSuiAddress } from "@mysten/sui/utils";
 
 const PLATFORM = normalizeSuiAddress(
@@ -255,7 +256,10 @@ async function verifyMetaSig(address, signature, ts, coinType) {
   if (Math.abs(Date.now() - t) > 10 * 60 * 1000) return false;
   const addr = normalizeSuiAddress(address);
   const msg = new TextEncoder().encode("vice-meta:" + t + ":" + normType(coinType));
-  const pub = await verifyPersonalMessageSignature(msg, signature, { address: addr });
+  const pub = await verifyPersonalMessageSignature(msg, signature, {
+    address: addr,
+    client: zkLoginVerifyClient,
+  });
   return normalizeSuiAddress(pub.toSuiAddress()) === addr;
 }
 
