@@ -1062,6 +1062,8 @@ html[data-route="explore"] main{padding-top:10px;padding-bottom:24px}
   .dock-sheet [data-go]:hover{background:var(--lift)}
 }
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important}.scr-trend-track{animation:none}}
+.create-art-remove{margin-left:8px;padding:0;border:0;background:none;color:inherit;opacity:.8;text-decoration:underline;cursor:pointer;font:inherit}
+.create-art-remove:hover{opacity:1}
 </style>
 <script>
   window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
@@ -8939,7 +8941,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
                   '<span class="create-choose">Choose file</span>'+
                 '</div>'+
               '</label>'+
-              '<div class="create-hint" id="l-art-note">'+(state.lArtUrl ? "Ready · Blob URL set" : "PNG, JPG, GIF or WebP. Square, 64px or larger. 2MB max. Fixed at launch.")+'</div>'+
+              '<div class="create-hint" id="l-art-note">'+escHtml(launchArtNoteText())+launchArtRemoveHTML()+'</div>'+
             '</div>'+
             '<div class="create-field create-nt">'+
               '<div><div class="create-lab">Name</div><input id="l-name" placeholder="Arcadia" maxlength="32" value="'+escAttr(state.lName)+'"></div>'+
@@ -13013,6 +13015,10 @@ async function doBridgeDeposit(){
 
       // Art is uploaded first: the URL is baked into
       // the coin's own CoinMetadata, so it has to exist before the publish.
+      var publishedAlready = !!(state.lCap && state.lTokenCoin);
+      if (!publishedAlready && state.lArtPreview && !state.lFile && !state.lArtUrl){
+        throw new Error("The token image was lost before upload. Choose it again, or press Remove image to launch without art.");
+      }
       if (state.lFile && !state.lArtUrl){
         if (btn) btn.textContent = "Uploading art…";
         try {
@@ -14473,6 +14479,11 @@ async function doBridgeDeposit(){
     }
   }
   document.addEventListener("click", function(e){
+    if (e.target && e.target.id === "l-art-remove"){
+      e.preventDefault();
+      applyLaunchArtFile(null, $("#l-art"), true);
+      return;
+    }
     const kindBtn = e.target.closest("[data-create-kind]");
     if (kindBtn){
       readBasketForm();
@@ -15289,9 +15300,29 @@ async function doBridgeDeposit(){
     if (!(e.target && e.target.id === "l-art")) return;
     applyLaunchArtFile(e.target.files && e.target.files[0], e.target);
   });
-  function applyLaunchArtFile(file, input){
+  function launchArtNoteText(){
+    if (state.lFile) return artName(state.lFile)+" · "+(state.lFile.size/1024).toFixed(0)+" KB";
+    return state.lArtUrl ? "Ready · Blob URL set" : "PNG, JPG, GIF or WebP. Square, 64px or larger. 2MB max. Fixed at launch.";
+  }
+  function launchArtRemoveHTML(){
+    return (state.lFile || state.lArtPreview || state.lArtUrl)
+      ? ' <button type="button" class="create-art-remove" id="l-art-remove">Remove image</button>'
+      : "";
+  }
+  function paintLaunchArtNote(text){
+    var note = $("#l-art-note");
+    if (note) note.innerHTML = escHtml(text || launchArtNoteText()) + launchArtRemoveHTML();
+  }
+  function applyLaunchArtFile(file, input, explicitClear){
     const note = $("#l-art-note");
     const prev = $("#l-art-preview");
+    // Chrome fires "change" with zero files when the picker is reopened and
+    // cancelled. That used to wipe the chosen art while the page kept going, and
+    // the coin was published with no icon. Only the Remove button clears it now.
+    if (!file && !explicitClear && (state.lFile || state.lArtUrl)){
+      paintLaunchArtNote();
+      return;
+    }
     if (!file){
       state.lFile = null; state.lArtUrl = "";
       if (state.lArtPreview && state.lArtPreview.indexOf("blob:") === 0) URL.revokeObjectURL(state.lArtPreview);
@@ -15301,14 +15332,15 @@ async function doBridgeDeposit(){
           ? escHtml(state.lTick.charAt(0))
           : '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="18" height="18" rx="4"/><path d="M8 14l3-3 4 4 2-2 3 3"/><circle cx="9" cy="9" r="1.4"/></svg>';
       }
-      if (note) note.textContent = "PNG, JPG, GIF or WebP. Square, 64px or larger. 2MB max. Fixed at launch.";
+      if (input) input.value = "";
+      paintLaunchArtNote();
       return;
     }
     const ok = /image\/(png|jpeg|webp|gif)/.test(file.type);
     if (!ok || file.size > 2*1024*1024){
-      state.lFile = null;
+      // Reject the new pick but keep whatever was chosen before.
       if (input) input.value = "";
-      if (note) note.textContent = !ok ? "PNG, JPG, GIF or WebP" : "empty or over 2MB";
+      paintLaunchArtNote((!ok ? "PNG, JPG, GIF or WebP" : "empty or over 2MB") + (state.lFile ? " · keeping " + artName(state.lFile) : ""));
       return;
     }
     state.lFile = file;
@@ -15316,15 +15348,16 @@ async function doBridgeDeposit(){
     snapshotArt(file).then(function(snap){
       if (state.lFile === file && snap) state.lFile = snap;
     }, function(err){
+      // Keep the original File (the preview still shows it). Launch re-reads it
+      // and stops with a clear error if it really cannot be read, instead of
+      // silently publishing with no icon.
       if (state.lFile !== file) return;
-      state.lFile = null;
-      if (input) input.value = "";
-      if (note) note.textContent = (err && err.message) || "could not read the image file";
+      paintLaunchArtNote(((err && err.message) || "could not read the image file") + ". Launch will retry it.");
     });
     if (state.lArtPreview && state.lArtPreview.indexOf("blob:") === 0) URL.revokeObjectURL(state.lArtPreview);
     state.lArtPreview = URL.createObjectURL(file);
     if (prev) prev.innerHTML = '<img src="'+escUrl(state.lArtPreview)+'" alt="">';
-    if (note) note.textContent = file.name+" · "+(file.size/1024).toFixed(0)+" KB";
+    paintLaunchArtNote();
   }
   document.addEventListener("dragover", function(e){
     var z = e.target && e.target.closest && e.target.closest("#l-art-drop");
