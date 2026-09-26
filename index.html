@@ -633,6 +633,9 @@ html[data-route="launch"] .search-row{display:none}
 .reward-pick small{display:block;margin-top:1px;font-size:11px;letter-spacing:.04em;color:var(--muted)}
 .reward-pick.on{border-color:color-mix(in srgb,var(--pink) 50%,var(--line));background:color-mix(in srgb,var(--pink) 9%,var(--card));box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--pink) 35%,transparent)}
 .reward-note{margin:12px 0 0;font-size:12px;line-height:1.45;color:var(--muted)}
+.reward-toggle-row{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.reward-toggle{flex:none;min-width:64px;border:1px solid var(--line);background:var(--well);color:var(--muted);border-radius:999px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer}
+.reward-toggle.on{border-color:color-mix(in srgb,var(--pink) 50%,var(--line));background:color-mix(in srgb,var(--pink) 14%,var(--card));color:var(--ink)}
 .create-sub{margin:6px 0 18px;color:var(--muted);font-size:13px;line-height:1.45}
 .create-card label,.create-lab{display:block;font-size:13px;font-weight:600;color:var(--ink);letter-spacing:0;text-transform:none;margin:0 0 8px}
 .create-lab .opt,.create-lab .hint{font-weight:500;color:var(--muted);font-size:12px}
@@ -1322,7 +1325,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   let balance = 48.60;
   let xaumBal = 2.40;
 
-  const state = {route:"explore", sym:"VOLT", filter:"All", sort:"Market cap", time:"All", side:"Buy", amt:"1", connected:false, search:"", lName:"", lTick:"", lQuote:"SUI", lPath:"instadex", lMode:"Holders", lTokenAmt:"", lQuoteAmt:"", lFirstBuy:"1", lCap:"", lTokenCoin:"", lQuoteCoin:"", lCoinMode:"create", lDecimals:"9", lSupply:"1000000000", lDesc:"", lX:"", lTg:"", lWeb:"", lPublishedType:"", metricsWindow:"All", tapeTab:"trades", tapeOpen:"", tapePage:0, tapeAge:"age", tapeWallet:"", tapeFilterOpen:false, lFile:null, lArtUrl:"", lArtPreview:"", payWith:"", lNote:"", lNoteErr:false, chartTf:900, chartInd:{vol:true,ma7:false,ma25:false,ma99:false,ema:false}, bridgeTick:"NVDA", bridgeAmt:"", bridgeDir:"in", bridgeRhDest:"", bridgeNote:"", bridgeBusy:false, bridgePending:[], walletCheck:null, quoteOpen:false, rewardsTab:"all", lBasket:false, lBasketEqual:true, lBasketMode:0, lBasketOn:{XAUM:true,XAGM:true,USDY:true}, lBasketBps:{XAUM:3334,XAGM:3333,USDY:3333}, lSplitPreset:"vice", lSplit:{creator:6000,platform:500,rewards:3000,buyback:500}, lSocialsOpen:false, lQuoteCat:"all", createKind:"token", bView:"create", bRoute:"assets", bRedeem:"", bRedeemAmt:"1", bLegs:[{q:"SUI", weight:"50"},{q:"XAUM", weight:"50"},{q:"USDY", weight:"50"}], bUsd:"1", bPay:"sui", bSeed:"1000", bFee:"0", bCap:"1000000", bCapId:"", bCoinType:"", pfRange:"1M", pfFlash:"", lockTab:"create", lockKind:"lock", lockTok:"", lockAmt:"", lockDays:"30", lockSelf:"self", lockBen:"", lockCliff:"90", lockEnd:"365", lockNote:"", lockNoteErr:false, lockBusy:false, lockMine:[], lockAll:[], lockLoad:false, scrTab:"mcap", scrSort:"mcap", scrDir:-1, scrQuote:"All", scrBuyUsd:5, scrLiveOnly:false, scrFilters:false, watch:[]};
+  const state = {route:"explore", sym:"VOLT", filter:"All", sort:"Market cap", time:"All", side:"Buy", amt:"1", connected:false, search:"", lName:"", lTick:"", lQuote:"SUI", lPath:"instadex", lMode:"Holders", lTokenAmt:"", lQuoteAmt:"", lFirstBuy:"1", lCap:"", lTokenCoin:"", lQuoteCoin:"", lCoinMode:"create", lDecimals:"9", lSupply:"1000000000", lDesc:"", lX:"", lTg:"", lWeb:"", lPublishedType:"", metricsWindow:"All", tapeTab:"trades", tapeOpen:"", tapePage:0, tapeAge:"age", tapeWallet:"", tapeFilterOpen:false, lFile:null, lArtUrl:"", lArtPreview:"", payWith:"", lNote:"", lNoteErr:false, chartTf:900, chartInd:{vol:true,ma7:false,ma25:false,ma99:false,ema:false}, bridgeTick:"NVDA", bridgeAmt:"", bridgeDir:"in", bridgeRhDest:"", bridgeNote:"", bridgeBusy:false, bridgePending:[], walletCheck:null, quoteOpen:false, rewardsTab:"all", lBasket:true, lBasketEqual:true, lBasketMode:0, lBasketOn:{XAUM:true,XAGM:true,USDY:true}, lBasketBps:{XAUM:3334,XAGM:3333,USDY:3333}, lSplitPreset:"vice", lSplit:{creator:6000,platform:500,rewards:3000,buyback:500}, lSocialsOpen:false, lQuoteCat:"all", createKind:"token", bView:"create", bRoute:"assets", bRedeem:"", bRedeemAmt:"1", bLegs:[{q:"SUI", weight:"50"},{q:"XAUM", weight:"50"},{q:"USDY", weight:"50"}], bUsd:"1", bPay:"sui", bSeed:"1000", bFee:"0", bCap:"1000000", bCapId:"", bCoinType:"", pfRange:"1M", pfFlash:"", lockTab:"create", lockKind:"lock", lockTok:"", lockAmt:"", lockDays:"30", lockSelf:"self", lockBen:"", lockCliff:"90", lockEnd:"365", lockNote:"", lockNoteErr:false, lockBusy:false, lockMine:[], lockAll:[], lockLoad:false, scrTab:"mcap", scrSort:"mcap", scrDir:-1, scrQuote:"All", scrBuyUsd:5, scrLiveOnly:false, scrFilters:false, watch:[]};
 
   try {
     var watchSaved = JSON.parse(localStorage.getItem("vice.watch.v1") || "[]");
@@ -6785,15 +6788,75 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   function launchRewardsOn(){
     return launchSplit().rewards > 0;
   }
+  // Basket mode (SUI quote only): Holders slice buys gold / silver / T-bills
+  // for holders via launch_instant_basket_yield_v2*_buy_entry. Off → plain
+  // Instant (launch_instant_v2_buy_entry), so the Holders slice goes to the
+  // SUI pit like pre-basket SUI launches. Other quotes are holder yield in Q.
+  function launchRoute(quote, rewardsBps, basketOn){
+    var q = String(quote || "").toUpperCase();
+    if (!(Number(rewardsBps) > 0)) return "plain";
+    if (q !== "SUI") return "holder";
+    return basketOn ? "basket" : "plain";
+  }
+  function launchLegsForTx(){
+    if (!basketSelectedLegs().length){
+      state.lBasketOn = { XAUM: true, XAGM: true, USDY: true };
+    }
+    state.lBasketEqual = true;
+    state.lBasketMode = 0;
+    return normalizeBasketBps(basketSelectedLegs());
+  }
+  // Appends the one launch moveCall. Returns { route, target } so callers
+  // (and the sim harness) can check which entry was used.
+  function appendLaunchCall(tx, CALL, Ttype, Qtype, launchQuote, baseArgs, splitArgs, buyArgs, rewardsBps, basketOn){
+    var route = launchRoute(launchQuote, rewardsBps, basketOn);
+    var target;
+    if (route === "holder"){
+      target = CALL + "::launch::launch_instant_holder_yield_v2_buy_entry";
+      tx.moveCall({ target: target, typeArguments: [Ttype, Qtype], arguments: baseArgs.concat(splitArgs).concat(buyArgs) });
+      return { route: route, target: target };
+    }
+    if (route === "basket"){
+      var legs = launchLegsForTx();
+      if (!legs.length) throw new Error("Pick 1–3 basket assets (XAUM · XAGM · USDY)");
+      if (legs.length > 3) throw new Error("Basket supports at most 3 assets");
+      var weightArgs = legs.map(function(leg){ return txPure(tx, "u64", txAmt(leg.bps)); });
+      weightArgs.push(txPure(tx, "bool", true));
+      weightArgs.push(txPure(tx, "u8", 0));
+      var typeArgs = [Ttype, Qtype].concat(legs.map(function(leg){ return padType(leg.type); }));
+      target =
+        legs.length === 1 ? (CALL + "::launch::launch_instant_basket_yield_v2_buy_entry") :
+        legs.length === 2 ? (CALL + "::launch::launch_instant_basket_yield_v2_2_buy_entry") :
+        (CALL + "::launch::launch_instant_basket_yield_v2_3_buy_entry");
+      tx.moveCall({ target: target, typeArguments: typeArgs, arguments: baseArgs.concat(weightArgs).concat(splitArgs).concat(buyArgs) });
+      return { route: route, target: target, legs: legs.map(function(l){ return l.label + ":" + l.bps; }) };
+    }
+    target = CALL + "::launch::launch_instant_v2_buy_entry";
+    tx.moveCall({ target: target, typeArguments: [Ttype, Qtype], arguments: baseArgs.concat(splitArgs).concat(buyArgs) });
+    return { route: route, target: target };
+  }
   function basketPanelHTML(opts){
     var q = String(state.lQuote || "").toUpperCase();
     var force = !!(opts && opts.forceOn);
     var want = launchRewardsOn();
     if (!force && !want){
-      return '<div style="font-size:12px;color:var(--muted);margin-top:8px">Rewards is 0% — no holder payout. Raise Rewards to send Collect LP fees to holders.</div>';
+      return '<div style="font-size:12px;color:var(--muted);margin-top:8px">Holders is 0%, so nothing goes to holders. Raise Holders to send collected LP fees to holders.</div>';
     }
     if (!force && q !== "SUI"){
-      return '<div style="font-size:12px;color:var(--muted);margin-top:8px">Holder yield · Collect LP sends the Rewards slice in '+escHtml(q)+' wrap to holders of this token. The pit is sunset.</div>';
+      return '<div style="font-size:12px;color:var(--muted);margin-top:8px">Holder yield · Collect LP sends the Holders slice in '+escHtml(q)+' to holders of this token. Basket mode (gold, silver, T-bills) is for SUI pairs.</div>';
+    }
+    var on = force || state.lBasket !== false;
+    var toggle = force ? "" :
+      '<button type="button" class="reward-toggle'+(on?" on":"")+'" data-basket-toggle="1" aria-pressed="'+(on?"true":"false")+'">'+(on?"On":"Off")+'</button>';
+    var head = '<div class="reward-toggle-row">'+
+        '<div><div class="reward-kicker">Basket mode · holder rewards</div>'+
+        '<h3>'+(on ? "Gold, silver, and T-bills" : "Basket mode is off")+'</h3></div>'+
+        toggle+
+      '</div>';
+    if (!on){
+      return '<div class="reward-panel">'+head+
+        '<p class="create-sub">Holders are not paid in RWAs. This launches a plain Instant pair: the Holders share of collected fees goes to the SUI pit, as SUI launches did before basket mode. Turn it on to pay holders in gold, silver, and T-bills.</p>'+
+      '</div>';
     }
     state.lBasketEqual = true;
     state.lBasketMode = 0;
@@ -6804,10 +6867,8 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
         '<span><b>'+escHtml(createQuoteLabel(lab))+'</b><small>'+escHtml(lab)+'</small></span>'+
       '</button>';
     }).join("");
-    return '<div class="reward-panel">'+
-      '<div class="reward-kicker">Holder rewards</div>'+
-      '<h3>Gold, silver, and T-bills</h3>'+
-      '<p class="create-sub">An equal split, paid out together. Fees are pushed to holders automatically.</p>'+
+    return '<div class="reward-panel">'+head+
+      '<p class="create-sub">The Holders share of collected fees buys RWAs for holders. An equal split, paid out together, pushed to holders automatically. The pair stays TOKEN/SUI.</p>'+
       '<div class="reward-picks">'+picks+'</div>'+
       '<p class="reward-note">Leave at least one on. The share of each is equal.</p>'+
     '</div>';
@@ -13205,9 +13266,10 @@ async function doBridgeDeposit(){
           typeArguments: [padType(SUI_TYPE)],
           arguments: []
         });
-        // Instant: 100% token, 0 quote. Rewards > 0 never hits the pit:
-        // SUI → basket yield (RWA to holders); other quotes → holder yield in Q.
-        // Rewards == 0 → plain Instant (pit slice is 0).
+        // Instant: 100% token, 0 quote. Route (see appendLaunchCall):
+        // SUI + basket mode → basket yield (RWA to holders); SUI + basket off →
+        // plain Instant (Holders slice to the SUI pit); other quotes → holder
+        // yield in Q. Holders == 0 → plain Instant (pit slice is 0).
         // First buy (if any) is the same PTB: swap Q→T on the owned pool before share.
         if (!splitOk()) throw new Error("Fee split must sum to 100% with platform and VICE buyback & burn each at least 5%");
         var splitArgs = launchSplitArgs(tx);
@@ -13249,46 +13311,9 @@ async function doBridgeDeposit(){
           minOutArg = txPure(tx, "u64", txAmt(0));
         }
         var buyArgs = [buyArg, minOutArg];
-        var wantRewards = launchSplit().rewards > 0;
-        if (wantRewards && String(launchQuote).toUpperCase() !== "SUI"){
-          tx.moveCall({
-            target: CALL + "::launch::launch_instant_holder_yield_v2_buy_entry",
-            typeArguments: [Ttype, Qtype],
-            arguments: baseArgs.concat(splitArgs).concat(buyArgs)
-          });
-        } else if (wantRewards && String(launchQuote).toUpperCase() === "SUI"){
-          if (!basketSelectedLegs().length){
-            state.lBasketOn = { XAUM: true, XAGM: true, USDY: true };
-            state.lBasketEqual = true;
-          }
-          state.lBasket = true;
-          state.lBasketEqual = true;
-          state.lBasketMode = 0;
-          var legs = normalizeBasketBps(basketSelectedLegs());
-          if (!legs.length) throw new Error("Pick 1–3 basket assets (XAUM · XAGM · USDY)");
-          if (legs.length > 3) throw new Error("Basket supports at most 3 assets");
-          var equal = true;
-          var mode = 0;
-          var weightArgs = legs.map(function(leg){ return txPure(tx, "u64", txAmt(leg.bps)); });
-          weightArgs.push(txPure(tx, "bool", equal));
-          weightArgs.push(txPure(tx, "u8", mode));
-          var typeArgs = [Ttype, Qtype].concat(legs.map(function(leg){ return padType(leg.type); }));
-          var target =
-            legs.length === 1 ? (CALL + "::launch::launch_instant_basket_yield_v2_buy_entry") :
-            legs.length === 2 ? (CALL + "::launch::launch_instant_basket_yield_v2_2_buy_entry") :
-            (CALL + "::launch::launch_instant_basket_yield_v2_3_buy_entry");
-          tx.moveCall({
-            target: target,
-            typeArguments: typeArgs,
-            arguments: baseArgs.concat(weightArgs).concat(splitArgs).concat(buyArgs)
-          });
-        } else {
-          tx.moveCall({
-            target: CALL + "::launch::launch_instant_v2_buy_entry",
-            typeArguments: [Ttype, Qtype],
-            arguments: baseArgs.concat(splitArgs).concat(buyArgs)
-          });
-        }
+        // SUI + basket mode on → basket_yield (RWAs to holders); SUI + off → plain
+        // Instant (Holders slice to the SUI pit); other quotes → holder yield in Q.
+        appendLaunchCall(tx, CALL, Ttype, Qtype, launchQuote, baseArgs, splitArgs, buyArgs, launchSplit().rewards, state.lBasket !== false);
         return tx;
       };
       var tx = await buildLaunchTx();
@@ -14977,8 +15002,10 @@ async function doBridgeDeposit(){
     const basketToggle = e.target.closest("[data-basket-toggle]");
     if (basketToggle){
       if (String(state.lQuote || "").toUpperCase() !== "SUI" && state.route === "launch") return;
-      state.lBasket = !state.lBasket;
-      if (state.route === "launch" || state.route === "token") renderScreen();
+      state.lBasket = !(state.lBasket !== false);
+      var bHost = state.route === "launch" ? $("#l-basket-host") : null;
+      if (bHost) bHost.innerHTML = basketPanelHTML();
+      else if (state.route === "launch" || state.route === "token") renderScreen();
       return;
     }
     const basketAsset = e.target.closest("[data-basket-asset]");
@@ -15037,7 +15064,6 @@ async function doBridgeDeposit(){
       state[key] = val;
       if (key === "lQuote"){
         state.quoteOpen = false;
-        if (String(val || "").toUpperCase() !== "SUI") state.lBasket = false;
         var nowStock = isStockQuote(val);
         if (nowStock && (state.lFirstBuy === "1" || state.lFirstBuy === "1.0")) state.lFirstBuy = "0.1";
         if (!nowStock && state.lFirstBuy === "0.1") state.lFirstBuy = "1";
