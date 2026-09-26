@@ -85,9 +85,10 @@ if [ $((now - last)) -ge "$EVERY" ]; then
   if [ "${ARENA_YIELD_PUSH:-}" = "1" ]; then
     run_job push-yield || true
   fi
-  # VICEFUN buyback bag → RWA basket → push to holders. Off unless ARENA_VICE_PUSH=1.
-  if [ "${ARENA_VICE_PUSH:-}" = "1" ]; then
-    run_job push-vice || true
+  # VICE buyback & burn: Config buyback bag → VICEFUN (7k) → burn via InstadexMintLock.
+  # Off unless ARENA_VICE_BURN=1; simulate-only unless ARENA_VICE_BURN_LIVE=1 too.
+  if [ "${ARENA_VICE_BURN:-}" = "1" ]; then
+    run_job burn-vice || true
   fi
   # Basket-yield RWA pots → coin holders (push mode). Off unless ARENA_BASKET_PUSH=1.
   # Set ARENA_BASKET_PUSH_VAULT + ARENA_BASKET_PUSH_LIVE=1 for live payouts.

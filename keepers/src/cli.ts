@@ -18,15 +18,15 @@ const jobs: Record<string, () => Promise<unknown>> = {
   convertBasket: async () => (await import("./jobs/convertBasketYield.ts")).runConvertBasketYield(),
   "push-yield": async () => (await import("./jobs/pushHolderYield.ts")).runPushHolderYield(),
   pushYield: async () => (await import("./jobs/pushHolderYield.ts")).runPushHolderYield(),
-  "push-vice": async () => (await import("./jobs/pushViceBuyback.ts")).runPushViceBuyback(),
-  pushVice: async () => (await import("./jobs/pushViceBuyback.ts")).runPushViceBuyback(),
+  "burn-vice": async () => (await import("./jobs/buybackBurnVice.ts")).runBuybackBurnVice(),
+  burnVice: async () => (await import("./jobs/buybackBurnVice.ts")).runBuybackBurnVice(),
   "push-basket": async () => (await import("./jobs/pushBasketYield.ts")).runPushBasketYield(),
   pushBasket: async () => (await import("./jobs/pushBasketYield.ts")).runPushBasketYield(),
 };
 
 if (!job || !jobs[job]) {
   console.error(
-    "usage: tsx src/cli.ts <reflections|trades|hop|index-rewards|pit|ring|settle|instadex|collect|withdraw|convert-basket|push-yield|push-vice|push-basket>",
+    "usage: tsx src/cli.ts <reflections|trades|hop|index-rewards|pit|ring|settle|instadex|collect|withdraw|convert-basket|push-yield|burn-vice|push-basket>",
   );
   process.exit(1);
 }

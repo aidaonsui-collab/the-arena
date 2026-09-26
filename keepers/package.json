@@ -13,10 +13,11 @@
     "convert-basket": "npx tsx src/cli.ts convert-basket",
     "push-yield": "npx tsx src/cli.ts push-yield",
     "typecheck": "tsc --noEmit",
-    "push-vice": "npx tsx src/cli.ts push-vice",
+    "burn-vice": "npx tsx src/cli.ts burn-vice",
     "push-basket": "npx tsx src/cli.ts push-basket"
   },
   "dependencies": {
+    "@bluefin-exchange/bluefin7k-aggregator-sdk": "5.5.1",
     "@mysten/sui": "^1.37.0"
   },
   "devDependencies": {

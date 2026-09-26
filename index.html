@@ -5854,7 +5854,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       '<div><div class="brand-name" style="margin-bottom:8px">vice.</div>'+
         '<p style="margin:0;max-width:42ch">Fair launches on Sui. Instant seeds Bluefin in block one. Pair with SUI, gold, silver, T-bills, or a basket share. LP locked forever.</p></div>'+
       '<div><h4>Product</h4><div data-go="explore">The Strip</div><div data-go="pit">Distributions</div><div data-go="metrics">Books</div><div data-go="lock">Vicelock</div><div data-go="launch">Create</div><a href="https://x.com/ViceFun" target="_blank" rel="noopener">X</a></div>'+
-      '<div><h4>Fees</h4>Bluefin 2% on the pair (keeps 20%).<br>Our 80% quote split: 5% platform + 5% VICE buyback minimum, rest creator/rewards. Rewards go to holders on Collect LP.<br>Bridge 1%. Token-side LP fees burn.</div></footer>';
+      '<div><h4>Fees</h4>Bluefin 2% on the pair (keeps 20%).<br>Our 80% quote split: 5% platform + VICE buyback &amp; burn (5% minimum on this pad), rest creator/rewards. Rewards go to holders on Collect LP. The buyback &amp; burn share is swapped to VICEFUN and burned by a keeper.<br>Bridge 1%. Token-side LP fees burn.</div></footer>';
   }
   var pfCache = { addr: "", rows: [], at: 0 };
   var PF_RANGES = ["1D","1W","1M","1Y","All"];
@@ -6890,7 +6890,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     vice: { title: "Vice", blurb: "60% creator · 30% holders" },
     creator: { title: "Creator", blurb: "80% to you" },
     holders: { title: "Holders", blurb: "50% to holders" },
-    buyback: { title: "Buyback", blurb: "VICE buyback at 5%+" },
+    buyback: { title: "Buyback", blurb: "VICE buyback & burn" },
     custom: { title: "Custom", blurb: "your own split" }
   };
   function splitMaxPct(key, s){
@@ -6992,19 +6992,19 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       '</div>';
     }
     return '<div class="split-panel create-split">'+
-      '<div class="create-lab" style="margin-bottom:10px">Where collected LP fees go '+icoInfo("Of our 80% of the 2% pair fee. Platform and VICE buyback start at 5%. Creator + holders fill the rest. Fixed at launch.")+'</div>'+
+      '<div class="create-lab" style="margin-bottom:10px">Where collected LP fees go '+icoInfo("Of our 80% of the 2% pair fee. Platform and VICE buyback & burn start at 5% (the buyback minimum is a pad rule, not enforced on-chain). The buyback & burn share is collected in the quote coin, then a keeper swaps it to VICEFUN and burns it. Creator + holders fill the rest. Fixed at launch.")+'</div>'+
       splitPresetCardsHTML()+
       '<div class="create-fee-facts">'+
         '<div><span>Token-side fee</span><b>2%</b><em>Burns on every swap</em></div>'+
         '<div><span>Quote-side fee</span><b>0%</b><em>Split below is of collected LP</em></div>'+
       '</div>'+
-      '<div style="font-size:12px;color:var(--muted);margin:0 0 8px;line-height:1.45">Each share stops where the others leave off. They must total 100%. Platform and VICE buyback cannot go below 5%.</div>'+
+      '<div style="font-size:12px;color:var(--muted);margin:0 0 8px;line-height:1.45">Each share stops where the others leave off. They must total 100%. Platform and VICE buyback &amp; burn cannot go below 5% (pad rule).</div>'+
       '<div class="split-body">'+
         '<div>'+
           row("creator","Creator")+
           row("platform","Platform", 5)+
           row("rewards","Holders", 0)+
-          row("buyback","VICE buyback", 5)+
+          row("buyback","VICE buyback & burn", 5)+
         '</div>'+
         splitDonutHTML()+
       '</div>'+
@@ -7033,7 +7033,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       '<i>Creator '+Math.round(split.creator/100)+'%</i>'+
       '<i>Platform '+Math.round(split.platform/100)+'%</i>'+
       '<i>Rewards '+Math.round(split.rewards/100)+'%</i>'+
-      '<i>Buyback '+Math.round(split.buyback/100)+'%</i></div></div>';
+      '<i>Buyback &amp; burn '+Math.round(split.buyback/100)+'%</i></div></div>';
     return '<div class="about-yield">'+rwa+fee+'</div>';
   }
   function rewardsVaultByLock(lockId){
@@ -13209,7 +13209,7 @@ async function doBridgeDeposit(){
         // SUI → basket yield (RWA to holders); other quotes → holder yield in Q.
         // Rewards == 0 → plain Instant (pit slice is 0).
         // First buy (if any) is the same PTB: swap Q→T on the owned pool before share.
-        if (!splitOk()) throw new Error("Fee split must sum to 100% with platform and VICE buyback each at least 5%");
+        if (!splitOk()) throw new Error("Fee split must sum to 100% with platform and VICE buyback & burn each at least 5%");
         var splitArgs = launchSplitArgs(tx);
         var baseArgs = [
           tx.object(window.ARENA_CONFIG),

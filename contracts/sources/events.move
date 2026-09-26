@@ -123,7 +123,9 @@ public struct CollectLpFeesEvent has copy, drop {
     pit_amount: u64,
 }
 
-/// Instant LP quote slice parked for $VICE buyback/burn (not in CollectLpFeesEvent).
+/// Instant LP quote slice parked in the Config buyback bag (not in CollectLpFeesEvent).
+/// It stays in the quote coin on-chain; the off-chain `burn-vice` keeper withdraws it
+/// (AdminCap), swaps to $VICEFUN and burns it via `launch::burn_from_mint_lock`.
 public struct ViceBuybackAccruedEvent has copy, drop {
     lock_id: ID,
     amount: u64,
