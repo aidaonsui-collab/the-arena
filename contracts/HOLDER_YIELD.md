@@ -106,13 +106,15 @@ by the keeper (no wallet Claim/sync).
 
 
 
-## Fee note — Instant LP VICE buyback slice
+## Fee note — Instant LP VICE buyback & burn slice
 
-After `set_instant_lp_split` (60/5/25/10), the **10% VICE** quote slice is parked in
-Config `BuybackBag` (`BuybackBagKey` DF), not the holder-yield vault. Keepers do **not**
-route that slice through Claim. Use `keepers` job `push-vice` (`runPushViceBuyback`) — dry-run by default; never auto-spends
-keeper wallet SUI. Live needs explicit `ARENA_VICE_SUI_AMOUNT` and/or `ARENA_VICE_WITHDRAW_BUYBACK=1`.
-See `keepers/README.md` § VICEFUN buyback push-distribute.
+After `set_instant_lp_split` (60/5/25/10), the **10% VICE buyback & burn** quote slice
+(or a launch's own `buyback_bps`) is parked in Config `BuybackBag` (`BuybackBagKey` DF),
+not the holder-yield vault. Keepers do **not** route that slice through Claim. The
+`keepers` job `burn-vice` (`runBuybackBurnVice`) withdraws it (AdminCap), swaps to
+$VICEFUN via 7k and burns it through `launch::burn_from_mint_lock` in one PTB per quote.
+Simulate-only by default; live needs `ARENA_VICE_BURN_LIVE=1`.
+See `keepers/README.md` § VICE buyback & burn.
 
 ## Compatible caveats
 

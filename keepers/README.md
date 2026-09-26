@@ -11,7 +11,7 @@ Cron jobs for The Arena launchpad.
 | `* * * * *` | `/api/reflections` | Ingest `TradeEvent` + `ClaimEvent` (kind=0). Snapshot unpaid/claimed per holder. |
 | `*/5 * * * *` | `/api/ring` | Sign `config::ring_pit` when Clock >= `round_end_ms` and the previous winner is settled. |
 | `*/5 * * * *` | `/api/settle` | Only if `/api/pit-state` has an unsettled 24h MC winner. AdminCap drains `Pit<SUI>`, hops to quote, Bluefin-buys, burns. Then leftover curve `pool::settle_pit` if an on-chain winner is pending. |
-| `0 * * * *` | `/api/collect` | Poke collect on Instadex locks with accrued LP fees. Path: `HolderYieldKey` → `collect_instadex_fees_holder_yield`; `BasketYieldKey` → `collect_instadex_fees_basket_yield`; else pit `collect_instadex_fees`. Yield mode from launch/migrate events, with **lock DF fallback** so migrated Instant flips without allowlist. Burns coin A; Instant quote 60/5/25/10 creator/platform/rewards-or-vault/VICE buyback after `set_instant_lp_split`. Then `withdraw` (platform 5%; buyback bag stays until `push-vice` distributes to $VICEFUN holders). Home Mac LaunchAgent every 30m (`ARENA_COLLECT_EVERY_S=1800`). |
+| `0 * * * *` | `/api/collect` | Poke collect on Instadex locks with accrued LP fees. Path: `HolderYieldKey` → `collect_instadex_fees_holder_yield`; `BasketYieldKey` → `collect_instadex_fees_basket_yield`; else pit `collect_instadex_fees`. Yield mode from launch/migrate events, with **lock DF fallback** so migrated Instant flips without allowlist. Burns coin A; Instant quote 60/5/25/10 creator/platform/rewards-or-vault/VICE buyback after `set_instant_lp_split`. Then `withdraw` (platform 5%). The VICE buyback bag stays in Config until `burn-vice` swaps it to $VICEFUN and burns it. Home Mac LaunchAgent every 30m (`ARENA_COLLECT_EVERY_S=1800`). |
 | `*/15 * * * *` | `/api/convert-basket` | Discover `BasketYieldVault`s with `quote_staging` via `BasketYieldLaunch`/`Funded` GraphQL events. `take_quote_for_convert` → SUI→USDC→RWA hop (same Cetus/Bluefin pools as `settleInstadex`) → `deposit_converted_asset` per weight leg. |
 | every tick (Air) | `tsx src/cli.ts hop` | Fetch quote prices and POST `/api/hop`. The site serves that blob. |
 | every tick (Air) | `tsx src/cli.ts trades` | Index Bluefin AssetSwap per Instant pool into SQLite (`keepers/data/trades.sqlite`), publish `/api/trades` for the token-page tape, and POST one `/api/screener` snapshot so Explore does not call trades/stats per token. |
@@ -143,35 +143,52 @@ vault / lock / pool addresses and zero balances. Pro-rata: `amount_i = pot * bal
 
 
 
-## VICEFUN buyback push-distribute
+## VICE buyback & burn (`burn-vice`)
 
-Scaffold: plan RWA basket (XAUM / XAGM / USDY) → **pro-rata push** to `$VICEFUN` holders
-(no Claim). Default is **dry-run only**. **Never auto-spends** keeper wallet SUI.
+The Instant LP split's "VICE buyback" slice accrues in the Config buyback bag
+(`BuybackBagKey` DF → `Bag` of `StoredQuote<Q>`). `burn-vice` turns it into a real
+$VICEFUN burn. **One PTB per quote coin**, so no VICEFUN ever sits in a wallet:
+
+1. `config::withdraw_buyback<Q>(Config, AdminCap, full bag amount)` (AdminCap holder signs)
+2. Swap `Coin<Q>` → VICEFUN through the 7k aggregator (`@bluefin-exchange/bluefin7k-aggregator-sdk`,
+   same aggregator as the pad), min-out = quote × (1 − slippage). If 7k has no direct
+   Q→VICEFUN route: 7k Q→SUI, then the platform Bluefin VICEFUN/SUI pool
+   (`0xcae6…31c5`, the pad's route) with min-out = simulated out × (1 − slippage).
+3. `launch::burn_from_mint_lock<VICEFUN>(InstadexMintLock<VICEFUN> 0x9b43…a4e, coin)`.
+   The VICEFUN `TreasuryCap` is wrapped in that shared mint lock and the function is
+   permissionless, so this is a real `coin::burn` (total supply drops, `InstadexBurnEvent`
+   emitted). No 0x0 transfer.
+
+Quotes with no 7k route (e.g. NVDA today) are **skipped and stay in the bag** (never sent
+to the keeper wallet). Quotes worth less than `ARENA_VICE_BURN_MIN_SUI` are skipped as dust.
+Every run simulates each PTB twice against mainnet (GraphQL `simulateTransaction`) — once
+to measure real VICEFUN out, once with the min-out floor — and refuses to execute if the
+simulation fails or would leave VICEFUN with the sender. All chain reads, simulation and
+execution go through Sui GraphQL (`src/gqlResolve.ts` resolves PTB inputs), not JSON-RPC.
 
 ```
-npx tsx src/cli.ts push-vice
-npm run push-vice
+npx tsx src/cli.ts burn-vice          # simulate only (default); prints per-quote VICEFUN out
+npm run burn-vice
 ```
 
-`run-local.sh` runs `push-vice` when `ARENA_VICE_PUSH=1` (still dry unless live gates set).
+`run-local.sh` runs `burn-vice` when `ARENA_VICE_BURN=1` (still simulate-only unless
+`ARENA_VICE_BURN_LIVE=1`).
 
 | Var | Default | Meaning |
 | --- | --- | --- |
-| `ARENA_VICE_PUSH` | off | Enable from `run-local.sh` |
-| `ARENA_VICE_PUSH_LIVE` | off | `1` = allow hop/transfer (still needs a funded source) |
-| `ARENA_VICE_SUI_AMOUNT` | `0` | **Explicit** wallet SUI mist to spend (omit = spend none) |
-| `ARENA_VICE_GAS_RESERVE` | `1500000000` | Leftover SUI required if spending wallet |
-| `ARENA_VICE_WITHDRAW_BUYBACK` | off | Also `withdraw_buyback` from Config bag |
-| `ARENA_BUYBACK_BAG` | discover DF | Field or Bag id (`BuybackBagKey`) |
-| `ARENA_VICE_MIN_BUYBACK` | `1000000` | Skip live hop below this planned spend |
-| `ARENA_VICE_PUSH_BATCH` | `20` | Transfers per PTB |
-| `ARENA_VICE_WALLET_RWAS` | off | Skip DEX hop; push RWAs already in wallet |
-| `ARENA_VICE_BASKET` | equal thirds | e.g. `XAUM:4000,XAGM:3000,USDY:3000` (bps) |
-| `ARENA_VICEFUN_TYPE` | mainnet VICEFUN | Holder coin type |
+| `ARENA_VICE_BURN` | off | Enable from `run-local.sh` |
+| `ARENA_VICE_BURN_LIVE` | off | `1` = sign + execute. Signer (`loadSigner`) must own the AdminCap |
+| `ARENA_VICE_BURN_SLIPPAGE` | `0.01` | Fraction for 7k min-out and the Bluefin leg floor |
+| `ARENA_VICE_BURN_MIN_SUI` | `50000000` | Skip quotes worth less than this (SUI mist) |
+| `ARENA_VICE_BURN_ONLY` | all | Comma list of quote symbols, e.g. `SUI,USDY` |
+| `ARENA_VICE_BURN_FORCE_BLUEFIN` | off | Skip direct 7k Q→VICEFUN; use 7k Q→SUI + Bluefin pool |
+| `ARENA_VICE_BURN_GAS_BUDGET` | `50000000` | Gas ceiling per PTB (mist) |
+| `ARENA_VICE_BURN_SENDER` | AdminCap owner | Simulation sender override |
+| `ARENA_VICEFUN_TYPE` / `ARENA_VICEFUN_MINT_LOCK` / `ARENA_VICEFUN_SUI_POOL` | mainnet | Overrides |
+| `ARENA_BUYBACK_BAG` | discover DF | Bag id override |
 
-**Flow (when explicitly funded):** optional bag withdraw and/or explicit wallet SUI →
-SUI→USDC(Cetus)→XAUM|XAGM(Bluefin)|USDY(Cetus) → keep RWAs on keeper →
-`fetchCoinHolders(VICEFUN)` pro-rata `transferObjects` in batches.
+The old `push-vice` job (bag → XAUM/XAGM/USDY → airdrop to VICEFUN holders) is removed;
+the buyback slice is now buy-and-burn only. It is in git history if ever needed.
 
 ## Events for the UI indexer
 
