@@ -12447,22 +12447,98 @@ async function doBridgeDeposit(){
       if (btn){ btn.disabled = false; btn.textContent = "Save"; }
     }
   }
-  function uploadArt(file){
-    return signUploadTicket().then(function(ticket){
-      var fd = new FormData();
-      fd.append("file", file, (file && file.name) || "token");
-      fd.append("address", ticket.address);
-      fd.append("signature", ticket.sig);
-      fd.append("ts", ticket.ts);
-      return fetch("/api/upload", { method: "POST", body: fd });
-    }).then(function(res){
-      return res.text().then(function(raw){
-        var j = {};
-        try { j = raw ? JSON.parse(raw) : {}; } catch (e) {}
-        if (!res.ok || !j.url) throw new Error(j.error || ("upload failed (" + res.status + ")"));
-        return j.url;
-      });
+  // Mobile pickers (Android content:// URIs, iOS Photos) hand back a File that is
+  // only a pointer to the original. After the page backgrounds for a wallet
+  // signature, or a few minutes pass, reading it again can fail and fetch()
+  // rejects with a bare "Failed to fetch" / "Load failed" before any request
+  // reaches /api/upload. Copy the bytes into memory at pick time (downscaling
+  // big stills) and upload that copy instead.
+  var ART_SNAPS = typeof WeakMap === "function" ? new WeakMap() : null;
+  var ART_MAX_BYTES = 2 * 1024 * 1024;
+  var ART_SHRINK_OVER = 1024 * 1024;
+  var ART_MAX_EDGE = 1024;
+  function artName(file){ return String((file && file.name) || "token"); }
+  function artCanvasBlob(file){
+    return new Promise(function(resolve){
+      if (typeof createImageBitmap !== "function" || typeof document === "undefined"){ resolve(null); return; }
+      createImageBitmap(file).then(function(bmp){
+        var w = bmp.width, h = bmp.height;
+        var k = Math.min(1, ART_MAX_EDGE / Math.max(w, h || 1));
+        var cw = Math.max(1, Math.round(w * k)), ch = Math.max(1, Math.round(h * k));
+        var c = document.createElement("canvas");
+        c.width = cw; c.height = ch;
+        var g = c.getContext("2d");
+        if (!g){ resolve(null); return; }
+        g.drawImage(bmp, 0, 0, cw, ch);
+        if (bmp.close) bmp.close();
+        var outType = file.type === "image/jpeg" ? "image/jpeg" : "image/png";
+        c.toBlob(function(b){ resolve(b && b.size > 0 ? b : null); }, outType, 0.9);
+      }).catch(function(){ resolve(null); });
     });
+  }
+  function snapshotArt(file){
+    if (!file) return Promise.resolve(null);
+    if (file.__artSnap) return Promise.resolve(file);
+    if (ART_SNAPS && ART_SNAPS.has(file)) return ART_SNAPS.get(file);
+    var p = (async function(){
+      var buf;
+      try {
+        buf = await file.arrayBuffer();
+      } catch (e) {
+        throw new Error("could not read the image file. Re-select it and try again");
+      }
+      var type = file.type || "image/png";
+      var blob = new Blob([buf], { type: type });
+      var name = artName(file);
+      if (type !== "image/gif" && blob.size > ART_SHRINK_OVER){
+        var small = await artCanvasBlob(blob);
+        if (small && small.size < blob.size){
+          blob = small;
+          type = small.type || type;
+          name = name.replace(/\.[a-z0-9]+$/i, "") + (type === "image/jpeg" ? ".jpg" : ".png");
+        }
+      }
+      if (blob.size > ART_MAX_BYTES) throw new Error("image is over 2MB");
+      var out;
+      try { out = new File([blob], name, { type: type }); } catch (e) { out = blob; out.name = name; }
+      out.__artSnap = true;
+      return out;
+    })();
+    if (ART_SNAPS) ART_SNAPS.set(file, p);
+    p.catch(function(){ if (ART_SNAPS) ART_SNAPS.delete(file); });
+    return p;
+  }
+  function postArt(snap, ticket){
+    var fd = new FormData();
+    fd.append("file", snap, artName(snap));
+    fd.append("address", ticket.address);
+    fd.append("signature", ticket.sig);
+    fd.append("ts", ticket.ts);
+    return fetch("/api/upload", { method: "POST", body: fd });
+  }
+  async function uploadArt(file){
+    // Read the bytes before asking for a signature so a bad file fails fast.
+    var snap = await snapshotArt(file);
+    if (!snap) throw new Error("no image selected");
+    var ticket = await signUploadTicket();
+    var res;
+    try {
+      res = await postArt(snap, ticket);
+    } catch (e) {
+      // Network-level failure (flaky mobile data, app switch). One retry with the in-memory copy.
+      await sleep(800);
+      try {
+        res = await postArt(snap, ticket);
+      } catch (e2) {
+        throw new Error("network error sending the image. Check your connection and retry");
+      }
+    }
+    var raw = await res.text();
+    var j = {};
+    try { j = raw ? JSON.parse(raw) : {}; } catch (e) {}
+    if (res.status === 413) throw new Error("image too large for upload. Use one under 2MB");
+    if (!res.ok || !j.url) throw new Error(j.error || ("upload failed (" + res.status + ")"));
+    return j.url;
   }
   var BasketSeedMod = null;
   async function loadBasketSeed(){
@@ -15166,6 +15242,7 @@ async function doBridgeDeposit(){
         return;
       }
       metaEdit.file = file;
+      snapshotArt(file).then(function(snap){ if (metaEdit.file === file && snap) metaEdit.file = snap; }, function(){});
       if (metaEdit.preview && metaEdit.preview.indexOf("blob:") === 0) URL.revokeObjectURL(metaEdit.preview);
       metaEdit.preview = URL.createObjectURL(file);
       if (prev) prev.innerHTML = '<img src="'+escUrl(metaEdit.preview)+'" alt="">';
@@ -15204,6 +15281,14 @@ async function doBridgeDeposit(){
     }
     state.lFile = file;
     state.lArtUrl = "";
+    snapshotArt(file).then(function(snap){
+      if (state.lFile === file && snap) state.lFile = snap;
+    }, function(err){
+      if (state.lFile !== file) return;
+      state.lFile = null;
+      if (input) input.value = "";
+      if (note) note.textContent = (err && err.message) || "could not read the image file";
+    });
     if (state.lArtPreview && state.lArtPreview.indexOf("blob:") === 0) URL.revokeObjectURL(state.lArtPreview);
     state.lArtPreview = URL.createObjectURL(file);
     if (prev) prev.innerHTML = '<img src="'+escUrl(state.lArtPreview)+'" alt="">';
