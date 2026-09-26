@@ -416,6 +416,30 @@ a.btn-trade{display:block;text-align:center;text-decoration:none;box-sizing:bord
   z-index:0;
 }
 .about-card.about-quote > *{position:relative;z-index:1}
+/* About card quote mark: never under text */
+.about-card.about-quote::after{
+  width:30%;
+  opacity:.85;
+  background-position:right center;
+  -webkit-mask-image:linear-gradient(to right, transparent 0, #000 45%);
+          mask-image:linear-gradient(to right, transparent 0, #000 45%);
+}
+.about-card.about-quote > *{max-width:68%}
+.about-card.about-quote > .about-head{max-width:none}
+@media (max-width:860px){
+  .about-card.about-quote::after{
+    top:14px; right:14px; bottom:auto;
+    width:64px; height:64px;
+    border-radius:14px;
+    opacity:1;
+    background-position:center; background-size:cover;
+    -webkit-mask-image:none; mask-image:none;
+    box-shadow:0 0 0 1px color-mix(in srgb, var(--quote-tint,#1c101c) 40%, transparent);
+  }
+  .about-card.about-quote > *{max-width:none}
+  .about-card.about-quote > .about-head,
+  .about-card.about-quote > .about-desc{padding-right:76px}
+}
 .about-head{display:flex;align-items:center;justify-content:space-between;gap:12px}
 .about-card h2{font-size:18px;font-weight:650;margin:0;letter-spacing:-.02em}
 .about-desc{color:var(--muted);margin:10px 0 22px;max-width:56ch;line-height:1.5;white-space:pre-wrap}
