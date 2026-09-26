@@ -31,7 +31,7 @@ import { Transaction, type TransactionObjectArgument } from "@mysten/sui/transac
 import { toBase64 } from "@mysten/sui/utils";
 import { ADMIN_CAP, CALL_PKG, CONFIG, SUI, gql } from "../chain.ts";
 import { bluefinHop, normType, type PoolSnap } from "../clmm.ts";
-import { pickGasCoins, referenceGasPrice, resolveWithGraphQL, type GasOpts } from "../gqlResolve.ts";
+import { noteMinVersion, pickGasCoins, referenceGasPrice, resolveWithGraphQL, waitForDigest, type GasOpts } from "../gqlResolve.ts";
 import { loadSigner } from "../loadSigner.ts";
 
 export const VICEFUN =
@@ -399,12 +399,20 @@ export async function runBuybackBurnVice() {
       const { signature } = await signer.signTransaction(bytes);
       const ex = (await gql(
         `mutation($b:Base64!,$s:[Base64!]!){ executeTransaction(transactionDataBcs:$b, signatures:$s){ effects{
-          digest status executionError{ message abortCode }
+          digest status lamportVersion executionError{ message abortCode }
           events(first:50){ nodes{ contents{ type{ repr } json } } } } } }`,
         { b: toBase64(bytes), s: [signature] },
       )) as any;
       const eff = ex.executeTransaction?.effects;
       res.digest = eff?.digest;
+      // Every object this tx mutated (AdminCap, gas coin, ...) is now at lamportVersion.
+      // Record it and wait for GraphQL to index the tx, so the next PTB never
+      // resolves a consumed version (the 2026-09-26 "unavailable for consumption" bug).
+      if (eff?.lamportVersion != null) {
+        noteMinVersion(ADMIN_CAP, eff.lamportVersion);
+        for (const g of gas.payment) noteMinVersion(g.objectId, eff.lamportVersion);
+      }
+      if (res.digest) await waitForDigest(res.digest);
       res.status = eff?.status === "SUCCESS" ? "executed" : "exec-failed";
       if (res.status === "executed") {
         let burned = 0n;
