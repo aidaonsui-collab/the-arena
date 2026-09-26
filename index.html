@@ -12124,9 +12124,15 @@ async function doBridgeDeposit(){
       state.tapeWallet = "";
       state.tapeFilterOpen = false;
       var landQ = poolQuote(nextSym);
-      if (landQ && landQ !== "SUI"){
+      // Quote pairs open on Pay / Get SUI so a sell settles in SUI, not the quote,
+      // unless SUI is locked for the pair (stock wraps, baskets with no recipe).
+      var landLocked = landQ && landQ !== "SUI" && (isStockQuote(landQ) || (findLiveBasket(landQ) && !basketCanMint(landQ)));
+      if (landLocked){
         state.payWith = landQ;
         state.amt = quoteRec(landQ).chips[0] || "0.1";
+      } else if (landQ && landQ !== "SUI"){
+        state.payWith = "SUI";
+        state.amt = "1";
       } else {
         state.payWith = "SUI";
         if (!state.amt) state.amt = "1";
@@ -13915,7 +13921,9 @@ async function doBridgeDeposit(){
       var stockUsdcOut = bluefinHop(tx, stockPool, Qtype, coinIn, 0);
       return { tx: tx, coin: cetusHop(tx, await loadUsdcSuiPool(), usdc, stockUsdcOut) };
     }
-    var back = await sevenkOnto(tx, coinIn, Qtype, SUI_TYPE, amountIn || 1n);
+    // 7k splits amountIn off coinIn and returns the rest, so it has to be the real amount.
+    if (!(asBigAmt(amountIn) > 0n)) throw new Error("No "+q+" amount to hop back to SUI");
+    var back = await sevenkOnto(tx, coinIn, Qtype, SUI_TYPE, amountIn);
     return { tx: back.tx, coin: back.coinOut };
   }
   /// SUI → quote coin on an existing PTB (Cetus / 7k / Bluefin hop). Used to
@@ -14067,7 +14075,50 @@ async function doBridgeDeposit(){
     if (!(built && built.coinOut)) throw new Error("7k did not return an output coin");
     return { tx: tx, coinOut: built.coinOut };
   }
-  async function swapViaQuoteHop(tk, amount, minOut){
+  /// Exact quote-coin output of the Bluefin sell leg, from a dry run of that leg
+  /// alone. The spot estimate is off by the pool fee plus impact, and the 7k
+  /// quote must match the real coin: 7k splits its amount off the coin and hands
+  /// the rest back, so a low guess leaves quote dust and a high one aborts.
+  async function sellLegQuoteOut(insta, fromType, amount, outType){
+    try {
+      var Transaction = await loadTransaction();
+      var t = new Transaction();
+      t.setSender(suiSession.address);
+      var c = await takeSwapCoin(t, fromType, amount);
+      t.transferObjects([bluefinHop(t, insta, fromType, c, 0)], suiSession.address);
+      var dry = await rpcJson("sui_dryRunTransactionBlock", [toB64(await buildTxBytes(t))]);
+      var st = dry && dry.effects && dry.effects.status;
+      if (!st || st.status !== "success") return 0n;
+      var want = normType(outType);
+      var got = 0n;
+      (dry.balanceChanges || []).forEach(function(b){
+        var who = b && b.owner && (b.owner.AddressOwner || b.owner.address);
+        if (who && sameAddr(who, suiSession.address) && normType(b.coinType) === want) got += asBigAmt(b.amount);
+      });
+      return got > 0n ? got : 0n;
+    } catch (e) { return 0n; }
+  }
+  /// Any quote with no dedicated SUI route: the quote coin from the sell leg →
+  /// SUI through 7k, same PTB. 7k gets 99.5% of the dry-run amount so a small
+  /// pool move can't short the split; the sliver left over goes back into the
+  /// token on the same pool, so the seller keeps no quote dust.
+  async function sellQuoteVia7k(tx, tk, insta, q, Qtype, qOut, amount, slip){
+    var exactQ = await sellLegQuoteOut(insta, tokenTypeOf(tk), amount, Qtype);
+    // No dry run (RPC down): spot estimate less 3% more, since Instadex pools charge
+    // 2% and the spot math only takes 1%.
+    var quoteAmt = exactQ > 0n ? (exactQ * 995n) / 1000n : (estimatePoolOut(insta, tokenTypeOf(tk), amount) * 97n) / 100n;
+    if (!(quoteAmt > 0n)) throw new Error("No "+q+" in the pool to hop back to SUI");
+    var sp = tx.splitCoins(qOut, [txAmt(quoteAmt)]);
+    var back = await sevenkOnto(tx, Array.isArray(sp) ? sp[0] : sp, Qtype, SUI_TYPE, quoteAmt, slip);
+    tx = back.tx;
+    tx.transferObjects([bluefinHop(tx, insta, Qtype, qOut, 0)], suiSession.address);
+    return back;
+  }
+  // splitCoins came up short: the pool moved between the dry run and signing.
+  function isSellLegShortAbort(e){
+    return /InsufficientCoinBalance|Insufficient coin balance/i.test(String((e && e.message) || e || ""));
+  }
+  async function swapViaQuoteHop(tk, amount, minOut, slip){
     var q = poolQuote(tk);
     var Transaction = await loadTransaction();
     var tx = new Transaction();
@@ -14161,7 +14212,7 @@ async function doBridgeDeposit(){
       }
     } else if (isSuiHopQuote(q)){
       if (state.side === "Buy"){
-        var hopped = await hopSuiToQuoteOnTx(tx, q, amount);
+        var hopped = await hopSuiToQuoteOnTx(tx, q, amount, slip);
         tx = hopped.tx;
         outCoin = bluefinHop(tx, insta, Qtype, hopped.coin, minOut);
       } else {
@@ -14175,9 +14226,7 @@ async function doBridgeDeposit(){
           await loadNativeSuiPool(q);
           outCoin = hopOnNativePool(tx, q, Qtype, qOut);
         } else {
-          var estQ = estimatePoolOut(insta, tokenTypeOf(tk), amount);
-          if (!(estQ > 0n)) throw new Error("No "+q+" in the pool to hop back to SUI");
-          var back = await sevenkOnto(tx, qOut, Qtype, SUI_TYPE, estQ);
+          var back = await sellQuoteVia7k(tx, tk, insta, q, Qtype, qOut, amount, slip);
           tx = back.tx;
           outCoin = back.coinOut;
         }
@@ -14185,16 +14234,23 @@ async function doBridgeDeposit(){
     } else {
       if (state.side === "Buy"){
         var suiIn = await takeSwapCoin(tx, SUI_TYPE, amount);
-        var midBuy = await sevenkOnto(tx, suiIn, SUI_TYPE, Qtype, amount);
+        var midBuy = await sevenkOnto(tx, suiIn, SUI_TYPE, Qtype, amount, slip);
         tx = midBuy.tx;
         outCoin = bluefinHop(tx, insta, Qtype, midBuy.coinOut, minOut);
-      } else {
+      } else if (q === "XAGM"){
         var tokIn = await takeSwapCoin(tx, tokenTypeOf(tk), amount);
         var qOut = bluefinHop(tx, insta, tokenTypeOf(tk), tokIn, 0);
         var xagmUsdc = await poolSnap(window.ARENA_XAGM_USDC_POOL);
         var usdcOut = bluefinHop(tx, xagmUsdc, Qtype, qOut, 0);
         var usdcSui = await loadUsdcSuiPool();
         outCoin = cetusHop(tx, usdcSui, usdc, usdcOut);
+      } else {
+        // Any other quote: no dedicated pool route, so 7k takes it to SUI.
+        var tokAny = await takeSwapCoin(tx, tokenTypeOf(tk), amount);
+        var qAny = bluefinHop(tx, insta, tokenTypeOf(tk), tokAny, 0);
+        var anyBack = await sellQuoteVia7k(tx, tk, insta, q, Qtype, qAny, amount, slip);
+        tx = anyBack.tx;
+        outCoin = anyBack.coinOut;
       }
     }
     if (outCoin) tx.transferObjects([outCoin], suiSession.address);
@@ -14256,7 +14312,19 @@ async function doBridgeDeposit(){
       }
       var result;
       if (swapNeedsHop(tk)){
-        result = await swapViaQuoteHop(tk, amount, minOut);
+        var hopSlip = 0;
+        for (var hopTry = 0; ; hopTry++){
+          try {
+            result = await swapViaQuoteHop(tk, amount, minOut, hopSlip);
+            break;
+          } catch (hopErr){
+            // Nothing landed: the 7k leg's min_out or the sell leg's split moved
+            // before signing. Re-quote (fresh dry run) with wider slippage, as #58.
+            if (hopTry >= 2 || isWalletReject(hopErr) || !(isAggregatorSlipAbort(hopErr) || isSellLegShortAbort(hopErr))) throw hopErr;
+            hopSlip = hopTry === 0 ? 0.05 : 0.08;
+            if (btn) btn.textContent = "Re-quoting…";
+          }
+        }
       } else {
         var can7k = swapQuote && swapQuote.raw && swapQuote.venue && swapQuote.venue !== "bluefin";
         if (can7k){
@@ -15672,6 +15740,8 @@ async function doBridgeDeposit(){
   const parsed = parseHash();
   state.route = parsed.route;
   state.sym = parsed.sym;
+  // Open quote pairs on SUI too; the ticket flips it back where SUI is locked.
+  if (!state.payWith) state.payWith = "SUI";
   const wantHash = hashFor(state.route, state.sym);
   if (wantHash.charAt(0) === "#"){
     if ((location.hash || "#/") !== wantHash){
