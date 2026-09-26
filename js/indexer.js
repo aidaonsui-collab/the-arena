@@ -741,6 +741,7 @@
     if (lab === "NS") return "ns";
     if (lab === "SCA") return "sca";
     if (lab === "BLUE") return "blue";
+    if (lab === "SUI") return "sui";
     return "";
   }
 

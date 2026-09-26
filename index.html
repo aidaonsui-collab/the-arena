@@ -1414,7 +1414,8 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     { id:"deep", label:"DEEP", quote:"DEEP", unit:"DEEP", blurb:"DeepBook · Instant holder rewards", color:"#2F6BFF", logo:"/brand/quotes/deep.png" },
     { id:"ns", label:"NS", quote:"NS", unit:"NS", blurb:"SuiNS · Instant holder rewards", color:"#7C5CFF", logo:"/brand/quotes/ns.png" },
     { id:"sca", label:"SCA", quote:"SCA", unit:"SCA", blurb:"Scallop · Instant holder rewards", color:"#C9B7A8", logo:"/brand/quotes/sca.png" },
-    { id:"blue", label:"BLUE", quote:"BLUE", unit:"BLUE", blurb:"Bluefin · Instant holder rewards", color:"#2F6FED", logo:"/brand/quotes/blue.png" }
+    { id:"blue", label:"BLUE", quote:"BLUE", unit:"BLUE", blurb:"Bluefin · Instant holder rewards", color:"#2F6FED", logo:"/brand/quotes/blue.png" },
+    { id:"sui", label:"SUI", quote:"SUI", unit:"SUI", blurb:"SUI pairs with basket mode off · Instant holder rewards", color:"#4DA2FF", logo:"/brand/quotes/sui.svg" }
   ];
   // Populated once Arena Move emits claim / distribution events. Scaffold only for now.
   var rewardsLedger = { updatedMs: 0, byCat: {}, distributions: [], claims: [] };
@@ -5218,7 +5219,8 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     if (labs.length) return labs;
     var kind = lockYieldKind(tk);
     var q = poolQuote(tk);
-    if (kind === "holder" && q && q !== "SUI") return [q];
+    // Holder yield pays in the quote; SUI pairs with basket mode off pay SUI.
+    if (kind === "holder" && q) return [q];
     return [];
   }
   function rewardAssetsOf(tk){
@@ -5229,7 +5231,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     if (yv && yv.kind === "holder" && (yv.quoteLabel || yv.quote)) return [yv.quoteLabel || yv.quote];
     var kind = lockYieldKind(tk);
     var q = poolQuote(tk);
-    if (kind === "holder" && q && q !== "SUI") return [q];
+    if (kind === "holder" && q) return [q];
     return [];
   }
   function rwaStackHTML(assets){
@@ -6627,6 +6629,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     if (lab === "NS") return "ns";
     if (lab === "SCA") return "sca";
     if (lab === "BLUE") return "blue";
+    if (lab === "SUI") return "sui";
     return "";
   }
   function rewardsDec(unit){
@@ -6789,14 +6792,16 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     return launchSplit().rewards > 0;
   }
   // Basket mode (SUI quote only): Holders slice buys gold / silver / T-bills
-  // for holders via launch_instant_basket_yield_v2*_buy_entry. Off → plain
-  // Instant (launch_instant_v2_buy_entry), so the Holders slice goes to the
-  // SUI pit like pre-basket SUI launches. Other quotes are holder yield in Q.
+  // for holders via launch_instant_basket_yield_v2*_buy_entry. Off → holder
+  // yield in SUI (launch_instant_holder_yield_v2_buy_entry<T, SUI>, push-mode
+  // vault; keeper push-yield pays holders). Other quotes are holder yield in Q.
+  // Plain Instant (pit) only when Holders is 0%.
   function launchRoute(quote, rewardsBps, basketOn){
     var q = String(quote || "").toUpperCase();
     if (!(Number(rewardsBps) > 0)) return "plain";
-    if (q !== "SUI") return "holder";
-    return basketOn ? "basket" : "plain";
+    if (q === "SUI" && basketOn) return "basket";
+    // SUI with basket off → holder yield in SUI (never the sunset pit).
+    return "holder";
   }
   function launchLegsForTx(){
     if (!basketSelectedLegs().length){
@@ -6831,6 +6836,9 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       tx.moveCall({ target: target, typeArguments: typeArgs, arguments: baseArgs.concat(weightArgs).concat(splitArgs).concat(buyArgs) });
       return { route: route, target: target, legs: legs.map(function(l){ return l.label + ":" + l.bps; }) };
     }
+    // Plain Instant routes the Holders slice to the sunset pit, so it is only
+    // allowed when Holders is 0%.
+    if (Number(rewardsBps) > 0) throw new Error("Holders share must go to holder yield or basket yield, not the pit");
     target = CALL + "::launch::launch_instant_v2_buy_entry";
     tx.moveCall({ target: target, typeArguments: [Ttype, Qtype], arguments: baseArgs.concat(splitArgs).concat(buyArgs) });
     return { route: route, target: target };
@@ -6850,12 +6858,12 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       '<button type="button" class="reward-toggle'+(on?" on":"")+'" data-basket-toggle="1" aria-pressed="'+(on?"true":"false")+'">'+(on?"On":"Off")+'</button>';
     var head = '<div class="reward-toggle-row">'+
         '<div><div class="reward-kicker">Basket mode · holder rewards</div>'+
-        '<h3>'+(on ? "Gold, silver, and T-bills" : "Basket mode is off")+'</h3></div>'+
+        '<h3>'+(on ? "Gold, silver, and T-bills" : "Holders paid in SUI")+'</h3></div>'+
         toggle+
       '</div>';
     if (!on){
       return '<div class="reward-panel">'+head+
-        '<p class="create-sub">Holders are not paid in RWAs. This launches a plain Instant pair: the Holders share of collected fees goes to the SUI pit, as SUI launches did before basket mode. Turn it on to pay holders in gold, silver, and T-bills.</p>'+
+        '<p class="create-sub">Basket mode is off. The Holders share of collected fees is paid to holders in SUI, pushed to their wallets automatically. Turn basket mode on to pay holders in gold, silver, and T-bills instead.</p>'+
       '</div>';
     }
     state.lBasketEqual = true;
@@ -7368,7 +7376,14 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     var vault = rewardsVaultByLock(ev.lock_id);
     var tk = T.find(function(x){ return padAddr(x.lockId) === padAddr(ev.lock_id); });
     var cat = (vault && vault.cat) || "";
-    if (!cat && tk) cat = rewardsCatId(poolQuote(tk)) || rewardsCatId(tk.q) || "";
+    if (!cat && tk && !(vault && vault.kind === "basket")){
+      // A SUI quote only means "SUI holder rewards" once its holder-yield vault is
+      // indexed. Plain SUI locks paid the pit and basket locks stage SUI for RWAs.
+      var cq = poolQuote(tk);
+      if (String(cq || "").toUpperCase() !== "SUI" || (vault && vault.kind === "holder")){
+        cat = rewardsCatId(cq) || rewardsCatId(tk.q) || "";
+      }
+    }
     if (!cat){
       pendingCollectFees.push(ev);
       if (pendingCollectFees.length > 400) pendingCollectFees = pendingCollectFees.slice(-400);
@@ -13268,8 +13283,8 @@ async function doBridgeDeposit(){
         });
         // Instant: 100% token, 0 quote. Route (see appendLaunchCall):
         // SUI + basket mode → basket yield (RWA to holders); SUI + basket off →
-        // plain Instant (Holders slice to the SUI pit); other quotes → holder
-        // yield in Q. Holders == 0 → plain Instant (pit slice is 0).
+        // holder yield paid in SUI; other quotes → holder yield in Q.
+        // Holders == 0 → plain Instant (pit slice is 0). Never the pit otherwise.
         // First buy (if any) is the same PTB: swap Q→T on the owned pool before share.
         if (!splitOk()) throw new Error("Fee split must sum to 100% with platform and VICE buyback & burn each at least 5%");
         var splitArgs = launchSplitArgs(tx);
@@ -13311,8 +13326,8 @@ async function doBridgeDeposit(){
           minOutArg = txPure(tx, "u64", txAmt(0));
         }
         var buyArgs = [buyArg, minOutArg];
-        // SUI + basket mode on → basket_yield (RWAs to holders); SUI + off → plain
-        // Instant (Holders slice to the SUI pit); other quotes → holder yield in Q.
+        // SUI + basket mode on → basket_yield (RWAs to holders); SUI + off → holder
+        // yield in SUI; other quotes → holder yield in Q; Holders 0% → plain Instant.
         appendLaunchCall(tx, CALL, Ttype, Qtype, launchQuote, baseArgs, splitArgs, buyArgs, launchSplit().rewards, state.lBasket !== false);
         return tx;
       };
