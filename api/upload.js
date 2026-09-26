@@ -1,5 +1,6 @@
 import { put } from "@vercel/blob";
 import { verifyPersonalMessageSignature } from "@mysten/sui/verify";
+import { zkLoginVerifyClient } from "./_zklogin-verify.js";
 import { normalizeSuiAddress } from "@mysten/sui/utils";
 
 const MAX = 2 * 1024 * 1024;
@@ -129,7 +130,10 @@ async function verifyUploadSig(address, signature, ts) {
   if (Math.abs(Date.now() - t) > 10 * 60 * 1000) return false;
   const addr = normalizeSuiAddress(address);
   const msg = new TextEncoder().encode(`arena-upload:${t}`);
-  const pub = await verifyPersonalMessageSignature(msg, signature, { address: addr });
+  const pub = await verifyPersonalMessageSignature(msg, signature, {
+    address: addr,
+    client: zkLoginVerifyClient,
+  });
   return normalizeSuiAddress(pub.toSuiAddress()) === addr;
 }
 
