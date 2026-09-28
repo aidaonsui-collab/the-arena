@@ -3,7 +3,8 @@
 Published from `0x92a32ac7fd525f8bd37ed359423b8d7d858cad26224854dfbff1914b75ee658b`.
 
 - Type origin / original package: `0x5cfddf8ba23be6835644a8ea22482ff6ebb0081e42cc1bc052b5f770ca8bbdea`
-- Latest published-at (v22): `0x3ccc57531949d6f24178bd57fe20496ee4ff515e26c280f1b80f658bc020bcbe`
+- Latest published-at (v23): `0x1c808e5fe7f14703a72cae3cd71ebba98b3a9a97dc530feed6222595bfb4a853`
+- v22 published-at: `0x3ccc57531949d6f24178bd57fe20496ee4ff515e26c280f1b80f658bc020bcbe`
 - v21 published-at: `0x97158e99b999f8e7ad729d1e7de8c10e4f3550f25557a392fbca3296b000a984`
 - v20 published-at: `0x6d18ec050fe14a81235285be409f0495d7832f0a314d642d0186fa365dbdf0cd`
 - v19 published-at: `0xeaf160ea10ed9be10dfa378686d3f33b3b69c2e5f9b706a56c91b0c417fc3d11`
@@ -62,7 +63,48 @@ Published from `0x92a32ac7fd525f8bd37ed359423b8d7d858cad26224854dfbff1914b75ee65
 
 - Instant start FDV ~$4,500 (2026-09-14): AdminCap `set_instant_virtual_quote` SUI `4Qt9giELKnWJP9wWgvghrh4xaxGbmxNSt3NiN5dbFvZj`, USDY `DpyYiUQMWjXWB1uvtdnaz4KWuJBv3hc9a7j42yCAV7WK`, XAGM `581Mr3WYiy98PnjBnZpdb2EBWuBACmyLDj4Y2dA5FmnQ`, XAUM `ExJmDBXZf4Pt93z1zr1QL7tmZTHWCE8A7zJ1GUUdqqvi`. Prior DFs were ~$3,500. Existing pools unchanged.
 
-Call new functions on the latest published-at (`0x3ccc…`). Object types stay `0x5cfd…::pool::Pool` etc. `BluefinLockEvent` and `BluefinPositionLock` originated in v2 (`0x8e28…`). `InstadexLaunchEvent` and `InstadexMintLock` originated in v4 (`0xcf78…`). `CollectLpFeesEvent` originated in v5 (`0x68e1…`). `InstadexBurnEvent` originated in v6 (`0x47ea…`). `launch_instant` / `launch_instant_entry` originated in v7 (`0x5175…`). `take_pit_pot_for_burn` / `burn_pit_buy` / `InstadexPitSettleEvent` originated in v8 (`0xd853…`). `set_beneficiary` / `admin_set_beneficiary` / `BeneficiarySetEvent` originated in v9 (`0x488e…`). `register_pit` / `ring_pit` / `OfficialPitKey` enforcement on curve+Instadex sinks / retired `pit::ring`+`pit::create_pit` originated in v10 (`0xcc4c…`); `OfficialPitKey` type origin remains v7 (`0x5175…`) where the DF was first written. `holder_yield` / `launch_instant_holder_yield` / `collect_instadex_fees_holder_yield` / `HolderYieldVault` / `HolderYieldKey` / `HolderYieldLaunchEvent` / `HolderYieldFundedEvent` / `HolderYieldClaimEvent` originated in v11 (`0xe2de…`). `basket_yield` / `launch_instant_basket_yield` / `collect_instadex_fees_basket_yield` / `BasketYieldVault` / `BasketYieldKey` / `BasketYieldLaunchEvent` / `BasketYieldFundedEvent` / `BasketYieldConvertedEvent` / `BasketYieldClaimEvent` / `BasketYieldRotateEvent` originated in v12 (`0x1710…`). `migrate_instant_to_holder_yield` / `migrate_instant_to_basket_yield` (+ entry variants) originated in v13 (`0x4b69…`) and are retired (`errors::retired()`, 29) as of v15. `set_instant_lp_split` / `InstantLpSplit` / `take_buyback` / `ViceBuybackAccruedEvent` originated in v14 (`0xde8b…`). `migrate_instant_to_holder_yield_v2` / `migrate_instant_to_basket_yield_v2` (+ `_v2_entry` / `_v2_2_entry` / `_v2_3_entry`) / `lock::admin_detach_yield` originated in v15 (`0x3c97…`). `LockLpSplit` / `LockLpSplitKey` / `init_lock_lp_split` / `launch_instant_v2` / `launch_instant_holder_yield_v2` / `launch_instant_basket_yield_v2` (+ `_v2_entry` / `_v2_2_entry` / `_v2_3_entry`) / `LockLpSplitSetEvent` originated in v16 (`0xe5e5…`).
+## Instadex per-quote pricing (v23)
+
+- Upgrade v23 tx: `6qX63uPDTEGuDV79yTbE6KGmpFemSsCwG15fd6oqvD5t` (2026-09-15 CT; `config::set_quote_params<Q>` / `QuoteParams` / `QuoteParamsKey` — Instadex-path `quote_params<Q>` is no longer hardcoded to SUI-or-XAUM-shaped buckets; uncalibrated quotes still fall back to the XAUM shape, Compatible).
+- Call package: `0x1c808e5fe7f14703a72cae3cd71ebba98b3a9a97dc530feed6222595bfb4a853`. Calibrate a new Instadex quote with AdminCap `config::set_quote_params<Q>(virtual_quote, graduation)` (requires `virtual_quote > 0 && graduation > virtual_quote`, else aborts `errors::bad_param()` 33).
+- VICEFUN quote pair added (2026-09-15): AdminCap `set_quote_params<VICEFUN>` (virtual `78616352201257856`, graduation `786163522012578432`; ~$4,000 Instadex start FDV) tx `67sCFumzPPMYTAdSccEvf9H9aDja73dj3h4Lkjv9uPTP`; `set_instant_virtual_quote<VICEFUN>` (`84595435139110448`; ~$4,194 Instant start FDV) tx `6GVuLEs4iXzS1Pq6VMjn4oSyDxjf51WPg7HRzwjbtL1d`.
+- NVDA + AMC Instant Create (2026-09-16 CT; **pad Instant Create quotes removed 2026-09-28** — pools/pits remain on-chain): Bluefin Spot pools NVDA/USDC `0x2621ed4c3276791ced2912be6a76bf48d50c898660cbb14194e3c142ab63f5f1` (tx `HvExr8QE…`) and AMC/USDC `0x744bbd907627cf4006a6b49201c6e7d4d65363975c73b39f090045408f429cc8` (tx `DWmHhhYV…`), fee 0.2%. AdminCap `set_quote_params` NVDA tx `BNHtsbCr…` (virtual `21043771044`, graduation `210437710440`), AMC tx `J7STPwgU…` (virtual `1882845188285`, graduation `18828451882850`); `set_instant_virtual_quote` NVDA `Eu7z1AS8…`, AMC `4UTAQUTG…` (~$4,500 Instant start FDV at seed prices). Pad Instant Create + hops: PR #28. Official pits via AdminCap `create_pit`: NVDA `0xb036cc84f6fb493493d63087f3e086131b8db8316002ad2370960571f7d9a943` (tx `8HNYDFo2…`), AMC `0xea87957448ff50131877697e9716ab58b6da20c7c48902cfd7c07ce892ff4378` (tx `8fCjVoDX…`).
+
+Call new functions on the latest published-at (`0x1c80…`). Object types stay `0x5cfd…::pool::Pool` etc. `BluefinLockEvent` and `BluefinPositionLock` originated in v2 (`0x8e28…`). `InstadexLaunchEvent` and `InstadexMintLock` originated in v4 (`0xcf78…`). `CollectLpFeesEvent` originated in v5 (`0x68e1…`). `InstadexBurnEvent` originated in v6 (`0x47ea…`). `launch_instant` / `launch_instant_entry` originated in v7 (`0x5175…`). `take_pit_pot_for_burn` / `burn_pit_buy` / `InstadexPitSettleEvent` originated in v8 (`0xd853…`). `set_beneficiary` / `admin_set_beneficiary` / `BeneficiarySetEvent` originated in v9 (`0x488e…`). `register_pit` / `ring_pit` / `OfficialPitKey` enforcement on curve+Instadex sinks / retired `pit::ring`+`pit::create_pit` originated in v10 (`0xcc4c…`); `OfficialPitKey` type origin remains v7 (`0x5175…`) where the DF was first written. `holder_yield` / `launch_instant_holder_yield` / `collect_instadex_fees_holder_yield` / `HolderYieldVault` / `HolderYieldKey` / `HolderYieldLaunchEvent` / `HolderYieldFundedEvent` / `HolderYieldClaimEvent` originated in v11 (`0xe2de…`). `basket_yield` / `launch_instant_basket_yield` / `collect_instadex_fees_basket_yield` / `BasketYieldVault` / `BasketYieldKey` / `BasketYieldLaunchEvent` / `BasketYieldFundedEvent` / `BasketYieldConvertedEvent` / `BasketYieldClaimEvent` / `BasketYieldRotateEvent` originated in v12 (`0x1710…`). `migrate_instant_to_holder_yield` / `migrate_instant_to_basket_yield` (+ entry variants) originated in v13 (`0x4b69…`) and are retired (`errors::retired()`, 29) as of v15. `set_instant_lp_split` / `InstantLpSplit` / `take_buyback` / `ViceBuybackAccruedEvent` originated in v14 (`0xde8b…`). `migrate_instant_to_holder_yield_v2` / `migrate_instant_to_basket_yield_v2` (+ `_v2_entry` / `_v2_2_entry` / `_v2_3_entry`) / `lock::admin_detach_yield` originated in v15 (`0x3c97…`). `LockLpSplit` / `LockLpSplitKey` / `init_lock_lp_split` / `launch_instant_v2` / `launch_instant_holder_yield_v2` / `launch_instant_basket_yield_v2` (+ `_v2_entry` / `_v2_2_entry` / `_v2_3_entry`) / `LockLpSplitSetEvent` originated in v16 (`0xe5e5…`). `config::set_quote_params` / `QuoteParams` / `QuoteParamsKey` originated in v23 (`0x1c80…`).
+
+## Planned v24 — `coin_registry::Currency<Q>` quotes (NOT PUBLISHED)
+
+Status: source only (PR `feat/launch-currency-metadata`). Nothing below exists on-chain until the UpgradeCap holder publishes it. `ARENA_CALL_PACKAGE` stays on v23 (`0x1c80…`) until then.
+
+Why: quote coins minted only through Sui's coin registry have a shared `0x2::coin_registry::Currency<Q>` and **no** `coin::CoinMetadata<Q>`. Every v23 `launch_*` takes `&CoinMetadata<Q>`, so TOKEN/ZUK Create cannot be built. `meta_q` is only used for the Bluefin pool name + coin-B symbol / decimals / icon URL, and `Currency` exposes all three (`symbol()`, `decimals()`, `icon_url()`, framework `sui::coin_registry`, same `framework/mainnet` rev this package already builds against).
+
+Upgrade policy: **Compatible**. No existing public / entry signature or struct changes; v23 CoinMetadata launches (SUI, XAUM, XAGM, USDY, VICEFUN, LOFI, WAL, DEEP, …) are unchanged. Internals were refactored so both sources feed byte-identical Bluefin `create_pool` args (`lock::quote_fields_from_metadata` / `lock::quote_fields_from_currency`; covered by `tests/currency_quote_tests.move`).
+
+New functions (args identical to the v23 twin, except `meta_q: &CoinMetadata<Q>` → `cur_q: &Currency<Q>`; `meta_t` stays `CoinMetadata<T>`):
+
+| v24 `_currency` function | v23 twin |
+| --- | --- |
+| `launch::launch_instant_v2_buy_currency` / `_entry` | `launch_instant_v2_buy` / `launch_instant_v2_buy_entry` |
+| `launch::launch_instant_holder_yield_v2_buy_currency` / `_entry` | `launch_instant_holder_yield_v2_buy` / `_buy_entry` |
+| `launch::launch_instant_basket_yield_v2_buy_currency` | `launch_instant_basket_yield_v2_buy` |
+| `launch::launch_instant_basket_yield_v2_buy_currency_entry<T,Q,A0>` | `launch_instant_basket_yield_v2_buy_entry` |
+| `launch::launch_instant_basket_yield_v2_2_buy_currency_entry<T,Q,A0,A1>` | `launch_instant_basket_yield_v2_2_buy_entry` |
+| `launch::launch_instant_basket_yield_v2_3_buy_currency_entry<T,Q,A0,A1,A2>` | `launch_instant_basket_yield_v2_3_buy_entry` |
+| `launch::launch_instadex_currency` / `launch_instadex_currency_entry` | `launch_instadex` / `launch_instadex_entry` |
+
+Package-internal (`public(package)`) additions: `lock::seed_and_lock_internal_q`, `seed_and_lock_instant_q`, `seed_and_lock_instant_holder_yield_q`, `seed_and_lock_instant_basket_yield_q`, `quote_fields_from_metadata`, `quote_fields_from_currency`.
+
+Publish + switch-over (UpgradeCap holder):
+1. `cd contracts && sui move build` then `sui client upgrade --upgrade-capability 0x8db3965ac77247107c811cb79bccd9bf1daf5647136a0b2f8891351a56d73608` (Compatible). Record tx + new published-at here as v24, and update `published-at` in `Move.toml` / `Published.toml`.
+2. Before the first ZUK launch, AdminCap `config::set_instant_virtual_quote<ZUK>(v)`. Without it `instant_virtual_quote<ZUK>` falls back to the XAUM default `10_000_000` base units, which is only **10 ZUK** at 6 decimals, so the start FDV would be tiny. (Optional: `set_quote_params<ZUK>` only matters for the curve path.)
+3. Point `ARENA_CALL_PACKAGE` at the v24 published-at and set `window.ARENA_CURRENCY_LAUNCH_READY = true` in `index.html`. The pad then passes the Currency object instead of CoinMetadata for ZUK and calls the `*_buy_currency_entry` target.
+
+Calling with the ZUK Currency (PTB, v24 call package):
+- `Q` = `0x42ba9220e980b4819e4df208dd50013d0bbbfde142996e8db1319ac61f879205::zuk::ZUK`
+- `cur_q` = shared `0x2::coin_registry::Currency<ZUK>` at `0x14d7f357781986860920fe328456c6a21b7c1e1a428b2694aac5d57890ad045d` (immutable ref; confirmed via Sui GraphQL: symbol `ZUK`, decimals 6, fixed supply, metadata cap deleted)
+- e.g. `<v24>::launch::launch_instant_holder_yield_v2_buy_currency_entry<T, ZUK>(Config 0xcd52…5d2c, Clock 0x6, Bluefin GlobalConfig 0x03db…c352, TreasuryCap<T>, CoinMetadata<T>, 0x14d7…045d, Coin<T>, fee Coin<SUI>, creation Coin<SUI>, creator_bps, platform_bps, pit_bps, buyback_bps, first_buy Coin<ZUK>, min_out)`
+
+Still `CoinMetadata`-only after v24 (not needed for ZUK Instant): curve `launch` / `launch_entry` (token side, `pool::new`), graduation `lock::seed_and_lock_bluefin` / `seed_and_lock_bluefin_with_fee`, the legacy non-`_buy` Instant entries (`launch_instant`, `launch_instant_v2`, `launch_instant_holder_yield{,_v2}`, `launch_instant_basket_yield{,_v2}` and their `_entry` wrappers), and the token side (`meta_t`) of every launch.
 
 ## Bluefin Spot (graduation seed)
 
@@ -146,5 +188,5 @@ RH → Sui 1:1 wrappers live in **`contracts-stocks/`** (`stocks` package), not 
 
 - Package: `0x9a4ba3338384d36033065f9cf0c58078033a718a92f091f12a551f6984c290c5`
 - Publish tx: `CLF3jgp39FCMh7KjvGqjWULcQXvju9f86qFbJaNPvL13`
-- Tickers: NVDA, AMC, GME, TSLA — BridgeVault + MinterCap per ticker (ids in `contracts-stocks/PUBLISHED.md`)
+- Tickers: NVDA, AMC, GME, TSLA — BridgeVault + MinterCap per ticker (ids in `contracts-stocks/PUBLISHED.md`). Pad Bridge tab + RH watch/redeem keepers **sunset** 2026-09-21; pad Instant Create quotes for NVDA/AMC removed 2026-09-28 (on-chain wrap types and Bluefin pools remain).
 
