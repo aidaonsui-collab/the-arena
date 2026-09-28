@@ -1,7 +1,9 @@
 /**
  * Permissionless Instadex collect for every lock with accrued LP fees.
  * Routes: HolderYieldKey → collect_instadex_fees_holder_yield; BasketYieldKey →
- * collect_instadex_fees_basket_yield; else pit collect_instadex_fees.
+ * collect_instadex_fees_basket_yield. Plain Instant (no yield DF) is skipped —
+ * pit sunset: never call collect_instadex_fees / pit::take_fee_internal; migrate
+ * the lock to holder_yield first.
  * Yield mode from *YieldLaunchEvent (launch + migrate) with lock DF fallback.
  * Burns coin A, splits Instant quote 60/5/25/10 creator/platform/rewards/VICE
  * (after AdminCap set_instant_lp_split; else 60/10/30). Signs with
@@ -15,8 +17,6 @@ const GQL = process.env.SUI_GRAPHQL ?? "https://graphql.mainnet.sui.io/graphql";
 const CLOCK = "0x6";
 const BF_CONFIG = "0x03db251ba509a8d5d8777b6338836082335d93eecbdd09a11e190a1cff51c352";
 const CONFIG = "0xcd527cb2389d806e5285ae708ee28df30a841ec5df7508ebfebaa0c9660b5d2c";
-const PIT_SUI = "0x8ec38e9bcac0838bf474680e71d0c3f302f4ea2f757d759b7b399701f904389c";
-const PIT_XAUM = "0xa8a391bf380914c04be5deb478474b42754a5aa8c29c0955f267d73190a98783";
 const CALL_PKG =
   process.env.ARENA_CALL_PACKAGE ??
   "0x573f2eeafb51859da4e11dc1ba642b4beca71d25c7da0e4128fe8111b3fa6089";
@@ -54,14 +54,6 @@ function asId(v: unknown): string {
   if (typeof v === "string") return v.startsWith("0x") ? v : `0x${v}`;
   if (v && typeof v === "object" && "id" in (v as object)) return asId((v as { id: unknown }).id);
   return String(v ?? "");
-}
-
-function pitFor(quote: string): string | null {
-  const s = quote || "";
-  if (/usdy/i.test(s)) return process.env.ARENA_PIT_USDY || "";
-  if (/xagm/i.test(s)) return process.env.ARENA_PIT_XAGM || "";
-  if (/xaum/i.test(s)) return process.env.ARENA_PIT_XAUM || PIT_XAUM;
-  return process.env.ARENA_PIT_SUI || PIT_SUI;
 }
 
 async function gql(query: string, variables: Record<string, unknown>) {
@@ -372,24 +364,20 @@ export async function runCollectInstadex() {
         ],
       });
     } else {
-      const pit = pitFor(L.quote);
-      if (!pit) {
-        results.push({ lockId: L.lockId, skipped: true, reason: "no Pit<" + (L.quote || "Q") + "> registered" });
-        continue;
-      }
-      tx.moveCall({
-        target: `${CALL_PKG}::launch::collect_instadex_fees`,
-        typeArguments: [L.token, L.quote || "0x2::sui::SUI"],
-        arguments: [
-          tx.object(L.lockId),
-          tx.object(mintId),
-          tx.object(CLOCK),
-          tx.object(BF_CONFIG),
-          tx.object(L.poolId),
-          tx.object(cfgId),
-          tx.object(pit),
-        ],
+      // Pit sunset: plain Instant locks must be migrated to holder_yield (or
+      // basket_yield) before collect. Never call collect_instadex_fees → pit::take_fee_internal.
+      console.log(
+        `plain lock, pit sunset — migrate required lock=${L.lockId} token=${L.token} quote=${L.quote || "SUI"}`,
+      );
+      results.push({
+        lockId: L.lockId,
+        skipped: true,
+        reason: "plain lock, pit sunset — migrate required",
+        token: L.token,
+        quote: L.quote,
+        fees,
       });
+      continue;
     }
     try {
       const sent = await client().signAndExecuteTransaction({

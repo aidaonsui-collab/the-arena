@@ -41,37 +41,27 @@ run_job() {
   fi
 }
 
-# Fight Night standing + Instant tape. Chain work stays on this Mac; Vercel only stores blobs.
-run_job pit
+# Fight Night standing (pit) and Instant buy/burn (instadex) are sunset.
+# Pit objects remain on-chain for dust; fees must never route to a pit.
+# Do not re-enable without an explicit product decision.
+echo "$(date -u +"%Y-%m-%dT%H:%M:%SZ") pit skipped: pit-sunset" >> "$LOG"
+echo "$(date -u +"%Y-%m-%dT%H:%M:%SZ") instadex skipped: pit-sunset" >> "$LOG"
+
+# Instant tape indexers. Chain work stays on this Mac; Vercel only stores blobs.
 run_job hop || true
 run_job trades
 run_job index-rewards || true
 
-# Buy/burn only if a winner bell is waiting (ticker, no digest, not skipped).
-APP_URL="${ARENA_APP_URL:-https://the-arena-vert.vercel.app}"
-PIT_JSON="$(curl -fsS --max-time 25 "${APP_URL%/}/api/pit-state" 2>/dev/null || true)"
-if [ -z "$PIT_JSON" ]; then
-  echo "$(date -u +"%Y-%m-%dT%H:%M:%SZ") instadex idle: pit-state unreachable" >> "$LOG"
-elif printf '%s' "$PIT_JSON" | python3 -c '
-import json, sys
-j = json.load(sys.stdin)
-for b in j.get("bells") or []:
-    if b and b.get("t") and not b.get("digest") and not b.get("skipped"):
-        sys.exit(0)
-sys.exit(1)
-' 2>/dev/null; then
-  run_job instadex
-else
-  echo "$(date -u +"%Y-%m-%dT%H:%M:%SZ") instadex idle: no 24h winner yet" >> "$LOG"
-fi
 # Leftover curve ring/settle. Off by default — Instant 24h MC is the product winner.
 if [ "${ARENA_KEEPER_CURVE:-}" = "1" ]; then
   run_job settle
   run_job ring
 fi
 
-# LP collect (burn A, 60/10/30 creator/platform/pit) then AdminCap withdraw into the platform wallet.
-# Default every 30 minutes so the SUI pit and creator bags actually move. Override with ARENA_COLLECT_EVERY_S.
+# LP collect (burn A, 60/5/25/10 creator/platform/holder-or-basket/VICE) then AdminCap
+# withdraw into the platform wallet. Plain Instant (pit) collect is unreachable after
+# pit-sunset — migrate locks to holder_yield first. Default every 30 minutes.
+# Override with ARENA_COLLECT_EVERY_S.
 STAMP="$HOME/Library/Logs/arena-keepers-fees.stamp"
 EVERY="${ARENA_COLLECT_EVERY_S:-1800}"
 now="$(date +%s)"

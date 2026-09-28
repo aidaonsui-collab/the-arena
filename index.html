@@ -6846,10 +6846,11 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   }
   // Basket mode, any quote: Holders slice is swapped into gold / silver / T-bills
   // via launch_instant_basket_yield_v2*_buy_entry. Off → holder yield paid in
-  // the pair coin. Plain Instant (pit) only when Holders is 0%.
+  // the pair coin. Pit is sunset: nothing ever launches as plain (Pit-routed)
+  // Instant. Holders 0% still uses holder yield (vault gets 0) so the keeper's
+  // yield collect pays the creator; keepers no longer collect plain locks.
   function launchRoute(quote, rewardsBps, basketOn){
-    if (!(Number(rewardsBps) > 0)) return "plain";
-    if (basketOn) return "basket";
+    if (Number(rewardsBps) > 0 && basketOn) return "basket";
     return "holder";
   }
   function activePairQuote(){
@@ -6896,12 +6897,9 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       tx.moveCall({ target: target, typeArguments: typeArgs, arguments: baseArgs.concat(weightArgs).concat(splitArgs).concat(buyArgs) });
       return { route: route, target: target, legs: legs.map(function(l){ return l.label + ":" + l.bps; }) };
     }
-    // Plain Instant routes the Holders slice to the sunset pit, so it is only
-    // allowed when Holders is 0%.
-    if (Number(rewardsBps) > 0) throw new Error("Holders share must go to holder yield or basket yield, not the pit");
-    target = CALL + "::launch::launch_instant_v2" + sfx;
-    tx.moveCall({ target: target, typeArguments: [Ttype, Qtype], arguments: baseArgs.concat(splitArgs).concat(buyArgs) });
-    return { route: route, target: target };
+    // Plain Instant (launch_instant_v2_buy_entry) routes the Holders slice to a
+    // Pit. The pit is sunset, so this is unreachable by design.
+    throw new Error("Plain Instant launches are disabled (pit sunset). Use holder yield or basket yield.");
   }
   function basketPanelHTML(opts){
     var q = activePairQuote();
@@ -14597,21 +14595,9 @@ async function doBridgeDeposit(){
           ]
         });
       } else {
-        var pit = rec.pit;
-        if (!pit) throw new Error("The pot for "+q+" is not registered yet. Collect needs an official pot.");
-        tx.moveCall({
-          target: CALL + "::launch::collect_instadex_fees",
-          typeArguments: [Ttype, Qtype],
-          arguments: [
-            tx.object(tk.lockId),
-            tx.object(mint),
-            tx.object(window.ARENA_CLOCK || "0x6"),
-            tx.object(window.ARENA_BLUEFIN_CONFIG),
-            tx.object(tk.bluefinPool),
-            tx.object(window.ARENA_CONFIG),
-            tx.object(pit)
-          ]
-        });
+        // Plain lock: collect_instadex_fees would route the Holders slice into a
+        // Pit. Pit is sunset — the lock must be migrated to holder yield first.
+        throw new Error("Migrate to holder yield first (pit sunset)");
       }
       var result = await walletExec(tx);
       var digest = result && (result.digest || (result.effects && result.effects.transactionDigest) || result.transactionDigest);
