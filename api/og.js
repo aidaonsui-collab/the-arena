@@ -5,9 +5,10 @@ const RPC = process.env.SUI_RPC || "https://mainnet.suiet.app";
 const EVENT_PKGS = [
   process.env.ARENA_INSTADEX_PACKAGE || "0xcf7835ae4e3f8a3d4eb4bd9d14cb4a3dbdd80e70908feb6c433688a31e119de3",
   "0xd8531cc8c4e1ee914f0e4e48aea9a796faa0603459cc4665838f688e51bf23d9",
-  process.env.ARENA_CALL_PACKAGE || "0x1c808e5fe7f14703a72cae3cd71ebba98b3a9a97dc530feed6222595bfb4a853",
+  process.env.ARENA_CALL_PACKAGE || "0x573f2eeafb51859da4e11dc1ba642b4beca71d25c7da0e4128fe8111b3fa6089",
+  "0x1c808e5fe7f14703a72cae3cd71ebba98b3a9a97dc530feed6222595bfb4a853", // v23 (history; v24 adds no events)
   "0x3ccc57531949d6f24178bd57fe20496ee4ff515e26c280f1b80f658bc020bcbe",
-];
+].filter((p, i, a) => a.indexOf(p) === i);
 
 const JPG_HEADERS = {
   "content-type": "image/jpeg",
