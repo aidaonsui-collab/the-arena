@@ -100,13 +100,13 @@ Push remaining RWA pots (`AssetPot`) from a push-mode `BasketYieldVault` pro-rat
 all `$VICEFUN` (or `ARENA_VICEFUN_TYPE`) coin holders — no Claim/sync.
 
 ```
-ARENA_BASKET_PUSH_VAULT=<vaultId> npx tsx src/cli.ts push-basket          # dry-run
-ARENA_BASKET_PUSH_VAULT=<vaultId> ARENA_BASKET_PUSH_LIVE=1 npm run push-basket
+npx tsx src/cli.ts push-basket
+ARENA_BASKET_PUSH_LIVE=1 npm run push-basket
 ```
 
 | Var | Default | Meaning |
 | --- | --- | --- |
-| `ARENA_BASKET_PUSH_VAULT` | — | Required vault id |
+| `ARENA_BASKET_PUSH_VAULT` | — | Optional extra vault id. Every discovered basket vault is pushed |
 | `ARENA_BASKET_PUSH_LIVE` | off | `1` = sign+execute |
 | `ARENA_BASKET_PUSH_BATCH` | `20` | `push_payout`s per PTB |
 | `ARENA_GAS_COIN` | — | Optional gas object pin (avoid large reserve coin) |

@@ -80,8 +80,8 @@ if [ $((now - last)) -ge "$EVERY" ]; then
   if [ "${ARENA_VICE_BURN:-}" = "1" ]; then
     run_job burn-vice || true
   fi
-  # Basket-yield RWA pots → coin holders (push mode). Off unless ARENA_BASKET_PUSH=1.
-  # Set ARENA_BASKET_PUSH_VAULT + ARENA_BASKET_PUSH_LIVE=1 for live payouts.
+  # Basket-yield RWA pots → that token's holders. Off unless ARENA_BASKET_PUSH=1.
+  # ARENA_BASKET_PUSH_LIVE=1 sends. Every basket vault is included.
   if [ "${ARENA_BASKET_PUSH:-}" = "1" ]; then
     run_job push-basket || true
   fi

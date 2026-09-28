@@ -1,16 +1,16 @@
 /**
- * Push-distribute basket-yield RWA pots: pro-rata `push_payout` to all $VICEFUN
- * (or configured) coin holders — no Claim/sync.
+ * Push-distribute basket-yield RWA pots. Every basket vault is paid to holders
+ * of that vault's own token. A new launch is picked up from its launch event
+ * and from the vault currently attached to its lock.
  *
  * DEFAULT: dry-run only. Live requires ARENA_BASKET_PUSH_LIVE=1.
  * Does NOT hop/spend keeper wallet SUI for DEX — only gas for push PTBs.
  *
  * Env:
- *   ARENA_BASKET_PUSH_VAULT     — required BasketYieldVault object id
  *   ARENA_BASKET_PUSH_LIVE=1    — sign + execute (else dryRunTransactionBlock)
+ *   ARENA_BASKET_PUSH_VAULT     — optional extra vault id, included with the rest
  *   ARENA_BASKET_PUSH_BATCH     — push_payout calls per PTB; default 20
  *   ARENA_BASKET_PUSH_MIN_POT   — skip asset pots below this; default 1
- *   ARENA_VICEFUN_TYPE          — holder coin type (default VICEFUN)
  *   ARENA_CALL_PACKAGE / ARENA_ADMIN_CAP / ARENA_KEEPER_PHRASE — same as other jobs
  */
 import { Transaction } from "@mysten/sui/transactions";
@@ -22,6 +22,8 @@ import {
   USDY,
   XAGM,
   XAUM,
+  asId,
+  gql,
   objectFields,
   typeNameOf,
 } from "../chain.ts";
@@ -29,9 +31,13 @@ import { loadSigner } from "../loadSigner.ts";
 import { client } from "../sui.ts";
 import { fetchCoinHolders } from "./pushHolderYield.ts";
 
-const DEFAULT_VICEFUN =
-  "0x4a6d6f56100e08f8f433fdc62760259e8d7ab91b476a42e138883dfc35ea80ab::vicefun::VICEFUN";
 const PUSH_KEY_SUFFIXES = ["::basket_yield::PushDistributeKey", "::yield_basket::PushDistributeKey"];
+const EVENT_PKGS = [
+  CALL_PKG,
+  process.env.ARENA_INSTADEX_PACKAGE,
+  process.env.ARENA_PACKAGE_ID,
+  "0x1710adbe0293015cac7492b6db0cf871a7af81c5a51cd9d5d99d3aadf9fea161",
+].filter(Boolean) as string[];
 
 const ASSETS: { kind: "XAUM" | "XAGM" | "USDY"; type: string }[] = [
   { kind: "XAUM", type: XAUM },
@@ -340,16 +346,84 @@ async function pushAsset(opts: {
   };
 }
 
-export async function runPushBasketYield() {
-  const vaultId = (process.env.ARENA_BASKET_PUSH_VAULT || "").trim();
-  if (!vaultId) {
-    return { skipped: true, reason: "set ARENA_BASKET_PUSH_VAULT" };
+async function currentVaultOnLock(lockId: string): Promise<string> {
+  try {
+    let cursor: string | null | undefined = null;
+    for (let page = 0; page < 5; page++) {
+      const res = await client().getDynamicFields({ parentId: lockId, cursor, limit: 50 });
+      for (const df of res.data || []) {
+        const nameType = String((df.name as { type?: string } | undefined)?.type || "");
+        if (!/::lock::BasketYieldKey$/.test(nameType)) continue;
+        const field = await client().getDynamicFieldObject({
+          parentId: lockId,
+          name: df.name as { type: string; value: unknown },
+        });
+        const content = field.data?.content;
+        if (!content || content.dataType !== "moveObject") continue;
+        const fields = (content.fields || {}) as { value?: unknown };
+        let val: unknown = fields.value;
+        if (val && typeof val === "object" && "id" in (val as object)) {
+          val = (val as { id: unknown }).id;
+        }
+        const vaultId = asId(val);
+        if (vaultId && vaultId !== "0x") return vaultId;
+      }
+      if (!res.hasNextPage) break;
+      cursor = res.nextCursor;
+    }
+  } catch {
+    return "";
   }
+  return "";
+}
+
+/** Launch events, funded events, the lock's current vault, and an optional extra id. */
+async function discoverBasketVaults(): Promise<string[]> {
+  const ids = new Set<string>();
+  const locks = new Set<string>();
+  const extra = (process.env.ARENA_BASKET_PUSH_VAULT || "").trim();
+  if (extra) ids.add(asId(extra));
+  const q = `query($t:String!,$first:Int!,$after:String){ events(first:$first, after:$after, filter:{ type:$t }){ pageInfo { hasNextPage endCursor } nodes { contents { json } } } }`;
+  for (const eventName of ["BasketYieldLaunchEvent", "BasketYieldFundedEvent"]) {
+    for (const pkg of EVENT_PKGS) {
+      const type = `${pkg}::events::${eventName}`;
+      let after: string | null = null;
+      for (let page = 0; page < 20; page++) {
+        let data: {
+          events?: {
+            pageInfo?: { hasNextPage?: boolean; endCursor?: string };
+            nodes?: { contents?: { json?: Record<string, unknown> } }[];
+          };
+        };
+        try {
+          data = (await gql(q, { t: type, first: 50, after })) as typeof data;
+        } catch {
+          break;
+        }
+        for (const n of data.events?.nodes ?? []) {
+          const p = n.contents?.json ?? {};
+          const basketId = asId(p.basket_id);
+          const lockId = asId(p.lock_id);
+          if (basketId && basketId !== "0x") ids.add(basketId);
+          if (lockId && lockId !== "0x") locks.add(lockId);
+        }
+        if (!data.events?.pageInfo?.hasNextPage || !data.events.pageInfo.endCursor) break;
+        after = data.events.pageInfo.endCursor;
+      }
+    }
+  }
+  for (const lockId of locks) {
+    const live = await currentVaultOnLock(lockId);
+    if (live) ids.add(live);
+  }
+  return [...ids];
+}
+
+export async function runPushBasketYield() {
   const live = truthy(process.env.ARENA_BASKET_PUSH_LIVE);
   const dryRun = !live;
   const minPot = BigInt(process.env.ARENA_BASKET_PUSH_MIN_POT || "1");
   const batch = Math.max(1, Number(process.env.ARENA_BASKET_PUSH_BATCH || "20") || 20);
-  const viceType = (process.env.ARENA_VICEFUN_TYPE || DEFAULT_VICEFUN).trim();
 
   const kp = loadSigner();
   const keeper = kp.getPublicKey().toSuiAddress();
@@ -357,59 +431,78 @@ export async function runPushBasketYield() {
     return { keeper, skipped: true, reason: "keeper does not own AdminCap " + ADMIN_CAP };
   }
 
-  const vault = await readVault(vaultId);
-  const pushOn = await isPushMode(vaultId);
-  if (!pushOn) {
-    return {
-      keeper,
-      vaultId,
-      skipped: true,
-      reason: "not push mode — call enable_push_distribute first",
-      pots: Object.fromEntries(Object.entries(vault.pots).map(([k, v]) => [k, v.toString()])),
-    };
-  }
-
-  const holders = await fetchCoinHolders(viceType);
-  const exclude = new Set<string>([
-    normAddr(vaultId),
-    normAddr(vault.lockId),
-    normAddr(vault.poolId),
-  ]);
-
+  const vaultIds = await discoverBasketVaults();
+  const holdersByToken = new Map<string, HolderRow[]>();
   const results: unknown[] = [];
-  for (const a of ASSETS) {
-    const pot = vault.pots[a.kind] ?? 0n;
-    if (pot < minPot) {
-      results.push({ asset: a.kind, skipped: true, reason: "dust/empty pot", pot: pot.toString() });
-      continue;
-    }
-    results.push(
-      await pushAsset({
+  for (const vaultId of vaultIds) {
+    try {
+      const vault = await readVault(vaultId);
+      const pushOn = await isPushMode(vaultId);
+      if (!pushOn) {
+        results.push({ vaultId, skipped: true, reason: "not push mode" });
+        continue;
+      }
+      const payable = ASSETS.filter((a) => (vault.pots[a.kind] ?? 0n) >= minPot);
+      if (!payable.length) {
+        results.push({
+          vaultId,
+          token: vault.token,
+          skipped: true,
+          reason: "empty pots",
+          pots: Object.fromEntries(Object.entries(vault.pots).map(([k, v]) => [k, v.toString()])),
+        });
+        continue;
+      }
+      const tokenKey = fullyQualifiedType(vault.token);
+      let holders = holdersByToken.get(tokenKey);
+      if (!holders) {
+        holders = await fetchCoinHolders(vault.token);
+        holdersByToken.set(tokenKey, holders);
+      }
+      const exclude = new Set<string>([
+        normAddr(vaultId),
+        normAddr(vault.lockId),
+        normAddr(vault.poolId),
+      ]);
+      const assets: unknown[] = [];
+      for (const a of ASSETS) {
+        const pot = vault.pots[a.kind] ?? 0n;
+        if (pot < minPot) continue;
+        assets.push(
+          await pushAsset({
+            vaultId,
+            token: vault.token,
+            quote: vault.quote || SUI,
+            asset: a.type,
+            kind: a.kind,
+            pot,
+            holders,
+            exclude,
+            keeper,
+            dryRun,
+            batch,
+            moduleName: vault.moduleName,
+          }),
+        );
+      }
+      results.push({
         vaultId,
-        token: vault.token || viceType,
-        quote: vault.quote || SUI,
-        asset: a.type,
-        kind: a.kind,
-        pot,
-        holders,
-        exclude,
-        keeper,
-        dryRun,
-        batch,
+        token: vault.token,
+        quote: vault.quote,
         moduleName: vault.moduleName,
-      }),
-    );
+        holders: holders.length,
+        assets,
+      });
+    } catch (e) {
+      results.push({ vaultId, error: e instanceof Error ? e.message : String(e) });
+    }
   }
 
   return {
     keeper,
     callPackage: CALL_PKG,
     adminCap: ADMIN_CAP,
-    vaultId,
-    token: vault.token,
-    quote: vault.quote,
-    holderCoin: viceType,
-    holdersFetched: holders.length,
+    vaults: vaultIds.length,
     dryRun,
     live,
     results,
