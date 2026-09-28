@@ -1322,7 +1322,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   let balance = 48.60;
   let xaumBal = 2.40;
 
-  const state = {route:"explore", sym:"VOLT", filter:"All", sort:"Market cap", time:"All", side:"Buy", amt:"1", connected:false, search:"", lName:"", lTick:"", lQuote:"SUI", lPath:"instadex", lMode:"Holders", lTokenAmt:"", lQuoteAmt:"", lFirstBuy:"1", lCap:"", lTokenCoin:"", lQuoteCoin:"", lCoinMode:"create", lDecimals:"9", lSupply:"1000000000", lDesc:"", lX:"", lTg:"", lWeb:"", lPublishedType:"", metricsWindow:"All", tapeTab:"trades", tapeOpen:"", tapePage:0, tapeAge:"age", tapeWallet:"", tapeFilterOpen:false, lFile:null, lArtUrl:"", lArtPreview:"", payWith:"", lNote:"", lNoteErr:false, chartTf:900, chartInd:{vol:true,ma7:false,ma25:false,ma99:false,ema:false}, bridgeTick:"GME", bridgeAmt:"", bridgeDir:"in", bridgeRhDest:"", bridgeNote:"", bridgeBusy:false, bridgePending:[], walletCheck:null, quoteOpen:false, rewardsTab:"all", lBasket:false, lBasketEqual:true, lBasketMode:0, lBasketOn:{XAUM:true,XAGM:true,USDY:true}, lBasketBps:{XAUM:3334,XAGM:3333,USDY:3333}, lSplitPreset:"vice", lSplit:{creator:6000,platform:500,rewards:3000,buyback:500}, lSocialsOpen:false, lQuoteCat:"all", createKind:"token", bView:"create", bRoute:"assets", bRedeem:"", bRedeemAmt:"1", bLegs:[{q:"SUI", weight:"50"},{q:"XAUM", weight:"50"},{q:"USDY", weight:"50"}], bUsd:"1", bPay:"sui", bSeed:"1000", bFee:"0", bCap:"1000000", bCapId:"", bCoinType:"", pfRange:"1M", pfFlash:"", lockTab:"create", lockKind:"lock", lockTok:"", lockAmt:"", lockDays:"30", lockSelf:"self", lockBen:"", lockCliff:"90", lockEnd:"365", lockNote:"", lockNoteErr:false, lockBusy:false, lockMine:[], lockAll:[], lockLoad:false, scrTab:"mcap", scrSort:"mcap", scrDir:-1, scrQuote:"All", scrBuyUsd:5, scrLiveOnly:false, scrFilters:false, watch:[]};
+  const state = {route:"explore", sym:"VOLT", filter:"All", sort:"Market cap", time:"All", side:"Buy", amt:"1", connected:false, search:"", lName:"", lTick:"", lQuote:"SUI", lPath:"instadex", lMode:"Holders", lTokenAmt:"", lQuoteAmt:"", lFirstBuy:"1", lCap:"", lTokenCoin:"", lQuoteCoin:"", lCoinMode:"create", lDecimals:"9", lSupply:"1000000000", lDesc:"", lX:"", lTg:"", lWeb:"", lPublishedType:"", metricsWindow:"All", tapeTab:"trades", tapeOpen:"", tapePage:0, tapeAge:"age", tapeWallet:"", tapeFilterOpen:false, lFile:null, lArtUrl:"", lArtPreview:"", payWith:"", lNote:"", lNoteErr:false, chartTf:900, chartInd:{vol:true,ma7:false,ma25:false,ma99:false,ema:false}, bridgeTick:"GME", bridgeAmt:"", bridgeDir:"in", bridgeRhDest:"", bridgeNote:"", bridgeBusy:false, bridgePending:[], walletCheck:null, quoteOpen:false, rewardsTab:"all", lBasket:false, lBasketEqual:true, lBasketMode:0, lBasketOn:{XAUM:true,XAGM:true,USDY:true}, lBasketBps:{XAUM:3334,XAGM:3333,USDY:3333}, lSplitPreset:"vice", lSplit:{creator:6000,platform:500,rewards:3000,buyback:500}, lSocialsOpen:false, lQuoteCat:"all", createKind:"token", bView:"create", bRoute:"assets", bRedeem:"", bRedeemAmt:"1", bForfeit:"",bLegs:[{q:"SUI", weight:"50"},{q:"XAUM", weight:"50"},{q:"USDY", weight:"50"}], bUsd:"1", bPay:"sui", bSeed:"1000", bFee:"0", bCap:"1000000", bCapId:"", bCoinType:"", pfRange:"1M", pfFlash:"", lockTab:"create", lockKind:"lock", lockTok:"", lockAmt:"", lockDays:"30", lockSelf:"self", lockBen:"", lockCliff:"90", lockEnd:"365", lockNote:"", lockNoteErr:false, lockBusy:false, lockMine:[], lockAll:[], lockLoad:false, scrTab:"mcap", scrSort:"mcap", scrDir:-1, scrQuote:"All", scrBuyUsd:5, scrLiveOnly:false, scrFilters:false, watch:[]};
 
   try {
     var watchSaved = JSON.parse(localStorage.getItem("vice.watch.v1") || "[]");
@@ -8851,6 +8851,16 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     basketVaultSnap = { id: basket.vaultId, at: Date.now(), total: total, seed: seed, redeemFee: redeemFee, excluded: excluded, bals: bals };
     return basketVaultSnap;
   }
+  /// Recipe legs the vault currently skips, plus a key that ties a forfeit
+  /// confirmation to this vault and exactly this set of skipped assets.
+  function skippedLegs(basket, snap){
+    var legs = [];
+    if (basket && basket.legs && snap && snap.excluded){
+      basket.legs.forEach(function(leg, i){ if (snap.excluded[i] === true || snap.excluded[i] === "true") legs.push(leg); });
+    }
+    var key = legs.length ? basket.vaultId + "|" + legs.map(function(l){ return normType(l.type); }).join(",") : "";
+    return { legs: legs, key: key, names: joinAnd(legs.map(function(l){ return createQuoteLabel(l.q || ""); })) };
+  }
   function redeemPreviewText(basket, shares, snap, wallet){
     if (!basket) return "No baskets yet. Create one first.";
     if (!basket.vaultId) return "This basket has no vault yet.";
@@ -8861,18 +8871,26 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     if (!(shares > 0n)) return "Enter a whole number of shares. " + room.toString() + " can be redeemed.";
     if (shares > room) return "Only " + room.toString() + " shares are outstanding.";
     var parts = [];
+    var given = [];
     var feeBps = Number(snap.redeemFee) || 0;
     for (var i = 0; i < basket.legs.length; i++){
       var leg = basket.legs[i];
       var bal = 0n;
       try { bal = BigInt(snap.bals[normType(leg.type)] || "0"); } catch (e) { bal = 0n; }
       var gross = (bal * shares) / snap.total;
-      var pay = basketRedeemNet(gross, feeBps);
       var dec = basketLegDecimals(leg);
+      if (snap.excluded && (snap.excluded[i] === true || snap.excluded[i] === "true")){
+        given.push(fromBaseStr(gross, dec) + " " + createQuoteLabel(leg.q || ""));
+        continue;
+      }
+      var pay = basketRedeemNet(gross, feeBps);
       parts.push(fromBaseStr(pay, dec) + " " + createQuoteLabel(leg.q || ""));
     }
     var noun = shares === 1n ? " share returns " : " shares return ";
-    var line = shares.toString() + noun + joinAnd(parts) + ". A 0.20% protocol fee stays in the basket.";
+    var line = shares.toString() + noun + (parts.length ? joinAnd(parts) : "no assets") + ". A 0.20% protocol fee stays in the basket.";
+    if (given.length){
+      line += " Skipped right now: redeeming gives up your " + joinAnd(given) + " to the other holders, and you won't get it back if the asset is restored.";
+    }
     if (wallet != null) line += " Wallet has " + wallet.toString() + ".";
     return line;
   }
@@ -8897,6 +8915,17 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     }
     if (gen !== redeemPaintGen) return;
     el.textContent = redeemPreviewText(basket, shares, snap, wallet);
+    var sk = skippedLegs(basket, snap);
+    if (state.bForfeit && state.bForfeit !== sk.key) state.bForfeit = "";
+    var row = $("#b-forfeit-row");
+    var box = $("#b-forfeit");
+    var txt = $("#b-forfeit-text");
+    if (row) row.style.display = sk.legs.length ? "flex" : "none";
+    if (txt) txt.textContent = sk.legs.length ? ("Give up my share of " + sk.names + ". It goes to the other holders.") : "";
+    if (box){
+      box.setAttribute("data-key", sk.key);
+      box.checked = !!sk.key && state.bForfeit === sk.key;
+    }
   }
   function basketRedeemHTML(){
     var basket = selectedRedeemBasket();
@@ -8914,7 +8943,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       '<div class="create-main">'+
         '<section class="create-card">'+
           '<h2>Your shares</h2>'+
-          '<p class="create-sub">Whole shares only. Redeem them for the assets, or for SUI in one transaction. A dead asset is skipped and its value stays for holders.</p>'+
+          '<p class="create-sub">Whole shares only. Redeem them for the assets, or for SUI in one transaction. If an asset is skipped, redeeming gives up your share of it, and only after you confirm.</p>'+
           (list.length
             ? '<div class="create-field"><div class="create-lab">Basket</div><select id="b-redeem">'+opts+'</select></div>'
             : '<div class="create-hint">No baskets yet. Create one first.</div>')+
@@ -8923,6 +8952,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
             '<input id="b-redeem-amt" inputmode="numeric" value="'+escAttr(state.bRedeemAmt)+'">'+
           '</div>'+
           '<div class="create-hint" id="b-redeem-out">Reading the vault…</div>'+
+          '<label class="create-hint" id="b-forfeit-row" style="display:none;align-items:flex-start;gap:8px;cursor:pointer"><input type="checkbox" id="b-forfeit" style="margin-top:3px"><span id="b-forfeit-text"></span></label>'+
           '<div class="pair-cats" style="margin-top:14px">'+
             '<button type="button" class="pair-cat'+((state.bRoute||"assets")==="assets"?" on":"")+'" data-b-route="assets">Get the assets</button>'+
             '<button type="button" class="pair-cat'+(state.bRoute==="sui"?" on":"")+'" data-b-route="sui">Get SUI</button>'+
@@ -12930,8 +12960,13 @@ async function doBridgeDeposit(){
       launching = true;
       if (btn){ btn.disabled = true; btn.textContent = "Connecting…"; }
       if (!suiSession.address) await connectWallet();
+      basketVaultSnap.at = 0;
       var snap = await loadBasketVaultSnap(basket);
       if (!snap) throw new Error("Could not read the vault.");
+      var skipped = skippedLegs(basket, snap);
+      if (skipped.legs.length && state.bForfeit !== skipped.key){
+        throw new Error(skipped.names + (skipped.legs.length > 1 ? " are" : " is") + " skipped right now. Tick the box to give up your share, or wait until it is restored. Nothing was sent.");
+      }
       var room = snap.total;
       if (shares > room) throw new Error("Only " + room.toString() + " shares are outstanding.");
       var held = await coinBalanceOf(suiSession.address, basket.type);
@@ -12954,8 +12989,9 @@ async function doBridgeDeposit(){
         sender: suiSession.address,
         sharesCoin: shareCoin,
         keepCoins: toSui,
+        forfeit: skipped.legs.map(function(leg){ return leg.type; }),
         legs: basket.legs.map(function(leg, i){
-          return { q: leg.q, type: leg.type, units: leg.units, excluded: !!(snap.excluded && snap.excluded[i]) };
+          return { q: leg.q, type: leg.type, units: leg.units, excluded: !!(snap.excluded && (snap.excluded[i] === true || snap.excluded[i] === "true")) };
         })
       }) || [];
       if (toSui){
@@ -15442,6 +15478,10 @@ async function doBridgeDeposit(){
     if (e.target && e.target.id === "m-creator") metaEdit.creator = e.target.value.trim();
   });
   document.addEventListener("change", function(e){
+    if (e.target && e.target.id === "b-forfeit"){
+      state.bForfeit = e.target.checked ? (e.target.getAttribute("data-key") || "") : "";
+      return;
+    }
     if (e.target && e.target.id === "b-redeem"){
       state.bRedeem = e.target.value;
       basketVaultSnap.at = 0;
