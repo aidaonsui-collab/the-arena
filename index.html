@@ -13397,6 +13397,9 @@ async function doBridgeDeposit(){
             var hopped = await hopSuiToQuoteOnTx(tx, launchQuote, firstBuy, hopSlip);
             tx = hopped.tx;
             buyArg = hopped.coin;
+            // The launch swap runs on the pool this PTB creates (min_out 1), so the
+            // hop into the quote coin is the only leg a front-runner can move.
+            if (hopped.expected > 0n) requireMinOut(tx, hopped.coinType, buyArg, (hopped.expected * 9000n) / 10000n);
           }
           minOutArg = txPure(tx, "u64", txAmt(1));
         } else {
@@ -13454,6 +13457,7 @@ async function doBridgeDeposit(){
       }
     } catch (err){
       var msg = (err && err.message) ? err.message : String(err || "Launch failed");
+      if (isMinOutAbort(err)) msg = "The first-buy route moved more than 10% before it ran. Nothing was seeded — try again.";
       if (btn){ btn.disabled = false; btn.textContent = launchBtnLabel(); }
       setLaunchNote(msg, true);
     } finally {
@@ -14033,8 +14037,15 @@ async function doBridgeDeposit(){
     var back = await sevenkOnto(tx, coinIn, Qtype, SUI_TYPE, amountIn);
     return { tx: back.tx, coin: back.coinOut };
   }
+  /// One hop's estimated output on a freshly read pool. The load* helpers cache
+  /// snapshots for the whole page session, so their price can be stale.
+  async function freshPoolOut(snap, fromType, amountIn){
+    return estimatePoolOut(await poolSnap(snap.id), fromType, amountIn);
+  }
   /// SUI → quote coin on an existing PTB (Cetus / 7k / Bluefin hop). Used to
   /// bundle Instant first-buy with seed: hop first, then pass Coin<Q> into launch.
+  /// `expected` estimates the quote coin out when a leg has no on-chain minimum of
+  /// its own, so the caller can set one; it is 0 when 7k's slippage bounds the hop.
   async function hopSuiToQuoteOnTx(tx, q, amount, slip){
     q = String(q || "").toUpperCase();
     var Qtype = padType(quoteRec(q).type);
@@ -14044,47 +14055,47 @@ async function doBridgeDeposit(){
       var toUsdc = await sevenkOnto(tx, suiCoin, SUI_TYPE, usdc, amount, slip);
       tx = toUsdc.tx;
       var cetus = await loadUsdyUsdcPool();
-      return { tx: tx, coin: cetusHop(tx, cetus, usdc, toUsdc.coinOut) };
+      return { tx: tx, coinType: Qtype, coin: cetusHop(tx, cetus, usdc, toUsdc.coinOut), expected: await freshPoolOut(cetus, usdc, toUsdc.minOut) };
     }
     if (q === "XAUM"){
       var goldUsdc = await sevenkOnto(tx, suiCoin, SUI_TYPE, usdc, amount, slip);
       tx = goldUsdc.tx;
       var xaumUsdc = await loadXaumUsdcPool();
-      return { tx: tx, coin: bluefinHop(tx, xaumUsdc, usdc, goldUsdc.coinOut, 0) };
+      return { tx: tx, coinType: Qtype, coin: bluefinHop(tx, xaumUsdc, usdc, goldUsdc.coinOut, 0), expected: await freshPoolOut(xaumUsdc, usdc, goldUsdc.minOut) };
     }
     if (q === "XAGM"){
       var silverUsdc = await sevenkOnto(tx, suiCoin, SUI_TYPE, usdc, amount, slip);
       tx = silverUsdc.tx;
       var xagmUsdc = await poolSnap(window.ARENA_XAGM_USDC_POOL);
-      return { tx: tx, coin: bluefinHop(tx, xagmUsdc, usdc, silverUsdc.coinOut, 0) };
+      return { tx: tx, coinType: Qtype, coin: bluefinHop(tx, xagmUsdc, usdc, silverUsdc.coinOut, 0), expected: estimatePoolOut(xagmUsdc, usdc, silverUsdc.minOut) };
     }
     if (q === "VICEFUN"){
       // 7k does not index VICEFUN — hop SUI → VICEFUN on the platform Bluefin pool.
       var vicePool = await loadVicefunSuiPool();
-      return { tx: tx, coin: bluefinHop(tx, vicePool, SUI_TYPE, suiCoin, 0) };
+      return { tx: tx, coinType: Qtype, coin: bluefinHop(tx, vicePool, SUI_TYPE, suiCoin, 0), expected: await freshPoolOut(vicePool, SUI_TYPE, amount) };
     }
     if (isSuiHopQuote(q)){
       try {
         var memeHop = await sevenkOnto(tx, suiCoin, SUI_TYPE, Qtype, amount, slip);
-        return { tx: memeHop.tx, coin: memeHop.coinOut };
+        return { tx: memeHop.tx, coinType: Qtype, coin: memeHop.coinOut, expected: 0n };
       } catch (e7) {
         if (q === "AXOL"){
           var axolPool = await loadAxolSuiPool();
-          return { tx: tx, coin: cetusHop(tx, axolPool, SUI_TYPE, suiCoin) };
+          return { tx: tx, coinType: Qtype, coin: cetusHop(tx, axolPool, SUI_TYPE, suiCoin), expected: await freshPoolOut(axolPool, SUI_TYPE, amount) };
         }
         if (q === "MANIFEST"){
           var manPool = await loadManifestSuiPool();
-          return { tx: tx, coin: bluefinHop(tx, manPool, SUI_TYPE, suiCoin, 0) };
+          return { tx: tx, coinType: Qtype, coin: bluefinHop(tx, manPool, SUI_TYPE, suiCoin, 0), expected: await freshPoolOut(manPool, SUI_TYPE, amount) };
         }
         if (NATIVE_SUI_POOLS[q]){
           await loadNativeSuiPool(q);
-          return { tx: tx, coin: hopOnNativePool(tx, q, SUI_TYPE, suiCoin) };
+          return { tx: tx, coinType: Qtype, coin: hopOnNativePool(tx, q, SUI_TYPE, suiCoin), expected: await freshPoolOut(nativeSuiSnaps[q], SUI_TYPE, amount) };
         }
         throw e7;
       }
     }
     var midBuy = await sevenkOnto(tx, suiCoin, SUI_TYPE, Qtype, amount, slip);
-    return { tx: midBuy.tx, coin: midBuy.coinOut };
+    return { tx: midBuy.tx, coinType: Qtype, coin: midBuy.coinOut, expected: 0n };
   }
   async function swapViaBluefin(tk, amount, minOut){
     var Transaction = await loadTransaction();
@@ -14164,16 +14175,19 @@ async function doBridgeDeposit(){
     var sdk = await loadSevenK();
     var q = await sdk.getQuote({ tokenIn: fromType, tokenOut: toType, amountIn: String(amountIn) });
     if (!q || !(q.returnAmountWithDecimal || q.returnAmount)) throw new Error("No 7k route " + fromType.split("::").pop() + " → " + toType.split("::").pop());
+    var effSlip = (slip > 0 && slip < 0.2) ? slip : SWAP_SLIP;
     var built = await sdk.buildTx({
       quoteResponse: q,
       accountAddress: suiSession.address,
-      slippage: (slip > 0 && slip < 0.2) ? slip : SWAP_SLIP,
+      slippage: effSlip,
       commission: { partner: window.ARENA_SWAP_PARTNER, commissionBps: 0 },
       extendTx: { tx: tx, coinIn: coinIn }
     });
     tx = (built && built.tx) || tx;
     if (!(built && built.coinOut)) throw new Error("7k did not return an output coin");
-    return { tx: tx, coinOut: built.coinOut };
+    // Same minimum buildTx enforces on-chain (commission 0): quote × (1 − slippage).
+    var minOut = (asBigAmt(q.returnAmountWithDecimal) * BigInt(Math.round((1 - effSlip) * 1e9))) / 1000000000n;
+    return { tx: tx, coinOut: built.coinOut, minOut: minOut };
   }
   /// Exact quote-coin output of the Bluefin sell leg, from a dry run of that leg
   /// alone. The spot estimate is off by the pool fee plus impact, and the 7k
