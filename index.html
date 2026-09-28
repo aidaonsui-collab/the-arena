@@ -1231,7 +1231,7 @@ window.ARENA_RH_EXPLORER = "https://robinhoodchain.blockscout.com";
 window.SUI_RPC = window.SUI_RPC || "https://mainnet.suiet.app";
 window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graphql";
 </script>
-<script src="/js/indexer.js?v=20260928c"></script>
+<script src="/js/indexer.js?v=20260928d"></script>
 <script>
 (function(){
   const GRAD = 2000;
@@ -6731,13 +6731,18 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     REWARDS_CATS.forEach(function(c){
       by[c.id] = { total:"0", claimable:"0", distributed:"0" };
     });
+    // Card / headline definition: RWA delivered by BasketYieldConvertedEvent
+    // (quote fees swapped into XAUM / XAGM / USDY), summed across every
+    // launch. HolderYieldFunded and CollectLpFees rows are quote-side funding,
+    // not conversions, so they stay out of the totals. Each on-chain event is
+    // counted once, keyed by tx digest + event sequence.
     var funded = {};
-    var seenLot = {};
+    var seenEvt = {};
     (rewardsLedger.distributions || []).forEach(function(d){
-      if (!d || !d.cat || !by[d.cat] || d.push || d.staging) return;
-      var lot = d.digest ? (String(d.digest) + ":" + d.cat) : d._key;
-      if (lot && seenLot[lot]) return;
-      if (lot) seenLot[lot] = 1;
+      if (!d || !d.conv || !d.cat || !by[d.cat]) return;
+      var k = d.evtKey || d._key;
+      if (k && seenEvt[k]) return;
+      if (k) seenEvt[k] = 1;
       funded[d.cat] = (funded[d.cat] || 0) + (Number(d.amount) || 0);
     });
     Object.keys(by).forEach(function(cat){
@@ -7589,10 +7594,17 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     rewardsVaults[ev.basket_id].hasConverted = true;
     ensureVaultAsset(rewardsVaults[ev.basket_id], ev.to_asset);
     if (!ev.cat) return;
-    var key = String(ev.digest || "") + ":byc:" + String(ev.basket_id) + ":" + String(ev.to_amount) + ":" + String(ev.to_asset || "");
+    var evtKey = (ev.digest && ev.seq !== undefined && ev.seq !== "") ? ("evt:" + String(ev.digest) + ":" + String(ev.seq)) : "";
+    var key = evtKey || (String(ev.digest || "") + ":byc:" + String(ev.basket_id) + ":" + String(ev.to_amount) + ":" + String(ev.to_asset || ""));
     if (!rewardsLedger.distributions) rewardsLedger.distributions = [];
     for (var i = 0; i < rewardsLedger.distributions.length; i++){
-      if (rewardsLedger.distributions[i]._key === key) return;
+      var ex = rewardsLedger.distributions[i];
+      if (ex._key === key) return;
+      // Same event seen without a seq (older path): upgrade instead of adding.
+      if (evtKey && ex.conv && !ex.evtKey && ex.digest === ev.digest && String(ex.amount) === String(ev.to_amount) && ex.basket_id === ev.basket_id){
+        ex.evtKey = evtKey; ex._key = key; rebuildRewardsLedger(); return;
+      }
+      if (!evtKey && ex.conv && ex.evtKey && ex.digest === ev.digest && String(ex.amount) === String(ev.to_amount) && ex.basket_id === ev.basket_id) return;
     }
     var tk = null;
     if (ev.bluefin_pool_id){
@@ -7604,6 +7616,8 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     }
     rewardsLedger.distributions.unshift({
       _key: key,
+      evtKey: evtKey,
+      conv: true,
       cat: ev.cat,
       amount: ev.to_amount,
       token: tk ? ("$"+tk.t) : (ev.bluefin_pool_id ? shortAddr(ev.bluefin_pool_id) : "—"),
@@ -7783,16 +7797,27 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       }).join("")+
     '</div>';
   }
+  // Conversion rows only, one per digest + event sequence.
+  function distConvRows(){
+    var seen = {};
+    return (rewardsLedger.distributions || []).filter(function(d){
+      if (!d || !d.conv) return false;
+      var k = d.evtKey || d._key;
+      if (k && seen[k]) return false;
+      if (k) seen[k] = 1;
+      return true;
+    });
+  }
   function distUsdSeries(){
     var run = 0;
-    return (rewardsLedger.distributions || []).slice().sort(function(a,b){ return (a.ts||0)-(b.ts||0); }).map(function(d){
+    return distConvRows().slice().sort(function(a,b){ return (a.ts||0)-(b.ts||0); }).map(function(d){
       var cat = d.cat ? rewardsCat(d.cat) : null;
       run += cat ? (rewardUsd(d.amount, cat) || 0) : 0;
       return run;
     });
   }
   function distEventUsd(){
-    return (rewardsLedger.distributions || []).slice().sort(function(a,b){ return (a.ts||0)-(b.ts||0); }).map(function(d){
+    return distConvRows().slice().sort(function(a,b){ return (a.ts||0)-(b.ts||0); }).map(function(d){
       var cat = d.cat ? rewardsCat(d.cat) : null;
       return cat ? (rewardUsd(d.amount, cat) || 0) : 0;
     });
@@ -8199,6 +8224,9 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   function rewardsDistRows(){
     var tab = state.rewardsTab || "all";
     var rows = (rewardsLedger.distributions || []).filter(function(d){
+      // Keep the table in step with the cards: conversions (plus un-categorised
+      // staging rows), not quote-side funding.
+      if (d && d.cat && !d.conv) return false;
       if (tab === "all") return true;
       return d.cat === tab;
     });

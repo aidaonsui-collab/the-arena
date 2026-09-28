@@ -406,7 +406,7 @@
   // Newest-first via last/before. (first/after is oldest-first and hits a
   // ~20k-event GraphQL ceiling that never reaches recent BasketYieldPushEvents.)
   function queryEventsGql(gql, type, cursor, limit) {
-    var q = "query($t:String!,$last:Int!,$before:String){ events(last:$last, before:$before, filter:{ type:$t }){ pageInfo { hasPreviousPage startCursor } nodes { timestamp sender { address } contents { json } transaction { digest } } } }";
+    var q = "query($t:String!,$last:Int!,$before:String){ events(last:$last, before:$before, filter:{ type:$t }){ pageInfo { hasPreviousPage startCursor } nodes { sequenceNumber timestamp sender { address } contents { json } transaction { digest } } } }";
     return fetch(gql || DEFAULT_GQL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -422,7 +422,10 @@
             parsedJson: (n.contents && n.contents.json) || {},
             timestampMs: Date.parse(n.timestamp) || Date.now(),
             sender: n.sender && n.sender.address,
-            id: { txDigest: n.transaction && n.transaction.digest }
+            id: {
+              txDigest: n.transaction && n.transaction.digest,
+              eventSeq: n.sequenceNumber == null ? undefined : String(n.sequenceNumber)
+            }
           };
         }),
         hasNextPage: !!info.hasPreviousPage,
@@ -772,6 +775,14 @@
     };
   }
 
+  /// Event sequence within its tx (GraphQL sequenceNumber / RPC id.eventSeq).
+  /// digest + seq uniquely identifies an on-chain event.
+  function evSeq(ev) {
+    var id = (ev && ev.id) || {};
+    var v = id.eventSeq != null ? id.eventSeq : id.event_seq;
+    return v == null || v === "" ? "" : String(v);
+  }
+
   function parseHolderYieldFunded(ev) {
     var p = ev.parsedJson || {};
     var quoteRaw = p.quote;
@@ -784,6 +795,7 @@
       cat: rewardsCatFromQuote(quoteRaw),
       amount: mistStr(p.amount),
       ts: num(p.timestamp_ms) || num(ev.timestampMs) || Date.now(),
+      seq: evSeq(ev),
       digest: String((ev.id && (ev.id.txDigest || ev.id.tx_digest)) || ev.digest || "")
     };
   }
@@ -833,6 +845,7 @@
       platform_amount: mistStr(p.platform_amount),
       pit_amount: mistStr(p.pit_amount),
       ts: num(ev.timestampMs) || Date.now(),
+      seq: evSeq(ev),
       digest: String((ev.id && (ev.id.txDigest || ev.id.tx_digest)) || ev.digest || "")
     };
   }
@@ -866,6 +879,7 @@
       quoteLabel: quoteLabel(typeNameOf(quoteRaw) || quoteRaw),
       amount: mistStr(p.amount),
       ts: num(p.timestamp_ms) || num(ev.timestampMs) || Date.now(),
+      seq: evSeq(ev),
       digest: String((ev.id && (ev.id.txDigest || ev.id.tx_digest)) || ev.digest || "")
     };
   }
@@ -883,6 +897,7 @@
       to_amount: mistStr(p.to_amount),
       cat: rewardsCatFromQuote(toAsset),
       ts: num(p.timestamp_ms) || num(ev.timestampMs) || Date.now(),
+      seq: evSeq(ev),
       digest: String((ev.id && (ev.id.txDigest || ev.id.tx_digest)) || ev.digest || "")
     };
   }
@@ -1213,7 +1228,10 @@
           var wrapped = {
             parsedJson: e.parsedJson || {},
             timestampMs: num(e.timestampMs) || ts,
-            id: { txDigest: digest }
+            // eventSeq = position within the tx; same value GraphQL's
+            // Event.sequenceNumber / RPC id.eventSeq report, so rows from both
+            // paths share one digest:seq identity.
+            id: { txDigest: digest, eventSeq: String((e.id && e.id.eventSeq != null) ? e.id.eventSeq : i) }
           };
           if (/::events::CollectLpFeesEvent$/.test(typ)) emitCollectLp(parseCollectLpFees(wrapped));
           else if (/::events::HolderYieldFundedEvent$/.test(typ)) emitHyFunded(parseHolderYieldFunded(wrapped));
