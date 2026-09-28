@@ -58,6 +58,7 @@ const DEEP = "0xdeeb7a4662eec9f2f3def03fb937a663dddaa2e215b8078a284d026b7946c270
 const NS = "0x5145494a5f5100e645e4b0aa950fa6b68f614e8c59e17bc5ded3495123a79178::ns::NS";
 const SCA = "0x7016aae72cfc67f2fadf55769c0a7dd54291a583b63051a5ed71081cce836ac6::sca::SCA";
 const BLUE = "0xe1b45a0e641b9955a20aa0ad1c1f4ad86aad8afb07296d4085e349a50e90bdca::blue::BLUE";
+const ZUK = "0x42ba9220e980b4819e4df208dd50013d0bbbfde142996e8db1319ac61f879205::zuk::ZUK";
 
 type Pin = { poolId: string; dex: "cetus" | "bluefin"; via: "sui" | "usdc" };
 const QUOTE_PINS: { type: string; pin: Pin }[] = [
@@ -69,6 +70,7 @@ const QUOTE_PINS: { type: string; pin: Pin }[] = [
   { type: NS, pin: { poolId: "0x763f63cbada3a932c46972c6c6dcf1abd8a9a73331908a1d7ef24c2232d85520", dex: "cetus", via: "sui" } },
   { type: SCA, pin: { poolId: "0x9661cca01a5b9b3536883568fa967a2943e237de11a97976795f5adb293892e9", dex: "cetus", via: "sui" } },
   { type: BLUE, pin: { poolId: "0xde705d4f3ded922b729d9b923be08e1391dd4caeff8496326123934d0fb1c312", dex: "bluefin", via: "sui" } },
+  { type: ZUK, pin: { poolId: "0x43067514317fe6cffb22419a0935aae6aa6e5e5bce31e32fcfb34bd80113d2ad", dex: "cetus", via: "sui" } },
   { type: XAUM, pin: { poolId: XAUM_USDC_POOL, dex: "bluefin", via: "usdc" } },
   { type: XAGM, pin: { poolId: XAGM_USDC_POOL, dex: "bluefin", via: "usdc" } },
   { type: USDY, pin: { poolId: USDY_USDC_POOL, dex: "cetus", via: "usdc" } },

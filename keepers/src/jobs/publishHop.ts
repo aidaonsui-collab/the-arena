@@ -30,6 +30,7 @@ const PAIRS: Record<string, string> = {
   ns: "0x763f63cbada3a932c46972c6c6dcf1abd8a9a73331908a1d7ef24c2232d85520",
   sca: "0x9661cca01a5b9b3536883568fa967a2943e237de11a97976795f5adb293892e9",
   blue: "0xde705d4f3ded922b729d9b923be08e1391dd4caeff8496326123934d0fb1c312",
+  zuk: "0x43067514317fe6cffb22419a0935aae6aa6e5e5bce31e32fcfb34bd80113d2ad",
 };
 
 function num(v: unknown): number {
@@ -108,6 +109,7 @@ export async function runPublishHop() {
     nsUsd: spot.ns.usd,
     scaUsd: spot.sca.usd,
     blueUsd: spot.blue.usd,
+    zukUsd: spot.zuk.usd,
     usd: xaumUsd || usdyUsd || xagmUsd,
     suiPerXaum: perSui(xaumUsd, suiUsd),
     suiPerUsdy: perSui(usdyUsd, suiUsd),
@@ -116,6 +118,7 @@ export async function runPublishHop() {
     suiPerAxol: spot.axol.native || perSui(spot.axol.usd, suiUsd),
     suiPerLofi: spot.lofi.native || perSui(spot.lofi.usd, suiUsd),
     suiPerManifest: spot.manifest.native || perSui(spot.manifest.usd, suiUsd),
+    suiPerZuk: spot.zuk.native || perSui(spot.zuk.usd, suiUsd),
     source: "Air",
   };
   const r = await fetch(`${APP_URL}/api/hop`, {
