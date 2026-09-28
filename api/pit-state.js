@@ -736,6 +736,13 @@ export async function GET(request) {
   } catch (e) {}
   applySitoutExempt(prev);
   attachUsd(prev, prev.quoteUsd);
+  // Pit (Fight Night buy/burn) is sunset for good. Every keeper that polls this
+  // endpoint decides whether to run instadex from whether a bell has neither a
+  // digest nor a skipped reason. Mark unsettled bells here so nothing re-triggers
+  // buy/burn even if run-local.sh is old or another keeper points at this API.
+  (prev.bells || []).forEach(function (b) {
+    if (b && !b.digest && !b.skipped) b.skipped = "pit-sunset";
+  });
   return Response.json(prev, {
     status: 200,
     headers: {
