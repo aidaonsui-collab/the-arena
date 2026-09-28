@@ -210,10 +210,13 @@ async function gql(query, variables) {
   return j && j.data;
 }
 
-async function findLaunch(ticker, coinType) {
+// The first launch with this ticker owns its page; callers then require its
+// type to equal the signed coin type. Also accepting a launch that matched the
+// caller's coin type let any creator's own launch authorize edits to another
+// ticker's overlay.
+async function findLaunch(ticker) {
   const want = safeTicker(ticker);
-  const wantType = normType(coinType);
-  if (!want && !wantType) return null;
+  if (!want) return null;
   const q =
     "query($t:String!,$first:Int!,$after:String){ events(first:$first, after:$after, filter:{ type:$t }){ pageInfo { hasNextPage endCursor } nodes { contents { json } } } }";
   for (const pkg of EVENT_PKGS) {
@@ -230,12 +233,10 @@ async function findLaunch(ticker, coinType) {
         for (const n of nodes) {
           const p = (n.contents && n.contents.json) || {};
           const symbol = String(p.symbol || "").toUpperCase();
-          const token = typeNameOf(p.token);
-          const hit = (want && symbol === want) || (wantType && token && normType(token) === wantType);
-          if (!hit) continue;
+          if (symbol !== want) continue;
           return {
-            ticker: symbol || want,
-            type: token || wantType,
+            ticker: symbol,
+            type: typeNameOf(p.token),
             creator: asString(p.creator),
             lockId: asString(p.lock_id),
             name: asString(p.name),
@@ -294,14 +295,20 @@ async function lockBeneficiary(lockId) {
 async function assertEditor(address, ticker, coinType, ctx) {
   const addr = normalizeSuiAddress(address);
   if (addr === PLATFORM) return "platform";
-  const overlay = ctx && "overlay" in ctx ? ctx.overlay : await loadTokenOverlay(ticker);
-  if (overlay && overlay.creator && sameAddr(addr, overlay.creator)) return "creator";
-  const launch = ctx && "launch" in ctx ? ctx.launch : await findLaunch(ticker, coinType);
+  const launch = ctx && "launch" in ctx ? ctx.launch : await findLaunch(ticker);
   if (launch && wantTypeMismatch(launch, coinType)) throw new Error("Token type does not match this ticker");
   let ben = ctx && ctx.beneficiary;
   if (!ben && launch && launch.lockId) ben = await lockBeneficiary(launch.lockId);
-  if (ben && sameAddr(addr, ben)) return "creator";
-  if (!ben && launch && launch.creator && sameAddr(addr, launch.creator)) return "creator";
+  // The on-chain rewards beneficiary is authoritative. A stored overlay creator
+  // only stands in when the launch has none, so a stale or wrongly saved one
+  // can't keep edit rights.
+  if (ben) {
+    if (sameAddr(addr, ben)) return "creator";
+    throw new Error("Only the current creator or platform wallet can update this page");
+  }
+  const overlay = ctx && "overlay" in ctx ? ctx.overlay : await loadTokenOverlay(ticker);
+  if (overlay && overlay.creator && sameAddr(addr, overlay.creator)) return "creator";
+  if (launch && launch.creator && sameAddr(addr, launch.creator)) return "creator";
   throw new Error("Only the current creator or platform wallet can update this page");
 }
 
@@ -371,7 +378,7 @@ export async function POST(request) {
   let launch = null;
   let beneficiary = "";
   if (creatorChanging) {
-    launch = await findLaunch(ticker, coinType);
+    launch = await findLaunch(ticker);
     if (launch && wantTypeMismatch(launch, coinType)) {
       return json({ error: "Token type does not match this ticker" }, 400, request);
     }
