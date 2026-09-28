@@ -4984,6 +4984,9 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   }
   function applyTokenOverlay(tk, j){
     if (!tk || !j) return;
+    // Overlays are stored per ticker, and a few tickers have several coins.
+    // Only show one on the coin it was saved for.
+    if (j.type && tk.token && normType(j.type) !== tokenTypeOf(tk)) return;
     tk.overlay = j;
     if (j.name) tk.n = safeName(j.name);
     if ("description" in j) tk.b = String(j.description || "");
