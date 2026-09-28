@@ -39,6 +39,7 @@ const E_THROTTLE: u64 = 19;
 const E_EXCLUDED: u64 = 20;
 const E_LIVE: u64 = 21;
 const E_TOO_SOON: u64 = 22;
+const E_OPEN_REDEEM: u64 = 23;
 
 const MIN_LEGS: u64 = 2;
 const MAX_LEGS: u64 = 8;
@@ -79,6 +80,7 @@ public struct BasketVault<phantom BASKET> has key {
     redeem_at: u64,
     excluded: vector<bool>,
     reported_at: vector<u64>,
+    open_redeems: u64,
 }
 
 /// Hot potato. Filled by `deposit`, consumed by `finish_seed` or `finish_mint`.
@@ -141,7 +143,8 @@ public fun create<BASKET>(
     assert!(seed_shares > 0, E_ZERO_AMOUNT);
     assert!(deposit_cap >= seed_shares, E_CAP);
     assert!(mint_fee_bps <= MAX_OWNER_FEE_BPS && redeem_fee_bps <= MAX_OWNER_FEE_BPS, E_FEE);
-    assert!(protocol_recipient != @0x0, E_FEE);
+    // Callers may pass any address. Fees always go to the platform wallet.
+    let protocol_recipient = config::platform_wallet();
     validate_recipe(&recipe);
     let n = recipe.length();
     let mut deposited = vector[];
@@ -177,6 +180,7 @@ public fun create<BASKET>(
         redeem_at: 0,
         excluded,
         reported_at,
+        open_redeems: 0,
     };
     let receipt = MintReceipt<BASKET> {
         vault_id,
@@ -194,6 +198,7 @@ public fun deposit<BASKET, T>(
     mut payment: Coin<T>,
     ctx: &mut TxContext,
 ): Coin<T> {
+    assert_settled(vault);
     assert!(object::id(vault) == receipt.vault_id, E_WRONG_VAULT);
     let idx = leg_index<T>(&vault.recipe);
     assert!(!*vector::borrow(&vault.excluded, idx), E_EXCLUDED);
@@ -266,11 +271,16 @@ fun complete_seed<BASKET>(
     (vault, minted)
 }
 
+fun assert_settled<BASKET>(vault: &BasketVault<BASKET>) {
+    assert!(vault.open_redeems == 0, E_OPEN_REDEEM);
+}
+
 public fun start_mint<BASKET>(
     vault: &mut BasketVault<BASKET>,
     shares: u64,
     clock: &Clock,
 ): MintReceipt<BASKET> {
+    assert_settled(vault);
     assert!(vault.seeded, E_NOT_SEEDED);
     assert!(shares > 0, E_ZERO_AMOUNT);
     let next = add_u64(vault.total_shares, shares);
@@ -321,6 +331,7 @@ public fun start_redeem<BASKET>(
     assert!(n <= vault.total_shares, E_CAP);
     take_redeem(vault, n, clock.timestamp_ms());
     let supply_before = vault.total_shares;
+    vault.open_redeems = vault.open_redeems + 1;
     coin::burn(&mut vault.treasury, shares);
     vault.total_shares = vault.total_shares - n;
     let legs = vault.recipe.length();
@@ -394,12 +405,15 @@ public fun forfeit<BASKET, T>(
 }
 
 public fun exclude<BASKET, T>(vault: &mut BasketVault<BASKET>, ctx: &mut TxContext) {
+    assert_settled(vault);
     assert!(ctx.sender() == vault.creator, E_NOT_CREATOR);
     let idx = leg_index<T>(&vault.recipe);
     *vector::borrow_mut(&mut vault.excluded, idx) = true;
 }
 
-public fun report_failure<BASKET, T>(vault: &mut BasketVault<BASKET>, clock: &Clock) {
+public fun report_failure<BASKET, T>(vault: &mut BasketVault<BASKET>, clock: &Clock, ctx: &TxContext) {
+    assert_settled(vault);
+    assert!(ctx.sender() == vault.creator, E_NOT_CREATOR);
     let idx = leg_index<T>(&vault.recipe);
     assert!(!*vector::borrow(&vault.excluded, idx), E_EXCLUDED);
     if (*vector::borrow(&vault.reported_at, idx) == 0) {
@@ -409,7 +423,9 @@ public fun report_failure<BASKET, T>(vault: &mut BasketVault<BASKET>, clock: &Cl
     };
 }
 
-public fun confirm_failure<BASKET, T>(vault: &mut BasketVault<BASKET>, clock: &Clock) {
+public fun confirm_failure<BASKET, T>(vault: &mut BasketVault<BASKET>, clock: &Clock, ctx: &TxContext) {
+    assert_settled(vault);
+    assert!(ctx.sender() == vault.creator, E_NOT_CREATOR);
     let idx = leg_index<T>(&vault.recipe);
     let at = *vector::borrow(&vault.reported_at, idx);
     assert!(at > 0, E_TOO_SOON);
@@ -418,6 +434,7 @@ public fun confirm_failure<BASKET, T>(vault: &mut BasketVault<BASKET>, clock: &C
 }
 
 public fun restore<BASKET, T>(vault: &mut BasketVault<BASKET>) {
+    assert_settled(vault);
     let idx = leg_index<T>(&vault.recipe);
     *vector::borrow_mut(&mut vault.excluded, idx) = false;
     *vector::borrow_mut(&mut vault.reported_at, idx) = 0;
@@ -425,18 +442,22 @@ public fun restore<BASKET, T>(vault: &mut BasketVault<BASKET>) {
 
 /// Recovered coins wait in the forfeited bucket until `accrete` returns them to holders.
 public fun return_asset<BASKET, T>(vault: &mut BasketVault<BASKET>, coin: Coin<T>) {
+    assert_settled(vault);
     let _idx = leg_index<T>(&vault.recipe);
     join_forfeited<BASKET, T>(vault, coin.into_balance());
 }
 
-public fun finish_redeem<BASKET>(vault: &BasketVault<BASKET>, receipt: RedeemReceipt<BASKET>) {
+public fun finish_redeem<BASKET>(vault: &mut BasketVault<BASKET>, receipt: RedeemReceipt<BASKET>) {
     assert!(object::id(vault) == receipt.vault_id, E_WRONG_VAULT);
     assert!(all_set(&receipt.withdrawn), E_LEG_OPEN);
+    assert!(vault.open_redeems > 0, E_OPEN_REDEEM);
+    vault.open_redeems = vault.open_redeems - 1;
     let RedeemReceipt<BASKET> { vault_id: _, shares: _, supply_before: _, withdrawn: _ } = receipt;
 }
 
 /// Move forfeited value, or else the creator's fee, into holder backing.
 public fun accrete<BASKET, T>(vault: &mut BasketVault<BASKET>) {
+    assert_settled(vault);
     let forfeited = ForfeitedKey<T> {};
     if (df::exists_with_type<ForfeitedKey<T>, Balance<T>>(&vault.id, forfeited)) {
         let bal = df::remove<ForfeitedKey<T>, Balance<T>>(&mut vault.id, forfeited);
@@ -510,7 +531,9 @@ public fun destroy_receipt_for_testing<BASKET>(receipt: MintReceipt<BASKET>) {
 }
 
 #[test_only]
-public fun destroy_redeem_for_testing<BASKET>(receipt: RedeemReceipt<BASKET>) {
+public fun destroy_redeem_for_testing<BASKET>(vault: &mut BasketVault<BASKET>, receipt: RedeemReceipt<BASKET>) {
+    assert!(vault.open_redeems > 0, E_OPEN_REDEEM);
+    vault.open_redeems = vault.open_redeems - 1;
     let RedeemReceipt<BASKET> { vault_id: _, shares: _, supply_before: _, withdrawn: _ } = receipt;
 }
 

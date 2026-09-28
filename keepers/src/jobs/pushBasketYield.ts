@@ -31,7 +31,7 @@ import { fetchCoinHolders } from "./pushHolderYield.ts";
 
 const DEFAULT_VICEFUN =
   "0x4a6d6f56100e08f8f433fdc62760259e8d7ab91b476a42e138883dfc35ea80ab::vicefun::VICEFUN";
-const PUSH_KEY_SUFFIX = "::basket_yield::PushDistributeKey";
+const PUSH_KEY_SUFFIXES = ["::basket_yield::PushDistributeKey", "::yield_basket::PushDistributeKey"];
 
 const ASSETS: { kind: "XAUM" | "XAGM" | "USDY"; type: string }[] = [
   { kind: "XAUM", type: XAUM },
@@ -100,7 +100,7 @@ async function isPushMode(vaultId: string): Promise<boolean> {
     for (const d of pageRes.data ?? []) {
       const name = d.name as { type?: string; value?: unknown };
       const t = String(name?.type || d.objectType || "");
-      if (t.includes(PUSH_KEY_SUFFIX) || t.endsWith("PushDistributeKey")) return true;
+      if (PUSH_KEY_SUFFIXES.some((suffix) => t.includes(suffix)) || t.endsWith("PushDistributeKey")) return true;
     }
     if (!pageRes.hasNextPage || !pageRes.nextCursor) break;
     cursor = pageRes.nextCursor;
@@ -114,11 +114,12 @@ async function readVault(vaultId: string): Promise<{
   lockId: string;
   poolId: string;
   pots: Record<string, bigint>;
+  moduleName: string;
 }> {
   const meta = await objectFields(vaultId);
   if (!meta) throw new Error(`vault not found: ${vaultId}`);
-  const m = meta.type.match(/BasketYieldVault<(.+)>$/);
-  if (!m) throw new Error(`not a BasketYieldVault: ${meta.type}`);
+  const m = meta.type.match(/(?:BasketYieldVault|YieldBasketVault)<(.+)>$/);
+  if (!m) throw new Error(`not a basket vault: ${meta.type}`);
   // parse two type args
   const inner = m[1];
   const parts: string[] = [];
@@ -184,7 +185,8 @@ async function readVault(vaultId: string): Promise<{
     cursor = df.nextCursor;
   }
 
-  return { token, quote, lockId, poolId, pots };
+  const moduleName = meta.type.includes("::yield_basket::") ? "yield_basket" : "basket_yield";
+  return { token, quote, lockId, poolId, pots, moduleName };
 }
 
 function proRata(
@@ -237,6 +239,7 @@ async function pushAsset(opts: {
   exclude: Set<string>;
   keeper: string;
   dryRun: boolean;
+  moduleName: string;
   batch: number;
 }): Promise<Record<string, unknown>> {
   const payouts = proRata(opts.pot, opts.holders, opts.exclude);
@@ -273,7 +276,7 @@ async function pushAsset(opts: {
       await maybePinGas(tx);
       for (const p of chunk) {
         tx.moveCall({
-          target: `${CALL_PKG}::basket_yield::push_payout`,
+          target: `${CALL_PKG}::${opts.moduleName}::push_payout`,
           typeArguments: [opts.token, opts.quote, opts.asset],
           arguments: [
             tx.object(opts.vaultId),
@@ -393,6 +396,7 @@ export async function runPushBasketYield() {
         keeper,
         dryRun,
         batch,
+        moduleName: vault.moduleName,
       }),
     );
   }

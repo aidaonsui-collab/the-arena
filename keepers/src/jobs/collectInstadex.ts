@@ -336,8 +336,13 @@ export async function runCollectInstadex() {
     const cfgId = process.env.ARENA_CONFIG || CONFIG;
     const tx = new Transaction();
     if (yv?.kind === "basket") {
+      const vaultObj = await client().getObject({ id: yv.vaultId, options: { showType: true } });
+      const vaultType = String(vaultObj.data?.type || "");
+      const collectFn = vaultType.includes("::yield_basket::")
+        ? "collect_instadex_fees_yield_basket"
+        : "collect_instadex_fees_basket_yield";
       tx.moveCall({
-        target: `${CALL_PKG}::launch::collect_instadex_fees_basket_yield`,
+        target: `${CALL_PKG}::launch::${collectFn}`,
         typeArguments: [L.token, L.quote || "0x2::sui::SUI"],
         arguments: [
           tx.object(L.lockId),

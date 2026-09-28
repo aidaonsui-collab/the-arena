@@ -27,6 +27,7 @@ use arena::config::{Self, AdminCap, Config};
 use arena::errors;
 use arena::events;
 use arena::basket_yield::{Self, BasketConfig, BasketYieldVault};
+use arena::yield_basket::{Self, YieldBasketVault};
 use arena::holder_yield::{Self, HolderYieldVault};
 use arena::math;
 use arena::pit::{Self, Pit};
@@ -913,6 +914,27 @@ public(package) fun attach_basket_yield(lock: &mut BluefinPositionLock, basket_i
 /// stranded there permanently, same as any other shared object nothing
 /// references. The beneficiary can then re-migrate with correct types via
 /// the normal permissionless path, or the lock reverts to plain collect.
+/// Move a lock off the drainable `BasketYieldVault` onto `YieldBasketVault`.
+/// Aborts while quote is still staged, so the keeper converts that balance first.
+/// Detach and attach happen here, so the lock never sits in plain-collect.
+public fun admin_rebind_yield_basket<T, Q>(
+    lock: &mut BluefinPositionLock,
+    old: &BasketYieldVault<T, Q>,
+    _: &AdminCap,
+    ctx: &mut TxContext,
+): ID {
+    assert!(is_basket_yield(lock), errors::not_basket_yield());
+    assert!(object::id(old) == basket_yield_id(lock), errors::wrong_basket());
+    assert!(basket_yield::quote_staging_value(old) == 0, errors::bad_param());
+    let cfg = *basket_yield::vault_config(old);
+    let lock_id = object::id(lock);
+    let pool_id = lock.bluefin_pool_id;
+    let _: ID = df::remove(&mut lock.id, BasketYieldKey {});
+    let new_id = yield_basket::create_and_share<T, Q>(lock_id, pool_id, cfg, ctx);
+    df::add(&mut lock.id, BasketYieldKey {}, new_id);
+    new_id
+}
+
 public fun admin_detach_yield(lock: &mut BluefinPositionLock, _: &AdminCap) {
     if (is_holder_yield(lock)) {
         let _: ID = df::remove(&mut lock.id, HolderYieldKey {});
@@ -1035,6 +1057,114 @@ public(package) fun collect_lp_fees_return_token_to_basket<A, B>(
     events::emit_vice_buyback_accrued(object::id(lock), buyback_amt);
     send_residual(bal_b, beneficiary, ctx);
     bal_a
+}
+
+/// Same fee split as `collect_lp_fees_return_token_to_basket`, into the new vault.
+public(package) fun collect_lp_fees_return_token_to_yield_basket<A, B>(
+    lock: &mut BluefinPositionLock,
+    vault: &mut YieldBasketVault<A, B>,
+    clock: &Clock,
+    bf_config: &GlobalConfig,
+    bf_pool: &mut bluefin_spot::pool::Pool<A, B>,
+    config: &mut Config,
+    ctx: &mut TxContext,
+): Balance<A> {
+    assert!(lock.position.is_some(), errors::nothing_to_claim());
+    assert!(object::id(bf_pool) == lock.bluefin_pool_id, errors::wrong_pool());
+    assert!(is_basket_yield(lock), errors::not_basket_yield());
+    assert!(!is_holder_yield(lock), errors::yield_mode_conflict());
+    yield_basket::assert_bound_to_lock(vault, object::id(lock));
+    assert!(object::id(vault) == basket_yield_id(lock), errors::wrong_basket());
+    let beneficiary = lock.beneficiary;
+    let position = option::borrow_mut(&mut lock.position);
+    let (_amt_a, _amt_b, bal_a, mut bal_b) = bluefin::collect_fee(clock, bf_config, bf_pool, position);
+    let (cr_bps, plat_bps, pit_bps, bb_bps) = lp_split(lock, config);
+    let (creator_amt, platform_amt, pit_amt, buyback_amt) = split_std_lp_quote(
+        bal_b.value(),
+        cr_bps,
+        plat_bps,
+        pit_bps,
+        bb_bps,
+    );
+    config::take_platform(config, bal_b.split(platform_amt));
+    config::take_buyback(config, bal_b.split(buyback_amt), ctx);
+    let pit_bal = bal_b.split(pit_amt);
+    let leftover = yield_basket::try_fund_quote(vault, pit_bal, clock);
+    if (leftover.value() > 0) {
+        bal_b.join(leftover);
+    } else {
+        leftover.destroy_zero();
+    };
+    events::emit_collect_lp_fees(
+        object::id(lock),
+        beneficiary,
+        bal_a.value(),
+        creator_amt,
+        platform_amt,
+        pit_amt,
+    );
+    events::emit_vice_buyback_accrued(object::id(lock), buyback_amt);
+    send_residual(bal_b, beneficiary, ctx);
+    bal_a
+}
+
+public(package) fun seed_and_lock_instant_yield_basket<T, Q>(
+    beneficiary: address,
+    clock: &Clock,
+    bf_config: &mut GlobalConfig,
+    meta_t: &CoinMetadata<T>,
+    meta_q: &CoinMetadata<Q>,
+    creation_fee: Balance<SUI>,
+    token: Balance<T>,
+    virtual_quote: u64,
+    config: BasketConfig,
+    split: Option<LockLpSplit>,
+    first_buy: Coin<Q>,
+    min_out: u64,
+    ctx: &mut TxContext,
+): (ID, ID, ID, u64, ID) {
+    let (q_symbol, q_decimals, q_icon) = quote_fields_from_metadata(meta_q);
+    seed_and_lock_instant_yield_basket_q(
+        beneficiary, clock, bf_config, meta_t, q_symbol, q_decimals, q_icon, creation_fee, token, virtual_quote, config, split, first_buy, min_out, ctx,
+    )
+}
+
+public(package) fun seed_and_lock_instant_yield_basket_q<T, Q>(
+    beneficiary: address,
+    clock: &Clock,
+    bf_config: &mut GlobalConfig,
+    meta_t: &CoinMetadata<T>,
+    q_symbol: vector<u8>,
+    q_decimals: u8,
+    q_icon: vector<u8>,
+    creation_fee: Balance<SUI>,
+    token: Balance<T>,
+    virtual_quote: u64,
+    config: BasketConfig,
+    split: Option<LockLpSplit>,
+    first_buy: Coin<Q>,
+    min_out: u64,
+    ctx: &mut TxContext,
+): (ID, ID, ID, u64, ID) {
+    let (bf_pool_id, position) = seed_instant_pool(
+        beneficiary, clock, bf_config, meta_t, q_symbol, q_decimals, q_icon, creation_fee, token, virtual_quote,
+        first_buy, min_out, ctx,
+    );
+    let position_id = object::id(&position);
+    let mut lock = BluefinPositionLock {
+        id: object::new(ctx),
+        pool_id: object::id_from_address(@0x0),
+        bluefin_pool_id: bf_pool_id,
+        position: option::some(position),
+        beneficiary,
+        unlock_ms: 0,
+    };
+    let lock_id = object::id(&lock);
+    let basket_id = yield_basket::create_and_share<T, Q>(lock_id, bf_pool_id, config, ctx);
+    attach_basket_yield(&mut lock, basket_id);
+    maybe_attach_lp_split(&mut lock, split);
+    transfer::share_object(lock);
+    (lock_id, bf_pool_id, position_id, 0, basket_id)
 }
 
 public(package) fun abort_basket_yield_collect() {

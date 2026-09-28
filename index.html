@@ -1145,6 +1145,9 @@ window.ARENA_COLLECT_PACKAGE = "0x573f2eeafb51859da4e11dc1ba642b4beca71d25c7da0e
 window.ARENA_CALL_PACKAGE = window.ARENA_COLLECT_PACKAGE;
 // arena::basket is in this repo and not on mainnet until the next Arena upgrade.
 window.ARENA_BASKET_PACKAGE = window.ARENA_BASKET_PACKAGE || "";
+// Basket rewards stay off until the package that creates YieldBasketVault is published.
+// The live BasketYieldVault lets anyone take staged fees.
+window.ARENA_YIELD_BASKET = false;
 // Compatible-upgrade event types keep the package id that first defined them.
 window.ARENA_HOLDER_YIELD_EVENT_PACKAGE = "0xe2dee7a21e382d47d8f13e39801c86987a88e9ebd5fb8801efd1b974e4e4d9a2"; // v11 launch/fund/claim
 window.ARENA_HOLDER_YIELD_PUSH_EVENT_PACKAGE = "0x97158e99b999f8e7ad729d1e7de8c10e4f3550f25557a392fbca3296b000a984"; // HolderYieldPushEvent origin
@@ -1319,7 +1322,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   let balance = 48.60;
   let xaumBal = 2.40;
 
-  const state = {route:"explore", sym:"VOLT", filter:"All", sort:"Market cap", time:"All", side:"Buy", amt:"1", connected:false, search:"", lName:"", lTick:"", lQuote:"SUI", lPath:"instadex", lMode:"Holders", lTokenAmt:"", lQuoteAmt:"", lFirstBuy:"1", lCap:"", lTokenCoin:"", lQuoteCoin:"", lCoinMode:"create", lDecimals:"9", lSupply:"1000000000", lDesc:"", lX:"", lTg:"", lWeb:"", lPublishedType:"", metricsWindow:"All", tapeTab:"trades", tapeOpen:"", tapePage:0, tapeAge:"age", tapeWallet:"", tapeFilterOpen:false, lFile:null, lArtUrl:"", lArtPreview:"", payWith:"", lNote:"", lNoteErr:false, chartTf:900, chartInd:{vol:true,ma7:false,ma25:false,ma99:false,ema:false}, bridgeTick:"GME", bridgeAmt:"", bridgeDir:"in", bridgeRhDest:"", bridgeNote:"", bridgeBusy:false, bridgePending:[], walletCheck:null, quoteOpen:false, rewardsTab:"all", lBasket:true, lBasketEqual:true, lBasketMode:0, lBasketOn:{XAUM:true,XAGM:true,USDY:true}, lBasketBps:{XAUM:3334,XAGM:3333,USDY:3333}, lSplitPreset:"vice", lSplit:{creator:6000,platform:500,rewards:3000,buyback:500}, lSocialsOpen:false, lQuoteCat:"all", createKind:"token", bView:"create", bRoute:"assets", bRedeem:"", bRedeemAmt:"1", bLegs:[{q:"SUI", weight:"50"},{q:"XAUM", weight:"50"},{q:"USDY", weight:"50"}], bUsd:"1", bPay:"sui", bSeed:"1000", bFee:"0", bCap:"1000000", bCapId:"", bCoinType:"", pfRange:"1M", pfFlash:"", lockTab:"create", lockKind:"lock", lockTok:"", lockAmt:"", lockDays:"30", lockSelf:"self", lockBen:"", lockCliff:"90", lockEnd:"365", lockNote:"", lockNoteErr:false, lockBusy:false, lockMine:[], lockAll:[], lockLoad:false, scrTab:"mcap", scrSort:"mcap", scrDir:-1, scrQuote:"All", scrBuyUsd:5, scrLiveOnly:false, scrFilters:false, watch:[]};
+  const state = {route:"explore", sym:"VOLT", filter:"All", sort:"Market cap", time:"All", side:"Buy", amt:"1", connected:false, search:"", lName:"", lTick:"", lQuote:"SUI", lPath:"instadex", lMode:"Holders", lTokenAmt:"", lQuoteAmt:"", lFirstBuy:"1", lCap:"", lTokenCoin:"", lQuoteCoin:"", lCoinMode:"create", lDecimals:"9", lSupply:"1000000000", lDesc:"", lX:"", lTg:"", lWeb:"", lPublishedType:"", metricsWindow:"All", tapeTab:"trades", tapeOpen:"", tapePage:0, tapeAge:"age", tapeWallet:"", tapeFilterOpen:false, lFile:null, lArtUrl:"", lArtPreview:"", payWith:"", lNote:"", lNoteErr:false, chartTf:900, chartInd:{vol:true,ma7:false,ma25:false,ma99:false,ema:false}, bridgeTick:"GME", bridgeAmt:"", bridgeDir:"in", bridgeRhDest:"", bridgeNote:"", bridgeBusy:false, bridgePending:[], walletCheck:null, quoteOpen:false, rewardsTab:"all", lBasket:false, lBasketEqual:true, lBasketMode:0, lBasketOn:{XAUM:true,XAGM:true,USDY:true}, lBasketBps:{XAUM:3334,XAGM:3333,USDY:3333}, lSplitPreset:"vice", lSplit:{creator:6000,platform:500,rewards:3000,buyback:500}, lSocialsOpen:false, lQuoteCat:"all", createKind:"token", bView:"create", bRoute:"assets", bRedeem:"", bRedeemAmt:"1", bLegs:[{q:"SUI", weight:"50"},{q:"XAUM", weight:"50"},{q:"USDY", weight:"50"}], bUsd:"1", bPay:"sui", bSeed:"1000", bFee:"0", bCap:"1000000", bCapId:"", bCoinType:"", pfRange:"1M", pfFlash:"", lockTab:"create", lockKind:"lock", lockTok:"", lockAmt:"", lockDays:"30", lockSelf:"self", lockBen:"", lockCliff:"90", lockEnd:"365", lockNote:"", lockNoteErr:false, lockBusy:false, lockMine:[], lockAll:[], lockLoad:false, scrTab:"mcap", scrSort:"mcap", scrDir:-1, scrQuote:"All", scrBuyUsd:5, scrLiveOnly:false, scrFilters:false, watch:[]};
 
   try {
     var watchSaved = JSON.parse(localStorage.getItem("vice.watch.v1") || "[]");
@@ -6844,13 +6847,13 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   function launchRewardsOn(){
     return launchSplit().rewards > 0;
   }
-  // Basket mode, any quote: Holders slice is swapped into gold / silver / T-bills
-  // via launch_instant_basket_yield_v2*_buy_entry. Off → holder yield paid in
-  // the pair coin. Pit is sunset: nothing ever launches as plain (Pit-routed)
-  // Instant. Holders 0% still uses holder yield (vault gets 0) so the keeper's
-  // yield collect pays the creator; keepers no longer collect plain locks.
+  function yieldBasketLive(){
+    return window.ARENA_YIELD_BASKET === true;
+  }
+  // Pit is sunset, so every launch is holder yield unless the replacement
+  // YieldBasketVault package is published and basket mode is on.
   function launchRoute(quote, rewardsBps, basketOn){
-    if (Number(rewardsBps) > 0 && basketOn) return "basket";
+    if (Number(rewardsBps) > 0 && basketOn && yieldBasketLive()) return "basket";
     return "holder";
   }
   function activePairQuote(){
@@ -6891,9 +6894,9 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       weightArgs.push(txPure(tx, "u8", 0));
       var typeArgs = [Ttype, Qtype].concat(legs.map(function(leg){ return padType(leg.type); }));
       target =
-        legs.length === 1 ? (CALL + "::launch::launch_instant_basket_yield_v2" + sfx) :
-        legs.length === 2 ? (CALL + "::launch::launch_instant_basket_yield_v2_2" + sfx) :
-        (CALL + "::launch::launch_instant_basket_yield_v2_3" + sfx);
+        legs.length === 1 ? (CALL + "::launch::launch_instant_yield_basket" + sfx) :
+        legs.length === 2 ? (CALL + "::launch::launch_instant_yield_basket_2" + sfx) :
+        (CALL + "::launch::launch_instant_yield_basket_3" + sfx);
       tx.moveCall({ target: target, typeArguments: typeArgs, arguments: baseArgs.concat(weightArgs).concat(splitArgs).concat(buyArgs) });
       return { route: route, target: target, legs: legs.map(function(l){ return l.label + ":" + l.bps; }) };
     }
@@ -6905,6 +6908,13 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     var q = activePairQuote();
     var force = !!(opts && opts.forceOn);
     var want = launchRewardsOn();
+    if (!yieldBasketLive()){
+      return '<div class="reward-panel">'+
+        '<div class="reward-kicker">Holder rewards</div>'+
+        '<h3>Paid in '+escHtml(q)+'</h3>'+
+        '<p class="create-sub">Basket mode is paused. The current reward vault lets anyone take staged fees, so new launches pay holders in '+escHtml(q)+' until the replacement vault is published.</p>'+
+      '</div>';
+    }
     if (!force && !want && state.route === "launch"){
       return '<div style="font-size:12px;color:var(--muted);margin-top:8px">Holders is 0%, so nothing goes to holders. Raise Holders to send collected LP fees to holders.</div>';
     }
@@ -7313,12 +7323,10 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       else if (ben && !sameAddr(suiSession.address, ben)) hint = "Only the lock beneficiary can migrate.";
       else if (!ben) hint = "Checking lock beneficiary…";
     }
-    var basketOn = state.lBasket !== false;
     return '<div class="card" style="padding:14px 16px;margin-top:10px">'+
       '<div style="font-size:12px;font-weight:600;color:var(--ink)">Forward rewards</div>'+
-      '<div style="font-size:12px;color:var(--muted);margin-top:4px">One-way. The pair stays TOKEN/'+escHtml(q)+'. Basket mode pays holders in gold, silver, and T-bills. Off pays holders in '+escHtml(q)+'.</div>'+
-      basketPanelHTML()+
-      '<button type="button" class="btn-trade btn-ghost" id="migrate-go" style="margin-top:10px"'+(can?"":" disabled")+'>'+(basketOn ? "Migrate · buy basket" : "Migrate · holder yield")+'</button>'+
+      '<div style="font-size:12px;color:var(--muted);margin-top:4px">One-way. Holders are paid in '+escHtml(q)+'. Basket mode stays off until the replacement vault is published.</div>'+
+      '<button type="button" class="btn-trade btn-ghost" id="migrate-go" style="margin-top:10px"'+(can?"":" disabled")+'>Migrate · holder yield</button>'+
       '<div id="migrate-note" style="font-size:11px;color:var(--muted);margin-top:6px;text-align:center">'+escHtml(hint)+'</div>'+
     '</div>';
   }
@@ -14447,7 +14455,7 @@ async function doBridgeDeposit(){
       tx.setSender(suiSession.address);
       if (typeof tx.setGasBudget === "function") tx.setGasBudget(100000000);
       if (!tk.bluefinPool) throw new Error("Bluefin pool missing — cannot migrate");
-      if (state.lBasket === false){
+      if (!yieldBasketLive() || state.lBasket === false){
         tx.moveCall({
           target: CALL + "::launch::migrate_instant_to_holder_yield_v2_entry",
           typeArguments: [Ttype, Qtype],
@@ -14466,9 +14474,9 @@ async function doBridgeDeposit(){
         weightArgs.push(txPure(tx, "u8", mode));
         var typeArgs = [Ttype, Qtype].concat(legs.map(function(leg){ return leg.type; }));
         var target =
-          legs.length === 1 ? (CALL + "::launch::migrate_instant_to_basket_yield_v2_entry") :
-          legs.length === 2 ? (CALL + "::launch::migrate_instant_to_basket_yield_v2_2_entry") :
-          (CALL + "::launch::migrate_instant_to_basket_yield_v2_3_entry");
+          legs.length === 1 ? (CALL + "::launch::migrate_instant_to_yield_basket_entry") :
+          legs.length === 2 ? (CALL + "::launch::migrate_instant_to_yield_basket_2_entry") :
+          (CALL + "::launch::migrate_instant_to_yield_basket_3_entry");
         tx.moveCall({
           target: target,
           typeArguments: typeArgs,

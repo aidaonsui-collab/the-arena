@@ -21,6 +21,7 @@
 import { getQuote, buildTx, Config as SevenKConfig } from "@bluefin-exchange/bluefin7k-aggregator-sdk";
 import { Transaction, type TransactionObjectArgument } from "@mysten/sui/transactions";
 import {
+  ADMIN_CAP,
   CALL_PKG,
   CLOCK,
   SUI,
@@ -108,6 +109,7 @@ type VaultSnap = {
   equalWeight: boolean;
   payoutMode: number;
   assets: BasketAssetCfg[];
+  adminTake: boolean;
 };
 
 function truthy(v: string | undefined): boolean {
@@ -132,7 +134,7 @@ function parseTypeName(v: unknown): string {
 }
 
 function vaultTypeArgs(type: string): [string, string] | null {
-  const m = type.match(/::basket_yield::BasketYieldVault<(.+)>$/);
+  const m = type.match(/::(?:basket_yield::BasketYieldVault|yield_basket::YieldBasketVault)<(.+)>$/);
   if (!m) return null;
   const inner = m[1];
   const parts: string[] = [];
@@ -318,6 +320,7 @@ async function loadVault(id: string, hint?: BasketLaunch): Promise<VaultSnap | n
     equalWeight: Boolean(cfgFields.equal_weight),
     payoutMode: Number(cfgFields.payout_mode ?? hint?.payoutMode ?? 0),
     assets,
+    adminTake: obj.type.includes("::yield_basket::"),
   };
 }
 
@@ -533,9 +536,6 @@ async function convertOne(
 ): Promise<Record<string, unknown>> {
   const amount = vault.staging;
   if (amount <= 0n) return { vaultId: vault.id, skipped: true, reason: "empty staging" };
-  if (vault.totalRegistered <= 0n) {
-    return { vaultId: vault.id, skipped: true, reason: "no registered holders" };
-  }
   if (!vault.assets.length) {
     return { vaultId: vault.id, skipped: true, reason: "vault config has no assets" };
   }
@@ -551,10 +551,13 @@ async function convertOne(
   let tx = new Transaction();
   tx.setSender(keeper);
 
+  const yieldMod = vault.adminTake ? "yield_basket" : "basket_yield";
   const quoteCoin = tx.moveCall({
-    target: `${CALL_PKG}::basket_yield::take_quote_for_convert`,
+    target: `${CALL_PKG}::${yieldMod}::take_quote_for_convert`,
     typeArguments: [vault.token, vault.quote],
-    arguments: [tx.object(vault.id), tx.pure.u64(amount)],
+    arguments: vault.adminTake
+      ? [tx.object(vault.id), tx.object(ADMIN_CAP), tx.pure.u64(amount)]
+      : [tx.object(vault.id), tx.pure.u64(amount)],
   });
 
   const pools: PoolCache = {};
@@ -618,7 +621,7 @@ async function convertOne(
 
   for (const leg of legCoins) {
     tx.moveCall({
-      target: `${CALL_PKG}::basket_yield::deposit_converted_asset`,
+      target: `${CALL_PKG}::${yieldMod}::deposit_converted_asset`,
       typeArguments: [vault.token, vault.quote, leg.asset],
       arguments: [
         tx.object(vault.id),

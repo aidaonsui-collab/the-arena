@@ -13,6 +13,8 @@ use arena::config::Config;
 use arena::errors;
 use arena::events;
 use arena::basket_yield::{Self, BasketConfig, BasketYieldVault};
+use arena::config::AdminCap;
+use arena::yield_basket::YieldBasketVault;
 use arena::holder_yield::{Self, HolderYieldVault};
 use arena::lock::{Self, BluefinPositionLock};
 use arena::math;
@@ -1315,6 +1317,89 @@ public fun migrate_instant_to_basket_yield_v2<T, Q>(
     migrate_instant_to_basket_yield_inner<T, Q>(lock, basket, ctx)
 }
 
+fun migrate_instant_to_yield_basket_inner<T, Q>(
+    lock: &mut BluefinPositionLock,
+    basket: BasketConfig,
+    ctx: &mut TxContext,
+): ID {
+    assert!(
+        ctx.sender() == lock::bluefin_lock_beneficiary(lock),
+        errors::not_beneficiary(),
+    );
+    assert!(!lock::is_basket_yield(lock), errors::already_locked());
+    assert!(!lock::is_holder_yield(lock), errors::yield_mode_conflict());
+    let payout_mode = basket_yield::config_payout_mode(&basket);
+    let asset_count = basket_yield::config_asset_count(&basket);
+    let lock_id = object::id(lock);
+    let bf_pool_id = lock::bluefin_lock_spot_id(lock);
+    let basket_id = arena::yield_basket::create_and_share<T, Q>(lock_id, bf_pool_id, basket, ctx);
+    lock::attach_basket_yield(lock, basket_id);
+    events::emit_basket_yield_launch(
+        lock_id, basket_id, bf_pool_id,
+        type_name::with_defining_ids<T>(), type_name::with_defining_ids<Q>(),
+        payout_mode, asset_count,
+    );
+    basket_id
+}
+
+public fun migrate_instant_to_yield_basket<T, Q>(
+    lock: &mut BluefinPositionLock,
+    bf_pool: &bluefin_spot::pool::Pool<T, Q>,
+    basket: BasketConfig,
+    ctx: &mut TxContext,
+): ID {
+    assert!(object::id(bf_pool) == lock::bluefin_lock_spot_id(lock), errors::wrong_pool());
+    migrate_instant_to_yield_basket_inner<T, Q>(lock, basket, ctx)
+}
+
+public entry fun migrate_instant_to_yield_basket_entry<T, Q, A0>(
+    lock: &mut BluefinPositionLock,
+    bf_pool: &bluefin_spot::pool::Pool<T, Q>,
+    weight0: u64,
+    equal_weight: bool,
+    payout_mode: u8,
+    ctx: &mut TxContext,
+) {
+    let mut assets = vector[];
+    assets.push_back(basket_yield::new_asset(type_name::with_defining_ids<A0>(), weight0));
+    let basket = basket_yield::new_config(assets, equal_weight, payout_mode);
+    migrate_instant_to_yield_basket<T, Q>(lock, bf_pool, basket, ctx);
+}
+
+public entry fun migrate_instant_to_yield_basket_2_entry<T, Q, A0, A1>(
+    lock: &mut BluefinPositionLock,
+    bf_pool: &bluefin_spot::pool::Pool<T, Q>,
+    weight0: u64,
+    weight1: u64,
+    equal_weight: bool,
+    payout_mode: u8,
+    ctx: &mut TxContext,
+) {
+    let mut assets = vector[];
+    assets.push_back(basket_yield::new_asset(type_name::with_defining_ids<A0>(), weight0));
+    assets.push_back(basket_yield::new_asset(type_name::with_defining_ids<A1>(), weight1));
+    let basket = basket_yield::new_config(assets, equal_weight, payout_mode);
+    migrate_instant_to_yield_basket<T, Q>(lock, bf_pool, basket, ctx);
+}
+
+public entry fun migrate_instant_to_yield_basket_3_entry<T, Q, A0, A1, A2>(
+    lock: &mut BluefinPositionLock,
+    bf_pool: &bluefin_spot::pool::Pool<T, Q>,
+    weight0: u64,
+    weight1: u64,
+    weight2: u64,
+    equal_weight: bool,
+    payout_mode: u8,
+    ctx: &mut TxContext,
+) {
+    let mut assets = vector[];
+    assets.push_back(basket_yield::new_asset(type_name::with_defining_ids<A0>(), weight0));
+    assets.push_back(basket_yield::new_asset(type_name::with_defining_ids<A1>(), weight1));
+    assets.push_back(basket_yield::new_asset(type_name::with_defining_ids<A2>(), weight2));
+    let basket = basket_yield::new_config(assets, equal_weight, payout_mode);
+    migrate_instant_to_yield_basket<T, Q>(lock, bf_pool, basket, ctx);
+}
+
 #[test_only]
 /// Test-only twin of `migrate_instant_to_basket_yield_v2` — see
 /// `migrate_instant_to_holder_yield_v2_for_testing` for why this exists.
@@ -1621,6 +1706,254 @@ public fun collect_instadex_fees_basket_yield<A, B>(
         coin::burn(&mut mint.cap, coin::from_balance(bal_a, ctx));
     };
     events::emit_instadex_burn(object::id(lock), amount);
+}
+
+/// Collect into `YieldBasketVault`. The published package's
+/// `collect_instadex_fees_basket_yield` still targets the old vault type.
+public fun collect_instadex_fees_yield_basket<A, B>(
+    lock: &mut BluefinPositionLock,
+    mint: &mut InstadexMintLock<A>,
+    vault: &mut YieldBasketVault<A, B>,
+    clock: &Clock,
+    bf_config: &GlobalConfig,
+    bf_pool: &mut bluefin_spot::pool::Pool<A, B>,
+    config: &mut Config,
+    ctx: &mut TxContext,
+) {
+    let bal_a = lock::collect_lp_fees_return_token_to_yield_basket(
+        lock,
+        vault,
+        clock,
+        bf_config,
+        bf_pool,
+        config,
+        ctx,
+    );
+    let amount = bal_a.value();
+    if (amount == 0) {
+        bal_a.destroy_zero();
+    } else {
+        coin::burn(&mut mint.cap, coin::from_balance(bal_a, ctx));
+    };
+    events::emit_instadex_burn(object::id(lock), amount);
+}
+
+public fun launch_instant_yield_basket_buy<T, Q>(
+    config: &mut Config,
+    clock: &Clock,
+    bf_config: &mut GlobalConfig,
+    treasury_cap: TreasuryCap<T>,
+    meta_t: &CoinMetadata<T>,
+    meta_q: &CoinMetadata<Q>,
+    token: Coin<T>,
+    fee_sui: Coin<SUI>,
+    creation_fee: Coin<SUI>,
+    basket: BasketConfig,
+    creator_bps: u64,
+    platform_bps: u64,
+    pit_bps: u64,
+    buyback_bps: u64,
+    first_buy: Coin<Q>,
+    min_out: u64,
+    ctx: &mut TxContext,
+): ID {
+    config.take_launch_fee(fee_sui);
+    let token_amount = token.value();
+    assert!(token_amount > 0, errors::zero_amount());
+    let virtual_quote = config.instant_virtual_quote<Q>();
+    let fee = lock::take_creation_fee(bf_config, creation_fee, ctx.sender(), ctx);
+    let payout_mode = basket_yield::config_payout_mode(&basket);
+    let asset_count = basket_yield::config_asset_count(&basket);
+    let split = option::some(lock::new_lp_split(creator_bps, platform_bps, pit_bps, buyback_bps));
+    let (lock_id, bf_pool_id, position_id, _, basket_id) = lock::seed_and_lock_instant_yield_basket(
+        ctx.sender(), clock, bf_config, meta_t, meta_q, fee, token.into_balance(), virtual_quote, basket, split, first_buy, min_out, ctx,
+    );
+    let mint = InstadexMintLock<T> { id: object::new(ctx), cap: treasury_cap };
+    let mint_id = object::id(&mint);
+    transfer::share_object(mint);
+    events::emit_instadex_launch(
+        lock_id, bf_pool_id, position_id,
+        type_name::with_defining_ids<T>(), type_name::with_defining_ids<Q>(),
+        ctx.sender(), token_amount, 0, 0, meta_t.get_name(), meta_t.get_symbol(),
+    );
+    events::emit_instadex_mint_lock(lock_id, mint_id);
+    events::emit_basket_yield_launch(
+        lock_id, basket_id, bf_pool_id,
+        type_name::with_defining_ids<T>(), type_name::with_defining_ids<Q>(),
+        payout_mode, asset_count,
+    );
+    lock_id
+}
+
+public entry fun launch_instant_yield_basket_buy_entry<T, Q, A0>(
+    config: &mut Config, clock: &Clock, bf_config: &mut GlobalConfig,
+    treasury_cap: TreasuryCap<T>, meta_t: &CoinMetadata<T>, meta_q: &CoinMetadata<Q>,
+    token: Coin<T>, fee_sui: Coin<SUI>, creation_fee: Coin<SUI>,
+    weight0: u64, equal_weight: bool, payout_mode: u8,
+    creator_bps: u64, platform_bps: u64, pit_bps: u64, buyback_bps: u64,
+    first_buy: Coin<Q>, min_out: u64,
+    ctx: &mut TxContext,
+) {
+    let mut assets = vector[];
+    assets.push_back(basket_yield::new_asset(type_name::with_defining_ids<A0>(), weight0));
+    let basket = basket_yield::new_config(assets, equal_weight, payout_mode);
+    launch_instant_yield_basket_buy<T, Q>(
+        config, clock, bf_config, treasury_cap, meta_t, meta_q, token, fee_sui, creation_fee, basket,
+        creator_bps, platform_bps, pit_bps, buyback_bps, first_buy, min_out, ctx,
+    );
+}
+
+public entry fun launch_instant_yield_basket_2_buy_entry<T, Q, A0, A1>(
+    config: &mut Config, clock: &Clock, bf_config: &mut GlobalConfig,
+    treasury_cap: TreasuryCap<T>, meta_t: &CoinMetadata<T>, meta_q: &CoinMetadata<Q>,
+    token: Coin<T>, fee_sui: Coin<SUI>, creation_fee: Coin<SUI>,
+    weight0: u64, weight1: u64, equal_weight: bool, payout_mode: u8,
+    creator_bps: u64, platform_bps: u64, pit_bps: u64, buyback_bps: u64,
+    first_buy: Coin<Q>, min_out: u64,
+    ctx: &mut TxContext,
+) {
+    let mut assets = vector[];
+    assets.push_back(basket_yield::new_asset(type_name::with_defining_ids<A0>(), weight0));
+    assets.push_back(basket_yield::new_asset(type_name::with_defining_ids<A1>(), weight1));
+    let basket = basket_yield::new_config(assets, equal_weight, payout_mode);
+    launch_instant_yield_basket_buy<T, Q>(
+        config, clock, bf_config, treasury_cap, meta_t, meta_q, token, fee_sui, creation_fee, basket,
+        creator_bps, platform_bps, pit_bps, buyback_bps, first_buy, min_out, ctx,
+    );
+}
+
+public entry fun launch_instant_yield_basket_3_buy_entry<T, Q, A0, A1, A2>(
+    config: &mut Config, clock: &Clock, bf_config: &mut GlobalConfig,
+    treasury_cap: TreasuryCap<T>, meta_t: &CoinMetadata<T>, meta_q: &CoinMetadata<Q>,
+    token: Coin<T>, fee_sui: Coin<SUI>, creation_fee: Coin<SUI>,
+    weight0: u64, weight1: u64, weight2: u64, equal_weight: bool, payout_mode: u8,
+    creator_bps: u64, platform_bps: u64, pit_bps: u64, buyback_bps: u64,
+    first_buy: Coin<Q>, min_out: u64,
+    ctx: &mut TxContext,
+) {
+    let mut assets = vector[];
+    assets.push_back(basket_yield::new_asset(type_name::with_defining_ids<A0>(), weight0));
+    assets.push_back(basket_yield::new_asset(type_name::with_defining_ids<A1>(), weight1));
+    assets.push_back(basket_yield::new_asset(type_name::with_defining_ids<A2>(), weight2));
+    let basket = basket_yield::new_config(assets, equal_weight, payout_mode);
+    launch_instant_yield_basket_buy<T, Q>(
+        config, clock, bf_config, treasury_cap, meta_t, meta_q, token, fee_sui, creation_fee, basket,
+        creator_bps, platform_bps, pit_bps, buyback_bps, first_buy, min_out, ctx,
+    );
+}
+
+public fun launch_instant_yield_basket_buy_currency<T, Q>(
+    config: &mut Config,
+    clock: &Clock,
+    bf_config: &mut GlobalConfig,
+    treasury_cap: TreasuryCap<T>,
+    meta_t: &CoinMetadata<T>,
+    cur_q: &Currency<Q>,
+    token: Coin<T>,
+    fee_sui: Coin<SUI>,
+    creation_fee: Coin<SUI>,
+    basket: BasketConfig,
+    creator_bps: u64,
+    platform_bps: u64,
+    pit_bps: u64,
+    buyback_bps: u64,
+    first_buy: Coin<Q>,
+    min_out: u64,
+    ctx: &mut TxContext,
+): ID {
+    config.take_launch_fee(fee_sui);
+    let token_amount = token.value();
+    assert!(token_amount > 0, errors::zero_amount());
+    let virtual_quote = config.instant_virtual_quote<Q>();
+    let fee = lock::take_creation_fee(bf_config, creation_fee, ctx.sender(), ctx);
+    let (q_symbol, q_decimals, q_icon) = lock::quote_fields_from_currency(cur_q);
+    let payout_mode = basket_yield::config_payout_mode(&basket);
+    let asset_count = basket_yield::config_asset_count(&basket);
+    let split = option::some(lock::new_lp_split(creator_bps, platform_bps, pit_bps, buyback_bps));
+    let (lock_id, bf_pool_id, position_id, _, basket_id) = lock::seed_and_lock_instant_yield_basket_q(
+        ctx.sender(), clock, bf_config, meta_t, q_symbol, q_decimals, q_icon, fee, token.into_balance(), virtual_quote, basket, split, first_buy, min_out, ctx,
+    );
+    let mint = InstadexMintLock<T> { id: object::new(ctx), cap: treasury_cap };
+    let mint_id = object::id(&mint);
+    transfer::share_object(mint);
+    events::emit_instadex_launch(
+        lock_id, bf_pool_id, position_id,
+        type_name::with_defining_ids<T>(), type_name::with_defining_ids<Q>(),
+        ctx.sender(), token_amount, 0, 0, meta_t.get_name(), meta_t.get_symbol(),
+    );
+    events::emit_instadex_mint_lock(lock_id, mint_id);
+    events::emit_basket_yield_launch(
+        lock_id, basket_id, bf_pool_id,
+        type_name::with_defining_ids<T>(), type_name::with_defining_ids<Q>(),
+        payout_mode, asset_count,
+    );
+    lock_id
+}
+
+public entry fun launch_instant_yield_basket_buy_currency_entry<T, Q, A0>(
+    config: &mut Config, clock: &Clock, bf_config: &mut GlobalConfig,
+    treasury_cap: TreasuryCap<T>, meta_t: &CoinMetadata<T>, cur_q: &Currency<Q>,
+    token: Coin<T>, fee_sui: Coin<SUI>, creation_fee: Coin<SUI>,
+    weight0: u64, equal_weight: bool, payout_mode: u8,
+    creator_bps: u64, platform_bps: u64, pit_bps: u64, buyback_bps: u64,
+    first_buy: Coin<Q>, min_out: u64,
+    ctx: &mut TxContext,
+) {
+    let mut assets = vector[];
+    assets.push_back(basket_yield::new_asset(type_name::with_defining_ids<A0>(), weight0));
+    let basket = basket_yield::new_config(assets, equal_weight, payout_mode);
+    launch_instant_yield_basket_buy_currency<T, Q>(
+        config, clock, bf_config, treasury_cap, meta_t, cur_q, token, fee_sui, creation_fee, basket,
+        creator_bps, platform_bps, pit_bps, buyback_bps, first_buy, min_out, ctx,
+    );
+}
+
+public entry fun launch_instant_yield_basket_2_buy_currency_entry<T, Q, A0, A1>(
+    config: &mut Config, clock: &Clock, bf_config: &mut GlobalConfig,
+    treasury_cap: TreasuryCap<T>, meta_t: &CoinMetadata<T>, cur_q: &Currency<Q>,
+    token: Coin<T>, fee_sui: Coin<SUI>, creation_fee: Coin<SUI>,
+    weight0: u64, weight1: u64, equal_weight: bool, payout_mode: u8,
+    creator_bps: u64, platform_bps: u64, pit_bps: u64, buyback_bps: u64,
+    first_buy: Coin<Q>, min_out: u64,
+    ctx: &mut TxContext,
+) {
+    let mut assets = vector[];
+    assets.push_back(basket_yield::new_asset(type_name::with_defining_ids<A0>(), weight0));
+    assets.push_back(basket_yield::new_asset(type_name::with_defining_ids<A1>(), weight1));
+    let basket = basket_yield::new_config(assets, equal_weight, payout_mode);
+    launch_instant_yield_basket_buy_currency<T, Q>(
+        config, clock, bf_config, treasury_cap, meta_t, cur_q, token, fee_sui, creation_fee, basket,
+        creator_bps, platform_bps, pit_bps, buyback_bps, first_buy, min_out, ctx,
+    );
+}
+
+public entry fun launch_instant_yield_basket_3_buy_currency_entry<T, Q, A0, A1, A2>(
+    config: &mut Config, clock: &Clock, bf_config: &mut GlobalConfig,
+    treasury_cap: TreasuryCap<T>, meta_t: &CoinMetadata<T>, cur_q: &Currency<Q>,
+    token: Coin<T>, fee_sui: Coin<SUI>, creation_fee: Coin<SUI>,
+    weight0: u64, weight1: u64, weight2: u64, equal_weight: bool, payout_mode: u8,
+    creator_bps: u64, platform_bps: u64, pit_bps: u64, buyback_bps: u64,
+    first_buy: Coin<Q>, min_out: u64,
+    ctx: &mut TxContext,
+) {
+    let mut assets = vector[];
+    assets.push_back(basket_yield::new_asset(type_name::with_defining_ids<A0>(), weight0));
+    assets.push_back(basket_yield::new_asset(type_name::with_defining_ids<A1>(), weight1));
+    assets.push_back(basket_yield::new_asset(type_name::with_defining_ids<A2>(), weight2));
+    let basket = basket_yield::new_config(assets, equal_weight, payout_mode);
+    launch_instant_yield_basket_buy_currency<T, Q>(
+        config, clock, bf_config, treasury_cap, meta_t, cur_q, token, fee_sui, creation_fee, basket,
+        creator_bps, platform_bps, pit_bps, buyback_bps, first_buy, min_out, ctx,
+    );
+}
+
+public entry fun admin_rebind_yield_basket_entry<T, Q>(
+    lock: &mut BluefinPositionLock,
+    old: &mut BasketYieldVault<T, Q>,
+    cap: &AdminCap,
+    ctx: &mut TxContext,
+) {
+    lock::admin_rebind_yield_basket<T, Q>(lock, old, cap, ctx);
 }
 
 public(package) fun assert_instadex_amounts(token_amount: u64, quote_amount: u64) {

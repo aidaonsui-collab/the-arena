@@ -85,7 +85,7 @@ fun test_seed_mint_redeem_round_trip() {
         let mut redeem = basket::start_redeem(&mut vault, shares, &clock, scenario.ctx());
         let sui_out = basket::withdraw<BCOIN, SUI>(&mut vault, &mut redeem, scenario.ctx());
         let t_out = basket::withdraw<BCOIN, TCOIN>(&mut vault, &mut redeem, scenario.ctx());
-        basket::finish_redeem(&vault, redeem);
+        basket::finish_redeem(&mut vault, redeem);
         assert!(sui_out.value() == 100, 8);
         assert!(t_out.value() == 250, 9);
         assert!(basket::total_shares(&vault) == 100, 10);
@@ -121,7 +121,7 @@ fun test_redeem_leaves_donation_dust() {
         let mut redeem = basket::start_redeem(&mut vault, shares, &clock, scenario.ctx());
         let sui_out = basket::withdraw<BCOIN, SUI>(&mut vault, &mut redeem, scenario.ctx());
         let t_out = basket::withdraw<BCOIN, TCOIN>(&mut vault, &mut redeem, scenario.ctx());
-        basket::finish_redeem(&vault, redeem);
+        basket::finish_redeem(&mut vault, redeem);
         assert!(sui_out.value() == 2, 0);
         assert!(basket::component_value<BCOIN, SUI>(&vault) == 5, 1);
         coin::burn_for_testing(sui_out);
@@ -150,7 +150,7 @@ fun test_creator_can_redeem_the_first_shares() {
         let mut redeem = basket::start_redeem(&mut vault, shares, &clock, scenario.ctx());
         let sui_out = basket::withdraw<BCOIN, SUI>(&mut vault, &mut redeem, scenario.ctx());
         let t_out = basket::withdraw<BCOIN, TCOIN>(&mut vault, &mut redeem, scenario.ctx());
-        basket::finish_redeem(&vault, redeem);
+        basket::finish_redeem(&mut vault, redeem);
         assert!(sui_out.value() == 200, 1);
         assert!(t_out.value() == 499, 2);
         assert!(basket::total_shares(&vault) == 0, 3);
@@ -360,7 +360,7 @@ fun test_mint_and_redeem_fees() {
         let mut redeem = basket::start_redeem(&mut vault, shares, &clock, scenario.ctx());
         let sui_out = basket::withdraw<BCOIN, SUI>(&mut vault, &mut redeem, scenario.ctx());
         let t_out = basket::withdraw<BCOIN, TCOIN>(&mut vault, &mut redeem, scenario.ctx());
-        basket::finish_redeem(&vault, redeem);
+        basket::finish_redeem(&mut vault, redeem);
         assert!(sui_out.value() == 9_970, 5);
         assert!(t_out.value() == 9_970, 6);
         assert!(basket::owner_fee_value<BCOIN, SUI>(&vault) == 20, 7);
@@ -375,7 +375,7 @@ fun test_mint_and_redeem_fees() {
         clock::destroy_for_testing(clock);
         ts::return_shared(vault);
     };
-    scenario.next_tx(FEE);
+    scenario.next_tx(config::platform_wallet());
     {
         let swept = scenario.take_from_sender<Coin<SUI>>();
         assert!(swept.value() == 55, 11);
@@ -488,7 +488,7 @@ fun test_redeem_floor_aborts() {
         let clock = clock::create_for_testing(scenario.ctx());
         basket::set_redeem_hour_bps_for_testing(&mut vault, 0);
         let redeem = basket::start_redeem(&mut vault, shares, &clock, scenario.ctx());
-        basket::destroy_redeem_for_testing(redeem);
+        basket::destroy_redeem_for_testing(&mut vault, redeem);
         clock::destroy_for_testing(clock);
         ts::return_shared(vault);
     };
@@ -512,7 +512,7 @@ fun test_dead_asset_is_forfeited_then_restored() {
         let mut redeem = basket::start_redeem(&mut vault, shares, &clock, scenario.ctx());
         let sui_out = basket::withdraw<BCOIN, SUI>(&mut vault, &mut redeem, scenario.ctx());
         basket::forfeit<BCOIN, TCOIN>(&mut vault, &mut redeem);
-        basket::finish_redeem(&vault, redeem);
+        basket::finish_redeem(&mut vault, redeem);
         assert!(sui_out.value() == 200, 0);
         assert!(basket::forfeited_value<BCOIN, TCOIN>(&vault) == 500, 1);
         basket::return_asset(&mut vault, pay<TCOIN>(7, scenario.ctx()));
@@ -523,16 +523,60 @@ fun test_dead_asset_is_forfeited_then_restored() {
         clock::destroy_for_testing(clock);
         ts::return_shared(vault);
     };
-    scenario.next_tx(USER);
+    scenario.next_tx(ADMIN);
     {
         let mut vault = scenario.take_shared<BasketVault<BCOIN>>();
         let mut clock = clock::create_for_testing(scenario.ctx());
-        basket::report_failure<BCOIN, SUI>(&mut vault, &clock);
+        basket::report_failure<BCOIN, SUI>(&mut vault, &clock, scenario.ctx());
         clock.increment_for_testing(86_400_001);
-        basket::confirm_failure<BCOIN, SUI>(&mut vault, &clock);
+        basket::confirm_failure<BCOIN, SUI>(&mut vault, &clock, scenario.ctx());
         assert!(basket::is_excluded<BCOIN, SUI>(&vault), 4);
         basket::restore<BCOIN, SUI>(&mut vault);
         assert!(!basket::is_excluded<BCOIN, SUI>(&vault), 5);
+        clock::destroy_for_testing(clock);
+        ts::return_shared(vault);
+    };
+    scenario.end();
+}
+
+#[test]
+#[expected_failure(abort_code = 18)]
+fun test_stranger_cannot_mark_a_leg_dead() {
+    let mut scenario = ts::begin(ADMIN);
+    let (cap, meta) = bcoin::treasury(scenario.ctx());
+    transfer::public_freeze_object(meta);
+    let (mut vault, mut receipt) = open(cap, recipe_sui_tcoin(), 100, 1_000, scenario.ctx());
+    seal(&mut vault, &mut receipt, scenario.ctx());
+    basket::finish_seed(vault, receipt, scenario.ctx());
+    scenario.next_tx(USER);
+    {
+        let mut vault = scenario.take_shared<BasketVault<BCOIN>>();
+        let clock = clock::create_for_testing(scenario.ctx());
+        basket::report_failure<BCOIN, SUI>(&mut vault, &clock, scenario.ctx());
+        clock::destroy_for_testing(clock);
+        ts::return_shared(vault);
+    };
+    scenario.end();
+}
+
+#[test]
+#[expected_failure(abort_code = 23)]
+fun test_mint_aborts_while_a_redeem_is_open() {
+    let mut scenario = ts::begin(ADMIN);
+    let (cap, meta) = bcoin::treasury(scenario.ctx());
+    transfer::public_freeze_object(meta);
+    let (mut vault, mut receipt) = open(cap, recipe_sui_tcoin(), 100, 1_000, scenario.ctx());
+    seal(&mut vault, &mut receipt, scenario.ctx());
+    basket::finish_seed(vault, receipt, scenario.ctx());
+    scenario.next_tx(ADMIN);
+    {
+        let shares = scenario.take_from_sender<Coin<BCOIN>>();
+        let mut vault = scenario.take_shared<BasketVault<BCOIN>>();
+        let clock = clock::create_for_testing(scenario.ctx());
+        let redeem = basket::start_redeem(&mut vault, shares, &clock, scenario.ctx());
+        let extra = basket::start_mint(&mut vault, 1, &clock);
+        basket::destroy_receipt_for_testing(extra);
+        basket::destroy_redeem_for_testing(&mut vault, redeem);
         clock::destroy_for_testing(clock);
         ts::return_shared(vault);
     };
