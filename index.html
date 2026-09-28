@@ -12168,8 +12168,6 @@ async function doBridgeDeposit(){
       refreshPitObject();
       loadPitState();
       pitStatePollAt = Date.now();
-    } else if (state.route === "explore" || state.route === "metrics"){
-      refreshPitObject();
     }
     paintCaps();
     paintShareMeta();
@@ -15562,13 +15560,12 @@ async function doBridgeDeposit(){
         pitStatePollAt = Date.now();
         loadPitState();
       }
-    } else if ((state.route === "explore" || state.route === "metrics") && bshift % 3 === 0){
-      refreshPitObject();
-      if (state.route === "explore"){
-        if (bus.sub && bus.sub.refreshBluefin && bshift % 6 === 0) bus.sub.refreshBluefin();
-        hydrateScreener();
-        paintExploreList();
-      }
+    } else if (state.route === "explore" && bshift % 3 === 0){
+      // The pit object is only shown on the pit route. Reading it here was an
+      // uncached /api/sui-gql every 3s for every open Explore tab.
+      if (bus.sub && bus.sub.refreshBluefin && bshift % 6 === 0) bus.sub.refreshBluefin();
+      hydrateScreener();
+      paintExploreList();
     }
     paintLive();
   }, 1000);
