@@ -183,6 +183,15 @@ export function appendBasketRedeem(tx, opts) {
   if (!opts.sharesCoin) throw new Error("Share coin is not set");
   if (!opts.sender) throw new Error("Redeem needs a wallet address");
   if (legs.length < 2 || legs.length > 8) throw new Error("Basket needs 2 to 8 assets");
+  // Forfeiting a skipped asset hands the redeemer's share of it to the other
+  // holders, and anyone can restore the asset afterwards. Only forfeit the
+  // exact assets the caller says the user agreed to give up.
+  const forfeitOk = new Set((opts.forfeit || []).map(String));
+  for (const leg of legs) {
+    if (leg.excluded && !forfeitOk.has(String(leg.type))) {
+      throw new Error((leg.q || "An asset") + " is skipped. Redeeming now gives up your share of it, so confirm that first.");
+    }
+  }
   const receipt = tx.moveCall({
     target: pkg + "::basket::start_redeem",
     typeArguments: [basketType],
