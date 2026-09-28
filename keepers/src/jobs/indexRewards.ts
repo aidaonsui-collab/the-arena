@@ -20,6 +20,12 @@ const VICEFUN_REWARDS_VAULTS = new Set([
   "0x3b8a61405825146ee68f351363f29a3e4206683fced840ea10cdfba50fe075e7",
   "0x7f0fb227fa62c98b67e789bf4c233e46d34cfdfdedeb58afd4e8cd66286d4d7e",
 ]);
+// events::emit_basket_yield_push is public, so anyone can emit a BasketYieldPushEvent
+// with any vault, recipient and amount. A real payout comes from push_payout, which
+// needs the AdminCap, so its transaction is always sent by the AdminCap owner.
+const PUSH_SENDER = normAddr(
+  process.env.ARENA_KEEPER_ADDRESS || "0x92a32ac7fd525f8bd37ed359423b8d7d858cad26224854dfbff1914b75ee658b",
+);
 const MAX_MS = 45_000;
 const LOCAL = join(dirname(fileURLToPath(import.meta.url)), "../../data/rewards-index.json");
 
@@ -68,8 +74,8 @@ async function loadRemote(secret: string): Promise<State> {
 
 async function fetchPage(type: string, after: string | null) {
   const query = after
-    ? "query($type:String!,$first:Int!,$after:String!){ events(filter:{ type:$type }, first:$first, after:$after){ pageInfo { hasNextPage endCursor } nodes { contents { json } } } }"
-    : "query($type:String!,$first:Int!){ events(filter:{ type:$type }, first:$first){ pageInfo { hasNextPage endCursor } nodes { contents { json } } } }";
+    ? "query($type:String!,$first:Int!,$after:String!){ events(filter:{ type:$type }, first:$first, after:$after){ pageInfo { hasNextPage endCursor } nodes { sender { address } contents { json } } } }"
+    : "query($type:String!,$first:Int!){ events(filter:{ type:$type }, first:$first){ pageInfo { hasNextPage endCursor } nodes { sender { address } contents { json } } } }";
   const variables: Record<string, unknown> = { type, first: 50 };
   if (after) variables.after = after;
   let last = "";
@@ -80,7 +86,12 @@ async function fetchPage(type: string, after: string | null) {
       body: JSON.stringify({ query, variables }),
     });
     const j = (await r.json()) as {
-      data?: { events?: { pageInfo?: { hasNextPage?: boolean; endCursor?: string }; nodes?: { contents?: { json?: Record<string, unknown> } }[] } };
+      data?: {
+        events?: {
+          pageInfo?: { hasNextPage?: boolean; endCursor?: string };
+          nodes?: { sender?: { address?: string } | null; contents?: { json?: Record<string, unknown> } }[];
+        };
+      };
       errors?: { message?: string }[];
     };
     if (j.errors?.length) {
@@ -123,6 +134,7 @@ export async function runIndexRewards() {
       for (const n of page.nodes || []) {
         const j = (n.contents && n.contents.json) || {};
         if (!VICEFUN_REWARDS_VAULTS.has(normAddr(j.basket_id))) continue;
+        if (normAddr(n.sender?.address) !== PUSH_SENDER) continue;
         const addr = normAddr(j.recipient);
         const asset = typeof j.asset === "string" ? j.asset : "";
         if (!addr || !asset) continue;
