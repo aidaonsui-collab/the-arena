@@ -10,7 +10,7 @@ Users buy RH stock tokens on the **Robinhood Chain secondary market**. Arena’s
 2. **Mints** matching Sui wrappers 1:1 (`stocks::nvda::NVDA`, etc.).
 3. On **burn** of the Sui wrapper, emits `RedeemBurned`; off-chain releases the RH vault.
 
-This is **not** Robinhood primary AP mint. Pad Bridge UI already scaffolds tickers; RH NVDA = `0xd0601CE157Db5bdC3162BbaC2a2C8aF5320D9EEC`. Wrappers are intended as Instadex quote coins later.
+This is **not** Robinhood primary AP mint. RH NVDA was `0xd0601CE157Db5bdC3162BbaC2a2C8aF5320D9EEC`. Pad Bridge UI and Instant Create quotes for these wraps are **sunset** / removed from the product (on-chain types remain).
 
 ## Modules
 

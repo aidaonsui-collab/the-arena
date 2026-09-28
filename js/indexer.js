@@ -68,8 +68,6 @@
     if (s === "XAGM" || s === XAGM_TYPE || /xagm/i.test(s)) return "XAGM";
     if (s === "XAUM" || s === XAUM_TYPE || /xaum/i.test(s)) return "XAUM";
     if (s === "VICEFUN" || s === VICEFUN_TYPE || /vicefun/i.test(s)) return "VICEFUN";
-    if (/::nvda::NVDA$/i.test(s) || s === "NVDA") return "NVDA";
-    if (/::amc::AMC$/i.test(s) || s === "AMC") return "AMC";
     if (/::gme::GME$/i.test(s) || s === "GME") return "GME";
     if (/::tsla::TSLA$/i.test(s) || s === "TSLA") return "TSLA";
     if (/::axol::AXOL$/i.test(s) || s === "AXOL") return "AXOL";
@@ -91,7 +89,7 @@
   function quoteDecimals(quote) {
     var lab = quoteLabel(quote);
     if (lab === "USDY" || lab === "DEEP" || lab === "NS") return 6;
-    if (lab === "NVDA" || lab === "AMC" || lab === "GME" || lab === "TSLA") return 9;
+    if (lab === "GME" || lab === "TSLA") return 9;
     return 9;
   }
 
@@ -110,8 +108,6 @@
     if (lab === "SCA") return SCA_TYPE;
     if (lab === "BLUE") return BLUE_TYPE;
     if (typeof window !== "undefined") {
-      if (lab === "NVDA" && window.ARENA_STOCK_NVDA_TYPE) return window.ARENA_STOCK_NVDA_TYPE;
-      if (lab === "AMC" && window.ARENA_STOCK_AMC_TYPE) return window.ARENA_STOCK_AMC_TYPE;
       if (lab === "GME" && window.ARENA_STOCK_GME_TYPE) return window.ARENA_STOCK_GME_TYPE;
       if (lab === "TSLA" && window.ARENA_STOCK_TSLA_TYPE) return window.ARENA_STOCK_TSLA_TYPE;
     }
@@ -738,8 +734,6 @@
     if (lab === "XAUM") return "gold";
     if (lab === "XAGM") return "silver";
     if (lab === "USDY") return "tbills";
-    if (lab === "NVDA") return "nvda";
-    if (lab === "AMC") return "amc";
     if (lab === "GME") return "gme";
     if (lab === "TSLA") return "tsla";
     if (lab === "VICEFUN") return "vicefun";

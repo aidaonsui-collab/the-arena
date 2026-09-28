@@ -41,8 +41,6 @@ function quoteLabel(v) {
   if (/usdy/i.test(s)) return "USDY";
   if (/xagm/i.test(s)) return "XAGM";
   if (/xaum/i.test(s)) return "XAUM";
-  if (/nvda/i.test(s)) return "NVDA";
-  if (/amc/i.test(s)) return "AMC";
   if (/vicefun/i.test(s)) return "VICEFUN";
   if (/::axol::AXOL/i.test(s) || s === "AXOL") return "AXOL";
   if (/::LOFI::LOFI/i.test(s) || s === "LOFI") return "LOFI";

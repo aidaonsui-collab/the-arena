@@ -1,4 +1,5 @@
 # Mainnet — stocks (RH → Sui wrap)
+> **2026-09-28:** Pad Instant Create quotes for NVDA/AMC wraps removed from vicefun.com. On-chain types, vaults, and Bluefin pools below remain published.
 
 Published from `0x92a32ac7fd525f8bd37ed359423b8d7d858cad26224854dfbff1914b75ee658b` (elegant-tourmaline).
 
