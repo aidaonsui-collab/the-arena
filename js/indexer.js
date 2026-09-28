@@ -441,8 +441,16 @@
       return res || { data: [], hasNextPage: false, nextCursor: null };
     });
   }
+  function gqlEndpoint() {
+    if (typeof window === "undefined") return DEFAULT_GQL;
+    // Same-origin proxy avoids browser CORS / rate-limit bursts against
+    // graphql.mainnet.sui.io. Absolute URLs (and missing) fall back to the proxy.
+    if (window.SUI_GRAPHQL && String(window.SUI_GRAPHQL).indexOf("://") < 0) return window.SUI_GRAPHQL;
+    return "/api/sui-gql";
+  }
+
   function queryEvents(rpc, type, cursor, limit) {
-    var gql = (typeof window !== "undefined" && window.SUI_GRAPHQL) || DEFAULT_GQL;
+    var gql = gqlEndpoint();
     // Newest-first JSON-RPC first. GraphQL empty-success used to look like
     // "no events" and skip the RPC that actually had the tape.
     return queryEventsRpc(rpc, type, cursor, limit).then(function (page) {
@@ -934,10 +942,9 @@
     };
   }
 
-  // Per event type walk state. JSON-RPC pages newest-first, so once one walk has
-  // reached the oldest event a later poll can stop at the first page it has
-  // already seen. GraphQL pages oldest-first, so a later poll resumes from the
-  // last endCursor instead of re-reading (and capping at) the oldest pages.
+  // Per event type walk state. Both transports page newest-first. Once a walk
+  // has reached the oldest event, a later poll can stop at the first already-seen
+  // page. An interrupted walk keeps its cursor so the next poll finishes it.
   var collectState = {};
   function eventKey(ev, j) {
     var id = (ev && ev.id) || {};
@@ -946,27 +953,42 @@
     return d + ":" + seq;
   }
 
-  async function collect(rpc, type, parse, pages, limit, onRow) {
+  function sleepMs(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+
+  // prefer: "rpc" (default, public JSON-RPC newest-first, GraphQL fallback) or
+  // "gql" (GraphQL newest-first first). Deep walks use "gql": suiet's JSON-RPC
+  // can report hasNextPage=false early. Page errors (e.g. a rate-limit burst at
+  // page load) retry with backoff, and an interrupted walk remembers its cursor
+  // so the next poll finishes it instead of stopping at the first seen page.
+  async function collect(rpc, type, parse, pages, limit, onRow, prefer) {
     var out = [];
-    var st = collectState[type] || (collectState[type] = { seen: {}, complete: false, before: null });
-    var cursor = st.complete ? null : null; // always start newest-first; stop early via seen
-    var gql = (typeof window !== "undefined" && window.SUI_GRAPHQL) || DEFAULT_GQL;
-    var mode = "gql";
+    var st = collectState[type] || (collectState[type] = { seen: {}, complete: false, resume: null, resumeMode: "" });
+    var cursor = null;
+    var gql = gqlEndpoint();
+    var mode = prefer === "gql" ? "gql" : "rpc";
+    var resumed = false;
+    function fetchPage(m, c) {
+      return m === "gql" ? queryEventsGql(gql, type, c, limit || 50) : queryEventsRpc(rpc, type, c, limit || 50);
+    }
     for (var i = 0; i < (pages || 8); i++) {
-      var page;
-      try {
-        if (mode === "gql") page = await queryEventsGql(gql, type, cursor, limit || 50);
-        else page = await queryEventsRpc(rpc, type, cursor, limit || 50);
-      } catch (e) {
-        if (i === 0 && mode === "gql") {
-          mode = "rpc";
-          cursor = null;
-          try { page = await queryEventsRpc(rpc, type, null, limit || 50); }
-          catch (e2) { break; }
-        } else break;
+      var page = null;
+      for (var attempt = 0; attempt < 4 && !page; attempt++) {
+        // On the first page, attempt #2 tries the other transport once.
+        var m = (i === 0 && !resumed && attempt === 1) ? (mode === "gql" ? "rpc" : "gql") : mode;
+        try {
+          page = await fetchPage(m, cursor);
+          mode = m;
+        } catch (e) {
+          if (attempt > 0) await sleepMs(800 * attempt + Math.floor(Math.random() * 400));
+        }
+      }
+      if (!page) {
+        // Keep where we stopped; the next poll resumes here.
+        if (cursor && !st.complete) { st.resume = cursor; st.resumeMode = mode; }
+        break;
       }
       var data = (page && page.data) || [];
-      if (!data.length) break;
+      if (!data.length) { if (resumed) { st.resume = null; st.complete = true; } break; }
       var fresh = 0;
       for (var j = 0; j < data.length; j++) {
         var k = eventKey(data[j], j);
@@ -980,13 +1002,23 @@
           try { onRow(row); } catch (err) {}
         }
       }
-      // Newest-first: an all-seen page means we already have everything older.
-      if (fresh === 0) break;
       if (!page.hasNextPage || !page.nextCursor) {
         st.complete = true;
+        st.resume = null;
+        break;
+      }
+      if (fresh === 0 && !resumed) {
+        // Caught up with the newest events. Finish an interrupted older walk, if any.
+        if (!st.complete && st.resume) {
+          resumed = true;
+          mode = st.resumeMode || mode;
+          cursor = st.resume;
+          continue;
+        }
         break;
       }
       cursor = page.nextCursor;
+      if (!st.complete && (resumed || i > 0)) { st.resume = cursor; st.resumeMode = mode; }
     }
     return out;
   }
@@ -1021,7 +1053,7 @@
     var refreshInstadex = function () {};
     var seenTrades = {};
     var bluefinPools = {};
-    var gql = (typeof window !== "undefined" && window.SUI_GRAPHQL) || DEFAULT_GQL;
+    var gql = gqlEndpoint();
 
     function tradeKey(ev) {
       if (ev.digest) return String(ev.digest) + ":" + String(ev.seq || "") + ":" + normId(ev.pool_id);
@@ -1269,7 +1301,7 @@
         if (!pkg || pkg === "0x0") return;
         collect(rpc, pkg + "::events::BasketYieldLaunchEvent", parseBasketYieldLaunch, 4, 50, emitByLaunch).catch(function () {});
         collect(rpc, pkg + "::events::BasketYieldFundedEvent", parseBasketYieldFunded, 8, 50, emitByFunded).catch(function () {});
-        collect(rpc, pkg + "::events::BasketYieldConvertedEvent", parseBasketYieldConverted, 80, 50, emitByConverted).catch(function () {});
+        collect(rpc, pkg + "::events::BasketYieldConvertedEvent", parseBasketYieldConverted, 80, 50, emitByConverted, "gql").catch(function () {});
         collect(rpc, pkg + "::events::BasketYieldClaimEvent", parseBasketYieldClaim, 8, 50, emitByClaim).catch(function () {});
         collect(rpc, pkg + "::events::BasketYieldPushEvent", parseBasketYieldPush, 40, 50, emitByPush).catch(function () {});
         collect(rpc, pkg + "::events::BasketYieldRotateEvent", parseBasketYieldRotate, 4, 50, emitByRotate).catch(function () {});
