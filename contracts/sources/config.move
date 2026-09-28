@@ -86,9 +86,9 @@ public struct InstantVirtualQuoteKey<phantom Q> has copy, drop, store {}
 /// fields below, which is wrong for any Q not actually priced like XAUM — set
 /// this explicitly for every new Instadex quote instead of relying on that
 /// fallback.
-public struct InstadexQuoteParamsKey<phantom Q> has copy, drop, store {}
+public struct QuoteParamsKey<phantom Q> has copy, drop, store {}
 
-public struct InstadexQuoteParams has copy, drop, store {
+public struct QuoteParams has copy, drop, store {
     virtual_quote: u64,
     graduation: u64,
 }
@@ -358,9 +358,9 @@ public fun buyback_value<Q>(config: &Config): u64 {
 /// like XAUM. Any other quote needs `set_quote_params<Q>` called once, or an
 /// Instadex launch against it opens at XAUM's price/graduation scale.
 public fun quote_params<Q>(config: &Config): (u64, u64) {
-    let key = InstadexQuoteParamsKey<Q> {};
+    let key = QuoteParamsKey<Q> {};
     if (df::exists(&config.id, key)) {
-        let p: &InstadexQuoteParams = df::borrow(&config.id, key);
+        let p: &QuoteParams = df::borrow(&config.id, key);
         (p.virtual_quote, p.graduation)
     } else if (type_name::with_defining_ids<Q>() == type_name::with_defining_ids<SUI>()) {
         (config.virtual_quote_sui, config.graduation_sui)
@@ -374,10 +374,9 @@ public fun quote_params<Q>(config: &Config): (u64, u64) {
 /// already enforce: `graduation` must clear `virtual_quote`, or a pool can
 /// graduate on its first buy (or `pool::new` aborts before it does).
 public fun set_quote_params<Q>(config: &mut Config, _: &AdminCap, virtual_quote: u64, graduation: u64) {
-    assert!(virtual_quote > 0, errors::bad_param());
-    assert!(graduation > virtual_quote, errors::bad_param());
-    let key = InstadexQuoteParamsKey<Q> {};
-    let p = InstadexQuoteParams { virtual_quote, graduation };
+    assert!(virtual_quote > 0 && virtual_quote < graduation, errors::bad_param());
+    let key = QuoteParamsKey<Q> {};
+    let p = QuoteParams { virtual_quote, graduation };
     if (df::exists(&config.id, key)) {
         *df::borrow_mut(&mut config.id, key) = p;
     } else {
