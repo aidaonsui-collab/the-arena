@@ -1231,7 +1231,7 @@ window.ARENA_RH_EXPLORER = "https://robinhoodchain.blockscout.com";
 window.SUI_RPC = window.SUI_RPC || "https://mainnet.suiet.app";
 window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graphql";
 </script>
-<script src="/js/indexer.js"></script>
+<script src="/js/indexer.js?v=20260928"></script>
 <script>
 (function(){
   const GRAD = 2000;
@@ -1429,8 +1429,23 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     paidWalletSeries.push(Object.keys(paidAirdropWallets).length);
     if (paidWalletSeries.length > 24) paidWalletSeries = paidWalletSeries.slice(-24);
   }
+  // Full push index (Air keeper → rewards-index blob). The browser only walks the
+  // newest few thousand push events, so it undercounts wallets on its own.
+  var rewardsSummary = { at: 0, wallets: 0, busy: false };
+  function loadRewardsSummary(){
+    if (rewardsSummary.busy || (rewardsSummary.at && Date.now() - rewardsSummary.at < 60000)) return;
+    rewardsSummary.busy = true;
+    fetch("/api/rewards-summary").then(function(r){ return r.ok ? r.json() : null; }).then(function(j){
+      rewardsSummary.at = Date.now();
+      var n = Number(j && j.wallets) || 0;
+      if (n > rewardsSummary.wallets){
+        rewardsSummary.wallets = n;
+        if (state.route === "pit") scheduleScreen();
+      }
+    }).catch(function(){ rewardsSummary.at = Date.now(); }).then(function(){ rewardsSummary.busy = false; });
+  }
   function distPaidWalletCount(){
-    return Object.keys(paidAirdropWallets).length;
+    return Math.max(Object.keys(paidAirdropWallets).length, rewardsSummary.wallets || 0);
   }
   var rewardsVaults = {}; // yield_id -> launch meta
   var rewardsBusy = false;
@@ -8208,6 +8223,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     }).join("");
   }
   function pitHTML(){
+    loadRewardsSummary();
     var usd = rewardsDistributedUsd();
     var eventUsd = distEventUsd();
     var paidN = distPaidWalletCount();
@@ -15745,7 +15761,51 @@ async function doBridgeDeposit(){
       }).catch(function(){});
     }
     loadMemeUsd();
-    fetch("/api/hop").then(function(r){ return r.ok ? r.json() : Promise.reject(); }).then(apply).catch(function(){
+    // DexPaprika (behind /api/hop) can come back 402 and zero out XAUM/XAGM/USDY.
+    // Fill any leg that is still missing from the pool's on-chain sqrt price
+    // (Sui GraphQL), then Dexscreener for the same pools.
+    var RWA_PRICE_LEGS = [
+      // [hop field, pool id, asset decimals, USDC is coin A]
+      ["xaumUsd", window.ARENA_XAUM_USDC_POOL || "0x458fc3722cc88babd7cbe78273aa5e4ecbdff75c76a2ad14cd1f75418b569649", 9, false],
+      ["xagmUsd", window.ARENA_XAGM_USDC_POOL || "0x4d3cc875e334440ad3485d4455d7ee072ea01b18c526ad64f9ebe2aa0a4f01b9", 9, false],
+      ["usdyUsd", window.ARENA_USDY_USDC_POOL || "0xdcd762ad374686fa890fc4f3b9bbfe2a244e713d7bffbfbd1b9221cb290da2ed", 6, true],
+      ["suiUsd", "0x51e883ba7c0b566a26cbc8a94cd33eb0abd418a77cc1e60ad22fd9b1f29cd2ab", 9, true]
+    ];
+    function legUsdFromSnap(snap, leg){
+      var sq = Number(snap && snap.sqrt);
+      if (!(sq > 0)) return 0;
+      var raw = (sq / BLUEFIN_Q64) * (sq / BLUEFIN_Q64);
+      if (leg[3]){
+        var perUsdc = raw * Math.pow(10, 6 - leg[2]);
+        return perUsdc > 0 ? 1 / perUsdc : 0;
+      }
+      return raw * Math.pow(10, leg[2] - 6);
+    }
+    function fillRwaFromDexscreener(){
+      var legs = RWA_PRICE_LEGS.filter(function(l){ return !(hop[l[0]] > 0); });
+      if (!legs.length) return;
+      Promise.all(legs.map(function(l){
+        return poolSnap(l[1]).then(function(snap){ return legUsdFromSnap(snap, l); }).catch(function(){ return 0; });
+      })).then(function(pxs){
+        var d = {};
+        pxs.forEach(function(px, i){ if (px > 0 && isFinite(px)) d[legs[i][0]] = px; });
+        var rest = legs.filter(function(l){ return !(d[l[0]] > 0); });
+        return Promise.all(rest.map(function(l){
+          return fetch("https://api.dexscreener.com/latest/dex/pairs/sui/"+l[1]).then(function(r){ return r.ok ? r.json() : null; }).catch(function(){ return null; });
+        })).then(function(rows){
+          rows.forEach(function(j, i){
+            var p = j && j.pairs && j.pairs[0];
+            var px = p ? Number(p.priceUsd) : 0;
+            if (px > 0) d[rest[i][0]] = px;
+          });
+          if (Object.keys(d).length){
+            d.source = hop.source;
+            apply(d);
+          }
+        });
+      }).catch(function(){});
+    }
+    fetch("/api/hop").then(function(r){ return r.ok ? r.json() : Promise.reject(); }).then(function(d){ apply(d); fillRwaFromDexscreener(); }).catch(function(){
       Promise.all([
         fetch("https://api.dexpaprika.com/networks/sui/pools/0xdcd762ad374686fa890fc4f3b9bbfe2a244e713d7bffbfbd1b9221cb290da2ed").then(function(r){ return r.json(); }),
         fetch("https://api.dexpaprika.com/networks/sui/pools/0x4d3cc875e334440ad3485d4455d7ee072ea01b18c526ad64f9ebe2aa0a4f01b9").then(function(r){ return r.json(); }),
@@ -15769,7 +15829,8 @@ async function doBridgeDeposit(){
           suiPerVicefun: vicefunPair.priceNative,
           source: "DexPaprika SUI/USDC · Dexscreener VICEFUN/SUI"
         });
-      }).catch(function(){});
+        fillRwaFromDexscreener();
+      }).catch(function(){ fillRwaFromDexscreener(); });
     });
   }
   loadHop();
