@@ -3136,6 +3136,45 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     var json = (node.asMoveObject && node.asMoveObject.contents && node.asMoveObject.contents.json) || {};
     return { id: node.address, name: json.name || "", symbol: json.symbol || "", decimals: json.decimals != null ? json.decimals : 9, type: t, description: json.description || "", icon: metaIcon(json) };
   }
+  // ── coin_registry::Currency<Q> quotes (Arena v24) ──────────────────────
+  // Some quote coins were minted only through Sui's coin registry and have a
+  // shared `0x2::coin_registry::Currency<Q>` but NO `coin::CoinMetadata<Q>`
+  // (ZUK). Every v23 `launch_*` takes `&CoinMetadata<Q>`, so these need the
+  // v24 `*_buy_currency_entry` launch functions (contracts/PUBLISHED.md).
+  //
+  // ONLY WORKS AFTER v24 IS PUBLISHED. Leave ARENA_CURRENCY_LAUNCH_READY false
+  // until the UpgradeCap upgrade lands AND ARENA_CALL_PACKAGE points at the v24
+  // published-at; calling a `_currency` target on v23 fails the whole PTB.
+  window.ARENA_CURRENCY_LAUNCH_READY = window.ARENA_CURRENCY_LAUNCH_READY || false;
+  var CURRENCY_QUOTE_OBJECTS = {
+    // ZUK: shared coin_registry::Currency<ZUK> (confirmed via Sui GraphQL).
+    "0x42ba9220e980b4819e4df208dd50013d0bbbfde142996e8db1319ac61f879205::zuk::ZUK":
+      "0x14d7f357781986860920fe328456c6a21b7c1e1a428b2694aac5d57890ad045d"
+  };
+  function currencyQuoteId(coinType){
+    var t = normType(coinType);
+    var keys = Object.keys(CURRENCY_QUOTE_OBJECTS);
+    for (var i = 0; i < keys.length; i++){
+      if (normType(keys[i]) === t) return CURRENCY_QUOTE_OBJECTS[keys[i]];
+    }
+    return "";
+  }
+  // Quote-side metadata for the launch PTB. Returns the usual metadataFor()
+  // shape plus `currency: true` when the id is a Currency<Q> (use the
+  // `_currency` launch targets). Legacy CoinMetadata quotes are unchanged.
+  async function launchQuoteMeta(coinType){
+    var curId = currencyQuoteId(coinType);
+    if (curId && window.ARENA_CURRENCY_LAUNCH_READY){
+      var curObj = await moveObject(curId);
+      var ty = String(curObj.type || "");
+      if (ty.indexOf("::coin_registry::Currency<") < 0 || normType(innerType(ty)) !== normType(coinType)){
+        throw new Error("Currency object " + curId + " is not coin_registry::Currency<" + coinType + ">");
+      }
+      var j = curObj.json || {};
+      return { id: curId, currency: true, name: j.name || "", symbol: j.symbol || "", decimals: j.decimals != null ? Number(j.decimals) : 9, type: normType(coinType), icon: j.icon_url || "" };
+    }
+    return metadataFor(coinType);
+  }
   function metaIcon(json){
     var u = json && json.icon_url;
     if (!u) return "";
@@ -6816,11 +6855,14 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   }
   // Appends the one launch moveCall. Returns { route, target } so callers
   // (and the sim harness) can check which entry was used.
-  function appendLaunchCall(tx, CALL, Ttype, Qtype, launchQuote, baseArgs, splitArgs, buyArgs, rewardsBps, basketOn){
+  // quoteCurrency: baseArgs[5] is a coin_registry::Currency<Q> (not CoinMetadata<Q>),
+  // so every target switches to its v24 `*_buy_currency_entry` twin (same args).
+  function appendLaunchCall(tx, CALL, Ttype, Qtype, launchQuote, baseArgs, splitArgs, buyArgs, rewardsBps, basketOn, quoteCurrency){
     var route = launchRoute(launchQuote, rewardsBps, basketOn);
     var target;
+    var sfx = quoteCurrency ? "_buy_currency_entry" : "_buy_entry";
     if (route === "holder"){
-      target = CALL + "::launch::launch_instant_holder_yield_v2_buy_entry";
+      target = CALL + "::launch::launch_instant_holder_yield_v2" + sfx;
       tx.moveCall({ target: target, typeArguments: [Ttype, Qtype], arguments: baseArgs.concat(splitArgs).concat(buyArgs) });
       return { route: route, target: target };
     }
@@ -6833,16 +6875,16 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       weightArgs.push(txPure(tx, "u8", 0));
       var typeArgs = [Ttype, Qtype].concat(legs.map(function(leg){ return padType(leg.type); }));
       target =
-        legs.length === 1 ? (CALL + "::launch::launch_instant_basket_yield_v2_buy_entry") :
-        legs.length === 2 ? (CALL + "::launch::launch_instant_basket_yield_v2_2_buy_entry") :
-        (CALL + "::launch::launch_instant_basket_yield_v2_3_buy_entry");
+        legs.length === 1 ? (CALL + "::launch::launch_instant_basket_yield_v2" + sfx) :
+        legs.length === 2 ? (CALL + "::launch::launch_instant_basket_yield_v2_2" + sfx) :
+        (CALL + "::launch::launch_instant_basket_yield_v2_3" + sfx);
       tx.moveCall({ target: target, typeArguments: typeArgs, arguments: baseArgs.concat(weightArgs).concat(splitArgs).concat(buyArgs) });
       return { route: route, target: target, legs: legs.map(function(l){ return l.label + ":" + l.bps; }) };
     }
     // Plain Instant routes the Holders slice to the sunset pit, so it is only
     // allowed when Holders is 0%.
     if (Number(rewardsBps) > 0) throw new Error("Holders share must go to holder yield or basket yield, not the pit");
-    target = CALL + "::launch::launch_instant_v2_buy_entry";
+    target = CALL + "::launch::launch_instant_v2" + sfx;
     tx.moveCall({ target: target, typeArguments: [Ttype, Qtype], arguments: baseArgs.concat(splitArgs).concat(buyArgs) });
     return { route: route, target: target };
   }
@@ -13270,7 +13312,7 @@ async function doBridgeDeposit(){
       if (normType(tokenInner) !== normType(Ttype)) throw new Error("Token coin type does not match TreasuryCap");
       var Qtype = padType(quoteRec(launchQuote).type);
       var metaT = await metadataFor(Ttype);
-      var metaQ = await metadataFor(Qtype);
+      var metaQ = await launchQuoteMeta(Qtype);
       if (metaT.name) { state.lName = metaT.name; var nEl = $("#l-name"); if (nEl) nEl.value = metaT.name; }
       if (metaT.symbol) { state.lTick = String(metaT.symbol).toUpperCase(); var tEl = $("#l-tick"); if (tEl) tEl.value = state.lTick; }
       var tokenWhole = coinValueBig(tokenObj.json);
@@ -13344,7 +13386,7 @@ async function doBridgeDeposit(){
         var buyArgs = [buyArg, minOutArg];
         // Basket on → basket_yield (RWAs to holders). Basket off → holder yield
         // in the pair coin. Holders 0% → plain Instant.
-        appendLaunchCall(tx, CALL, Ttype, Qtype, launchQuote, baseArgs, splitArgs, buyArgs, launchSplit().rewards, state.lBasket !== false);
+        appendLaunchCall(tx, CALL, Ttype, Qtype, launchQuote, baseArgs, splitArgs, buyArgs, launchSplit().rewards, state.lBasket !== false, !!metaQ.currency);
         return tx;
       };
       var tx = await buildLaunchTx();

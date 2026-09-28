@@ -72,6 +72,40 @@ Published from `0x92a32ac7fd525f8bd37ed359423b8d7d858cad26224854dfbff1914b75ee65
 
 Call new functions on the latest published-at (`0x1c80…`). Object types stay `0x5cfd…::pool::Pool` etc. `BluefinLockEvent` and `BluefinPositionLock` originated in v2 (`0x8e28…`). `InstadexLaunchEvent` and `InstadexMintLock` originated in v4 (`0xcf78…`). `CollectLpFeesEvent` originated in v5 (`0x68e1…`). `InstadexBurnEvent` originated in v6 (`0x47ea…`). `launch_instant` / `launch_instant_entry` originated in v7 (`0x5175…`). `take_pit_pot_for_burn` / `burn_pit_buy` / `InstadexPitSettleEvent` originated in v8 (`0xd853…`). `set_beneficiary` / `admin_set_beneficiary` / `BeneficiarySetEvent` originated in v9 (`0x488e…`). `register_pit` / `ring_pit` / `OfficialPitKey` enforcement on curve+Instadex sinks / retired `pit::ring`+`pit::create_pit` originated in v10 (`0xcc4c…`); `OfficialPitKey` type origin remains v7 (`0x5175…`) where the DF was first written. `holder_yield` / `launch_instant_holder_yield` / `collect_instadex_fees_holder_yield` / `HolderYieldVault` / `HolderYieldKey` / `HolderYieldLaunchEvent` / `HolderYieldFundedEvent` / `HolderYieldClaimEvent` originated in v11 (`0xe2de…`). `basket_yield` / `launch_instant_basket_yield` / `collect_instadex_fees_basket_yield` / `BasketYieldVault` / `BasketYieldKey` / `BasketYieldLaunchEvent` / `BasketYieldFundedEvent` / `BasketYieldConvertedEvent` / `BasketYieldClaimEvent` / `BasketYieldRotateEvent` originated in v12 (`0x1710…`). `migrate_instant_to_holder_yield` / `migrate_instant_to_basket_yield` (+ entry variants) originated in v13 (`0x4b69…`) and are retired (`errors::retired()`, 29) as of v15. `set_instant_lp_split` / `InstantLpSplit` / `take_buyback` / `ViceBuybackAccruedEvent` originated in v14 (`0xde8b…`). `migrate_instant_to_holder_yield_v2` / `migrate_instant_to_basket_yield_v2` (+ `_v2_entry` / `_v2_2_entry` / `_v2_3_entry`) / `lock::admin_detach_yield` originated in v15 (`0x3c97…`). `LockLpSplit` / `LockLpSplitKey` / `init_lock_lp_split` / `launch_instant_v2` / `launch_instant_holder_yield_v2` / `launch_instant_basket_yield_v2` (+ `_v2_entry` / `_v2_2_entry` / `_v2_3_entry`) / `LockLpSplitSetEvent` originated in v16 (`0xe5e5…`). `config::set_quote_params` / `QuoteParams` / `QuoteParamsKey` originated in v23 (`0x1c80…`).
 
+## Planned v24 — `coin_registry::Currency<Q>` quotes (NOT PUBLISHED)
+
+Status: source only (PR `feat/launch-currency-metadata`). Nothing below exists on-chain until the UpgradeCap holder publishes it. `ARENA_CALL_PACKAGE` stays on v23 (`0x1c80…`) until then.
+
+Why: quote coins minted only through Sui's coin registry have a shared `0x2::coin_registry::Currency<Q>` and **no** `coin::CoinMetadata<Q>`. Every v23 `launch_*` takes `&CoinMetadata<Q>`, so TOKEN/ZUK Create cannot be built. `meta_q` is only used for the Bluefin pool name + coin-B symbol / decimals / icon URL, and `Currency` exposes all three (`symbol()`, `decimals()`, `icon_url()`, framework `sui::coin_registry`, same `framework/mainnet` rev this package already builds against).
+
+Upgrade policy: **Compatible**. No existing public / entry signature or struct changes; v23 CoinMetadata launches (SUI, XAUM, XAGM, USDY, VICEFUN, LOFI, WAL, DEEP, …) are unchanged. Internals were refactored so both sources feed byte-identical Bluefin `create_pool` args (`lock::quote_fields_from_metadata` / `lock::quote_fields_from_currency`; covered by `tests/currency_quote_tests.move`).
+
+New functions (args identical to the v23 twin, except `meta_q: &CoinMetadata<Q>` → `cur_q: &Currency<Q>`; `meta_t` stays `CoinMetadata<T>`):
+
+| v24 `_currency` function | v23 twin |
+| --- | --- |
+| `launch::launch_instant_v2_buy_currency` / `_entry` | `launch_instant_v2_buy` / `launch_instant_v2_buy_entry` |
+| `launch::launch_instant_holder_yield_v2_buy_currency` / `_entry` | `launch_instant_holder_yield_v2_buy` / `_buy_entry` |
+| `launch::launch_instant_basket_yield_v2_buy_currency` | `launch_instant_basket_yield_v2_buy` |
+| `launch::launch_instant_basket_yield_v2_buy_currency_entry<T,Q,A0>` | `launch_instant_basket_yield_v2_buy_entry` |
+| `launch::launch_instant_basket_yield_v2_2_buy_currency_entry<T,Q,A0,A1>` | `launch_instant_basket_yield_v2_2_buy_entry` |
+| `launch::launch_instant_basket_yield_v2_3_buy_currency_entry<T,Q,A0,A1,A2>` | `launch_instant_basket_yield_v2_3_buy_entry` |
+| `launch::launch_instadex_currency` / `launch_instadex_currency_entry` | `launch_instadex` / `launch_instadex_entry` |
+
+Package-internal (`public(package)`) additions: `lock::seed_and_lock_internal_q`, `seed_and_lock_instant_q`, `seed_and_lock_instant_holder_yield_q`, `seed_and_lock_instant_basket_yield_q`, `quote_fields_from_metadata`, `quote_fields_from_currency`.
+
+Publish + switch-over (UpgradeCap holder):
+1. `cd contracts && sui move build` then `sui client upgrade --upgrade-capability 0x8db3965ac77247107c811cb79bccd9bf1daf5647136a0b2f8891351a56d73608` (Compatible). Record tx + new published-at here as v24, and update `published-at` in `Move.toml` / `Published.toml`.
+2. Before the first ZUK launch, AdminCap `config::set_instant_virtual_quote<ZUK>(v)`. Without it `instant_virtual_quote<ZUK>` falls back to the XAUM default `10_000_000` base units, which is only **10 ZUK** at 6 decimals, so the start FDV would be tiny. (Optional: `set_quote_params<ZUK>` only matters for the curve path.)
+3. Point `ARENA_CALL_PACKAGE` at the v24 published-at and set `window.ARENA_CURRENCY_LAUNCH_READY = true` in `index.html`. The pad then passes the Currency object instead of CoinMetadata for ZUK and calls the `*_buy_currency_entry` target.
+
+Calling with the ZUK Currency (PTB, v24 call package):
+- `Q` = `0x42ba9220e980b4819e4df208dd50013d0bbbfde142996e8db1319ac61f879205::zuk::ZUK`
+- `cur_q` = shared `0x2::coin_registry::Currency<ZUK>` at `0x14d7f357781986860920fe328456c6a21b7c1e1a428b2694aac5d57890ad045d` (immutable ref; confirmed via Sui GraphQL: symbol `ZUK`, decimals 6, fixed supply, metadata cap deleted)
+- e.g. `<v24>::launch::launch_instant_holder_yield_v2_buy_currency_entry<T, ZUK>(Config 0xcd52…5d2c, Clock 0x6, Bluefin GlobalConfig 0x03db…c352, TreasuryCap<T>, CoinMetadata<T>, 0x14d7…045d, Coin<T>, fee Coin<SUI>, creation Coin<SUI>, creator_bps, platform_bps, pit_bps, buyback_bps, first_buy Coin<ZUK>, min_out)`
+
+Still `CoinMetadata`-only after v24 (not needed for ZUK Instant): curve `launch` / `launch_entry` (token side, `pool::new`), graduation `lock::seed_and_lock_bluefin` / `seed_and_lock_bluefin_with_fee`, the legacy non-`_buy` Instant entries (`launch_instant`, `launch_instant_v2`, `launch_instant_holder_yield{,_v2}`, `launch_instant_basket_yield{,_v2}` and their `_entry` wrappers), and the token side (`meta_t`) of every launch.
+
 ## Bluefin Spot (graduation seed)
 
 - Bluefin original package / named address: `0x3492c874c1e3b3e2984e8c41b589e642d4d0a5d6459e5a9cfc2d52fd7c89c267`
