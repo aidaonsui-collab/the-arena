@@ -308,13 +308,14 @@ async function resolveYieldVault(
   lockId: string,
   fromEvents: Map<string, YieldVault>,
 ): Promise<YieldVault | null> {
-  const hit = fromEvents.get(lockId);
-  if (hit) return hit;
-  // Migrated locks must flip without a manual allowlist — DF is source of truth
-  // if GraphQL event index has not caught up yet.
+  // The lock DF is the live vault. Launch events keep the original id, which is
+  // wrong after admin_rebind_yield_basket.
   const fromDf = await yieldFromLockDf(lockId);
-  if (fromDf) fromEvents.set(lockId, fromDf);
-  return fromDf;
+  if (fromDf) {
+    fromEvents.set(lockId, fromDf);
+    return fromDf;
+  }
+  return fromEvents.get(lockId) ?? null;
 }
 
 export async function runCollectInstadex() {
