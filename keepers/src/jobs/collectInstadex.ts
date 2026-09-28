@@ -134,7 +134,13 @@ async function listMintLocks(): Promise<Map<string, string>> {
 
 async function mintLockFromTx(digest: string, token: string): Promise<string | null> {
   const c = client();
-  const tx = await c.getTransactionBlock({ digest, options: { showObjectChanges: true } });
+  let tx;
+  try {
+    tx = await c.getTransactionBlock({ digest, options: { showObjectChanges: true } });
+  } catch (e) {
+    console.error("mintLockFromTx", digest, e instanceof Error ? e.message : e);
+    return null;
+  }
   const needle = `::launch::InstadexMintLock<${token}>`;
   const needleAlt = `::launch::InstadexMintLock<${token.replace(/^0x0+/, "0x")}>`;
   for (const ch of tx.objectChanges ?? []) {
