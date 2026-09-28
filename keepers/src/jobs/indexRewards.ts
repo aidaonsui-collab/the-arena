@@ -14,7 +14,12 @@ const EVENT_PKGS = [
   "0x1c808e5fe7f14703a72cae3cd71ebba98b3a9a97dc530feed6222595bfb4a853",
   "0x3ccc57531949d6f24178bd57fe20496ee4ff515e26c280f1b80f658bc020bcbe",
 ];
-const VICEFUN_REWARDS_VAULT = "0x3b8a61405825146ee68f351363f29a3e4206683fced840ea10cdfba50fe075e7";
+// v25 rebound VICEFUN's lock from the old BasketYieldVault to a YieldBasketVault.
+// Pushes from both count; the old id keeps its history.
+const VICEFUN_REWARDS_VAULTS = new Set([
+  "0x3b8a61405825146ee68f351363f29a3e4206683fced840ea10cdfba50fe075e7",
+  "0x7f0fb227fa62c98b67e789bf4c233e46d34cfdfdedeb58afd4e8cd66286d4d7e",
+]);
 const MAX_MS = 45_000;
 const LOCAL = join(dirname(fileURLToPath(import.meta.url)), "../../data/rewards-index.json");
 
@@ -117,7 +122,7 @@ export async function runIndexRewards() {
       pagesDone++;
       for (const n of page.nodes || []) {
         const j = (n.contents && n.contents.json) || {};
-        if (normAddr(j.basket_id) !== VICEFUN_REWARDS_VAULT) continue;
+        if (!VICEFUN_REWARDS_VAULTS.has(normAddr(j.basket_id))) continue;
         const addr = normAddr(j.recipient);
         const asset = typeof j.asset === "string" ? j.asset : "";
         if (!addr || !asset) continue;
