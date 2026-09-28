@@ -1141,7 +1141,7 @@ html[data-route="explore"] main{padding-top:10px;padding-bottom:24px}
 <script>
 window.ARENA_PACKAGE_ID = "0x5cfddf8ba23be6835644a8ea22482ff6ebb0081e42cc1bc052b5f770ca8bbdea";
 window.ARENA_INSTADEX_PACKAGE = "0xcf7835ae4e3f8a3d4eb4bd9d14cb4a3dbdd80e70908feb6c433688a31e119de3";
-window.ARENA_COLLECT_PACKAGE = "0x1c808e5fe7f14703a72cae3cd71ebba98b3a9a97dc530feed6222595bfb4a853";
+window.ARENA_COLLECT_PACKAGE = "0x573f2eeafb51859da4e11dc1ba642b4beca71d25c7da0e4128fe8111b3fa6089";
 window.ARENA_CALL_PACKAGE = window.ARENA_COLLECT_PACKAGE;
 // arena::basket is in this repo and not on mainnet until the next Arena upgrade.
 window.ARENA_BASKET_PACKAGE = window.ARENA_BASKET_PACKAGE || "";
@@ -1201,7 +1201,7 @@ window.ARENA_BLUE_TYPE = "0xe1b45a0e641b9955a20aa0ad1c1f4ad86aad8afb07296d4085e3
 window.ARENA_BLUE_METADATA = "0xf6d6cc0f3f0e6e838340c263d1cebb0529c4371913dc5139c1897388cc86977f";
 window.ARENA_BLUE_SUI_POOL = "0xde705d4f3ded922b729d9b923be08e1391dd4caeff8496326123934d0fb1c312";
 window.ARENA_ZUK_TYPE = "0x42ba9220e980b4819e4df208dd50013d0bbbfde142996e8db1319ac61f879205::zuk::ZUK";
-window.ARENA_ZUK_METADATA = "0x14d7f357781986860920fe328456c6a21b7c1e1a428b2694aac5d57890ad045d"; // coin_registry::Currency only — no coin::CoinMetadata on-chain (new-currency registry). launch_* still needs CoinMetadata; Create will fail until that exists or contracts accept Currency.
+window.ARENA_ZUK_METADATA = "0x14d7f357781986860920fe328456c6a21b7c1e1a428b2694aac5d57890ad045d"; // coin_registry::Currency<ZUK> (no coin::CoinMetadata). Create uses Arena v24 *_buy_currency_entry via launchQuoteMeta (ARENA_CURRENCY_LAUNCH_READY).
 window.ARENA_ZUK_SUI_POOL = "0x43067514317fe6cffb22419a0935aae6aa6e5e5bce31e32fcfb34bd80113d2ad";
 window.ARENA_USDC_SUI_POOL = "0x51e883ba7c0b566a26cbc8a94cd33eb0abd418a77cc1e60ad22fd9b1f29cd2ab";
 window.ARENA_CETUS_CLMM = "0x25ebb9a7c50eb17b3fa9c5a30fb8b5ad8f97caaf4928943acbcff7153dfee5e3";
@@ -3143,7 +3143,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       // so these can't be launch quotes until the Arena package accepts Currency.
       var qRec = null;
       Object.keys(QUOTES).forEach(function(k){ if (QUOTES[k] && normType(QUOTES[k].type) === t) qRec = QUOTES[k]; });
-      if (qRec) throw new Error(qRec.label + " has no CoinMetadata on-chain (Sui coin registry only). TOKEN/" + qRec.label + " launches need an Arena contract upgrade first.");
+      if (qRec) throw new Error(qRec.label + " has no CoinMetadata on-chain (Sui coin registry only). TOKEN/" + qRec.label + " uses coin_registry::Currency; only Create (Arena v24 currency launch) supports it.");
       throw new Error("CoinMetadata not found for " + t);
     }
     var json = (node.asMoveObject && node.asMoveObject.contents && node.asMoveObject.contents.json) || {};
@@ -3155,10 +3155,10 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   // (ZUK). Every v23 `launch_*` takes `&CoinMetadata<Q>`, so these need the
   // v24 `*_buy_currency_entry` launch functions (contracts/PUBLISHED.md).
   //
-  // ONLY WORKS AFTER v24 IS PUBLISHED. Leave ARENA_CURRENCY_LAUNCH_READY false
-  // until the UpgradeCap upgrade lands AND ARENA_CALL_PACKAGE points at the v24
-  // published-at; calling a `_currency` target on v23 fails the whole PTB.
-  window.ARENA_CURRENCY_LAUNCH_READY = window.ARENA_CURRENCY_LAUNCH_READY || false;
+  // v24 is published (0x573f…6089, 2026-09-28) and ARENA_CALL_PACKAGE points at
+  // it, so Currency<Q> quotes use the `*_buy_currency_entry` targets. Calling a
+  // `_currency` target on v23 fails the whole PTB — keep these two in lockstep.
+  window.ARENA_CURRENCY_LAUNCH_READY = true;
   var CURRENCY_QUOTE_OBJECTS = {
     // ZUK: shared coin_registry::Currency<ZUK> (confirmed via Sui GraphQL).
     "0x42ba9220e980b4819e4df208dd50013d0bbbfde142996e8db1319ac61f879205::zuk::ZUK":
