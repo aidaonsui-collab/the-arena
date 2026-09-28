@@ -6,7 +6,7 @@ Fair launches on Sui. **Instadex Instant** seeds Bluefin in block one on SUI, US
 
 **Rewards.** The old Pit nav is now **Rewards** (`#/pit`): gold / silver / T-bills (XAUM / XAGM / USDY) distributions from holder-yield launches. Multi-RWA baskets (pair one quote, pay several RWAs) are the next scaffold after v1 single-quote yield.
 
-Curve launches and Fight Night still exist on-chain. Graduation at 2,000 SUI (or 1 XAUM for leftover gold). Stock wraps (NVDA/AMC/…) still exist on-chain under [`contracts-stocks/`](contracts-stocks/); the Bridge tab and RH watch/redeem keepers are **sunset** (Instant Create quotes remain).
+Curve launches and Fight Night still exist on-chain. Graduation at 2,000 SUI (or 1 XAUM for leftover gold). Stock wrap Move types (NVDA/AMC/GME/TSLA) still exist on-chain under [`contracts-stocks/`](contracts-stocks/); the Bridge tab, RH keepers, and Instant Create quotes for those wraps are **sunset** / removed from the pad.
 
 Vanilla HTML/CSS/JS SPA (`index.html`). Hash routes: `#/` Explore, `#/pit` Rewards, `#/metrics` Books, `#/launch` Create, `#/token/TICKER` (`#/bridge` redirects home — Bridge sunset). Token page embeds Dexscreener for Bluefin pools.
 

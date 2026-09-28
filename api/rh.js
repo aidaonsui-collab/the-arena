@@ -6,7 +6,7 @@ export async function POST() {
   return Response.json(
     {
       error: "bridge_sunset",
-      message: "The RH↔Sui stock Bridge is sunset. Instant Create on NVDA/AMC wraps remains.",
+      message: "The RH↔Sui stock Bridge is sunset. Stock wrap Instant Create quotes (NVDA/AMC) are also removed from the pad.",
     },
     { status: 410 },
   );

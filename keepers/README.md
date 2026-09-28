@@ -159,7 +159,7 @@ $VICEFUN burn. **One PTB per quote coin**, so no VICEFUN ever sits in a wallet:
    permissionless, so this is a real `coin::burn` (total supply drops, `InstadexBurnEvent`
    emitted). No 0x0 transfer.
 
-Quotes with no 7k route (e.g. NVDA today) are **skipped and stay in the bag** (never sent
+Quotes with no 7k route are **skipped and stay in the bag** (never sent
 to the keeper wallet). Quotes worth less than `ARENA_VICE_BURN_MIN_SUI` are skipped as dust.
 Every run simulates each PTB twice against mainnet (GraphQL `simulateTransaction`) — once
 to measure real VICEFUN out, once with the min-out floor — and refuses to execute if the
