@@ -10,6 +10,16 @@ const USDY_USDC = "https://api.dexpaprika.com/networks/sui/pools/0xdcd762ad37468
 const XAGM_USDC = "https://api.dexpaprika.com/networks/sui/pools/0x4d3cc875e334440ad3485d4455d7ee072ea01b18c526ad64f9ebe2aa0a4f01b9";
 const XAUM_USDC = "https://api.dexpaprika.com/networks/sui/pools/0x458fc3722cc88babd7cbe78273aa5e4ecbdff75c76a2ad14cd1f75418b569649";
 
+// DexPaprika's keyless quota runs out (HTTP 402) and then every RWA price is 0.
+// Dexscreener indexes the same pools, so use it as the fallback for each leg.
+const DS = (id: string) => "https://api.dexscreener.com/latest/dex/pairs/sui/" + id;
+const RWA_POOLS = {
+  sui: "0x51e883ba7c0b566a26cbc8a94cd33eb0abd418a77cc1e60ad22fd9b1f29cd2ab",
+  usdy: "0xdcd762ad374686fa890fc4f3b9bbfe2a244e713d7bffbfbd1b9221cb290da2ed",
+  xagm: "0x4d3cc875e334440ad3485d4455d7ee072ea01b18c526ad64f9ebe2aa0a4f01b9",
+  xaum: "0x458fc3722cc88babd7cbe78273aa5e4ecbdff75c76a2ad14cd1f75418b569649",
+};
+
 const PAIRS: Record<string, string> = {
   vicefun: "0xcae6fe00841fbccb44fbe8128a7c4b2e8800e87c7952af8444d24d0e76eb31c5",
   axol: "0xde265ef8645c680c71b33805de77ce5261a20c58397d83b3915bdbb3a7209d7e",
@@ -56,19 +66,23 @@ export async function runPublishHop() {
   const secret = process.env.ARENA_SETTLE_SECRET || process.env.CRON_SECRET || "";
   if (!secret) return { skipped: "no CRON_SECRET" };
   const dexUrls = Object.values(PAIRS).map((id) => "https://api.dexscreener.com/latest/dex/pairs/sui/" + id);
-  const [usdy, xagm, xaum, suiUsdc, suiG, ...dex] = await Promise.all([
+  const [usdy, xagm, xaum, suiUsdc, suiG, usdyDs, xagmDs, xaumDs, suiDs, ...dex] = await Promise.all([
     getJson(USDY_USDC),
     getJson(XAGM_USDC),
     getJson(XAUM_USDC),
     getJson(SUI_USDC),
     getJson(SUI_USD),
+    getJson(DS(RWA_POOLS.usdy)),
+    getJson(DS(RWA_POOLS.xagm)),
+    getJson(DS(RWA_POOLS.xaum)),
+    getJson(DS(RWA_POOLS.sui)),
     ...dexUrls.map(getJson),
   ]);
-  let suiUsd = pxOf(suiUsdc);
+  let suiUsd = pxOf(suiUsdc) || ds(suiDs).usd;
   if (!(suiUsd > 0) && suiG) suiUsd = num((suiG.sui as { usd?: number } | undefined)?.usd);
-  const usdyUsd = pxOf(usdy);
-  const xagmUsd = pxOf(xagm);
-  const xaumUsd = pxOf(xaum);
+  const usdyUsd = pxOf(usdy) || ds(usdyDs).usd;
+  const xagmUsd = pxOf(xagm) || ds(xagmDs).usd;
+  const xaumUsd = pxOf(xaum) || ds(xaumDs).usd;
   const names = Object.keys(PAIRS);
   const spot: Record<string, { usd: number; native: number }> = {};
   names.forEach((name, i) => {

@@ -403,16 +403,18 @@
 
   var DEFAULT_GQL = "https://graphql.mainnet.sui.io/graphql";
 
+  // Newest-first via last/before. (first/after is oldest-first and hits a
+  // ~20k-event GraphQL ceiling that never reaches recent BasketYieldPushEvents.)
   function queryEventsGql(gql, type, cursor, limit) {
-    var q = "query($t:String!,$first:Int!,$after:String){ events(first:$first, after:$after, filter:{ type:$t }){ pageInfo { hasNextPage endCursor } nodes { timestamp sender { address } contents { json } transaction { digest } } } }";
+    var q = "query($t:String!,$last:Int!,$before:String){ events(last:$last, before:$before, filter:{ type:$t }){ pageInfo { hasPreviousPage startCursor } nodes { timestamp sender { address } contents { json } transaction { digest } } } }";
     return fetch(gql || DEFAULT_GQL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ query: q, variables: { t: type, first: limit || 50, after: cursor || null } })
+      body: JSON.stringify({ query: q, variables: { t: type, last: limit || 50, before: cursor || null } })
     }).then(function (r) { return r.json(); }).then(function (j) {
       if (j.errors && j.errors.length) throw new Error(j.errors[0].message || "graphql");
       var conn = (j.data && j.data.events) || {};
-      var nodes = conn.nodes || [];
+      var nodes = (conn.nodes || []).slice().reverse(); // last: returns oldest→newest inside the page
       var info = conn.pageInfo || {};
       return {
         data: nodes.map(function (n) {
@@ -423,8 +425,8 @@
             id: { txDigest: n.transaction && n.transaction.digest }
           };
         }),
-        hasNextPage: !!info.hasNextPage,
-        nextCursor: info.endCursor || null
+        hasNextPage: !!info.hasPreviousPage,
+        nextCursor: info.startCursor || null
       };
     });
   }
@@ -932,27 +934,45 @@
     };
   }
 
+  // Per event type walk state. JSON-RPC pages newest-first, so once one walk has
+  // reached the oldest event a later poll can stop at the first page it has
+  // already seen. GraphQL pages oldest-first, so a later poll resumes from the
+  // last endCursor instead of re-reading (and capping at) the oldest pages.
+  var collectState = {};
+  function eventKey(ev, j) {
+    var id = (ev && ev.id) || {};
+    var d = id.txDigest || id.tx_digest || (ev && ev.digest) || "";
+    var seq = id.eventSeq != null ? id.eventSeq : ("j" + j + ":" + JSON.stringify((ev && ev.parsedJson) || {}));
+    return d + ":" + seq;
+  }
+
   async function collect(rpc, type, parse, pages, limit, onRow) {
     var out = [];
-    var cursor = null;
+    var st = collectState[type] || (collectState[type] = { seen: {}, complete: false, before: null });
+    var cursor = st.complete ? null : null; // always start newest-first; stop early via seen
     var gql = (typeof window !== "undefined" && window.SUI_GRAPHQL) || DEFAULT_GQL;
-    var mode = "rpc";
+    var mode = "gql";
     for (var i = 0; i < (pages || 8); i++) {
       var page;
       try {
-        if (mode === "rpc") page = await queryEventsRpc(rpc, type, cursor, limit || 50);
-        else page = await queryEventsGql(gql, type, cursor, limit || 50);
+        if (mode === "gql") page = await queryEventsGql(gql, type, cursor, limit || 50);
+        else page = await queryEventsRpc(rpc, type, cursor, limit || 50);
       } catch (e) {
-        if (i === 0 && mode === "rpc") {
-          mode = "gql";
+        if (i === 0 && mode === "gql") {
+          mode = "rpc";
           cursor = null;
-          try { page = await queryEventsGql(gql, type, null, limit || 50); }
+          try { page = await queryEventsRpc(rpc, type, null, limit || 50); }
           catch (e2) { break; }
         } else break;
       }
       var data = (page && page.data) || [];
       if (!data.length) break;
+      var fresh = 0;
       for (var j = 0; j < data.length; j++) {
+        var k = eventKey(data[j], j);
+        if (st.seen[k]) continue;
+        st.seen[k] = 1;
+        fresh++;
         var row = parse(data[j]);
         if (!row) continue;
         out.push(row);
@@ -960,7 +980,12 @@
           try { onRow(row); } catch (err) {}
         }
       }
-      if (!page.hasNextPage || !page.nextCursor) break;
+      // Newest-first: an all-seen page means we already have everything older.
+      if (fresh === 0) break;
+      if (!page.hasNextPage || !page.nextCursor) {
+        st.complete = true;
+        break;
+      }
       cursor = page.nextCursor;
     }
     return out;
@@ -1244,7 +1269,7 @@
         if (!pkg || pkg === "0x0") return;
         collect(rpc, pkg + "::events::BasketYieldLaunchEvent", parseBasketYieldLaunch, 4, 50, emitByLaunch).catch(function () {});
         collect(rpc, pkg + "::events::BasketYieldFundedEvent", parseBasketYieldFunded, 8, 50, emitByFunded).catch(function () {});
-        collect(rpc, pkg + "::events::BasketYieldConvertedEvent", parseBasketYieldConverted, 8, 50, emitByConverted).catch(function () {});
+        collect(rpc, pkg + "::events::BasketYieldConvertedEvent", parseBasketYieldConverted, 80, 50, emitByConverted).catch(function () {});
         collect(rpc, pkg + "::events::BasketYieldClaimEvent", parseBasketYieldClaim, 8, 50, emitByClaim).catch(function () {});
         collect(rpc, pkg + "::events::BasketYieldPushEvent", parseBasketYieldPush, 40, 50, emitByPush).catch(function () {});
         collect(rpc, pkg + "::events::BasketYieldRotateEvent", parseBasketYieldRotate, 4, 50, emitByRotate).catch(function () {});
