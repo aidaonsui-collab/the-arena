@@ -19,7 +19,7 @@ const BF_CONFIG = "0x03db251ba509a8d5d8777b6338836082335d93eecbdd09a11e190a1cff5
 const CONFIG = "0xcd527cb2389d806e5285ae708ee28df30a841ec5df7508ebfebaa0c9660b5d2c";
 const CALL_PKG =
   process.env.ARENA_CALL_PACKAGE ??
-  "0x573f2eeafb51859da4e11dc1ba642b4beca71d25c7da0e4128fe8111b3fa6089";
+  "0x6c9ae8c688d80bd55e452788443d9fd7e00cf3dde4ad238f7c8b96db8c04da59";
 const EVENT_PKG =
   process.env.ARENA_INSTADEX_PACKAGE ??
   "0xcf7835ae4e3f8a3d4eb4bd9d14cb4a3dbdd80e70908feb6c433688a31e119de3";
