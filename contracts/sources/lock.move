@@ -38,6 +38,7 @@ use sui::balance::Balance;
 use sui::dynamic_field as df;
 use sui::clock::Clock;
 use sui::coin::{Self, Coin, CoinMetadata};
+use sui::coin_registry::Currency;
 use sui::object::{Self, ID, UID};
 use sui::sui::SUI;
 use sui::transfer;
@@ -264,14 +265,38 @@ public(package) fun seed_and_lock_internal<T, Q>(
     sqrt_price: u128,
     ctx: &mut TxContext,
 ): (ID, ID, ID, u64) {
+    let (q_symbol, q_decimals, q_icon) = quote_fields_from_metadata(meta_q);
+    seed_and_lock_internal_q(
+        pool_id, beneficiary, unlock_ms, clock, bf_config, meta_t,
+        q_symbol, q_decimals, q_icon, creation_fee, token, quote, sqrt_price, ctx,
+    )
+}
+
+/// Same as `seed_and_lock_internal`, but the quote coin's Bluefin fields
+/// (symbol / decimals / icon URL) are passed in already read, so the caller
+/// can source them from either `CoinMetadata<Q>` or `coin_registry::Currency<Q>`.
+public(package) fun seed_and_lock_internal_q<T, Q>(
+    pool_id: ID,
+    beneficiary: address,
+    unlock_ms: u64,
+    clock: &Clock,
+    bf_config: &mut GlobalConfig,
+    meta_t: &CoinMetadata<T>,
+    q_symbol: vector<u8>,
+    q_decimals: u8,
+    q_icon: vector<u8>,
+    creation_fee: Balance<SUI>,
+    token: Balance<T>,
+    quote: Balance<Q>,
+    sqrt_price: u128,
+    ctx: &mut TxContext,
+): (ID, ID, ID, u64) {
     let token_amount = token.value();
     let quote_amount = quote.value();
     assert!(token_amount > 0 && quote_amount > 0, errors::insufficient_liquidity());
 
     let (lower_bits, upper_bits) = bluefin::full_range_tick_bits(bf_config);
-    let mut name = *meta_t.get_symbol().as_bytes();
-    name.append(b"-");
-    name.append(*meta_q.get_symbol().as_bytes());
+    let name = pool_name(meta_t, q_symbol);
 
     // Fix quote (Coin B) because curve spot includes virtual_quote, so real
     // quote is the scarce side for a full-range seed at that price.
@@ -284,9 +309,9 @@ public(package) fun seed_and_lock_internal<T, Q>(
             *meta_t.get_symbol().as_bytes(),
             meta_t.get_decimals(),
             metadata_url(meta_t),
-            *meta_q.get_symbol().as_bytes(),
-            meta_q.get_decimals(),
-            metadata_url(meta_q),
+            q_symbol,
+            q_decimals,
+            q_icon,
             sqrt_price,
             creation_fee,
             lower_bits,
@@ -308,12 +333,18 @@ public(package) fun seed_and_lock_internal<T, Q>(
 /// Token is Bluefin coin A so collect still burns A and splits B.
 /// Optional `first_buy` (Coin<Q>) swaps Q→T on the owned pool before share, so
 /// seed + creator buy are one tx. Pass `coin::zero` / `min_out = 0` to skip.
+///
+/// Quote-coin fields are passed pre-read (see `quote_fields_from_metadata` /
+/// `quote_fields_from_currency`) so both metadata sources hit identical
+/// Bluefin `create_pool` args.
 fun seed_instant_pool<T, Q>(
     beneficiary: address,
     clock: &Clock,
     bf_config: &mut GlobalConfig,
     meta_t: &CoinMetadata<T>,
-    meta_q: &CoinMetadata<Q>,
+    q_symbol: vector<u8>,
+    q_decimals: u8,
+    q_icon: vector<u8>,
     creation_fee: Balance<SUI>,
     token: Balance<T>,
     virtual_quote: u64,
@@ -326,9 +357,7 @@ fun seed_instant_pool<T, Q>(
     let ideal_sqrt = math::sqrt_price_x64(token_amount, virtual_quote);
     let (lower_bits, upper_bits, init_sqrt) = bluefin::instant_range(bf_config, ideal_sqrt);
 
-    let mut name = *meta_t.get_symbol().as_bytes();
-    name.append(b"-");
-    name.append(*meta_q.get_symbol().as_bytes());
+    let name = pool_name(meta_t, q_symbol);
 
     let (mut pool, position, _paid_a, paid_b, rem_a, rem_b) =
         bluefin::create_and_seed_owned<T, Q, SUI>(
@@ -339,9 +368,9 @@ fun seed_instant_pool<T, Q>(
             *meta_t.get_symbol().as_bytes(),
             meta_t.get_decimals(),
             metadata_url(meta_t),
-            *meta_q.get_symbol().as_bytes(),
-            meta_q.get_decimals(),
-            metadata_url(meta_q),
+            q_symbol,
+            q_decimals,
+            q_icon,
             init_sqrt,
             creation_fee,
             lower_bits,
@@ -381,9 +410,33 @@ public(package) fun seed_and_lock_instant<T, Q>(
     min_out: u64,
     ctx: &mut TxContext,
 ): (ID, ID, ID, u64) {
+    let (q_symbol, q_decimals, q_icon) = quote_fields_from_metadata(meta_q);
+    seed_and_lock_instant_q(
+        beneficiary, clock, bf_config, meta_t, q_symbol, q_decimals, q_icon, creation_fee, token, virtual_quote, split, first_buy, min_out, ctx,
+    )
+}
+
+/// `seed_and_lock_instant` with pre-read quote fields; lets `launch::*_currency` entries
+/// pass `coin_registry::Currency<Q>` fields through the same seed path.
+public(package) fun seed_and_lock_instant_q<T, Q>(
+    beneficiary: address,
+    clock: &Clock,
+    bf_config: &mut GlobalConfig,
+    meta_t: &CoinMetadata<T>,
+    q_symbol: vector<u8>,
+    q_decimals: u8,
+    q_icon: vector<u8>,
+    creation_fee: Balance<SUI>,
+    token: Balance<T>,
+    virtual_quote: u64,
+    split: Option<LockLpSplit>,
+    first_buy: Coin<Q>,
+    min_out: u64,
+    ctx: &mut TxContext,
+): (ID, ID, ID, u64) {
     let token_amount = token.value();
     let (bf_pool_id, position) = seed_instant_pool(
-        beneficiary, clock, bf_config, meta_t, meta_q, creation_fee, token, virtual_quote,
+        beneficiary, clock, bf_config, meta_t, q_symbol, q_decimals, q_icon, creation_fee, token, virtual_quote,
         first_buy, min_out, ctx,
     );
     vault_position(
@@ -415,8 +468,32 @@ public(package) fun seed_and_lock_instant_holder_yield<T, Q>(
     min_out: u64,
     ctx: &mut TxContext,
 ): (ID, ID, ID, u64, ID) {
+    let (q_symbol, q_decimals, q_icon) = quote_fields_from_metadata(meta_q);
+    seed_and_lock_instant_holder_yield_q(
+        beneficiary, clock, bf_config, meta_t, q_symbol, q_decimals, q_icon, creation_fee, token, virtual_quote, split, first_buy, min_out, ctx,
+    )
+}
+
+/// `seed_and_lock_instant_holder_yield` with pre-read quote fields; lets `launch::*_currency` entries
+/// pass `coin_registry::Currency<Q>` fields through the same seed path.
+public(package) fun seed_and_lock_instant_holder_yield_q<T, Q>(
+    beneficiary: address,
+    clock: &Clock,
+    bf_config: &mut GlobalConfig,
+    meta_t: &CoinMetadata<T>,
+    q_symbol: vector<u8>,
+    q_decimals: u8,
+    q_icon: vector<u8>,
+    creation_fee: Balance<SUI>,
+    token: Balance<T>,
+    virtual_quote: u64,
+    split: Option<LockLpSplit>,
+    first_buy: Coin<Q>,
+    min_out: u64,
+    ctx: &mut TxContext,
+): (ID, ID, ID, u64, ID) {
     let (bf_pool_id, position) = seed_instant_pool(
-        beneficiary, clock, bf_config, meta_t, meta_q, creation_fee, token, virtual_quote,
+        beneficiary, clock, bf_config, meta_t, q_symbol, q_decimals, q_icon, creation_fee, token, virtual_quote,
         first_buy, min_out, ctx,
     );
 
@@ -593,6 +670,28 @@ public fun collect_bluefin_fees<A, B>(
 /// hit abort 23 without constructing Bluefin `GlobalConfig` / `Pool`.
 public(package) fun abort_legacy_collect() {
     abort errors::use_split_collect()
+}
+
+/// Bluefin quote-coin fields (symbol bytes, decimals, icon URL bytes) from a
+/// legacy `coin::CoinMetadata<Q>`. Byte-for-byte what v23 passed to Bluefin.
+public(package) fun quote_fields_from_metadata<Q>(meta: &CoinMetadata<Q>): (vector<u8>, u8, vector<u8>) {
+    (*meta.get_symbol().as_bytes(), meta.get_decimals(), metadata_url(meta))
+}
+
+/// Same fields from Sui's shared `coin_registry::Currency<Q>` (coins minted
+/// through the coin registry only, e.g. ZUK, have no `CoinMetadata<Q>`).
+/// `Currency` stores symbol / icon_url as `std::string::String` (UTF-8);
+/// an empty icon_url maps to `vector[]`, same as a `CoinMetadata` with no icon.
+public(package) fun quote_fields_from_currency<Q>(cur: &Currency<Q>): (vector<u8>, u8, vector<u8>) {
+    (cur.symbol().into_bytes(), cur.decimals(), cur.icon_url().into_bytes())
+}
+
+/// "TSYM-QSYM" Bluefin pool name.
+fun pool_name<T>(meta_t: &CoinMetadata<T>, q_symbol: vector<u8>): vector<u8> {
+    let mut name = *meta_t.get_symbol().as_bytes();
+    name.append(b"-");
+    name.append(q_symbol);
+    name
 }
 
 fun metadata_url<C>(meta: &CoinMetadata<C>): vector<u8> {
@@ -841,8 +940,33 @@ public(package) fun seed_and_lock_instant_basket_yield<T, Q>(
     min_out: u64,
     ctx: &mut TxContext,
 ): (ID, ID, ID, u64, ID) {
+    let (q_symbol, q_decimals, q_icon) = quote_fields_from_metadata(meta_q);
+    seed_and_lock_instant_basket_yield_q(
+        beneficiary, clock, bf_config, meta_t, q_symbol, q_decimals, q_icon, creation_fee, token, virtual_quote, config, split, first_buy, min_out, ctx,
+    )
+}
+
+/// `seed_and_lock_instant_basket_yield` with pre-read quote fields; lets `launch::*_currency` entries
+/// pass `coin_registry::Currency<Q>` fields through the same seed path.
+public(package) fun seed_and_lock_instant_basket_yield_q<T, Q>(
+    beneficiary: address,
+    clock: &Clock,
+    bf_config: &mut GlobalConfig,
+    meta_t: &CoinMetadata<T>,
+    q_symbol: vector<u8>,
+    q_decimals: u8,
+    q_icon: vector<u8>,
+    creation_fee: Balance<SUI>,
+    token: Balance<T>,
+    virtual_quote: u64,
+    config: BasketConfig,
+    split: Option<LockLpSplit>,
+    first_buy: Coin<Q>,
+    min_out: u64,
+    ctx: &mut TxContext,
+): (ID, ID, ID, u64, ID) {
     let (bf_pool_id, position) = seed_instant_pool(
-        beneficiary, clock, bf_config, meta_t, meta_q, creation_fee, token, virtual_quote,
+        beneficiary, clock, bf_config, meta_t, q_symbol, q_decimals, q_icon, creation_fee, token, virtual_quote,
         first_buy, min_out, ctx,
     );
 
