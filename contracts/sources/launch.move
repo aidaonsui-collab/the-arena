@@ -23,6 +23,7 @@ use std::option;
 use std::type_name;
 use sui::clock::Clock;
 use sui::coin::{Self, Coin, CoinMetadata, TreasuryCap};
+use sui::coin_registry::Currency;
 use sui::object::{Self, ID, UID};
 use sui::sui::SUI;
 use sui::transfer;
@@ -111,6 +112,49 @@ public fun launch_instadex<T, Q>(
     creation_fee: Coin<SUI>,
     ctx: &mut TxContext,
 ): ID {
+    let (q_symbol, q_decimals, q_icon) = lock::quote_fields_from_metadata(meta_q);
+    launch_instadex_q(
+        config, clock, bf_config, treasury_cap, meta_t, q_symbol, q_decimals, q_icon, token, quote, fee_sui, creation_fee, ctx,
+    )
+}
+
+/// `launch_instadex` for a quote coin whose metadata is Sui's shared
+/// `coin_registry::Currency<Q>` (no legacy `CoinMetadata<Q>`, e.g. ZUK).
+/// Identical Bluefin seed / lock / events; only the quote metadata source differs.
+public fun launch_instadex_currency<T, Q>(
+    config: &mut Config,
+    clock: &Clock,
+    bf_config: &mut GlobalConfig,
+    treasury_cap: TreasuryCap<T>,
+    meta_t: &CoinMetadata<T>,
+    cur_q: &Currency<Q>,
+    token: Coin<T>,
+    quote: Coin<Q>,
+    fee_sui: Coin<SUI>,
+    creation_fee: Coin<SUI>,
+    ctx: &mut TxContext,
+): ID {
+    let (q_symbol, q_decimals, q_icon) = lock::quote_fields_from_currency(cur_q);
+    launch_instadex_q(
+        config, clock, bf_config, treasury_cap, meta_t, q_symbol, q_decimals, q_icon, token, quote, fee_sui, creation_fee, ctx,
+    )
+}
+
+fun launch_instadex_q<T, Q>(
+    config: &mut Config,
+    clock: &Clock,
+    bf_config: &mut GlobalConfig,
+    treasury_cap: TreasuryCap<T>,
+    meta_t: &CoinMetadata<T>,
+    q_symbol: vector<u8>,
+    q_decimals: u8,
+    q_icon: vector<u8>,
+    token: Coin<T>,
+    quote: Coin<Q>,
+    fee_sui: Coin<SUI>,
+    creation_fee: Coin<SUI>,
+    ctx: &mut TxContext,
+): ID {
     config.take_launch_fee(fee_sui);
     let token_amount = token.value();
     let quote_amount = quote.value();
@@ -118,14 +162,14 @@ public fun launch_instadex<T, Q>(
 
     let fee = lock::take_creation_fee(bf_config, creation_fee, ctx.sender(), ctx);
     let sqrt_p = math::sqrt_price_x64(token_amount, quote_amount);
-    let (lock_id, bf_pool_id, position_id, _) = lock::seed_and_lock_internal(
+    let (lock_id, bf_pool_id, position_id, _) = lock::seed_and_lock_internal_q(
         object::id_from_address(@0x0),
         ctx.sender(),
         0,
         clock,
         bf_config,
         meta_t,
-        meta_q,
+        q_symbol, q_decimals, q_icon,
         fee,
         token.into_balance(),
         quote.into_balance(),
@@ -258,18 +302,71 @@ public fun launch_instant_v2_buy<T, Q>(
     min_out: u64,
     ctx: &mut TxContext,
 ): ID {
+    let (q_symbol, q_decimals, q_icon) = lock::quote_fields_from_metadata(meta_q);
+    launch_instant_v2_buy_q(
+        config, clock, bf_config, treasury_cap, meta_t, q_symbol, q_decimals, q_icon, token, fee_sui, creation_fee, creator_bps, platform_bps, pit_bps, buyback_bps, first_buy, min_out, ctx,
+    )
+}
+
+/// `launch_instant_v2_buy` for a quote coin whose metadata is Sui's shared
+/// `coin_registry::Currency<Q>` (no legacy `CoinMetadata<Q>`, e.g. ZUK).
+/// Identical Bluefin seed / lock / events; only the quote metadata source differs.
+public fun launch_instant_v2_buy_currency<T, Q>(
+    config: &mut Config,
+    clock: &Clock,
+    bf_config: &mut GlobalConfig,
+    treasury_cap: TreasuryCap<T>,
+    meta_t: &CoinMetadata<T>,
+    cur_q: &Currency<Q>,
+    token: Coin<T>,
+    fee_sui: Coin<SUI>,
+    creation_fee: Coin<SUI>,
+    creator_bps: u64,
+    platform_bps: u64,
+    pit_bps: u64,
+    buyback_bps: u64,
+    first_buy: Coin<Q>,
+    min_out: u64,
+    ctx: &mut TxContext,
+): ID {
+    let (q_symbol, q_decimals, q_icon) = lock::quote_fields_from_currency(cur_q);
+    launch_instant_v2_buy_q(
+        config, clock, bf_config, treasury_cap, meta_t, q_symbol, q_decimals, q_icon, token, fee_sui, creation_fee, creator_bps, platform_bps, pit_bps, buyback_bps, first_buy, min_out, ctx,
+    )
+}
+
+fun launch_instant_v2_buy_q<T, Q>(
+    config: &mut Config,
+    clock: &Clock,
+    bf_config: &mut GlobalConfig,
+    treasury_cap: TreasuryCap<T>,
+    meta_t: &CoinMetadata<T>,
+    q_symbol: vector<u8>,
+    q_decimals: u8,
+    q_icon: vector<u8>,
+    token: Coin<T>,
+    fee_sui: Coin<SUI>,
+    creation_fee: Coin<SUI>,
+    creator_bps: u64,
+    platform_bps: u64,
+    pit_bps: u64,
+    buyback_bps: u64,
+    first_buy: Coin<Q>,
+    min_out: u64,
+    ctx: &mut TxContext,
+): ID {
     config.take_launch_fee(fee_sui);
     let token_amount = token.value();
     assert!(token_amount > 0, errors::zero_amount());
     let virtual_quote = config.instant_virtual_quote<Q>();
     let fee = lock::take_creation_fee(bf_config, creation_fee, ctx.sender(), ctx);
     let split = option::some(lock::new_lp_split(creator_bps, platform_bps, pit_bps, buyback_bps));
-    let (lock_id, bf_pool_id, position_id, _) = lock::seed_and_lock_instant(
+    let (lock_id, bf_pool_id, position_id, _) = lock::seed_and_lock_instant_q(
         ctx.sender(),
         clock,
         bf_config,
         meta_t,
-        meta_q,
+        q_symbol, q_decimals, q_icon,
         fee,
         token.into_balance(),
         virtual_quote,
@@ -412,18 +509,71 @@ public fun launch_instant_holder_yield_v2_buy<T, Q>(
     min_out: u64,
     ctx: &mut TxContext,
 ): ID {
+    let (q_symbol, q_decimals, q_icon) = lock::quote_fields_from_metadata(meta_q);
+    launch_instant_holder_yield_v2_buy_q(
+        config, clock, bf_config, treasury_cap, meta_t, q_symbol, q_decimals, q_icon, token, fee_sui, creation_fee, creator_bps, platform_bps, pit_bps, buyback_bps, first_buy, min_out, ctx,
+    )
+}
+
+/// `launch_instant_holder_yield_v2_buy` for a quote coin whose metadata is Sui's shared
+/// `coin_registry::Currency<Q>` (no legacy `CoinMetadata<Q>`, e.g. ZUK).
+/// Identical Bluefin seed / lock / events; only the quote metadata source differs.
+public fun launch_instant_holder_yield_v2_buy_currency<T, Q>(
+    config: &mut Config,
+    clock: &Clock,
+    bf_config: &mut GlobalConfig,
+    treasury_cap: TreasuryCap<T>,
+    meta_t: &CoinMetadata<T>,
+    cur_q: &Currency<Q>,
+    token: Coin<T>,
+    fee_sui: Coin<SUI>,
+    creation_fee: Coin<SUI>,
+    creator_bps: u64,
+    platform_bps: u64,
+    pit_bps: u64,
+    buyback_bps: u64,
+    first_buy: Coin<Q>,
+    min_out: u64,
+    ctx: &mut TxContext,
+): ID {
+    let (q_symbol, q_decimals, q_icon) = lock::quote_fields_from_currency(cur_q);
+    launch_instant_holder_yield_v2_buy_q(
+        config, clock, bf_config, treasury_cap, meta_t, q_symbol, q_decimals, q_icon, token, fee_sui, creation_fee, creator_bps, platform_bps, pit_bps, buyback_bps, first_buy, min_out, ctx,
+    )
+}
+
+fun launch_instant_holder_yield_v2_buy_q<T, Q>(
+    config: &mut Config,
+    clock: &Clock,
+    bf_config: &mut GlobalConfig,
+    treasury_cap: TreasuryCap<T>,
+    meta_t: &CoinMetadata<T>,
+    q_symbol: vector<u8>,
+    q_decimals: u8,
+    q_icon: vector<u8>,
+    token: Coin<T>,
+    fee_sui: Coin<SUI>,
+    creation_fee: Coin<SUI>,
+    creator_bps: u64,
+    platform_bps: u64,
+    pit_bps: u64,
+    buyback_bps: u64,
+    first_buy: Coin<Q>,
+    min_out: u64,
+    ctx: &mut TxContext,
+): ID {
     config.take_launch_fee(fee_sui);
     let token_amount = token.value();
     assert!(token_amount > 0, errors::zero_amount());
     let virtual_quote = config.instant_virtual_quote<Q>();
     let fee = lock::take_creation_fee(bf_config, creation_fee, ctx.sender(), ctx);
     let split = option::some(lock::new_lp_split(creator_bps, platform_bps, pit_bps, buyback_bps));
-    let (lock_id, bf_pool_id, position_id, _, yield_id) = lock::seed_and_lock_instant_holder_yield(
+    let (lock_id, bf_pool_id, position_id, _, yield_id) = lock::seed_and_lock_instant_holder_yield_q(
         ctx.sender(),
         clock,
         bf_config,
         meta_t,
-        meta_q,
+        q_symbol, q_decimals, q_icon,
         fee,
         token.into_balance(),
         virtual_quote,
@@ -723,6 +873,61 @@ public fun launch_instant_basket_yield_v2_buy<T, Q>(
     min_out: u64,
     ctx: &mut TxContext,
 ): ID {
+    let (q_symbol, q_decimals, q_icon) = lock::quote_fields_from_metadata(meta_q);
+    launch_instant_basket_yield_v2_buy_q(
+        config, clock, bf_config, treasury_cap, meta_t, q_symbol, q_decimals, q_icon, token, fee_sui, creation_fee, basket, creator_bps, platform_bps, pit_bps, buyback_bps, first_buy, min_out, ctx,
+    )
+}
+
+/// `launch_instant_basket_yield_v2_buy` for a quote coin whose metadata is Sui's shared
+/// `coin_registry::Currency<Q>` (no legacy `CoinMetadata<Q>`, e.g. ZUK).
+/// Identical Bluefin seed / lock / events; only the quote metadata source differs.
+public fun launch_instant_basket_yield_v2_buy_currency<T, Q>(
+    config: &mut Config,
+    clock: &Clock,
+    bf_config: &mut GlobalConfig,
+    treasury_cap: TreasuryCap<T>,
+    meta_t: &CoinMetadata<T>,
+    cur_q: &Currency<Q>,
+    token: Coin<T>,
+    fee_sui: Coin<SUI>,
+    creation_fee: Coin<SUI>,
+    basket: BasketConfig,
+    creator_bps: u64,
+    platform_bps: u64,
+    pit_bps: u64,
+    buyback_bps: u64,
+    first_buy: Coin<Q>,
+    min_out: u64,
+    ctx: &mut TxContext,
+): ID {
+    let (q_symbol, q_decimals, q_icon) = lock::quote_fields_from_currency(cur_q);
+    launch_instant_basket_yield_v2_buy_q(
+        config, clock, bf_config, treasury_cap, meta_t, q_symbol, q_decimals, q_icon, token, fee_sui, creation_fee, basket, creator_bps, platform_bps, pit_bps, buyback_bps, first_buy, min_out, ctx,
+    )
+}
+
+fun launch_instant_basket_yield_v2_buy_q<T, Q>(
+    config: &mut Config,
+    clock: &Clock,
+    bf_config: &mut GlobalConfig,
+    treasury_cap: TreasuryCap<T>,
+    meta_t: &CoinMetadata<T>,
+    q_symbol: vector<u8>,
+    q_decimals: u8,
+    q_icon: vector<u8>,
+    token: Coin<T>,
+    fee_sui: Coin<SUI>,
+    creation_fee: Coin<SUI>,
+    basket: BasketConfig,
+    creator_bps: u64,
+    platform_bps: u64,
+    pit_bps: u64,
+    buyback_bps: u64,
+    first_buy: Coin<Q>,
+    min_out: u64,
+    ctx: &mut TxContext,
+): ID {
     config.take_launch_fee(fee_sui);
     let token_amount = token.value();
     assert!(token_amount > 0, errors::zero_amount());
@@ -731,8 +936,8 @@ public fun launch_instant_basket_yield_v2_buy<T, Q>(
     let payout_mode = basket_yield::config_payout_mode(&basket);
     let asset_count = basket_yield::config_asset_count(&basket);
     let split = option::some(lock::new_lp_split(creator_bps, platform_bps, pit_bps, buyback_bps));
-    let (lock_id, bf_pool_id, position_id, _, basket_id) = lock::seed_and_lock_instant_basket_yield(
-        ctx.sender(), clock, bf_config, meta_t, meta_q, fee, token.into_balance(), virtual_quote, basket, split, first_buy, min_out, ctx,
+    let (lock_id, bf_pool_id, position_id, _, basket_id) = lock::seed_and_lock_instant_basket_yield_q(
+        ctx.sender(), clock, bf_config, meta_t, q_symbol, q_decimals, q_icon, fee, token.into_balance(), virtual_quote, basket, split, first_buy, min_out, ctx,
     );
     let mint = InstadexMintLock<T> { id: object::new(ctx), cap: treasury_cap };
     let mint_id = object::id(&mint);
@@ -858,6 +1063,97 @@ public entry fun launch_instant_basket_yield_v2_3_buy_entry<T, Q, A0, A1, A2>(
     let basket = basket_yield::new_config(assets, equal_weight, payout_mode);
     launch_instant_basket_yield_v2_buy<T, Q>(
         config, clock, bf_config, treasury_cap, meta_t, meta_q, token, fee_sui, creation_fee, basket,
+        creator_bps, platform_bps, pit_bps, buyback_bps, first_buy, min_out, ctx,
+    );
+}
+
+// ── Currency<Q> quote entries (v24) ─────────────────────────────────────
+// Same args as the matching `*_buy_entry`, except `meta_q: &CoinMetadata<Q>`
+// becomes `cur_q: &coin_registry::Currency<Q>` (shared object, by immutable ref).
+// For quote coins minted only through Sui's coin registry (ZUK). Token side
+// (`meta_t`) stays `CoinMetadata<T>` because the pad publishes T with it.
+
+public entry fun launch_instant_v2_buy_currency_entry<T, Q>(
+    config: &mut Config, clock: &Clock, bf_config: &mut GlobalConfig,
+    treasury_cap: TreasuryCap<T>, meta_t: &CoinMetadata<T>, cur_q: &Currency<Q>,
+    token: Coin<T>, fee_sui: Coin<SUI>, creation_fee: Coin<SUI>,
+    creator_bps: u64, platform_bps: u64, pit_bps: u64, buyback_bps: u64,
+    first_buy: Coin<Q>, min_out: u64,
+    ctx: &mut TxContext,
+) {
+    launch_instant_v2_buy_currency<T, Q>(
+        config, clock, bf_config, treasury_cap, meta_t, cur_q, token, fee_sui, creation_fee,
+        creator_bps, platform_bps, pit_bps, buyback_bps, first_buy, min_out, ctx,
+    );
+}
+
+public entry fun launch_instant_holder_yield_v2_buy_currency_entry<T, Q>(
+    config: &mut Config, clock: &Clock, bf_config: &mut GlobalConfig,
+    treasury_cap: TreasuryCap<T>, meta_t: &CoinMetadata<T>, cur_q: &Currency<Q>,
+    token: Coin<T>, fee_sui: Coin<SUI>, creation_fee: Coin<SUI>,
+    creator_bps: u64, platform_bps: u64, pit_bps: u64, buyback_bps: u64,
+    first_buy: Coin<Q>, min_out: u64,
+    ctx: &mut TxContext,
+) {
+    launch_instant_holder_yield_v2_buy_currency<T, Q>(
+        config, clock, bf_config, treasury_cap, meta_t, cur_q, token, fee_sui, creation_fee,
+        creator_bps, platform_bps, pit_bps, buyback_bps, first_buy, min_out, ctx,
+    );
+}
+
+public entry fun launch_instant_basket_yield_v2_buy_currency_entry<T, Q, A0>(
+    config: &mut Config, clock: &Clock, bf_config: &mut GlobalConfig,
+    treasury_cap: TreasuryCap<T>, meta_t: &CoinMetadata<T>, cur_q: &Currency<Q>,
+    token: Coin<T>, fee_sui: Coin<SUI>, creation_fee: Coin<SUI>,
+    weight0: u64, equal_weight: bool, payout_mode: u8,
+    creator_bps: u64, platform_bps: u64, pit_bps: u64, buyback_bps: u64,
+    first_buy: Coin<Q>, min_out: u64,
+    ctx: &mut TxContext,
+) {
+    let mut assets = vector[];
+    assets.push_back(basket_yield::new_asset(type_name::with_defining_ids<A0>(), weight0));
+    let basket = basket_yield::new_config(assets, equal_weight, payout_mode);
+    launch_instant_basket_yield_v2_buy_currency<T, Q>(
+        config, clock, bf_config, treasury_cap, meta_t, cur_q, token, fee_sui, creation_fee, basket,
+        creator_bps, platform_bps, pit_bps, buyback_bps, first_buy, min_out, ctx,
+    );
+}
+
+public entry fun launch_instant_basket_yield_v2_2_buy_currency_entry<T, Q, A0, A1>(
+    config: &mut Config, clock: &Clock, bf_config: &mut GlobalConfig,
+    treasury_cap: TreasuryCap<T>, meta_t: &CoinMetadata<T>, cur_q: &Currency<Q>,
+    token: Coin<T>, fee_sui: Coin<SUI>, creation_fee: Coin<SUI>,
+    weight0: u64, weight1: u64, equal_weight: bool, payout_mode: u8,
+    creator_bps: u64, platform_bps: u64, pit_bps: u64, buyback_bps: u64,
+    first_buy: Coin<Q>, min_out: u64,
+    ctx: &mut TxContext,
+) {
+    let mut assets = vector[];
+    assets.push_back(basket_yield::new_asset(type_name::with_defining_ids<A0>(), weight0));
+    assets.push_back(basket_yield::new_asset(type_name::with_defining_ids<A1>(), weight1));
+    let basket = basket_yield::new_config(assets, equal_weight, payout_mode);
+    launch_instant_basket_yield_v2_buy_currency<T, Q>(
+        config, clock, bf_config, treasury_cap, meta_t, cur_q, token, fee_sui, creation_fee, basket,
+        creator_bps, platform_bps, pit_bps, buyback_bps, first_buy, min_out, ctx,
+    );
+}
+
+public entry fun launch_instant_basket_yield_v2_3_buy_currency_entry<T, Q, A0, A1, A2>(
+    config: &mut Config, clock: &Clock, bf_config: &mut GlobalConfig,
+    treasury_cap: TreasuryCap<T>, meta_t: &CoinMetadata<T>, cur_q: &Currency<Q>,
+    token: Coin<T>, fee_sui: Coin<SUI>, creation_fee: Coin<SUI>,
+    weight0: u64, weight1: u64, weight2: u64, equal_weight: bool, payout_mode: u8,
+    creator_bps: u64, platform_bps: u64, pit_bps: u64, buyback_bps: u64,
+    first_buy: Coin<Q>, min_out: u64,
+    ctx: &mut TxContext,
+) {
+    let mut assets = vector[];
+    assets.push_back(basket_yield::new_asset(type_name::with_defining_ids<A0>(), weight0));
+    assets.push_back(basket_yield::new_asset(type_name::with_defining_ids<A1>(), weight1));
+    assets.push_back(basket_yield::new_asset(type_name::with_defining_ids<A2>(), weight2));
+    let basket = basket_yield::new_config(assets, equal_weight, payout_mode);
+    launch_instant_basket_yield_v2_buy_currency<T, Q>(
+        config, clock, bf_config, treasury_cap, meta_t, cur_q, token, fee_sui, creation_fee, basket,
         creator_bps, platform_bps, pit_bps, buyback_bps, first_buy, min_out, ctx,
     );
 }
@@ -1218,6 +1514,25 @@ public entry fun launch_instadex_entry<T, Q>(
         fee_sui,
         creation_fee,
         ctx,
+    );
+}
+
+/// `launch_instadex_entry` with `coin_registry::Currency<Q>` quote metadata (v24).
+public entry fun launch_instadex_currency_entry<T, Q>(
+    config: &mut Config,
+    clock: &Clock,
+    bf_config: &mut GlobalConfig,
+    treasury_cap: TreasuryCap<T>,
+    meta_t: &CoinMetadata<T>,
+    cur_q: &Currency<Q>,
+    token: Coin<T>,
+    quote: Coin<Q>,
+    fee_sui: Coin<SUI>,
+    creation_fee: Coin<SUI>,
+    ctx: &mut TxContext,
+) {
+    launch_instadex_currency<T, Q>(
+        config, clock, bf_config, treasury_cap, meta_t, cur_q, token, quote, fee_sui, creation_fee, ctx,
     );
 }
 
