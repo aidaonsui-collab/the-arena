@@ -13976,6 +13976,23 @@ async function doBridgeDeposit(){
     tx.transferObjects([outB], suiSession.address);
     return outA;
   }
+  /// Aborts the whole PTB unless `coin` holds at least `minOut`: split that much
+  /// off and join it back. Cetus flash_swap has no amount limit, so this is the
+  /// floor for multi-leg routes whose last leg can't carry one.
+  function requireMinOut(tx, coinType, coin, minOut){
+    var min = asBigAmt(minOut);
+    if (!(min > 0n)) return;
+    var part = nested0(tx.moveCall({
+      target: "0x2::coin::split",
+      typeArguments: [coinType],
+      arguments: [coin, txPure(tx, "u64", txAmt(min))]
+    }));
+    tx.mergeCoins(coin, [part]);
+  }
+  function isMinOutAbort(e){
+    var m = String((e && e.message) || e || "");
+    return /MoveAbort|abort code/.test(m) && /balance/.test(m) && /split/.test(m);
+  }
   /// Quote coin already on the PTB → SUI. The SUI door out of a basket.
   async function hopQuoteToSuiOnTx(tx, q, coinIn, amountIn){
     q = String(q || "").toUpperCase();
@@ -14227,6 +14244,7 @@ async function doBridgeDeposit(){
         var usdcOut = cetusHop(tx, cetus, Qtype, usdyOut);
         var usdcSui = await loadUsdcSuiPool();
         outCoin = cetusHop(tx, usdcSui, usdc, usdcOut);
+        requireMinOut(tx, SUI_TYPE, outCoin, minOut);
       }
     } else if (q === "XAUM"){
       var xaumUsdc = await loadXaumUsdcPool();
@@ -14242,6 +14260,7 @@ async function doBridgeDeposit(){
         var goldUsdcOut = bluefinHop(tx, xaumUsdc, Qtype, xaumOut, 0);
         var goldUsdcSui = await loadUsdcSuiPool();
         outCoin = cetusHop(tx, goldUsdcSui, usdc, goldUsdcOut);
+        requireMinOut(tx, SUI_TYPE, outCoin, minOut);
       }
     } else if (findLiveBasket(q) && basketCanMint(q)){
       var basket = findLiveBasket(q);
@@ -14288,11 +14307,13 @@ async function doBridgeDeposit(){
         var qOut = bluefinHop(tx, insta, tokenTypeOf(tk), tokMeme, 0);
         if (q === "AXOL"){
           outCoin = cetusHop(tx, await loadAxolSuiPool(), Qtype, qOut);
+          requireMinOut(tx, SUI_TYPE, outCoin, minOut);
         } else if (q === "MANIFEST"){
           outCoin = bluefinHop(tx, await loadManifestSuiPool(), Qtype, qOut, minOut);
         } else if (NATIVE_SUI_POOLS[q]){
           await loadNativeSuiPool(q);
           outCoin = hopOnNativePool(tx, q, Qtype, qOut);
+          requireMinOut(tx, SUI_TYPE, outCoin, minOut);
         } else {
           var back = await sellQuoteVia7k(tx, tk, insta, q, Qtype, qOut, amount, slip);
           tx = back.tx;
@@ -14312,6 +14333,7 @@ async function doBridgeDeposit(){
         var usdcOut = bluefinHop(tx, xagmUsdc, Qtype, qOut, 0);
         var usdcSui = await loadUsdcSuiPool();
         outCoin = cetusHop(tx, usdcSui, usdc, usdcOut);
+        requireMinOut(tx, SUI_TYPE, outCoin, minOut);
       } else {
         // Any other quote: no dedicated pool route, so 7k takes it to SUI.
         var tokAny = await takeSwapCoin(tx, tokenTypeOf(tk), amount);
@@ -14374,7 +14396,10 @@ async function doBridgeDeposit(){
       var minOut = 1n;
       if (swapQuote && swapQuote.amountOut){
         var quoted = BigInt(String(swapQuote.amountOut));
-        var bps = swapQuote.venue === "bluefin" ? 9000n : BigInt(Math.round((1 - SWAP_SLIP) * 10000));
+        // Hop sells run our own multi-leg route, not the aggregator's, so an
+        // aggregator quote only prices it roughly. Same 10% floor as the pool estimate.
+        var hopSell = swapNeedsHop(tk) && state.side === "Sell";
+        var bps = (swapQuote.venue === "bluefin" || hopSell) ? 9000n : BigInt(Math.round((1 - SWAP_SLIP) * 10000));
         minOut = (quoted * bps) / 10000n;
         if (minOut < 1n) minOut = 1n;
       }
@@ -14418,6 +14443,7 @@ async function doBridgeDeposit(){
       swapping = false;
       var msg = (err2 && err2.message) ? err2.message : String(err2 || "Swap failed");
       if (isTransientNet(err2)) msg = "RPC busy — tap Buy again";
+      else if (isMinOutAbort(err2)) msg = "Price moved more than 10%. Nothing was sold — try again.";
       if (btn){ btn.disabled = false; btn.textContent = msg.length > 32 ? "Swap failed" : msg; }
       if (err) err.textContent = msg;
     }
