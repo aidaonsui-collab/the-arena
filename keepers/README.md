@@ -91,7 +91,7 @@ npm run convert-basket
 
 Home Mac `run-local.sh` runs `convert-basket` in the 30m collect window (after `collect`, before `withdraw`). Optional Vercel cron every 15m on `/api/convert-basket` (Bearer `CRON_SECRET`).
 
-**Operator notes:** Prefer dry-run first (`ARENA_CONVERT_DRY_RUN=1`). Non-SUI quote vaults are skipped unless `ARENA_CONVERT_WALLET_RWAS=1`. Bluefin `minOut` is `1` (parity with settle). Collect must run first so staging is funded.
+**Operator notes:** Prefer dry-run first (`ARENA_CONVERT_DRY_RUN=1`). Any quote hops to the basket: pinned Cetus or Bluefin pool into SUI, then the USDC path into gold, silver, and T-bills. LOFI and any quote without a pinned pool uses 7k. A reward that is already the pair coin is deposited as-is. `ARENA_CONVERT_WALLET_RWAS=1` still skips the DEX hop. Bluefin `minOut` is `1` (parity with settle). Collect must run first so staging is funded.
 
 
 ## Basket-yield push distribute

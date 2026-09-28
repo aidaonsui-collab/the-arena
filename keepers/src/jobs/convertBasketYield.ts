@@ -4,8 +4,11 @@
  * take staged Q (usually SUI), hop to basket RWAs proportional to config weights,
  * and deposit_converted_asset per leg.
  *
- * Hop path (same pools/SDKs as settleInstadex):
- *   SUI → USDC (Cetus USDC/SUI) → XAUM|XAGM (Bluefin) | USDY (Cetus)
+ * Hop path:
+ *   quote → SUI on the pair's own Cetus or Bluefin pool (7k only when there is
+ *   no pinned pool, e.g. LOFI) → USDC (Cetus) → XAUM|XAGM (Bluefin) | USDY (Cetus).
+ *   A reward leg that is already the pair coin is deposited without a swap.
+ *   Two RWA coins hop quote → USDC → the other RWA and skip SUI.
  *
  * Env:
  *   ARENA_CALL_PACKAGE          — default v13 published-at
@@ -15,6 +18,7 @@
  *   ARENA_CONVERT_WALLET_RWAS=1 — skip DEX hop; deposit RWA coins already in keeper wallet
  *                                 (quote taken is transferred to keeper as rebate)
  */
+import { getQuote, buildTx, Config as SevenKConfig } from "@bluefin-exchange/bluefin7k-aggregator-sdk";
 import { Transaction, type TransactionObjectArgument } from "@mysten/sui/transactions";
 import {
   CALL_PKG,
@@ -38,6 +42,37 @@ import { loadSigner } from "../loadSigner.ts";
 import { client } from "../sui.ts";
 
 const BPS = 10_000n;
+const SEVENK_PARTNER =
+  process.env.ARENA_SWAP_PARTNER ||
+  "0x92a32ac7fd525f8bd37ed359423b8d7d858cad26224854dfbff1914b75ee658b";
+const ORACLE_SOURCES = new Set(["obric", "haedal_pmm", "steamm_oracle_quoter", "steamm_oracle_quoter_v2", "bluefinx"]);
+
+const VICEFUN =
+  "0x4a6d6f56100e08f8f433fdc62760259e8d7ab91b476a42e138883dfc35ea80ab::vicefun::VICEFUN";
+const AXOL =
+  "0xf00eb7ab086967a33c04a853ad960e5c6b0955ef5a47d50b376d83856dc1215e::axol::AXOL";
+const MANIFEST =
+  "0xc466c28d87b3d5cd34f3d5c088751532d71a38d93a8aae4551dd56272cfb4355::manifest::MANIFEST";
+const WAL = "0x356a26eb9e012a68958082340d4c4116e7f55615cf27affcff209cf0ae544f59::wal::WAL";
+const DEEP = "0xdeeb7a4662eec9f2f3def03fb937a663dddaa2e215b8078a284d026b7946c270::deep::DEEP";
+const NS = "0x5145494a5f5100e645e4b0aa950fa6b68f614e8c59e17bc5ded3495123a79178::ns::NS";
+const SCA = "0x7016aae72cfc67f2fadf55769c0a7dd54291a583b63051a5ed71081cce836ac6::sca::SCA";
+const BLUE = "0xe1b45a0e641b9955a20aa0ad1c1f4ad86aad8afb07296d4085e349a50e90bdca::blue::BLUE";
+
+type Pin = { poolId: string; dex: "cetus" | "bluefin"; via: "sui" | "usdc" };
+const QUOTE_PINS: { type: string; pin: Pin }[] = [
+  { type: VICEFUN, pin: { poolId: "0xcae6fe00841fbccb44fbe8128a7c4b2e8800e87c7952af8444d24d0e76eb31c5", dex: "bluefin", via: "sui" } },
+  { type: AXOL, pin: { poolId: "0xde265ef8645c680c71b33805de77ce5261a20c58397d83b3915bdbb3a7209d7e", dex: "cetus", via: "sui" } },
+  { type: MANIFEST, pin: { poolId: "0x15a1adef56e1b716c29a6ce7df539fd7b8080da283199c92c6caa6f641a61c3f", dex: "bluefin", via: "sui" } },
+  { type: WAL, pin: { poolId: "0xe60bc7ade245b9f35b49686dfab0a18e5ca9176d49bef1b90f60d67d06315ff0", dex: "bluefin", via: "sui" } },
+  { type: DEEP, pin: { poolId: "0xe01243f37f712ef87e556afb9b1d03d0fae13f96d324ec912daffc339dfdcbd2", dex: "cetus", via: "sui" } },
+  { type: NS, pin: { poolId: "0x763f63cbada3a932c46972c6c6dcf1abd8a9a73331908a1d7ef24c2232d85520", dex: "cetus", via: "sui" } },
+  { type: SCA, pin: { poolId: "0x9661cca01a5b9b3536883568fa967a2943e237de11a97976795f5adb293892e9", dex: "cetus", via: "sui" } },
+  { type: BLUE, pin: { poolId: "0xde705d4f3ded922b729d9b923be08e1391dd4caeff8496326123934d0fb1c312", dex: "bluefin", via: "sui" } },
+  { type: XAUM, pin: { poolId: XAUM_USDC_POOL, dex: "bluefin", via: "usdc" } },
+  { type: XAGM, pin: { poolId: XAGM_USDC_POOL, dex: "bluefin", via: "usdc" } },
+  { type: USDY, pin: { poolId: USDY_USDC_POOL, dex: "cetus", via: "usdc" } },
+];
 
 const EVENT_PKGS = [
   CALL_PKG,
@@ -289,34 +324,180 @@ type PoolCache = {
   xaumUsdc?: PoolSnap;
   xagmUsdc?: PoolSnap;
   usdyUsdc?: PoolSnap;
+  byId?: Map<string, PoolSnap>;
 };
 
-async function hopSuiToRwa(
+type HopOut = { tx: Transaction; coin: TransactionObjectArgument; label: string };
+
+function eqType(a: string, b: string): boolean {
+  return normType(a).toLowerCase() === normType(b).toLowerCase();
+}
+
+function pinFor(quote: string): Pin | null {
+  const q = normType(quote);
+  return QUOTE_PINS.find((row) => eqType(row.type, q))?.pin ?? null;
+}
+
+async function snapOf(pools: PoolCache, id: string): Promise<PoolSnap> {
+  if (!pools.byId) pools.byId = new Map();
+  const hit = pools.byId.get(id);
+  if (hit) return hit;
+  const snap = await poolSnap(id);
+  pools.byId.set(id, snap);
+  return snap;
+}
+
+function dexHop(
   tx: Transaction,
-  suiCoin: TransactionObjectArgument,
+  snap: PoolSnap,
+  dex: Pin["dex"],
+  fromType: string,
+  coinIn: TransactionObjectArgument,
+  leftoverTo: string,
+): TransactionObjectArgument {
+  if (dex === "cetus") return cetusHop(tx, snap, fromType, coinIn, leftoverTo);
+  return bluefinHop(tx, snap, fromType, coinIn, 1n, leftoverTo);
+}
+
+async function quiet7k<T>(fn: () => Promise<T>): Promise<T> {
+  const warn = console.warn;
+  const logf = console.log;
+  console.warn = () => {};
+  console.log = () => {};
+  try {
+    return await fn();
+  } finally {
+    console.warn = warn;
+    console.log = logf;
+  }
+}
+
+async function hopVia7k(
+  tx: Transaction,
+  fromType: string,
+  toType: string,
+  amount: bigint,
+  coin: TransactionObjectArgument,
+  sender: string,
+): Promise<HopOut> {
+  SevenKConfig.setSuiClient({} as never);
+  const q = (await quiet7k(() =>
+    getQuote({ tokenIn: fromType, tokenOut: toType, amountIn: amount.toString() }),
+  )) as {
+    routes?: unknown[];
+    returnAmountWithDecimal?: string;
+    swaps?: { pool?: { type?: string } }[];
+  } | null;
+  if (!q?.routes?.length || !(BigInt(q.returnAmountWithDecimal || "0") > 0n)) {
+    throw new Error("no 7k route " + fromType + " → " + toType);
+  }
+  for (const swap of q.swaps || []) {
+    const src = String(swap?.pool?.type || "").toLowerCase();
+    if (ORACLE_SOURCES.has(src)) throw new Error("7k route needs an oracle update: " + src);
+  }
+  const rawSlip = Number(process.env.ARENA_CONVERT_SLIPPAGE || "0.02");
+  const slippage = Number.isFinite(rawSlip) && rawSlip > 0 ? rawSlip : 0.02;
+  const built = await quiet7k(() =>
+    buildTx({
+      quoteResponse: q as never,
+      accountAddress: sender,
+      slippage,
+      commission: { partner: SEVENK_PARTNER, commissionBps: 0 },
+      extendTx: { tx: tx as never, coinIn: coin as never },
+    }),
+  );
+  const builtTx = built as unknown as { tx?: Transaction; coinOut?: TransactionObjectArgument };
+  const next = builtTx.tx || tx;
+  const coinOut = builtTx.coinOut;
+  if (!coinOut) throw new Error("7k returned no output coin");
+  return { tx: next, coin: coinOut, label: "7k" };
+}
+
+async function hopUsdcToRwa(
+  tx: Transaction,
+  usdcCoin: TransactionObjectArgument,
   assetType: string,
   leftoverTo: string,
   pools: PoolCache,
 ): Promise<{ coin: TransactionObjectArgument; asset: string }> {
   const kind = assetKind(assetType);
-  if (kind === "UNKNOWN") throw new Error("unsupported basket asset: " + assetType);
-  if (!pools.usdcSui) pools.usdcSui = await poolSnap(USDC_SUI_POOL);
-  const usdcCoin = cetusHop(tx, pools.usdcSui, SUI, suiCoin, leftoverTo);
   if (kind === "USDY") {
     if (!pools.usdyUsdc) pools.usdyUsdc = await poolSnap(USDY_USDC_POOL);
     return { coin: cetusHop(tx, pools.usdyUsdc, USDC, usdcCoin, leftoverTo), asset: USDY };
   }
   if (kind === "XAGM") {
     if (!pools.xagmUsdc) pools.xagmUsdc = await poolSnap(XAGM_USDC_POOL);
+    return { coin: bluefinHop(tx, pools.xagmUsdc, USDC, usdcCoin, 1n, leftoverTo), asset: XAGM };
+  }
+  if (kind === "XAUM") {
+    if (!pools.xaumUsdc) pools.xaumUsdc = await poolSnap(XAUM_USDC_POOL);
+    return { coin: bluefinHop(tx, pools.xaumUsdc, USDC, usdcCoin, 1n, leftoverTo), asset: XAUM };
+  }
+  throw new Error("unsupported basket asset: " + assetType);
+}
+
+async function hopQuoteToSui(
+  tx: Transaction,
+  quoteType: string,
+  coin: TransactionObjectArgument,
+  amount: bigint,
+  leftoverTo: string,
+  pools: PoolCache,
+): Promise<HopOut> {
+  if (eqType(quoteType, SUI)) return { tx, coin, label: "SUI" };
+  const pin = pinFor(quoteType);
+  if (!pin) {
+    const via = await hopVia7k(tx, quoteType, SUI, amount, coin, leftoverTo);
+    return { ...via, label: "7k→SUI" };
+  }
+  const snap = await snapOf(pools, pin.poolId);
+  if (pin.via === "sui") {
     return {
-      coin: bluefinHop(tx, pools.xagmUsdc, USDC, usdcCoin, 1n, leftoverTo),
-      asset: XAGM,
+      tx,
+      coin: dexHop(tx, snap, pin.dex, quoteType, coin, leftoverTo),
+      label: pin.dex === "cetus" ? "Cetus→SUI" : "Bluefin→SUI",
     };
   }
-  if (!pools.xaumUsdc) pools.xaumUsdc = await poolSnap(XAUM_USDC_POOL);
+  const usdcCoin = dexHop(tx, snap, pin.dex, quoteType, coin, leftoverTo);
+  if (!pools.usdcSui) pools.usdcSui = await poolSnap(USDC_SUI_POOL);
   return {
-    coin: bluefinHop(tx, pools.xaumUsdc, USDC, usdcCoin, 1n, leftoverTo),
-    asset: XAUM,
+    tx,
+    coin: cetusHop(tx, pools.usdcSui, USDC, usdcCoin, leftoverTo),
+    label: "USDC→SUI",
+  };
+}
+
+async function hopQuoteShareToAsset(
+  tx: Transaction,
+  quoteType: string,
+  coin: TransactionObjectArgument,
+  assetType: string,
+  amount: bigint,
+  leftoverTo: string,
+  pools: PoolCache,
+): Promise<HopOut & { asset: string }> {
+  if (eqType(quoteType, assetType)) {
+    return { tx, coin, asset: normType(assetType), label: "same-coin" };
+  }
+  const qKind = assetKind(quoteType);
+  if (qKind !== "UNKNOWN" && assetKind(assetType) !== "UNKNOWN") {
+    const pin = pinFor(quoteType);
+    if (!pin || pin.via !== "usdc") throw new Error("RWA quote has no USDC pool: " + quoteType);
+    const snap = await snapOf(pools, pin.poolId);
+    const usdcCoin = dexHop(tx, snap, pin.dex, quoteType, coin, leftoverTo);
+    const out = await hopUsdcToRwa(tx, usdcCoin, assetType, leftoverTo, pools);
+    return { tx, coin: out.coin, asset: out.asset, label: `${qKind}→USDC→${assetKind(out.asset)}` };
+  }
+  const sui = await hopQuoteToSui(tx, quoteType, coin, amount, leftoverTo, pools);
+  if (!pools.usdcSui) pools.usdcSui = await poolSnap(USDC_SUI_POOL);
+  const usdcCoin = cetusHop(sui.tx, pools.usdcSui, SUI, sui.coin, leftoverTo);
+  const out = await hopUsdcToRwa(sui.tx, usdcCoin, assetType, leftoverTo, pools);
+  const via = eqType(quoteType, SUI) ? "SUI" : sui.label;
+  return {
+    tx: sui.tx,
+    coin: out.coin,
+    asset: out.asset,
+    label: `${via}→USDC(Cetus)→${assetKind(out.asset)}`,
   };
 }
 
@@ -356,14 +537,6 @@ async function convertOne(
   if (!vault.assets.length) {
     return { vaultId: vault.id, skipped: true, reason: "vault config has no assets" };
   }
-  if (normType(vault.quote) !== SUI && !opts.walletRwas) {
-    return {
-      vaultId: vault.id,
-      skipped: true,
-      reason: "non-SUI quote hop not implemented; set ARENA_CONVERT_WALLET_RWAS=1 or extend hop",
-      quote: vault.quote,
-    };
-  }
 
   const shares = quoteSharesForConvert(vault.assets, vault.equalWeight, amount);
   const legs = vault.assets
@@ -373,7 +546,7 @@ async function convertOne(
     return { vaultId: vault.id, skipped: true, reason: "all quote shares are zero" };
   }
 
-  const tx = new Transaction();
+  let tx = new Transaction();
   tx.setSender(keeper);
 
   const quoteCoin = tx.moveCall({
@@ -394,7 +567,7 @@ async function convertOne(
     }
   }
 
-  const legCoins: { asset: string; coin: TransactionObjectArgument; quoteSpent: bigint }[] = [];
+  const legCoins: { asset: string; coin: TransactionObjectArgument; quoteSpent: bigint; hop: string }[] = [];
 
   if (opts.walletRwas) {
     // Payment: staging Q goes to keeper; deposit RWAs already held.
@@ -409,7 +582,7 @@ async function convertOne(
           asset: leg.asset,
         };
       }
-      legCoins.push({ asset: leg.asset, coin, quoteSpent: leg.share });
+      legCoins.push({ asset: leg.asset, coin, quoteSpent: leg.share, hop: "wallet-RWA" });
     }
   } else {
     // Split quote into weight shares; last coin retains remainder after splitCoins.
@@ -421,11 +594,22 @@ async function convertOne(
     }
     const quoteParts: TransactionObjectArgument[] = [...parts, quoteCoin];
     for (let i = 0; i < legs.length; i++) {
-      const hopped = await hopSuiToRwa(tx, quoteParts[i], legs[i].asset, keeper, pools);
+      const hopped = await hopQuoteShareToAsset(
+        tx,
+        vault.quote,
+        quoteParts[i],
+        legs[i].asset,
+        legs[i].share,
+        keeper,
+        pools,
+      );
+      tx = hopped.tx;
+      tx.setSender(keeper);
       legCoins.push({
         asset: hopped.asset,
         coin: hopped.coin,
         quoteSpent: legs[i].share,
+        hop: hopped.label,
       });
     }
   }
@@ -447,15 +631,11 @@ async function convertOne(
     vaultId: vault.id,
     lockId: vault.lockId,
     staging: amount.toString(),
-    legs: legs.map((l) => ({
+    legs: legs.map((l, i) => ({
       asset: l.asset,
       kind: assetKind(l.asset),
       quoteShare: l.share.toString(),
-      hop: opts.walletRwas
-        ? "wallet-RWA"
-        : assetKind(l.asset) === "USDY"
-          ? "SUI→USDC(Cetus)→USDY(Cetus)"
-          : `SUI→USDC(Cetus)→${assetKind(l.asset)}(Bluefin)`,
+      hop: legCoins[i]?.hop || "quote→RWA",
     })),
     equalWeight: vault.equalWeight,
     dryRun: opts.dryRun,
@@ -581,13 +761,12 @@ export async function runConvertBasketYield() {
     considered,
     results,
     hops: {
-      XAUM: "SUI → USDC (Cetus 0x51e8…) → XAUM (Bluefin 0x458f…)",
-      XAGM: "SUI → USDC (Cetus 0x51e8…) → XAGM (Bluefin 0x4d3c…)",
-      USDY: "SUI → USDC (Cetus 0x51e8…) → USDY (Cetus 0xdcd7…)",
+      quoteToSui: "pinned Cetus/Bluefin pool, else 7k (LOFI and any unpinned quote)",
+      suiToRwa: "SUI → USDC (Cetus) → XAUM|XAGM (Bluefin) | USDY (Cetus)",
+      rwaToRwa: "quote USDC pool → the other RWA, skipping SUI",
     },
     stubbed: [
-      "Non-SUI quote vaults require ARENA_CONVERT_WALLET_RWAS=1 (no Q→USDC hop yet).",
-      "Slippage is minOut=1 on Bluefin legs (same as settleInstadex); tighten if needed.",
+      "Slippage is minOut=1 on Bluefin legs (same as settleInstadex); 7k uses ARENA_CONVERT_SLIPPAGE (default 2%).",
     ],
   };
 }
