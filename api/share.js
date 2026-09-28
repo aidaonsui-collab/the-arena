@@ -50,6 +50,7 @@ function quoteLabel(v) {
   if (/::ns::NS/i.test(s) || s === "NS") return "NS";
   if (/::sca::SCA/i.test(s) || s === "SCA") return "SCA";
   if (/::blue::BLUE/i.test(s) || s === "BLUE") return "BLUE";
+  if (/::zuk::ZUK/i.test(s) || s === "ZUK") return "ZUK";
   return "SUI";
 }
 

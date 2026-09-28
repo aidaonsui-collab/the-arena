@@ -1200,6 +1200,9 @@ window.ARENA_SCA_SUI_POOL = "0x9661cca01a5b9b3536883568fa967a2943e237de11a979767
 window.ARENA_BLUE_TYPE = "0xe1b45a0e641b9955a20aa0ad1c1f4ad86aad8afb07296d4085e349a50e90bdca::blue::BLUE";
 window.ARENA_BLUE_METADATA = "0xf6d6cc0f3f0e6e838340c263d1cebb0529c4371913dc5139c1897388cc86977f";
 window.ARENA_BLUE_SUI_POOL = "0xde705d4f3ded922b729d9b923be08e1391dd4caeff8496326123934d0fb1c312";
+window.ARENA_ZUK_TYPE = "0x42ba9220e980b4819e4df208dd50013d0bbbfde142996e8db1319ac61f879205::zuk::ZUK";
+window.ARENA_ZUK_METADATA = "0x14d7f357781986860920fe328456c6a21b7c1e1a428b2694aac5d57890ad045d"; // coin_registry::Currency only — no coin::CoinMetadata on-chain (new-currency registry). launch_* still needs CoinMetadata; Create will fail until that exists or contracts accept Currency.
+window.ARENA_ZUK_SUI_POOL = "0x43067514317fe6cffb22419a0935aae6aa6e5e5bce31e32fcfb34bd80113d2ad";
 window.ARENA_USDC_SUI_POOL = "0x51e883ba7c0b566a26cbc8a94cd33eb0abd418a77cc1e60ad22fd9b1f29cd2ab";
 window.ARENA_CETUS_CLMM = "0x25ebb9a7c50eb17b3fa9c5a30fb8b5ad8f97caaf4928943acbcff7153dfee5e3";
 window.ARENA_CETUS_CONFIG = "0xdaa46292632c3c4d8f31f23ea0f9b36a28ff3677e9684980e4438403a67a3d8f";
@@ -1329,7 +1332,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   } catch (e2) { state.liveBaskets = []; }
   var metaEdit = { open: false, saving: false, file: null, preview: "", artUrl: "", note: "", err: false, name: "", desc: "", x: "", tg: "", web: "", creator: "", openedCreator: "" };
   let hashLock = false;
-  const hop = { suiPerXaum: null, suiPerUsdy: null, suiPerXagm: null, suiPerVicefun: null, suiPerAxol: null, suiPerLofi: null, suiPerManifest: null, usd: null, suiUsd: null, usdyUsd: null, xagmUsd: null, xaumUsd: null, vicefunUsd: null, axolUsd: null, lofiUsd: null, manifestUsd: null, walUsd: null, deepUsd: null, nsUsd: null, scaUsd: null, blueUsd: null, gmeUsd: null, tslaUsd: null, source: "" };
+  const hop = { suiPerXaum: null, suiPerUsdy: null, suiPerXagm: null, suiPerVicefun: null, suiPerAxol: null, suiPerLofi: null, suiPerManifest: null, suiPerZuk: null, usd: null, suiUsd: null, usdyUsd: null, xagmUsd: null, xaumUsd: null, vicefunUsd: null, axolUsd: null, lofiUsd: null, manifestUsd: null, walUsd: null, deepUsd: null, nsUsd: null, scaUsd: null, blueUsd: null, zukUsd: null, gmeUsd: null, tslaUsd: null, source: "" };
 
   const SHOT = /Headless/i.test(String(navigator.userAgent||"")) || /(?:^|[?&])shot=1(?:&|$)/.test(location.search);
   if (SHOT) document.documentElement.classList.add("shot");
@@ -1376,14 +1379,15 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     DEEP: { label:"DEEP", type:window.ARENA_DEEP_TYPE, metadata:window.ARENA_DEEP_METADATA, decimals:6, name:"DeepBook", what:"DeepBook protocol token", create:true, chips:["100","1000","10000","50000","Max"], virtualHuman:"≈ $4.5k", pit:"", color:"#2F6BFF", logo:"/brand/quotes/deep.png" },
     NS: { label:"NS", type:window.ARENA_NS_TYPE, metadata:window.ARENA_NS_METADATA, decimals:6, name:"SuiNS", what:"Sui Name Service token", create:true, chips:["100","1000","10000","50000","Max"], virtualHuman:"≈ $4.5k", pit:"", color:"#7C5CFF", logo:"/brand/quotes/ns.png" },
     SCA: { label:"SCA", type:window.ARENA_SCA_TYPE, metadata:window.ARENA_SCA_METADATA, decimals:9, name:"Scallop", what:"Scallop protocol token", create:true, chips:["100","1000","10000","50000","Max"], virtualHuman:"≈ $4.5k", pit:"", color:"#C9B7A8", logo:"/brand/quotes/sca.png" },
-    BLUE: { label:"BLUE", type:window.ARENA_BLUE_TYPE, metadata:window.ARENA_BLUE_METADATA, decimals:9, name:"Bluefin", what:"Bluefin protocol token", create:true, chips:["100","1000","10000","50000","Max"], virtualHuman:"≈ $4.5k", pit:"", color:"#2F6FED", logo:"/brand/quotes/blue.png" }
+    BLUE: { label:"BLUE", type:window.ARENA_BLUE_TYPE, metadata:window.ARENA_BLUE_METADATA, decimals:9, name:"Bluefin", what:"Bluefin protocol token", create:true, chips:["100","1000","10000","50000","Max"], virtualHuman:"≈ $4.5k", pit:"", color:"#2F6FED", logo:"/brand/quotes/blue.png" },
+    ZUK: { label:"ZUK", type:window.ARENA_ZUK_TYPE, metadata:window.ARENA_ZUK_METADATA, decimals:6, name:"Zuk", what:"ZUK · Perpsplexity META long", create:true, chips:["1000","10000","100000","500000","Max"], virtualHuman:"≈ $4.5k", pit:"", color:"#E8C547", logo:"/brand/quotes/zuk.png" }
   };
-  var CREATE_QUOTES = ["SUI","VICEFUN","WAL","DEEP","NS","SCA","BLUE","XAUM","XAGM","USDY","AXOL","LOFI","MANIFEST"];
+  var CREATE_QUOTES = ["SUI","VICEFUN","WAL","DEEP","NS","SCA","BLUE","XAUM","XAGM","USDY","AXOL","LOFI","MANIFEST","ZUK"];
   var CREATE_QUOTE_CATS = [
     { id:"all", label:"All", quotes: CREATE_QUOTES },
     { id:"sui", label:"Sui", quotes: ["SUI","VICEFUN","WAL","DEEP","NS","SCA","BLUE"] },
     { id:"rwa", label:"RWA", quotes: ["XAUM","XAGM","USDY"] },
-    { id:"memes", label:"Memes", quotes: ["AXOL","LOFI","MANIFEST"] },
+    { id:"memes", label:"Memes", quotes: ["AXOL","LOFI","MANIFEST","ZUK"] },
     { id:"basket", label:"Basket", quotes: [] }
   ];
   // Holder-yield / basket dashboard. Pit path is sunset for Rewards > 0.
@@ -1402,6 +1406,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     { id:"ns", label:"NS", quote:"NS", unit:"NS", blurb:"SuiNS · Instant holder rewards", color:"#7C5CFF", logo:"/brand/quotes/ns.png" },
     { id:"sca", label:"SCA", quote:"SCA", unit:"SCA", blurb:"Scallop · Instant holder rewards", color:"#C9B7A8", logo:"/brand/quotes/sca.png" },
     { id:"blue", label:"BLUE", quote:"BLUE", unit:"BLUE", blurb:"Bluefin · Instant holder rewards", color:"#2F6FED", logo:"/brand/quotes/blue.png" },
+    { id:"zuk", label:"ZUK", quote:"ZUK", unit:"ZUK", blurb:"ZUK · Instant holder rewards", color:"#E8C547", logo:"/brand/quotes/zuk.png" },
     { id:"sui", label:"SUI", quote:"SUI", unit:"SUI", blurb:"SUI pairs with basket mode off · Instant holder rewards", color:"#4DA2FF", logo:"/brand/quotes/sui.svg" }
   ];
   // Populated once Arena Move emits claim / distribution events. Scaffold only for now.
@@ -3132,7 +3137,15 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       { t: "0x2::coin::CoinMetadata<" + t + ">" }
     );
     var node = data && data.objects && data.objects.nodes && data.objects.nodes[0];
-    if (!node) throw new Error("CoinMetadata not found for " + t);
+    if (!node){
+      // Coins minted only through Sui's coin_registry (e.g. ZUK) have a shared
+      // Currency<T> but no coin::CoinMetadata<T>. launch_* takes &CoinMetadata<Q>,
+      // so these can't be launch quotes until the Arena package accepts Currency.
+      var qRec = null;
+      Object.keys(QUOTES).forEach(function(k){ if (QUOTES[k] && normType(QUOTES[k].type) === t) qRec = QUOTES[k]; });
+      if (qRec) throw new Error(qRec.label + " has no CoinMetadata on-chain (Sui coin registry only). TOKEN/" + qRec.label + " launches need an Arena contract upgrade first.");
+      throw new Error("CoinMetadata not found for " + t);
+    }
     var json = (node.asMoveObject && node.asMoveObject.contents && node.asMoveObject.contents.json) || {};
     return { id: node.address, name: json.name || "", symbol: json.symbol || "", decimals: json.decimals != null ? json.decimals : 9, type: t, description: json.description || "", icon: metaIcon(json) };
   }
@@ -3750,6 +3763,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     if (q === "NS") return hop.nsUsd || 0;
     if (q === "SCA") return hop.scaUsd || 0;
     if (q === "BLUE") return hop.blueUsd || 0;
+    if (q === "ZUK") return hop.zukUsd || 0;
     return hop.suiUsd || 0;
   }
   function basketUsdFromLegs(legs){
@@ -6133,7 +6147,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     {id:"gain", label:"Gainers"},
     {id:"new", label:"New"}
   ];
-  var SCR_QUOTES = ["All","SUI","USDY","XAGM","XAUM","WAL","DEEP","NS","SCA","BLUE","AXOL","LOFI","MANIFEST"];
+  var SCR_QUOTES = ["All","SUI","USDY","XAGM","XAUM","WAL","DEEP","NS","SCA","BLUE","AXOL","LOFI","MANIFEST","ZUK"];
   var SCR_COLS = [
     {id:"mcap", label:"Mcap", cls:"col-mcap"},
     {id:"age", label:"Age", cls:"col-age"},
@@ -6662,6 +6676,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     if (lab === "NS") return "ns";
     if (lab === "SCA") return "sca";
     if (lab === "BLUE") return "blue";
+    if (lab === "ZUK") return "zuk";
     if (lab === "SUI") return "sui";
     return "";
   }
@@ -13596,7 +13611,8 @@ async function doBridgeDeposit(){
     DEEP: { id: function(){ return window.ARENA_DEEP_SUI_POOL; }, dex: "cetus" },
     NS: { id: function(){ return window.ARENA_NS_SUI_POOL; }, dex: "cetus" },
     SCA: { id: function(){ return window.ARENA_SCA_SUI_POOL; }, dex: "cetus" },
-    BLUE: { id: function(){ return window.ARENA_BLUE_SUI_POOL; }, dex: "bluefin" }
+    BLUE: { id: function(){ return window.ARENA_BLUE_SUI_POOL; }, dex: "bluefin" },
+    ZUK: { id: function(){ return window.ARENA_ZUK_SUI_POOL; }, dex: "cetus" }
   };
   var nativeSuiSnaps = {};
   function isSuiHopQuote(q){
@@ -15668,7 +15684,7 @@ async function doBridgeDeposit(){
       if (Number(d.axolUsd) > 0) hop.axolUsd = Number(d.axolUsd);
       if (Number(d.lofiUsd) > 0) hop.lofiUsd = Number(d.lofiUsd);
       if (Number(d.manifestUsd) > 0) hop.manifestUsd = Number(d.manifestUsd);
-      ["wal","deep","ns","sca","blue"].forEach(function(k){
+      ["wal","deep","ns","sca","blue","zuk"].forEach(function(k){
         if (Number(d[k+"Usd"]) > 0) hop[k+"Usd"] = Number(d[k+"Usd"]);
       });
       const perVicefun = Number(d.suiPerVicefun);
@@ -15683,6 +15699,9 @@ async function doBridgeDeposit(){
       const perManifest = Number(d.suiPerManifest);
       if (perManifest > 0) hop.suiPerManifest = perManifest;
       else if (hop.manifestUsd > 0 && hop.suiUsd > 0) hop.suiPerManifest = hop.manifestUsd / hop.suiUsd;
+      const perZuk = Number(d.suiPerZuk);
+      if (perZuk > 0) hop.suiPerZuk = perZuk;
+      else if (hop.zukUsd > 0 && hop.suiUsd > 0) hop.suiPerZuk = hop.zukUsd / hop.suiUsd;
       if (!(hop.suiPerXaum > 0) && hop.xaumUsd > 0 && hop.suiUsd > 0) hop.suiPerXaum = hop.xaumUsd / hop.suiUsd;
       if (!(hop.suiUsd > 0) && hop.xaumUsd > 0 && hop.suiPerXaum > 0) hop.suiUsd = hop.xaumUsd / hop.suiPerXaum;
       hop.source = d.source || "Cetus USDY/USDC · Bluefin XAGM/USDC · Bluefin XAUM/USDC · Dexscreener VICEFUN/SUI";
@@ -15703,7 +15722,8 @@ async function doBridgeDeposit(){
         ["deepUsd", window.ARENA_DEEP_SUI_POOL],
         ["nsUsd", window.ARENA_NS_SUI_POOL],
         ["scaUsd", window.ARENA_SCA_SUI_POOL],
-        ["blueUsd", window.ARENA_BLUE_SUI_POOL]
+        ["blueUsd", window.ARENA_BLUE_SUI_POOL],
+        ["zukUsd", window.ARENA_ZUK_SUI_POOL]
       ];
       Promise.all(ids.map(function(row){
         var id = row[1];

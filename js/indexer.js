@@ -40,6 +40,8 @@
     "0x7016aae72cfc67f2fadf55769c0a7dd54291a583b63051a5ed71081cce836ac6::sca::SCA";
   var BLUE_TYPE =
     "0xe1b45a0e641b9955a20aa0ad1c1f4ad86aad8afb07296d4085e349a50e90bdca::blue::BLUE";
+  var ZUK_TYPE =
+    "0x42ba9220e980b4819e4df208dd50013d0bbbfde142996e8db1319ac61f879205::zuk::ZUK";
   var SUI_TYPE = "0x2::sui::SUI";
   var CLAIM_REFLECTION = 0;
   var CLAIM_PIT = 1;
@@ -78,6 +80,7 @@
     if (/::ns::NS$/i.test(s) || s === "NS") return "NS";
     if (/::sca::SCA$/i.test(s) || s === "SCA") return "SCA";
     if (/::blue::BLUE$/i.test(s) || s === "BLUE") return "BLUE";
+    if (/::zuk::ZUK$/i.test(s) || s === "ZUK") return "ZUK";
     if (s === "SUI" || s === SUI_TYPE || /::sui::sui$/i.test(s)) return "SUI";
     // Falls back to the type's last segment, which is a Move identifier and so
     // alphanumeric — but this string is rendered, so clamp rather than trust
@@ -88,7 +91,7 @@
 
   function quoteDecimals(quote) {
     var lab = quoteLabel(quote);
-    if (lab === "USDY" || lab === "DEEP" || lab === "NS") return 6;
+    if (lab === "USDY" || lab === "DEEP" || lab === "NS" || lab === "ZUK") return 6;
     if (lab === "GME" || lab === "TSLA") return 9;
     return 9;
   }
@@ -107,6 +110,7 @@
     if (lab === "NS") return NS_TYPE;
     if (lab === "SCA") return SCA_TYPE;
     if (lab === "BLUE") return BLUE_TYPE;
+    if (lab === "ZUK") return ZUK_TYPE;
     if (typeof window !== "undefined") {
       if (lab === "GME" && window.ARENA_STOCK_GME_TYPE) return window.ARENA_STOCK_GME_TYPE;
       if (lab === "TSLA" && window.ARENA_STOCK_TSLA_TYPE) return window.ARENA_STOCK_TSLA_TYPE;
@@ -748,6 +752,7 @@
     if (lab === "NS") return "ns";
     if (lab === "SCA") return "sca";
     if (lab === "BLUE") return "blue";
+    if (lab === "ZUK") return "zuk";
     if (lab === "SUI") return "sui";
     return "";
   }

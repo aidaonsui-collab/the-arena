@@ -51,7 +51,7 @@ function padId(v: unknown): string {
 function quoteLabel(quote: string): string {
   const s = String(quote || "");
   const tail = (s.split("::").pop() || "").toUpperCase();
-  const known = ["SUI", "USDY", "XAGM", "XAUM", "VICEFUN", "AXOL", "LOFI", "MANIFEST", "WAL", "DEEP", "NS", "SCA", "BLUE"];
+  const known = ["SUI", "USDY", "XAGM", "XAUM", "VICEFUN", "AXOL", "LOFI", "MANIFEST", "WAL", "DEEP", "NS", "SCA", "BLUE", "ZUK"];
   if (known.includes(tail)) return tail;
   if (!s || s === SUI || /::sui::SUI$/i.test(s)) return "SUI";
   if (s === "USDY" || s === USDY || /usdy/i.test(s)) return "USDY";
@@ -391,7 +391,7 @@ async function hopUsd(): Promise<Record<string, number>> {
     out.XAUM = Number(j.xaumUsd) || Number(j.usd) || 0;
     out.XAGM = Number(j.xagmUsd) || 0;
     out.USDY = Number(j.usdyUsd) || 1;
-    for (const k of ["VICEFUN", "AXOL", "LOFI", "MANIFEST", "WAL", "DEEP", "NS", "SCA", "BLUE"]) {
+    for (const k of ["VICEFUN", "AXOL", "LOFI", "MANIFEST", "WAL", "DEEP", "NS", "SCA", "BLUE", "ZUK"]) {
       out[k] = Number(j[k.toLowerCase() + "Usd"]) || 0;
     }
   } catch {

@@ -34,6 +34,8 @@ const SCA_SUI_DEXSCREENER =
   "https://api.dexscreener.com/latest/dex/pairs/sui/0x9661cca01a5b9b3536883568fa967a2943e237de11a97976795f5adb293892e9";
 const BLUE_SUI_DEXSCREENER =
   "https://api.dexscreener.com/latest/dex/pairs/sui/0xde705d4f3ded922b729d9b923be08e1391dd4caeff8496326123934d0fb1c312";
+const ZUK_SUI_DEXSCREENER =
+  "https://api.dexscreener.com/latest/dex/pairs/sui/0x43067514317fe6cffb22419a0935aae6aa6e5e5bce31e32fcfb34bd80113d2ad";
 
 async function poolJson(url) {
   try {
@@ -76,7 +78,7 @@ async function liveHop() {
   const [
     usdyPap, xagmPap, xaumPap, suiPap, suiRes,
     usdyDs, xagmDs, xaumDs, suiDs,
-    vicefunPair, axolPair, lofiPair, manifestPair, walPair, deepPair, nsPair, scaPair, bluePair
+    vicefunPair, axolPair, lofiPair, manifestPair, walPair, deepPair, nsPair, scaPair, bluePair, zukPair
   ] = await Promise.all([
     poolJson(PAPRIKA(USDY_USDC_POOL)),
     poolJson(PAPRIKA(XAGM_USDC_POOL)),
@@ -95,7 +97,8 @@ async function liveHop() {
     poolJson(DEEP_SUI_DEXSCREENER),
     poolJson(NS_SUI_DEXSCREENER),
     poolJson(SCA_SUI_DEXSCREENER),
-    poolJson(BLUE_SUI_DEXSCREENER)
+    poolJson(BLUE_SUI_DEXSCREENER),
+    poolJson(ZUK_SUI_DEXSCREENER)
   ]);
   let suiUsd = pickUsd(paprikaUsd(suiPap), dsUsd(suiDs).usd);
   if (!(suiUsd > 0) && suiRes && suiRes.ok) {
@@ -128,6 +131,7 @@ async function liveHop() {
   const ns = dsUsd(nsPair);
   const sca = dsUsd(scaPair);
   const blue = dsUsd(bluePair);
+  const zuk = dsUsd(zukPair);
   if (!(usdyUsd > 0) && !(xagmUsd > 0) && !(xaumUsd > 0) && !(suiUsd > 0)) {
     return null;
   }
@@ -145,6 +149,7 @@ async function liveHop() {
     nsUsd: ns.usd,
     scaUsd: sca.usd,
     blueUsd: blue.usd,
+    zukUsd: zuk.usd,
     usd: xaumUsd || usdyUsd || xagmUsd,
     suiPerXaum,
     suiPerUsdy: perSui(usdyUsd, suiUsd),
@@ -153,6 +158,7 @@ async function liveHop() {
     suiPerAxol: axol.native || perSui(axol.usd, suiUsd),
     suiPerLofi: lofi.native || perSui(lofi.usd, suiUsd),
     suiPerManifest: manifest.native || perSui(manifest.usd, suiUsd),
+    suiPerZuk: zuk.native || perSui(zuk.usd, suiUsd),
     source: "Dexscreener + DexPaprika",
     updatedMs: Date.now(),
   };
@@ -239,8 +245,8 @@ function mergeHop(prev, next) {
   ["suiUsd", "usdyUsd", "xagmUsd", "xaumUsd", "usd",
     "suiPerXaum", "suiPerUsdy", "suiPerXagm", "suiPerVicefun",
     "vicefunUsd", "axolUsd", "lofiUsd", "manifestUsd",
-    "walUsd", "deepUsd", "nsUsd", "scaUsd", "blueUsd",
-    "suiPerAxol", "suiPerLofi", "suiPerManifest"].forEach(function (k) {
+    "walUsd", "deepUsd", "nsUsd", "scaUsd", "blueUsd", "zukUsd",
+    "suiPerAxol", "suiPerLofi", "suiPerManifest", "suiPerZuk"].forEach(function (k) {
     if (!(Number(out[k]) > 0) && Number(prev && prev[k]) > 0) out[k] = prev[k];
   });
   return out;
