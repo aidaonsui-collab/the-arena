@@ -51,6 +51,7 @@
     "0x3492c874c1e3b3e2984e8c41b589e642d4d0a5d6459e5a9cfc2d52fd7c89c267";
   var BLUEFIN_ASSET_SWAP = BLUEFIN_ORIGIN + "::events::AssetSwap";
   var BLUEFIN_TRADE_CAP = 50;
+  var BLUEFIN_REFRESH_TXS = 20;
   var DEMO_WALLET = "0x8f2a00000000000000000000000000000000000000000000000000000000ab71";
   var ADDRS = [
     DEMO_WALLET,
@@ -402,16 +403,42 @@
   }
 
   var DEFAULT_GQL = "https://graphql.mainnet.sui.io/graphql";
+  var PROXY_GQL = "/api/sui-gql";
+
+  // POST a GraphQL body straight to Sui. Every call through /api/sui-gql is a
+  // billed function invocation, so the proxy is only the fallback: when the
+  // direct request fails in transit or Sui answers 429/5xx, replay it once there.
+  // `noProxy` is for background refreshes: a skipped cycle costs nothing, a
+  // proxied one is billed.
+  function postGql(url, body, noProxy) {
+    function once(u) {
+      return fetch(u, { method: "POST", headers: { "Content-Type": "application/json" }, body: body }).then(function (r) {
+        if ((r.status === 429 || r.status >= 500) && u !== PROXY_GQL) throw new TypeError("graphql " + r.status);
+        return r.json();
+      });
+    }
+    var target = url || DEFAULT_GQL;
+    return once(target).catch(function (e) {
+      if (noProxy || target === PROXY_GQL || !(e instanceof TypeError)) throw e;
+      // Sui's per-IP limit clears within a second or so; retry direct once first.
+      return new Promise(function (res) { setTimeout(res, 600 + Math.floor(Math.random() * 600)); })
+        .then(function () { return once(target); })
+        .catch(function (e2) {
+          if (!(e2 instanceof TypeError)) throw e2;
+          return once(PROXY_GQL);
+        });
+    });
+  }
+
+  function pageHidden() {
+    return typeof document !== "undefined" && document.hidden === true;
+  }
 
   // Newest-first via last/before. (first/after is oldest-first and hits a
   // ~20k-event GraphQL ceiling that never reaches recent BasketYieldPushEvents.)
   function queryEventsGql(gql, type, cursor, limit) {
     var q = "query($t:String!,$last:Int!,$before:String){ events(last:$last, before:$before, filter:{ type:$t }){ pageInfo { hasPreviousPage startCursor } nodes { sequenceNumber timestamp sender { address } contents { json } transaction { digest } } } }";
-    return fetch(gql || DEFAULT_GQL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ query: q, variables: { t: type, last: limit || 50, before: cursor || null } })
-    }).then(function (r) { return r.json(); }).then(function (j) {
+    return postGql(gql, JSON.stringify({ query: q, variables: { t: type, last: limit || 50, before: cursor || null } })).then(function (j) {
       if (j.errors && j.errors.length) throw new Error(j.errors[0].message || "graphql");
       var conn = (j.data && j.data.events) || {};
       var nodes = (conn.nodes || []).slice().reverse(); // last: returns oldest→newest inside the page
@@ -446,10 +473,10 @@
   }
   function gqlEndpoint() {
     if (typeof window === "undefined") return DEFAULT_GQL;
-    // Same-origin proxy avoids browser CORS / rate-limit bursts against
-    // graphql.mainnet.sui.io. Absolute URLs (and missing) fall back to the proxy.
-    if (window.SUI_GRAPHQL && String(window.SUI_GRAPHQL).indexOf("://") < 0) return window.SUI_GRAPHQL;
-    return "/api/sui-gql";
+    // Sui GraphQL now sends Access-Control-Allow-Origin: *, so the browser goes
+    // direct and each visitor gets their own per-IP rate limit; postGql drops to
+    // /api/sui-gql only when that fails.
+    return window.SUI_GRAPHQL ? String(window.SUI_GRAPHQL) : DEFAULT_GQL;
   }
 
   function queryEvents(rpc, type, cursor, limit) {
@@ -520,14 +547,10 @@
   function queryPoolTxsGql(gql, poolId, before, limit) {
     var q =
       "query($o:SuiAddress!,$last:Int!,$before:String){ transactions(last:$last, before:$before, filter:{ affectedObject:$o }){ pageInfo { hasPreviousPage startCursor } nodes { digest sender { address } effects { timestamp events(first: 40) { nodes { timestamp sender { address } contents { type { repr } json } } } } } } }";
-    return fetch(gql || DEFAULT_GQL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        query: q,
-        variables: { o: poolId, last: limit || 50, before: before || null }
-      })
-    }).then(function (r) { return r.json(); }).then(function (j) {
+    return postGql(gql, JSON.stringify({
+      query: q,
+      variables: { o: poolId, last: limit || 50, before: before || null }
+    }), true).then(function (j) {
       if (j.errors && j.errors.length) throw new Error(j.errors[0].message || "graphql");
       var conn = (j.data && j.data.transactions) || {};
       var nodes = conn.nodes || [];
@@ -1095,8 +1118,11 @@
       }
       if (rec.pulling) return Promise.resolve();
       rec.pulling = true;
-      return collectPoolSwaps(gql, poolId, 1, BLUEFIN_TRADE_CAP).then(function (rows) {
+      // First pull fills the tape; later ones only need what's new.
+      var want = rec.loaded ? BLUEFIN_REFRESH_TXS : BLUEFIN_TRADE_CAP;
+      return collectPoolSwaps(gql, poolId, 1, want).then(function (rows) {
         rec.pulling = false;
+        rec.loaded = true;
         (rows || []).forEach(function (t) { push(t); });
         capBluefinPool(poolId);
       }).catch(function () { rec.pulling = false; });
@@ -1340,8 +1366,10 @@
       }
       byPkgs.forEach(pullBasketYield);
       if (opts.live) {
-        instaTimer = setInterval(refreshInstadex, opts.instadexMs || 60000);
+        // Background tabs poll nothing; the next visible tick catches up.
+        instaTimer = setInterval(function () { if (!pageHidden()) refreshInstadex(); }, opts.instadexMs || 60000);
         setInterval(function () {
+          if (pageHidden()) return;
           burnPkgs.forEach(pullBurn);
           mintPkgs.forEach(pullMintLock);
           benPkgs.forEach(pullBeneficiary);
@@ -1355,7 +1383,7 @@
             pullLockFeeEvents(id, 2);
           });
         }, opts.instadexMs || 45000);
-        bluefinTimer = setInterval(function () { refreshBluefin(); }, opts.bluefinMs || 12000);
+        bluefinTimer = setInterval(function () { if (!pageHidden()) refreshBluefin(); }, opts.bluefinMs || 30000);
       }
     }
 

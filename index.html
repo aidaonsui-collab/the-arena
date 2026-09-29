@@ -2630,30 +2630,36 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       return r.text().then(function(raw){
         var j = {};
         try { j = raw ? JSON.parse(raw) : {}; } catch (e) {}
-        if (!r.ok) throw new Error("graphql " + r.status);
-        if (j.errors && j.errors.length) throw new Error(j.errors[0].message || "graphql");
+        if (!r.ok){ var he = new Error("graphql " + r.status); he.status = r.status; throw he; }
+        if (j.errors && j.errors.length){ var ge = new Error(j.errors[0].message || "graphql"); ge.answered = true; throw ge; }
         return j.data;
       });
     });
   }
   /**
-   * Sui GraphQL, through our own origin first.
+   * Sui GraphQL, straight from the browser first.
    *
-   * graphql.mainnet.sui.io sends no Access-Control-Allow-Origin, so calling it
-   * straight from the browser is blocked before the request leaves — every call
-   * throws TypeError "Failed to fetch". Most callers catch that and quietly
-   * degrade, which is why the site looks healthy; coinsOfExact does not, so the
-   * bridge burn surfaced it as a bare "Failed to fetch" and redeem could never
-   * complete. /api/sui-gql takes the browser out of the CORS equation. The
-   * direct URL stays as a fallback for a static preview with no functions.
+   * graphql.mainnet.sui.io now sends Access-Control-Allow-Origin: * (it didn't
+   * when /api/sui-gql was added). Every proxied call is a billed function
+   * invocation — about 93% of this project's — and pools every visitor onto
+   * Vercel's egress IPs for Sui's per-IP rate limit. The proxy stays as the
+   * fallback when the direct call fails in transit or Sui returns 429/5xx.
    */
   function gql(query, variables){
     var direct = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graphql";
-    return gqlOnce("/api/sui-gql", query, variables).catch(function(e){
-      // A GraphQL-level error is a real answer, not a transport failure —
-      // do not replay the query upstream.
-      if (e && /^graphql/.test(String(e.message || ""))) throw e;
-      return gqlOnce(direct, query, variables);
+    // Sui answered (a GraphQL error, or a 4xx other than 429); the proxy would
+    // get the same answer.
+    function final(e){ return e && (e.answered || (e.status && e.status < 500 && e.status !== 429)); }
+    return gqlOnce(direct, query, variables).catch(function(e){
+      if (final(e)) throw e;
+      // Sui's per-IP limit clears within a second or so; one short retry
+      // direct avoids a billed proxy call for most load bursts.
+      return new Promise(function(res){ setTimeout(res, 600 + Math.floor(Math.random() * 600)); })
+        .then(function(){ return gqlOnce(direct, query, variables); })
+        .catch(function(e2){
+          if (final(e2)) throw e2;
+          return gqlOnce("/api/sui-gql", query, variables);
+        });
     });
   }
   function saveWalletPref(w, addr){
@@ -16106,7 +16112,9 @@ async function doBridgeDeposit(){
       bshift = 0;
       T.forEach(function(k){ k.buckets.shift(); k.buckets.push(0); k.fbuckets.shift(); k.fbuckets.push(0); });
     }
-    if (state.route === "pit"){
+    // A background tab polls nothing; the next visible tick catches up.
+    var hidden = document.hidden === true;
+    if (state.route === "pit" && !hidden){
       if (bshift % 8 === 0){
         refreshPitObject();
       }
@@ -16114,12 +16122,15 @@ async function doBridgeDeposit(){
         pitStatePollAt = Date.now();
         loadPitState();
       }
-    } else if (state.route === "explore" && bshift % 3 === 0){
-      // The pit object is only shown on the pit route. Reading it here was an
-      // uncached /api/sui-gql every 3s for every open Explore tab.
-      if (bus.sub && bus.sub.refreshBluefin && bshift % 6 === 0) bus.sub.refreshBluefin();
+    } else if (state.route === "explore" && bshift % 3 === 0 && !hidden){
+      // The indexer's own timer refreshes every pool's trades. Also doing it
+      // here every 6s re-read every pool's last 50 txs — most of this site's
+      // Sui GraphQL traffic.
       hydrateScreener();
       paintExploreList();
+    } else if (state.route === "token" && bshift % 6 === 0 && !hidden){
+      var viewTk = findT(state.sym);
+      if (viewTk && viewTk.bluefinPool && bus.sub && bus.sub.refreshBluefin) bus.sub.refreshBluefin(viewTk.bluefinPool);
     }
     paintLive();
   }, 1000);
@@ -16132,7 +16143,7 @@ async function doBridgeDeposit(){
       tokens: T,
       live: !SHOT,
       demoMs: 1000,
-      bluefinMs: 12000,
+      bluefinMs: 30000,
       instadexMs: 45000,
       onTrade: function(ev){
         if (hydrating) return;
