@@ -33,8 +33,9 @@ try { if (localStorage.getItem("vice.theme") === "pastel") document.documentElem
 <link href="https://fonts.googleapis.com/css2?family=Bagel+Fat+One&family=Grandstander:ital,wght@1,800&family=IBM+Plex+Mono:wght@400;500&family=Instrument+Sans:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
 <style>
 :root{
-  --bg:#120814; --color-page-background:#120814; --card:#1c101c; --ink:#F4EEF2; --muted:#A898A8; --line:#3A2438;
-  --lift:#261626; --well:#16171A; --well-focus:#1C1D21; --topbar:rgba(18,8,20,.9); --overlay:rgba(12,6,14,.72);
+  --bg:#0c0b10; --color-page-background:#0c0b10; --card:#191824; --ink:#F3F1F7; --muted:#9894A6; --line:#2C2A38;
+  --lift:#23222E; --well:#101018; --well-focus:#1C1D21; --topbar:rgba(12,11,16,.92); --overlay:rgba(8,7,12,.72);
+  --panel:#12111A;
   --sui:#298DFF; --up:#298DFF; --down:#FF6640; --pink:#FF2EA6;
   --silver:#C0C7D1; --gold:#C9A97E;
   --radius:14px; --shadow:0 8px 22px rgba(0,0,0,.38);
@@ -80,15 +81,18 @@ html[data-theme="pastel"] .dock{background:color-mix(in srgb,var(--card) 94%,tra
 .brand{display:flex;align-items:center;gap:10px;flex:none;cursor:pointer}
 .brand-mark{width:36px;height:36px;border-radius:10px;display:block;object-fit:cover;background:#140818}
 .brand-name{font-family:"Bagel Fat One","Grandstander",system-ui,sans-serif;font-size:30px;font-style:normal;font-weight:400;letter-spacing:.01em;line-height:1;text-transform:none;display:inline-block;color:var(--pink);-webkit-text-fill-color:var(--pink);-webkit-text-stroke:0.7px var(--sui);paint-order:stroke fill}
-.nav-pill{display:flex;align-items:center;gap:8px;margin:0;justify-self:center;background:transparent;border-radius:0;padding:0}
-.nav-item{padding:10px 12px 12px;border-radius:0;font-size:15px;font-weight:500;letter-spacing:0;text-transform:none;color:var(--muted);cursor:pointer;transition:color .2s;white-space:nowrap;border-bottom:2px solid transparent}
-.nav-item.on{background:transparent;color:var(--ink);box-shadow:none;border-bottom-color:var(--sui)}
+.nav-pill{display:flex;align-items:center;gap:2px;margin:0;justify-self:center;background:var(--card);border:1px solid var(--line);border-radius:999px;padding:4px}
+.nav-item{padding:6px 16px;border-radius:999px;font-size:14px;font-weight:500;letter-spacing:0;text-transform:none;color:var(--muted);cursor:pointer;transition:color .2s,background .2s;white-space:nowrap;border-bottom:0}
+.nav-item.on{background:var(--lift);color:var(--ink);box-shadow:none}
 .nav-item:hover{color:var(--ink)}
 .topbar-actions{display:flex;align-items:center;gap:8px;justify-self:end}
-.btn-top-launch{display:inline-flex;align-items:center;justify-content:center;border:1.5px solid var(--sui);color:var(--sui);background:transparent;border-radius:10px;padding:11px 16px;min-height:44px;font-weight:700;font-size:12px;letter-spacing:.14em;text-transform:uppercase;transition:background .15s,color .15s,transform .15s}
-.btn-top-launch:hover{background:color-mix(in srgb,var(--sui) 14%,transparent)}
+.btn-icon{width:40px;height:40px;border-radius:999px;border:1px solid var(--line);background:var(--card);color:var(--muted);display:none;place-items:center;padding:0;flex:none}
+.btn-icon:hover{color:var(--ink)}
+.btn-top-launch{display:inline-flex;align-items:center;justify-content:center;border:0;color:#fff;background:var(--pink);border-radius:999px;padding:0 16px;min-height:40px;font-weight:650;font-size:14px;letter-spacing:0;text-transform:none;transition:filter .15s,transform .15s}
+.btn-top-launch:hover{filter:brightness(.97);background:var(--pink);color:#fff}
 .btn-top-launch:active{transform:scale(.96)}
-.btn-connect{background:var(--pink);color:#fff;border:0;border-radius:10px;padding:12px 18px;font-weight:700;font-size:12px;letter-spacing:.14em;text-transform:uppercase;transition:filter .15s;position:relative;z-index:41;min-height:44px}
+.btn-connect{background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:999px;padding:0 16px;font-weight:500;font-size:14px;letter-spacing:0;text-transform:none;transition:background .15s;position:relative;z-index:41;min-height:40px}
+.btn-connect:hover{filter:none;background:var(--lift)}
 .btn-connect:hover{filter:brightness(.97)}
 .btn-connect:active{transform:scale(.96)}
 .wallet-overlay{position:fixed;inset:0;z-index:80;background:var(--overlay);display:grid;place-items:center;padding:20px}
@@ -870,11 +874,12 @@ html.shot,html.shot *{animation:none!important;transition:none!important}
 }
 @media (max-width:720px){
   .shell{width:calc(100% - 20px)}
-  .topbar-inner{grid-template-columns:1fr auto;grid-template-areas:"brand connect" "nav nav";padding:10px 0 12px}
+  .topbar-inner{grid-template-columns:1fr auto;grid-template-areas:"brand connect";padding:10px 0}
   .brand{grid-area:brand}
   .topbar-actions{grid-area:connect;justify-self:end}
   .btn-top-launch{display:none}
-  .nav-pill{grid-area:nav;width:100%;justify-content:center;justify-self:stretch}
+  .btn-icon{display:grid}
+  .nav-pill{display:none}
   .search-row{gap:8px}
   .btn-create{flex:none;padding:12px 14px}
   .featured{grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
@@ -1025,7 +1030,10 @@ html[data-route="explore"] main{padding-top:10px;padding-bottom:24px}
   .scr-table{min-width:760px}
 }
 @media (max-width:860px){
-  html[data-route="explore"] main{padding-bottom:92px}
+  .nav-pill{display:none}
+  .btn-top-launch{display:none}
+  .btn-icon{display:grid}
+  html[data-route="explore"] main,html[data-route="token"] main{padding-bottom:108px}
   html[data-route="explore"] .footer{display:none}
   .scr-toolbar{display:contents}
   .scr-launch-row{display:flex;justify-content:flex-end;order:0;margin:2px 0 10px}
@@ -1083,6 +1091,8 @@ html[data-route="explore"] main{padding-top:10px;padding-bottom:24px}
   .dock{display:flex;align-items:stretch;justify-content:space-around;gap:2px;background:color-mix(in srgb,var(--card) 92%,transparent);backdrop-filter:blur(18px);border:1px solid color-mix(in srgb,var(--ink) 10%,transparent);border-radius:22px;padding:6px 6px 8px;min-height:64px;box-shadow:0 12px 40px rgba(8,2,10,.45)}
   .dock-item{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;min-height:52px;border:0;background:transparent;color:var(--muted);font-size:10px;font-weight:650;border-radius:16px;padding:6px 2px}
   .dock-item.on{color:var(--ink);background:color-mix(in srgb,var(--ink) 8%,transparent)}
+.dock-list{color:var(--pink)}
+.dock-list.on{background:var(--pink);color:#fff}
   .dock-sheet{display:flex;flex-direction:column;gap:2px;margin:0 8px 8px;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:8px;box-shadow:0 12px 32px rgba(8,2,10,.5)}
   .dock-sheet [data-go]{display:block;padding:12px 14px;min-height:44px;border-radius:12px;font-weight:650;cursor:pointer}
   .dock-sheet [data-go]:hover{background:var(--lift)}
@@ -1090,6 +1100,125 @@ html[data-route="explore"] main{padding-top:10px;padding-bottom:24px}
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important}.scr-trend-track{animation:none}}
 .create-art-remove{margin-left:8px;padding:0;border:0;background:none;color:inherit;opacity:.8;text-decoration:underline;cursor:pointer;font:inherit}
 .create-art-remove:hover{opacity:1}
+.strip-panel{border:1px solid var(--line);background:var(--panel);border-radius:24px;padding:14px}
+html[data-theme="pastel"] .strip-panel{background:var(--card)}
+.strip-kicker{margin:0;font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.strip-title{display:flex;align-items:center;gap:8px;margin:4px 0 0;font-size:30px;font-weight:650;letter-spacing:-.03em}
+.strip-count{border-radius:8px;background:var(--lift);padding:2px 8px;font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:12px;font-weight:500;color:var(--muted)}
+.strip-head{display:flex;flex-direction:column;gap:14px}
+.strip-controls{display:flex;gap:8px;overflow-x:auto;padding-bottom:2px}
+.strip-seg{display:flex;flex:none;border-radius:999px;background:var(--well);padding:4px}
+.strip-seg button,.strip-mini{border:0;background:transparent;color:var(--muted);height:32px;border-radius:999px;padding:0 12px;font-size:13px;white-space:nowrap}
+.strip-seg button.on,.strip-mini.on{background:var(--lift);color:var(--ink)}
+.strip-quotes{display:flex;gap:6px;overflow-x:auto;margin-top:12px;padding-top:12px;border-top:1px solid var(--line)}
+.strip-mini{flex:none;font-size:12px}
+.strip-sr{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);border:0}
+.strip-search{display:flex;align-items:center;gap:8px;margin-top:12px;border:1px solid var(--line);background:var(--well);border-radius:12px;padding:0 12px;min-height:42px;color:var(--muted)}
+.strip-search input{flex:1;border:0;background:transparent;color:var(--ink);outline:none;min-width:0;font:inherit}
+.strip-grid{display:grid;gap:12px;margin-top:16px}
+.strip-empty{margin:0;padding:48px 12px;text-align:center;color:var(--muted);font-size:14px}
+.strip-feat,.strip-door{border:1px solid var(--line);background:var(--card);border-radius:16px;cursor:pointer}
+.strip-feat{display:flex;gap:12px;padding:12px}
+.strip-feat:hover,.strip-door:hover{border-color:color-mix(in srgb,var(--muted) 55%,transparent)}
+.strip-art{position:relative;display:grid;place-items:center;overflow:hidden;border-radius:12px;aspect-ratio:1;background:linear-gradient(165deg,color-mix(in srgb,var(--art,#FF2EA6) 62%,white) 0%,var(--art,#FF2EA6) 46%,color-mix(in srgb,var(--art,#FF2EA6) 42%,black) 100%);color:#141018}
+.strip-art.is-hero{width:112px;height:112px;flex:none;aspect-ratio:auto;border-radius:16px}
+.strip-art.is-hero.is-house{background:linear-gradient(155deg,#FF2EA6 0%,#298DFF 100%);color:#140814}
+.strip-letter{font-size:56px;font-weight:900;letter-spacing:-.06em;line-height:1}
+.strip-art.is-hero .strip-letter{font-size:68px}
+.strip-fee,.strip-lane{position:absolute;top:8px;border-radius:8px;padding:2px 7px;font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:11px;background:color-mix(in srgb,var(--bg) 72%,transparent);color:var(--ink)}
+.strip-fee{left:8px}
+.strip-lane{right:8px}
+.strip-lane.grad{background:color-mix(in srgb,#3ECF8E 18%,transparent);color:#3ECF8E}
+.strip-feat-body{display:flex;min-width:0;flex:1;flex-direction:column}
+.strip-badges{display:flex;flex-wrap:wrap;gap:6px}
+.strip-pill{border-radius:999px;background:var(--lift);padding:2px 8px;font-size:12px;color:var(--muted)}
+.strip-pill.pink{background:color-mix(in srgb,var(--pink) 16%,transparent);color:var(--pink)}
+.strip-pill.up{background:color-mix(in srgb,#3ECF8E 16%,transparent);color:#3ECF8E}
+.strip-feat-top{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-top:8px}
+.strip-feat h2,.strip-door-name{margin:0;font-size:18px;font-weight:650}
+.strip-door-name{font-size:15px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.strip-door-sub{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:4px 0 0;color:var(--muted);font-size:13px}
+.strip-pair{display:inline-flex;align-items:center;gap:4px;border-radius:999px;background:var(--well);padding:1px 6px;font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:11px;color:var(--ink)}
+.strip-pair i{width:6px;height:6px;border-radius:99px;display:block}
+.strip-feat-mc{text-align:right;flex:none}
+.strip-feat-mc p{margin:0;font-size:24px;font-weight:650;letter-spacing:-.03em}
+.strip-feat-mc span,.strip-feat-stats dt,.desk-k{font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.strip-feat-stats{display:grid;grid-template-columns:1fr 1fr;gap:8px 16px;margin:12px 0 0;border-top:1px solid var(--line);padding-top:12px}
+.strip-feat-stats dd{margin:2px 0 0;font-weight:650}
+.strip-feat-stats dd.up{color:#3ECF8E}
+.strip-about{margin:12px 0 0;color:var(--muted);font-size:14px;line-height:1.45;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.strip-feat-foot,.strip-door-foot{display:flex;align-items:center;gap:8px;margin-top:auto;padding-top:12px;color:var(--muted);font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:12px}
+.strip-feat-foot span,.strip-door-foot span{border:1px solid var(--line);border-radius:8px;padding:3px 8px}
+.strip-feat-foot .ml,.strip-door-foot span:last-child{margin-left:auto;border:0;padding:0}
+.strip-doors{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.strip-door{display:flex;flex-direction:column;padding:8px}
+.strip-door-body{display:flex;flex:1;flex-direction:column;padding:10px 6px 6px}
+.strip-door-row{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:10px;font-size:14px;font-weight:650}
+.strip-door-row .muted{font-weight:450;color:var(--muted)}
+.strip-chg.up,.desk-chg.up{color:#3ECF8E}
+.strip-chg.down,.desk-chg.down{color:var(--down)}
+.strip-door-foot{font-size:11px}
+.desk{display:grid;gap:12px}
+.desk-head,.desk-chart,.desk-card{border:1px solid var(--line);background:var(--card);border-radius:16px}
+.desk-head{padding:12px 14px}
+.desk-id{display:flex;align-items:center;gap:12px;min-width:0}
+.desk-back{width:36px;height:36px;flex:none;border-radius:999px;border:1px solid var(--line);background:transparent;color:var(--muted);font-size:16px}
+.desk-back:hover{color:var(--ink)}
+.desk-name{font-weight:650;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.desk-sub{color:var(--muted);font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:12px;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.desk-live{margin-left:auto;flex:none;border-radius:999px;background:color-mix(in srgb,#3ECF8E 16%,transparent);color:#3ECF8E;font-size:12px;padding:4px 8px}
+.desk-stats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 14px;margin:12px 0 0}
+.desk-stats dt{font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.desk-stats dd{margin:2px 0 0;font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.desk-grid{display:grid;gap:12px;align-items:start}
+.desk-side{order:3;display:grid;gap:12px;min-width:0}
+.desk-chart{order:2;padding:12px;min-width:0}
+.desk-grid>.ticket{order:1;position:static;border:1px solid var(--line);border-radius:16px;box-shadow:none}
+.desk-chart-head{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;padding:0 4px 8px}
+.desk-mc{font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:28px;font-weight:500}
+.desk-card{padding:16px}
+.desk-card p{margin:8px 0 0;color:var(--muted);font-size:14px;line-height:1.45}
+.desk-facts{display:grid;gap:8px;margin:12px 0 0;font-size:14px}
+.desk-facts div{display:flex;justify-content:space-between;gap:12px}
+.desk-facts dt{color:var(--muted)}
+.desk-facts dd{margin:0;font-family:"IBM Plex Mono",ui-monospace,monospace;text-align:right;white-space:nowrap}
+.desk #swap-box > .pit-kicker + div{display:none}
+.strip-search input[type="search"]::-webkit-search-cancel-button,.strip-search input[type="search"]::-webkit-search-decoration{-webkit-appearance:none;appearance:none}
+.desk .ticket .btn-trade{background:var(--pink);color:#fff}
+.desk .ticket .btn-trade.sell{background:var(--pink);color:#fff}
+.desk .ticket .btn-trade.btn-ghost{background:var(--well);color:var(--ink)}
+.desk .sides>div.on-buy,.desk .sides>div.on-sell{background:var(--card);color:var(--ink)}
+.desk .chart-card{margin:0;border-radius:12px;background:transparent}
+.desk .tv-host{height:320px}
+.desk .tv-wrap-dex,.desk .dex-embed{height:340px;min-height:340px;border-radius:12px}
+.desk-tape{margin-top:8px}
+.strip-art img{width:100%;height:100%;object-fit:cover;display:block}
+.strip-search kbd{font-family:"IBM Plex Mono",monospace;font-size:11px;padding:2px 6px;border-radius:6px;border:1px solid var(--line);color:var(--muted)}
+.desk-card h2{margin:0;font-size:16px;font-weight:650;letter-spacing:-.02em}
+.desk-side .about-card{margin:0}
+.desk-side .about-desc{margin:8px 0 12px}
+.desk-side .about-card.about-quote > *{max-width:none}
+.desk-side .about-yield{margin:0}
+@media (min-width:720px){
+  .strip-art.is-hero{width:176px;height:176px}
+  .strip-head{flex-direction:row;align-items:flex-end;justify-content:space-between}
+  .desk-stats{grid-template-columns:repeat(4,minmax(0,1fr))}
+}
+@media (min-width:800px){
+  .strip-doors{grid-template-columns:repeat(3,minmax(0,1fr))}
+}
+@media (min-width:1100px){
+  .strip-doors{grid-template-columns:repeat(5,minmax(0,1fr))}
+  .desk-grid{grid-template-columns:16rem minmax(0,1fr) 18.5rem}
+  .desk-side{order:1}
+  .desk-chart{order:2}
+  .desk-grid>.ticket{order:3;position:sticky;top:84px}
+  .desk-stats{grid-template-columns:repeat(8,minmax(0,1fr))}
+}
+@media (max-width:799px){
+  .strip-feat{flex-direction:column}
+  .strip-art.is-hero{width:100%;height:auto;aspect-ratio:1.4}
+}
 </style>
 <script>
   window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
@@ -1100,16 +1229,18 @@ html[data-route="explore"] main{padding-top:10px;padding-bottom:24px}
 <header class="topbar">
   <div class="shell topbar-inner">
     <div class="brand" data-go="explore">
-      <img class="brand-mark" src="/brand/vice-mark.jpg" width="36" height="36" alt="">
       <span class="brand-name">vice.</span>
     </div>
     <nav class="nav-pill" id="nav-pill"></nav>
     <div class="topbar-actions">
+      <button type="button" class="btn-icon" id="search-open" aria-label="Search tokens">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3-3"/></svg>
+      </button>
       <button type="button" class="btn-theme" id="theme-btn" data-theme-toggle title="Pastel mode" aria-label="Switch to pastel">
         <svg class="theme-sun" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="4"/><path d="M12 3v2M12 19v2M5 12H3M21 12h-2M6.2 6.2l1.4 1.4M16.4 16.4l1.4 1.4M6.2 17.8l1.4-1.4M16.4 7.6l1.4-1.4"/></svg>
         <svg class="theme-moon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M20 14.5A8.5 8.5 0 1 1 9.5 4 7 7 0 0 0 20 14.5z"/></svg>
       </button>
-      <button type="button" class="btn-top-launch" data-go="launch">Launch</button>
+      <button type="button" class="btn-top-launch" data-go="launch">List</button>
       <button type="button" class="btn-connect" id="wallet-btn" data-wallet>Connect</button>
     </div>
   </div>
@@ -1117,7 +1248,7 @@ html[data-route="explore"] main{padding-top:10px;padding-bottom:24px}
 <div class="shell search-row">
   <div class="search-bar">
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3-3"/></svg>
-    <input id="q" type="search" placeholder="Search tokens" autocomplete="off">
+    <input id="q-global" type="search" placeholder="Search tokens" autocomplete="off">
     <span class="kbd">⌘K</span>
   </div>
   <button type="button" class="btn-create" data-go="launch">+ Create</button>
@@ -1129,11 +1260,11 @@ html[data-route="explore"] main{padding-top:10px;padding-bottom:24px}
 <div class="dock-wrap" id="dock-wrap" hidden>
   <div class="dock-sheet" id="dock-sheet" hidden>
     <div data-go="lock">Vicelock</div>
-    <div data-go="launch">Create</div>
   </div>
   <nav class="dock" aria-label="Mobile">
     <button type="button" class="dock-item on" data-go="explore"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg><span>Strip</span></button>
     <button type="button" class="dock-item" data-go="pit"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 3h12l-1 7a7 7 0 0 1-10 0L6 3z"/><path d="M12 10v11"/></svg><span>Rewards</span></button>
+    <button type="button" class="dock-item dock-list" data-go="launch"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg><span>List</span></button>
     <button type="button" class="dock-item" data-go="metrics"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19V9"/><path d="M10 19V5"/><path d="M16 19v-7"/><path d="M22 19V8"/></svg><span>Books</span></button>
     <button type="button" class="dock-item" id="dock-more"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg><span>More</span></button>
   </nav>
@@ -1322,7 +1453,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   let balance = 48.60;
   let xaumBal = 2.40;
 
-  const state = {route:"explore", sym:"VOLT", filter:"All", sort:"Market cap", time:"All", side:"Buy", amt:"1", connected:false, search:"", lName:"", lTick:"", lQuote:"SUI", lPath:"instadex", lMode:"Holders", lTokenAmt:"", lQuoteAmt:"", lFirstBuy:"1", lCap:"", lTokenCoin:"", lQuoteCoin:"", lCoinMode:"create", lDecimals:"9", lSupply:"1000000000", lDesc:"", lX:"", lTg:"", lWeb:"", lPublishedType:"", metricsWindow:"All", tapeTab:"trades", tapeOpen:"", tapePage:0, tapeAge:"age", tapeWallet:"", tapeFilterOpen:false, lFile:null, lArtUrl:"", lArtPreview:"", payWith:"", lNote:"", lNoteErr:false, chartTf:900, chartInd:{vol:true,ma7:false,ma25:false,ma99:false,ema:false}, bridgeTick:"GME", bridgeAmt:"", bridgeDir:"in", bridgeRhDest:"", bridgeNote:"", bridgeBusy:false, bridgePending:[], walletCheck:null, quoteOpen:false, rewardsTab:"all", lBasket:false, lBasketEqual:true, lBasketMode:0, lBasketOn:{XAUM:true,XAGM:true,USDY:true}, lBasketBps:{XAUM:3334,XAGM:3333,USDY:3333}, lSplitPreset:"vice", lSplit:{creator:6000,platform:500,rewards:3000,buyback:500}, lSocialsOpen:false, lQuoteCat:"all", createKind:"token", bView:"create", bRoute:"assets", bRedeem:"", bRedeemAmt:"1", bForfeit:"",bLegs:[{q:"SUI", weight:"50"},{q:"XAUM", weight:"50"},{q:"USDY", weight:"50"}], bUsd:"1", bPay:"sui", bSeed:"1000", bFee:"0", bCap:"1000000", bCapId:"", bCoinType:"", pfRange:"1M", pfFlash:"", lockTab:"create", lockKind:"lock", lockTok:"", lockAmt:"", lockDays:"30", lockSelf:"self", lockBen:"", lockCliff:"90", lockEnd:"365", lockNote:"", lockNoteErr:false, lockBusy:false, lockMine:[], lockAll:[], lockLoad:false, scrTab:"mcap", scrSort:"mcap", scrDir:-1, scrQuote:"All", scrBuyUsd:5, scrLiveOnly:false, scrFilters:false, watch:[]};
+  const state = {route:"explore", sym:"VOLT", filter:"All", sort:"Market cap", time:"All", side:"Buy", amt:"1", connected:false, search:"", lName:"", lTick:"", lQuote:"SUI", lPath:"instadex", lMode:"Holders", lTokenAmt:"", lQuoteAmt:"", lFirstBuy:"1", lCap:"", lTokenCoin:"", lQuoteCoin:"", lCoinMode:"create", lDecimals:"9", lSupply:"1000000000", lDesc:"", lX:"", lTg:"", lWeb:"", lPublishedType:"", metricsWindow:"All", tapeTab:"trades", tapeOpen:"", tapePage:0, tapeAge:"age", tapeWallet:"", tapeFilterOpen:false, lFile:null, lArtUrl:"", lArtPreview:"", payWith:"", lNote:"", lNoteErr:false, chartTf:900, chartInd:{vol:true,ma7:false,ma25:false,ma99:false,ema:false}, bridgeTick:"GME", bridgeAmt:"", bridgeDir:"in", bridgeRhDest:"", bridgeNote:"", bridgeBusy:false, bridgePending:[], walletCheck:null, quoteOpen:false, rewardsTab:"all", lBasket:false, lBasketEqual:true, lBasketMode:0, lBasketOn:{XAUM:true,XAGM:true,USDY:true}, lBasketBps:{XAUM:3334,XAGM:3333,USDY:3333}, lSplitPreset:"vice", lSplit:{creator:6000,platform:500,rewards:3000,buyback:500}, lSocialsOpen:false, lQuoteCat:"all", createKind:"token", bView:"create", bRoute:"assets", bRedeem:"", bRedeemAmt:"1", bForfeit:"",bLegs:[{q:"SUI", weight:"50"},{q:"XAUM", weight:"50"},{q:"USDY", weight:"50"}], bUsd:"1", bPay:"sui", bSeed:"1000", bFee:"0", bCap:"1000000", bCapId:"", bCoinType:"", pfRange:"1M", pfFlash:"", lockTab:"create", lockKind:"lock", lockTok:"", lockAmt:"", lockDays:"30", lockSelf:"self", lockBen:"", lockCliff:"90", lockEnd:"365", lockNote:"", lockNoteErr:false, lockBusy:false, lockMine:[], lockAll:[], lockLoad:false, scrTab:"mcap", scrSort:"mcap", scrDir:-1, scrQuote:"All", scrLane:"all", scrWin:"all", scrBuyUsd:5, scrLiveOnly:false, scrFilters:false, watch:[]};
 
   try {
     var watchSaved = JSON.parse(localStorage.getItem("vice.watch.v1") || "[]");
@@ -3497,31 +3628,33 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     paintScreenerQuotes();
     var board = $("#scr-board");
     if (board){
+      var grid = $("#strip-grid");
+      if (!grid){
+        var host0 = $("#screens");
+        if (host0) host0.innerHTML = exploreHTML();
+        return;
+      }
       var all = T.filter(function(k){ return !isHiddenToken(k); }).map(scrRow);
       var rows = scrFilterRows(all);
-      var stats = scrStats(all);
-      var kpis = $$("#scr-kpis .scr-kpi");
-      if (kpis[0]){ kpis[0].querySelector(".v").textContent = scrFmtCount(stats.tokens); kpis[0].querySelector(".s").textContent = scrFmtCount(stats.withLiq)+" with liquidity"; }
-      if (kpis[1]) kpis[1].querySelector(".v").textContent = scrFmtCompact(stats.volume);
-      if (kpis[2]){ kpis[2].querySelector(".v").textContent = scrFmtCount(stats.txns); kpis[2].querySelector(".s").textContent = scrFmtCount(stats.wallets)+" wallets"; }
-      if (kpis[3]){ kpis[3].querySelector(".v").textContent = scrFmtCompact(stats.liq); kpis[3].querySelector(".s").textContent = "across "+scrFmtCount(stats.tokens)+" pools"; }
-      var tb = $("#scr-tbody");
-      var ml = $("#scr-mlist");
-      var empty = $("#scr-empty");
-      if (!rows.length){
-        if (!empty){
-          var host = $("#screens");
-          if (host) host.innerHTML = exploreHTML();
+      var count = $("#strip-count");
+      if (count) count.textContent = String(rows.length);
+      var title = $("#strip-title");
+      if (title) title.textContent = stripTitle();
+      var chips = $("#strip-quotes");
+      if (chips){
+        var qSig = stripQuoteList().join(",") + "|" + (state.scrQuote || "All");
+        if (chips.getAttribute("data-sig") !== qSig){
+          chips.innerHTML = stripQuoteChips();
+          chips.setAttribute("data-sig", qSig);
         }
-        return;
       }
-      if (empty){
-        var host2 = $("#screens");
-        if (host2) host2.innerHTML = exploreHTML();
-        return;
+      var sig = rows.map(function(r){
+        return [r.ticker, Math.round(r.mcap || 0), r.ch, Math.round(r.vol || 0), r.holders, r.k && r.k.img, r.ageH, r.quote].join(":");
+      }).join("|");
+      if (grid.getAttribute("data-sig") !== sig){
+        grid.innerHTML = stripGridHTML(rows);
+        grid.setAttribute("data-sig", sig);
       }
-      if (tb) tb.innerHTML = rows.map(function(r,i){ return scrDeskRow(r, i+1); }).join("");
-      if (ml) ml.innerHTML = rows.map(function(r,i){ return scrMobRow(r, i+1); }).join("");
       rows.slice(0, 24).forEach(function(r){ scheduleHolders(r.k); });
       return;
     }
@@ -5431,6 +5564,8 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
         if (state.tapeTab === "holders") paintTape();
         var count = document.querySelector(".tape-count");
         if (count && (state.tapeTab === "holders" || !isDexBout(tk))) count.textContent = String(snap.list.length);
+        var deskHolders = $("#desk-holders");
+        if (deskHolders && String(state.sym || "").toUpperCase() === String(tk.t || "").toUpperCase()) deskHolders.textContent = String(snap.list.length);
       }
       if (state.route === "explore") scheduleExploreList();
     }).catch(function(){
@@ -5913,7 +6048,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     return '<footer class="footer">'+
       '<div><div class="brand-name" style="margin-bottom:8px">vice.</div>'+
         '<p style="margin:0;max-width:42ch">Fair launches on Sui. Instant seeds Bluefin in block one. Pair with SUI, gold, silver, T-bills, or a basket share. LP locked forever.</p></div>'+
-      '<div><h4>Product</h4><div data-go="explore">The Strip</div><div data-go="pit">Distributions</div><div data-go="metrics">Books</div><div data-go="lock">Vicelock</div><div data-go="launch">Create</div><a href="https://x.com/ViceFun" target="_blank" rel="noopener">X</a></div>'+
+      '<div><h4>Product</h4><div data-go="explore">Strip</div><div data-go="pit">Rewards</div><div data-go="metrics">Books</div><div data-go="lock">Vicelock</div><div data-go="launch">List</div><a href="https://x.com/ViceFun" target="_blank" rel="noopener">X</a></div>'+
       '<div><h4>Fees</h4>Bluefin 2% on the pair (keeps 20%).<br>Our 80% quote split: 5% platform + VICE buyback &amp; burn (5% minimum on this pad), rest creator/rewards. Rewards go to holders on Collect LP. The buyback &amp; burn share is swapped to VICEFUN and burned by a keeper.<br>Bridge 1%. Token-side LP fees burn.</div></footer>';
   }
   var pfCache = { addr: "", rows: [], at: 0 };
@@ -6366,6 +6501,20 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     var watch = state.watch || [];
     var out = rows.filter(function(r){
       if (quote !== "All" && r.quote !== quote) return false;
+      var win = state.scrWin || "all";
+      if (win === "24h" && r.ageH > 24) return false;
+      if (win === "7d" && r.ageH > 168) return false;
+      var lane = state.scrLane || "all";
+      if (lane === "new" && !(r.ageH <= 24)) return false;
+      if (lane === "heating"){
+        var heating = r.status === "Graduating" || Math.abs(Number(r.ch)) >= 5 || (r.vol > 0 && r.mcap > 0 && r.vol >= r.mcap * 0.15);
+        if (!heating) return false;
+      }
+      if (lane === "graduated"){
+        var gk = r.k || {};
+        var gst = String(r.status || "");
+        if (!(gk.bluefinPool || gk.lpLocked || gst === "Graduated" || gst === "Instadex")) return false;
+      }
       if (state.scrLiveOnly && r.status !== "Live" && r.status !== "Graduating") return false;
       if (tab === "watch" && watch.indexOf(r.ticker) < 0) return false;
       if (tab === "hot" && r.status !== "Graduating" && r.ch < 18 && r.vol < r.mcap * 0.7) return false;
@@ -6479,65 +6628,167 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     if (id === "vol" || id === "gain") return '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M4 17l6-6 4 4 6-8"/><path d="M14 7h6v6"/></svg>';
     return '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M4 19V9"/><path d="M10 19V5"/><path d="M16 19v-7"/><path d="M22 19V8"/></svg>';
   }
+  function stripTitle(){
+    var lane = state.scrLane || "all";
+    if (lane === "new") return "New";
+    if (lane === "heating") return "Heating";
+    if (lane === "graduated") return "Graduated";
+    return "The strip";
+  }
+  function stripQuoteList(){
+    var out = screenerQuotes();
+    T.forEach(function(k){
+      if (!k || isHiddenToken(k)) return;
+      var q = poolQuote(k);
+      if (q && out.indexOf(q) < 0) out.push(q);
+    });
+    return out;
+  }
+  function stripAddr(k){
+    var pkg = coinPackageOf(coinTypeOf(k));
+    return pkg ? shortAddr(pkg) : "";
+  }
+  function stripPair(q){
+    var rec = quoteRec(q);
+    var color = (rec && rec.color) || "#4DA2FF";
+    return '<span class="strip-pair"><i style="background:'+escAttr(color)+'"></i>'+escHtml(q || "SUI")+'</span>';
+  }
+  function stripLaneBadge(r){
+    var k = r.k || {};
+    var st = String(r.status || "");
+    if (k.bluefinPool || k.lpLocked || st === "Graduated" || st === "Instadex") return '<span class="strip-lane grad">Graduated</span>';
+    if (r.ageH <= 24) return '<span class="strip-lane">New</span>';
+    return "";
+  }
+  function stripArt(r, hero){
+    var k = r.k || {};
+    var rec = quoteRec(r.quote);
+    var color = (rec && rec.color) || k.c || "#FF2EA6";
+    var house = hero && String(r.ticker).toUpperCase() === "VICEFUN";
+    var src = escUrl(k.img);
+    var inner = src
+      ? '<img src="'+src+'" alt="">'
+      : '<span class="strip-letter">'+escHtml(String(r.ticker || "?").charAt(0))+'</span>';
+    var fee = (isInstadex(k) || k.bluefinPool) ? '<span class="strip-fee">2% fee</span>' : "";
+    var lane = hero ? "" : stripLaneBadge(r);
+    return '<div class="strip-art'+(hero?" is-hero":"")+(house?" is-house":"")+'"'+(house?"":' style="--art:'+escAttr(color)+'"')+'>'+inner+fee+lane+'</div>';
+  }
+  function stripChg(r){
+    var txt = scrChgText(r.ch);
+    if (txt === "—") return '<span class="muted">—</span>';
+    return '<span class="strip-chg '+(r.ch >= 0 ? "up" : "down")+'" data-chg="'+escAttr(r.ticker)+'">'+txt+'</span>';
+  }
+  function stripFeaturedHTML(r){
+    var k = r.k || {};
+    var house = String(r.ticker).toUpperCase() === "VICEFUN";
+    var locked = !!(k.lpLocked || k.bluefinPool);
+    var pays = rewardLabsOf(k);
+    var payTxt = pays.length ? pays.map(rewardLabName).join(" · ") : (r.quote || "—");
+    var about = k.b ? escHtml(k.b) : "Listed on Bluefin. LP stays in the vault.";
+    var addr = stripAddr(k);
+    var liq = locked ? "Locked" : (r.liq > 0 ? scrFmtCompact(r.liq) : "—");
+    return '<article class="strip-feat" data-go="token:'+escAttr(r.ticker)+'">'+
+      stripArt(r, true)+
+      '<div class="strip-feat-body">'+
+        '<div class="strip-badges">'+
+          (house ? '<span class="strip-pill pink">House coin</span>' : '')+
+          (locked ? '<span class="strip-pill up">LP locked</span>' : '')+
+        '</div>'+
+        '<div class="strip-feat-top">'+
+          '<div style="min-width:0"><h2>'+escHtml(r.name || r.ticker)+'</h2>'+
+            '<p class="strip-door-sub">$'+escHtml(r.ticker)+' paired with '+stripPair(r.quote)+'</p></div>'+
+          '<div class="strip-feat-mc"><p data-usd-cap="'+escAttr(r.ticker)+'">'+usdCapText(k)+'</p><span>Market cap</span></div>'+
+        '</div>'+
+        '<dl class="strip-feat-stats">'+
+          '<div><dt>24h volume</dt><dd data-usd-vol="'+escAttr(r.ticker)+'">'+(r.vol > 0 ? scrFmtCompact(r.vol) : "—")+'</dd></div>'+
+          '<div><dt>Liquidity</dt><dd>'+liq+'</dd></div>'+
+          '<div><dt>Holders</dt><dd>'+scrFmtMaybe(r.holders, scrFmtCount)+'</dd></div>'+
+          '<div><dt>Pays in</dt><dd>'+escHtml(payTxt)+'</dd></div>'+
+        '</dl>'+
+        '<p class="strip-about">'+about+'</p>'+
+        '<div class="strip-feat-foot">'+
+          (addr ? '<span>'+escHtml(addr)+'</span>' : '')+
+          '<span>Bluefin</span>'+
+          '<span class="ml">'+escHtml(scrFmtAgeH(r.ageH))+'</span>'+
+        '</div>'+
+      '</div></article>';
+  }
+  function stripDoorHTML(r){
+    var k = r.k || {};
+    return '<article class="strip-door" data-go="token:'+escAttr(r.ticker)+'">'+
+      stripArt(r, false)+
+      '<div class="strip-door-body">'+
+        '<div class="strip-door-name">'+escHtml(r.name || r.ticker)+'</div>'+
+        '<p class="strip-door-sub">$'+escHtml(r.ticker)+' paired with '+stripPair(r.quote)+'</p>'+
+        '<div class="strip-door-row"><span data-usd-cap="'+escAttr(r.ticker)+'">'+usdCapText(k)+'</span>'+stripChg(r)+'</div>'+
+        '<div class="strip-door-foot"><span>'+escHtml(stripAddr(k) || "—")+'</span><span>'+escHtml(scrFmtAgeH(r.ageH))+'</span></div>'+
+      '</div></article>';
+  }
+  function stripGridHTML(rows){
+    if (!rows || !rows.length) return '<p class="strip-empty" id="strip-empty">Nothing in this cut.</p>';
+    var featured = null;
+    var doors = [];
+    rows.forEach(function(r){
+      if (!featured && String(r.ticker).toUpperCase() === "VICEFUN") featured = r;
+      else doors.push(r);
+    });
+    if (!featured) featured = doors.shift();
+    var html = featured ? stripFeaturedHTML(featured) : "";
+    if (doors.length) html += '<div class="strip-doors">'+doors.map(stripDoorHTML).join("")+'</div>';
+    return html;
+  }
+  function stripSeg(attr, val, label, cur){
+    return '<button type="button" class="'+(cur===val?"on":"")+'" '+attr+'="'+escAttr(val)+'">'+escHtml(label)+'</button>';
+  }
+  function stripQuoteChips(){
+    return stripQuoteList().map(function(q){
+      var on = (state.scrQuote || "All") === q;
+      return '<button type="button" class="strip-mini'+(on?" on":"")+'" data-strip-quote="'+escAttr(q)+'">'+escHtml(q==="All"?"Any pair":q)+'</button>';
+    }).join("");
+  }
   function exploreHTML(){
     var rows = scrFilterRows(T.filter(function(k){ return !isHiddenToken(k); }).map(scrRow));
     rows.slice(0, 24).forEach(function(r){ scheduleHolders(r.k); });
-    var stats = scrStats(T.filter(function(k){ return !isHiddenToken(k); }).map(scrRow));
-    var trending = T.filter(function(k){ return !isHiddenToken(k); }).map(scrRow).sort(function(a,b){
-      if (b.vol !== a.vol) return b.vol - a.vol;
-      return Math.abs(b.ch) - Math.abs(a.ch);
-    }).slice(0, 10);
-    var tab = state.scrTab || "mcap";
+    var lane = state.scrLane || "all";
+    var win = state.scrWin || "all";
     var sort = state.scrSort || "mcap";
-    var tabs = SCR_TABS.map(function(t){
-      return '<button type="button" class="'+(tab===t.id?"on":"")+'" data-scr-tab="'+t.id+'">'+scrIco(t.id)+escHtml(t.label)+'</button>';
+    var dir = Number(state.scrDir) || -1;
+    var sortKey = sort === "age" ? (dir === 1 ? "new" : "old") : "cap";
+    var quotes = stripQuoteList().map(function(q){
+      return '<option value="'+escAttr(q)+'"'+(state.scrQuote===q?" selected":"")+'>'+(q==="All"?"Any pair":escHtml(q))+'</option>';
     }).join("");
-    var trendItems = trending.map(function(r){
-      return '<li><span data-go="token:'+escAttr(r.ticker)+'">'+scrAv(r.k, 20)+'<strong>'+escHtml(r.ticker)+'</strong><em class="'+(r.ch>=0?"up":"down")+'">'+scrChgText(r.ch)+'</em></span></li>';
-    }).join("");
-    var trend = trending.length
-      ? '<div class="scr-trend" id="scr-trend"><span class="scr-trend-k">Trending 24h</span><div class="scr-trend-mask"><div class="scr-trend-track"><ul class="scr-trend-list">'+trendItems+'</ul><ul class="scr-trend-list">'+trendItems+'</ul></div></div></div>'
-      : "";
-    var ths = SCR_COLS.map(function(c){
-      return '<th class="'+c.cls+'"><button type="button" class="'+(sort===c.id?"sorted":"")+'" data-scr-sort="'+c.id+'">'+c.label+(sort===c.id?(state.scrDir===-1?" ↓":" ↑"):"")+'</button></th>';
-    }).join("");
-    var body = rows.length
-      ? rows.map(function(r,i){ return scrDeskRow(r, i+1); }).join("")
-      : "";
-    var mobile = rows.length
-      ? rows.map(function(r,i){ return scrMobRow(r, i+1); }).join("")
-      : "";
-    var empty = !rows.length
-      ? '<div class="scr-empty" id="scr-empty"><h2>'+(tab==="watch"?"Nothing on your rail":"No pairs match")+'</h2><p>'+(tab==="watch"?"Star a pair to keep it here.":"Try another quote, clear filters, or search a different ticker.")+'</p></div>'
-      : "";
-    var quotes = screenerQuotes().map(function(q){
-      return '<option value="'+escAttr(q)+'"'+(state.scrQuote===q?" selected":"")+'>'+(q==="All"?"All quotes":escHtml(q))+'</option>';
-    }).join("");
-    return '<div data-screen-label="The Strip" id="scr-board" class="shell scr">'+
-      '<div class="scr-launch-row"><button type="button" class="scr-launch" data-go="launch">Launch</button></div>'+
-      '<section class="scr-kpis" id="scr-kpis" aria-label="Strip stats">'+
-        '<article class="scr-kpi"><div class="k">Tokens</div><div class="v">'+scrFmtCount(stats.tokens)+'</div><div class="s">'+scrFmtCount(stats.withLiq)+' with liquidity</div></article>'+
-        '<article class="scr-kpi"><div class="k">24h volume</div><div class="v">'+scrFmtCompact(stats.volume)+'</div><div class="s">across every pool</div></article>'+
-        '<article class="scr-kpi"><div class="k">24h txns</div><div class="v">'+scrFmtCount(stats.txns)+'</div><div class="s">'+scrFmtCount(stats.wallets)+' wallets</div></article>'+
-        '<article class="scr-kpi"><div class="k">Liquidity</div><div class="v">'+scrFmtCompact(stats.liq)+'</div><div class="s">across '+scrFmtCount(stats.tokens)+' pools</div></article>'+
-      '</section>'+
-      trend+
-      '<div class="scr-head"><h1>Screener</h1></div>'+
-      '<div class="scr-toolbar">'+
-        '<div class="scr-tabs" role="tablist">'+tabs+'</div>'+
-        '<label class="scr-search"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3-3"/></svg>'+
-          '<input id="q" type="search" value="'+escAttr(state.search)+'" placeholder="Search symbol, name or paste an address" autocomplete="off">'+
-          '<kbd>⌘K</kbd></label>'+
-        '<div class="scr-tools">'+
-          '<div class="scr-filter-wrap">'+
-            '<button type="button" class="scr-tool'+(state.scrFilters||state.scrLiveOnly?" on":"")+'" data-scr-filters>Filters</button>'+
-            (state.scrFilters ? '<div class="scr-filter-pop"><label><input type="checkbox" id="scr-live-only"'+(state.scrLiveOnly?" checked":"")+'> Live + graduating</label></div>' : "")+
+    return '<div data-screen-label="The Strip" id="scr-board" class="shell">'+
+      '<section class="strip-panel">'+
+        '<div class="strip-head">'+
+          '<div><p class="strip-kicker">Tokens that listed on Bluefin</p>'+
+            '<h1 class="strip-title"><span id="strip-title">'+escHtml(stripTitle())+'</span> <span class="strip-count" id="strip-count">'+rows.length+'</span></h1></div>'+
+          '<div class="strip-controls">'+
+            '<div class="strip-seg" role="tablist" aria-label="Lane">'+
+              stripSeg("data-strip-lane","all","All", lane)+
+              stripSeg("data-strip-lane","new","New", lane)+
+              stripSeg("data-strip-lane","heating","Heating", lane)+
+              stripSeg("data-strip-lane","graduated","Graduated", lane)+
+            '</div>'+
+            '<div class="strip-seg" role="tablist" aria-label="Sort">'+
+              stripSeg("data-strip-sort","new","Newest", sortKey)+
+              stripSeg("data-strip-sort","old","Oldest", sortKey)+
+              stripSeg("data-strip-sort","cap","Market cap", sortKey)+
+            '</div>'+
+            '<div class="strip-seg" role="tablist" aria-label="Window">'+
+              stripSeg("data-strip-win","all","All", win)+
+              stripSeg("data-strip-win","24h","24h", win)+
+              stripSeg("data-strip-win","7d","7d", win)+
+            '</div>'+
           '</div>'+
-          '<select class="scr-quote" id="scr-quote" aria-label="Quote asset">'+quotes+'</select>'+
-          '<button type="button" class="scr-launch scr-launch-desk" data-go="launch">Launch</button>'+
         '</div>'+
-      '</div>'+
-      (empty || ('<div class="scr-table-wrap"><table class="scr-table"><thead><tr><th class="col-rank">#</th><th class="col-coin">Coin</th><th class="col-tape">Tape</th>'+ths+'</tr></thead><tbody id="scr-tbody">'+body+'</tbody></table></div><div class="scr-mlist" id="scr-mlist">'+mobile+'</div>'))+
+        '<div class="strip-quotes" id="strip-quotes" data-sig="'+escAttr(stripQuoteList().join(",")+"|"+(state.scrQuote||"All"))+'">'+stripQuoteChips()+'</div>'+
+        '<label class="strip-search">'+
+          '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3-3"/></svg>'+
+          '<input id="q" type="search" value="'+escAttr(state.search)+'" placeholder="Search symbol, name or paste an address" autocomplete="off">'+
+          '<span class="kbd">⌘K</span></label>'+
+        '<select class="strip-sr" id="scr-quote" aria-label="Quote asset">'+quotes+'</select>'+
+        '<div class="strip-grid" id="strip-grid">'+stripGridHTML(rows)+'</div>'+
+      '</section>'+
       footerHTML()+
     '</div>';
   }
@@ -9325,16 +9576,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     const q = poolQuote(tk);
     const insta = isInstadex(tk);
     const dexBout = isDexBout(tk);
-    const capN = curveCap(tk);
     const burnedN = burnedOf(tk);
-    const burnedQ = burnedN * lastPx(tk.t);
-    const burnedPct = VIRTUAL_SUPPLY > 0 ? (burnedN / VIRTUAL_SUPPLY * 100) : 0;
-    const capSub = dexBout
-      ? "Price and volume live on Bluefin"
-      : fmtBig(capN)+' '+q+' · '+chText(tk)+' · '+tk.h+' holders';
-    const burnSub = burnedN > 0
-      ? money(burnedQ, q)+' · '+burnedPct.toFixed(2)+'% of supply'
-      : (dexBout || tk.mode === "Buy & burn" ? "No pot burns yet" : "Holders mode · no burn");
     const xq = encodeURIComponent("$"+tk.t);
     const dex = tk.bluefinPool
       ? "https://dexscreener.com/sui/"+tk.bluefinPool
@@ -9358,60 +9600,90 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       ? tk.tapeTotal
       : tapeItems(tk.tapeRows && tk.tapeRows.length ? 100000 : (state.tapeWallet ? 200 : TAPE_CAP), tk.t, state.tapeWallet).length;
     const tab = state.tapeTab === "holders" ? "holders" : "trades";
+    const tapeShell = '<div class="desk-tape"><div class="tape-tabs">';
     const tapeBody = dexBout
-      ? '<div class="card" style="padding:18px;margin-top:12px">'+
-          '<div class="tape-tabs">'+
+      ? tapeShell+
             '<button type="button" class="pill'+(tab!=="holders"?" on":"")+'" data-set="tapeTab" data-val="trades">Trades</button>'+
             '<button type="button" class="pill'+(tab==="holders"?" on":"")+'" data-set="tapeTab" data-val="holders">Holders</button>'+
             '<span class="count-pill tape-count">'+(tab==="holders"?holdLabel:tradeN)+'</span>'+
             '<button type="button" class="tape-filter'+(state.tapeWallet || state.tapeFilterOpen ? " on" : "")+'" data-tape-filter aria-label="Filter wallet" title="Filter wallet">'+
               '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><path d="M4 5h16l-6 8v5l-4 2v-7L4 5z"/></svg></button></div>'+
           '<div id="tape">'+(tab==="holders" ? (holderHTML(tk)||'<div class="empty">No holders yet.</div>') : tapeHTML(tk.t))+'</div></div>'
-      : '<div class="card" style="padding:18px;margin-top:12px">'+
-          '<div class="tape-tabs">'+
+      : tapeShell+
             '<button type="button" class="pill on" data-set="tapeTab" data-val="holders">Holders</button>'+
             '<span class="count-pill tape-count">'+holdLabel+'</span></div>'+
           '<div id="tape">'+(holderHTML(tk)||'<div class="empty">No holder snapshot.</div>')+'</div></div>';
-    return '<div data-screen-label="Token">'+
-      '<div class="back" data-go="explore">← Explore</div>'+
-      '<div class="token-head">'+
-        '<div style="display:flex;align-items:center;gap:14px;min-width:0">'+avatar(tk,52)+
-          '<div><h1>'+escHtml(tk.n)+'</h1><div class="feat-tick" style="margin-top:6px">'+escHtml(tk.t)+' / '+pairQuoteHTML(q)+'</div>'+
-            (tokenBasketLine(tk) ? '<div class="about-s" id="basket-recipe-line" style="margin-top:6px">'+escHtml(tokenBasketLine(tk))+'</div>' : '')+
-          '</div></div>'+
-        '<div class="badges">'+
-          '<span class="badge">'+tk.st+'</span>'+
-          (insta ? '' : '<span class="badge">Pot · '+tk.mode+'</span>')+
-          (tk.bluefinPool ? '<span class="badge">Bluefin · '+escHtml(tk.t)+'/'+q+'</span>' : '')+
-          (tk.bluefinPool ? '<span class="badge">Pool · '+shortAddr(tk.bluefinPool)+'</span>' : '')+
-          (tk.lpLocked ? '<span class="badge">'+(insta || Number(tk.unlockMs)===0 ? "Lock · permanent" : ("Vault · "+(tk.unlockMs ? new Date(tk.unlockMs).toLocaleDateString() : "180d")))+'</span>' : '')+
-          '<span class="badge">'+q+'</span></div></div>'+
-      '<div class="split">'+
-        '<div class="split-about">'+
-        '<div class="about-card card'+aboutQuoteClass(q)+'"'+aboutQuoteStyle(q)+'>'+
-          '<div class="about-head"><h2>About</h2>'+
-            (canEditTokenMeta(tk) ? '<button type="button" class="about-link" id="meta-edit">Edit</button>' : '')+
+    var split = tk.lpSplit || { creator: 6000, platform: 500, rewards: 3000, buyback: 500 };
+    var splitTag = tk.lpSplit ? "" : " · Vice default";
+    var mcNow = usdCap(tk);
+    var pxTxt = mcNow > 0 ? scrFmtPrice(mcNow / VIRTUAL_SUPPLY) : "—";
+    var ageTxt = scrFmtAgeH(scrAgeH(tk));
+    var volN = volUsd24h(tk);
+    var volTxt = volN > 0 ? fmtUsd(volN) : "—";
+    var chCls = Number(tk.ch) >= 0 ? "up" : "down";
+    var liveLab = tk.bluefinPool ? "Live" : (tk.st || "Live");
+    var lockLab = (insta || Number(tk.unlockMs) === 0) ? "Permanent" : (tk.unlockMs ? new Date(tk.unlockMs).toLocaleDateString() : "—");
+    var poolLab = tk.bluefinPool ? shortAddr(tk.bluefinPool) : "Pending";
+    var pays = rewardLabsOf(tk);
+    var payTxt = pays.length ? pays.map(rewardLabName).join(" · ") : (q || "—");
+    return '<div class="desk" data-screen-label="Token">'+
+      '<header class="desk-head">'+
+        '<div class="desk-id">'+
+          '<button type="button" class="desk-back" data-go="explore" aria-label="Back to the strip">←</button>'+
+          avatar(tk, 44)+
+          '<div style="min-width:0"><div class="desk-name">'+escHtml(tk.n)+'</div>'+
+            '<div class="desk-sub">$'+escHtml(tk.t)+' · '+pairQuoteHTML(q)+'</div>'+
+            (tokenBasketLine(tk) ? '<div class="about-s" id="basket-recipe-line">'+escHtml(tokenBasketLine(tk))+'</div>' : '')+
           '</div>'+
-          '<div class="about-desc">'+(tk.b ? escHtml(tk.b) : "No description yet.")+'</div>'+
-          aboutYieldHTML(tk)+
-          '<div class="about-metrics">'+
-            '<div><div class="about-k">Market cap</div>'+
-              '<div class="about-v"><span data-usd-cap="'+escAttr(tk.t)+'">'+usdCapText(tk)+'</span><span class="tick">mc</span></div>'+
-              '<div class="about-s">'+capSub+'</div></div>'+
-            (dexBout
-              ? '<div><div class="about-k">Burned</div>'+
-                  '<div class="about-v" data-burned-amt>'+fmtBig(burnedN)+'<span class="tick">'+escHtml(tk.t)+'</span></div>'+
-                  '<div class="about-s">Tokens burned (Fight Night + LP collects).</div></div>'
-              : '<div><div class="about-k">Burned</div>'+
-                  '<div class="about-v" data-burned-amt>'+fmtBig(burnedN)+'<span class="tick">'+escHtml(tk.t)+'</span></div>'+
-                  '<div class="about-s">'+burnSub+'</div></div>')+
+          '<span class="desk-live">'+escHtml(liveLab)+'</span>'+
+        '</div>'+
+        '<dl class="desk-stats">'+
+          '<div><dt>Market cap</dt><dd data-usd-cap="'+escAttr(tk.t)+'">'+usdCapText(tk)+'</dd></div>'+
+          '<div><dt>Price</dt><dd data-usd-px="'+escAttr(tk.t)+'">'+pxTxt+'</dd></div>'+
+          '<div><dt>24h</dt><dd class="desk-chg '+chCls+'" data-chg="'+escAttr(tk.t)+'">'+chgText(tk)+'</dd></div>'+
+          '<div><dt>Volume</dt><dd data-usd-vol="'+escAttr(tk.t)+'">'+volTxt+'</dd></div>'+
+          '<div><dt>Age</dt><dd>'+escHtml(ageTxt)+'</dd></div>'+
+          '<div><dt>Supply</dt><dd>1.00B</dd></div>'+
+          '<div><dt>Holders</dt><dd id="desk-holders">'+escHtml(String(holdLabel))+'</dd></div>'+
+          '<div><dt>Venue</dt><dd>'+(tk.bluefinPool ? "Bluefin" : "—")+'</dd></div>'+
+        '</dl></header>'+
+      '<div class="desk-grid">'+
+        '<aside class="desk-side">'+
+          '<section class="desk-card about-card'+aboutQuoteClass(q)+'"'+aboutQuoteStyle(q)+'>'+
+            '<div class="about-head"><h2>About</h2>'+
+              (canEditTokenMeta(tk) ? '<button type="button" class="about-link" id="meta-edit">Edit</button>' : '')+
             '</div>'+
-          '<div class="about-links">'+aboutLinks+'</div></div></div>'+
+            '<div class="about-desc">'+(tk.b ? escHtml(tk.b) : "No description yet.")+'</div>'+
+            '<div class="about-links">'+aboutLinks+'</div>'+
+          '</section>'+
+          '<section class="desk-card">'+
+            '<h2>Holder rewards</h2>'+
+            '<p>Holders are paid automatically when LP fees are collected.</p>'+
+            (aboutYieldHTML(tk) || '<p>Rewards follow this pair once the vault is attached.</p>')+
+            '<p>Pays in '+escHtml(payTxt)+'.</p>'+
+          '</section>'+
+          '<section class="desk-card">'+
+            '<h2>Pair facts</h2>'+
+            '<dl class="desk-facts">'+
+              '<div><dt>Pair</dt><dd>'+escHtml(tk.t)+' / '+escHtml(q)+'</dd></div>'+
+              '<div><dt>Pool</dt><dd>'+escHtml(poolLab)+'</dd></div>'+
+              '<div><dt>Lock</dt><dd>'+escHtml(lockLab)+'</dd></div>'+
+              '<div><dt>Fee</dt><dd>'+(insta ? "2% Bluefin" : "Bluefin")+'</dd></div>'+
+              '<div><dt>Burned</dt><dd data-burned-amt>'+fmtBig(burnedN)+'<span class="tick">'+escHtml(tk.t)+'</span></dd></div>'+
+              '<div><dt>Split'+splitTag+'</dt><dd>'+Math.round(split.creator/100)+' / '+Math.round(split.platform/100)+' / '+Math.round(split.rewards/100)+' / '+Math.round(split.buyback/100)+'</dd></div>'+
+            '</dl>'+
+          '</section>'+
+        '</aside>'+
+        '<section class="desk-chart">'+
+          '<div class="desk-chart-head">'+
+            '<div><div class="desk-k">Market cap</div><div class="desk-mc" data-usd-cap="'+escAttr(tk.t)+'">'+usdCapText(tk)+'</div></div>'+
+            '<div class="desk-chg '+chCls+'" data-chg="'+escAttr(tk.t)+'">'+chgText(tk)+'</div>'+
+          '</div>'+
+          '<div class="card chart-card" data-pool="'+(tk.bluefinPool||"")+'">'+dexEmbed(tk)+'</div>'+
+          tapeBody+
+        '</section>'+
         pairTicket(tk, q, insta)+
-        '<div class="split-main">'+
-          '<div class="card chart-card" data-pool="'+(tk.bluefinPool||"")+'" style="margin-top:12px">'+
-            dexEmbed(tk)+'</div>'+
-          tapeBody+'</div></div>'+
+      '</div>'+
       footerHTML()+'</div>';
   }
 
@@ -11294,7 +11566,7 @@ async function doBridgeDeposit(){
     if (can) can.setAttribute("href", url);
   }
   function paintNav(){
-    const nav = [["The Strip","explore"],["Distributions","pit"],["Books","metrics"],["Vicelock","lock"]];
+    const nav = [["Strip","explore"],["Rewards","pit"],["Books","metrics"]];
     $("#nav-pill").innerHTML = nav.map(function(n){
       const on = state.route === n[1] || (n[1]==="explore" && state.route==="token");
       return '<div class="nav-item'+(on?" on":"")+'" data-go="'+n[1]+'">'+n[0]+'</div>';
@@ -11463,7 +11735,15 @@ async function doBridgeDeposit(){
       var k = capTok(el.getAttribute("data-chg"));
       if (!k) return;
       el.textContent = chgText(k);
-      el.style.color = Math.abs(Number(k.ch)) > 0.05 ? chColor(k) : "";
+      var stripChg = el.classList.contains("strip-chg") || el.classList.contains("desk-chg");
+      if (stripChg) el.style.color = Math.abs(Number(k.ch)) > 0.05 ? (Number(k.ch) >= 0 ? "#3ECF8E" : "#FF6640") : "";
+      else el.style.color = Math.abs(Number(k.ch)) > 0.05 ? chColor(k) : "";
+    });
+    $$("[data-usd-px]").forEach(function(el){
+      var k = capTok(el.getAttribute("data-usd-px"));
+      if (!k) return;
+      var mc = usdCap(k);
+      el.textContent = mc > 0 ? scrFmtPrice(mc / VIRTUAL_SUPPLY) : "—";
     });
     $$("[data-usd-vol]").forEach(function(el){
       var k = capTok(el.getAttribute("data-usd-vol"));
@@ -12268,6 +12548,8 @@ async function doBridgeDeposit(){
     else if (bridgePendTimer){ clearInterval(bridgePendTimer); bridgePendTimer = 0; }
     const q = $("#q");
     if (q) q.value = state.search;
+    const qg = $("#q-global");
+    if (qg && qg !== q) qg.value = state.search;
     prevPot = money(pot);
     if (state.route === "token" && !isDexBout(findT(state.sym))) mountTvChart();
     if (state.route === "token" && isDexBout(findT(state.sym))){
@@ -14891,6 +15173,12 @@ async function doBridgeDeposit(){
       setTheme(themeNow() === "pastel" ? "dark" : "pastel");
       return;
     }
+    if (e.target.closest("#search-open")){
+      if (state.route !== "explore") go("explore");
+      var qOpen = $("#q");
+      if (qOpen) qOpen.focus();
+      return;
+    }
     function paintScrFull(){
       if (state.route !== "explore") return;
       var host = $("#screens");
@@ -14927,6 +15215,37 @@ async function doBridgeDeposit(){
     }
     if (e.target.closest("[data-scr-filters]")){
       state.scrFilters = !state.scrFilters;
+      paintScrFull();
+      return;
+    }
+    const stripSortBtn = e.target.closest("[data-strip-sort]");
+    if (stripSortBtn){
+      var sk = stripSortBtn.getAttribute("data-strip-sort") || "cap";
+      state.scrTab = "mcap";
+      if (sk === "new"){ state.scrSort = "age"; state.scrDir = 1; }
+      else if (sk === "old"){ state.scrSort = "age"; state.scrDir = -1; }
+      else { state.scrSort = "mcap"; state.scrDir = -1; }
+      paintScrFull();
+      return;
+    }
+    const stripWinBtn = e.target.closest("[data-strip-win]");
+    if (stripWinBtn){
+      state.scrWin = stripWinBtn.getAttribute("data-strip-win") || "all";
+      state.scrTab = "mcap";
+      paintScrFull();
+      return;
+    }
+    const stripLaneBtn = e.target.closest("[data-strip-lane]");
+    if (stripLaneBtn){
+      state.scrLane = stripLaneBtn.getAttribute("data-strip-lane") || "all";
+      state.scrTab = "mcap";
+      paintScrFull();
+      return;
+    }
+    const stripQuoteBtn = e.target.closest("[data-strip-quote]");
+    if (stripQuoteBtn){
+      state.scrQuote = stripQuoteBtn.getAttribute("data-strip-quote") || "All";
+      state.scrTab = "mcap";
       paintScrFull();
       return;
     }
@@ -15383,8 +15702,10 @@ async function doBridgeDeposit(){
       paintTicket();
       if (state.route === "token" && isDexBout(findT(state.sym))) scheduleSwapQuote();
     }
-    if (e.target && e.target.id === "q"){
+    if (e.target && (e.target.id === "q" || e.target.id === "q-global")){
       state.search = e.target.value;
+      var otherQ = $(e.target.id === "q" ? "#q-global" : "#q");
+      if (otherQ && otherQ !== e.target) otherQ.value = state.search;
       if (state.route !== "explore") { go("explore"); return; }
       paintExploreList();
     }
@@ -15620,7 +15941,9 @@ async function doBridgeDeposit(){
     }
     if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k"){
       e.preventDefault();
-      const q = $("#q"); if (q) q.focus();
+      if (state.route !== "explore") go("explore");
+      const q = $("#q") || $("#q-global");
+      if (q) q.focus();
     }
   });
   document.addEventListener("scroll", function(){ closeDockSheet(); }, { capture: true, passive: true });
