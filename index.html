@@ -620,6 +620,22 @@ html[data-route="launch"] main,html[data-route="token"] main,html[data-route="me
 
 html[data-route="launch"] .search-row{display:none}
 .create-page{padding:8px 0 24px;max-width:820px;margin:0 auto}
+.create-page:has(.create-layout){max-width:1120px}
+.create-layout{display:grid;grid-template-columns:minmax(0,1fr) minmax(280px,22rem);gap:18px;align-items:start}
+.create-side{position:sticky;top:84px;display:flex;flex-direction:column;gap:12px}
+.lpv-id{display:flex;align-items:center;gap:12px;margin:10px 0 14px}
+.lpv-art{width:56px;height:56px;border-radius:16px;overflow:hidden;display:grid;place-items:center;flex:none;background:linear-gradient(155deg,#FF2EA6,#298DFF);color:#fff;font-weight:800;font-size:24px}
+.lpv-art img{width:100%;height:100%;object-fit:cover;display:block}
+.lpv-name{font-size:18px;font-weight:700;letter-spacing:-.03em;line-height:1.15}
+.lpv-tick{margin-top:2px;color:var(--muted);font-size:13px;font-weight:650}
+.lpv-rows{margin:0;display:grid;gap:8px}
+.lpv-rows>div{display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:13px}
+.lpv-rows dt{color:var(--muted);font-weight:550}
+.lpv-rows dd{margin:0;font-weight:650;display:inline-flex;align-items:center;gap:6px;text-align:right}
+.lpv-rows .q-logo,.lpv-rows .pair-quote-logo{width:16px;height:16px;border-radius:50%;object-fit:cover}
+.create-side .create-cta{justify-content:stretch;margin-top:14px}
+.create-side .btn-launch{width:100%}
+.create-side .create-note{text-align:left}
 .create-head{margin:4px 0 22px}
 .create-head .pit-kicker{letter-spacing:.12em}
 .create-head h1{font-family:"Instrument Sans",ui-sans-serif,system-ui,sans-serif;font-size:clamp(32px,5vw,44px);font-weight:700;letter-spacing:-.04em;line-height:1.05;margin:6px 0 0;color:var(--ink);background:none;-webkit-text-fill-color:unset}
@@ -752,6 +768,8 @@ html[data-route="launch"] .search-row{display:none}
 html[data-theme="pastel"] .create-card{border-color:var(--line);box-shadow:0 10px 28px rgba(255,46,166,.06)}
 html[data-theme="pastel"] .pair-chip.on,html[data-theme="pastel"] .pair-cat.on,html[data-theme="pastel"] .split-preset.on{background:color-mix(in srgb,var(--pink) 12%,#fff)}
 @media (max-width:960px){
+  .create-layout{grid-template-columns:1fr}
+  .create-side{position:static}
   .create-cta{justify-content:stretch}
   .btn-launch{width:100%}
   .create-note{text-align:left}
@@ -1033,7 +1051,7 @@ html[data-route="explore"] main{padding-top:10px;padding-bottom:24px}
   .nav-pill{display:none}
   .btn-top-launch{display:none}
   .btn-icon{display:grid}
-  html[data-route="explore"] main,html[data-route="token"] main{padding-bottom:108px}
+  html[data-route="explore"] main,html[data-route="token"] main,html[data-route="launch"] main{padding-bottom:108px}
   html[data-route="explore"] .footer{display:none}
   .scr-toolbar{display:contents}
   .scr-launch-row{display:flex;justify-content:flex-end;order:0;margin:2px 0 10px}
@@ -1125,10 +1143,9 @@ html[data-theme="pastel"] .strip-panel{background:var(--card)}
 .strip-art.is-hero.is-house{background:linear-gradient(155deg,#FF2EA6 0%,#298DFF 100%);color:#140814}
 .strip-letter{font-size:56px;font-weight:900;letter-spacing:-.06em;line-height:1}
 .strip-art.is-hero .strip-letter{font-size:68px}
-.strip-fee,.strip-lane{position:absolute;top:8px;border-radius:8px;padding:2px 7px;font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:11px;background:color-mix(in srgb,var(--bg) 72%,transparent);color:var(--ink)}
-.strip-fee{left:8px}
-.strip-lane{right:8px}
-.strip-lane.grad{background:color-mix(in srgb,#3ECF8E 18%,transparent);color:#3ECF8E}
+.strip-lane{position:absolute;top:8px;right:8px;border-radius:8px;padding:2px 7px;font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:11px;background:color-mix(in srgb,var(--bg) 72%,transparent);color:var(--ink)}
+.strip-art .strip-rwa{top:8px;left:8px;bottom:auto;width:max-content;height:auto;max-width:calc(100% - 16px)}
+.strip-art .strip-rwa img{width:22px;height:22px;border-radius:50%;object-fit:cover;flex:none;border:1.5px solid rgba(18,8,20,.9);background:#F4EEF2}
 .strip-feat-body{display:flex;min-width:0;flex:1;flex-direction:column}
 .strip-badges{display:flex;flex-wrap:wrap;gap:6px}
 .strip-pill{border-radius:999px;background:var(--lift);padding:2px 8px;font-size:12px;color:var(--muted)}
@@ -1240,7 +1257,7 @@ html[data-theme="pastel"] .strip-panel{background:var(--card)}
         <svg class="theme-sun" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="4"/><path d="M12 3v2M12 19v2M5 12H3M21 12h-2M6.2 6.2l1.4 1.4M16.4 16.4l1.4 1.4M6.2 17.8l1.4-1.4M16.4 7.6l1.4-1.4"/></svg>
         <svg class="theme-moon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M20 14.5A8.5 8.5 0 1 1 9.5 4 7 7 0 0 0 20 14.5z"/></svg>
       </button>
-      <button type="button" class="btn-top-launch" data-go="launch">List</button>
+      <button type="button" class="btn-top-launch" data-go="launch">Launch</button>
       <button type="button" class="btn-connect" id="wallet-btn" data-wallet>Connect</button>
     </div>
   </div>
@@ -1264,7 +1281,7 @@ html[data-theme="pastel"] .strip-panel{background:var(--card)}
   <nav class="dock" aria-label="Mobile">
     <button type="button" class="dock-item on" data-go="explore"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg><span>Strip</span></button>
     <button type="button" class="dock-item" data-go="pit"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 3h12l-1 7a7 7 0 0 1-10 0L6 3z"/><path d="M12 10v11"/></svg><span>Rewards</span></button>
-    <button type="button" class="dock-item dock-list" data-go="launch"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg><span>List</span></button>
+    <button type="button" class="dock-item dock-list" data-go="launch"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg><span>Launch</span></button>
     <button type="button" class="dock-item" data-go="metrics"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19V9"/><path d="M10 19V5"/><path d="M16 19v-7"/><path d="M22 19V8"/></svg><span>Books</span></button>
     <button type="button" class="dock-item" id="dock-more"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg><span>More</span></button>
   </nav>
@@ -1929,6 +1946,29 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     var letter = String(state.lTick || "").charAt(0);
     if (letter) dropIco.textContent = letter;
   }
+  function paintCreatePreview(){
+    if (state.route !== "launch" || state.createKind === "basket") return;
+    var nameEl = $("#lpv-name");
+    if (!nameEl) return;
+    var q = quoteRec(state.lQuote);
+    var tick = String(state.lTick || "").trim();
+    nameEl.textContent = String(state.lName || "").trim() || "Token name";
+    var tickEl = $("#lpv-tick");
+    if (tickEl) tickEl.textContent = tick ? ("$"+tick.toUpperCase()) : "$TICKER";
+    var art = $("#lpv-art");
+    if (art && !state.lArtPreview) art.textContent = tick ? tick.charAt(0).toUpperCase() : "V";
+    var split = launchSplit();
+    var creator = $("#lpv-creator");
+    if (creator) creator.textContent = Math.round((split.creator || 0) / 100) + "%";
+    var payUnit = launchSpendsQuote() ? q.label : "SUI";
+    var first = String(state.lFirstBuy || "").trim();
+    var firstEl = $("#lpv-first");
+    if (firstEl) firstEl.textContent = (Number(first) > 0) ? (first+" "+payUnit) : "None";
+    var total = $("#lpv-total");
+    if (total) total.textContent = (Number(first) > 0) ? ("1 SUI + "+first+" "+payUnit) : "1 SUI";
+    var quote = $("#lpv-quote");
+    if (quote) quote.innerHTML = quoteLogoHtml(q.label, "pair-quote-logo")+escHtml(q.label);
+  }
   function evmProvider(){
     var eth = window.ethereum;
     if (eth && Array.isArray(eth.providers) && eth.providers.length){
@@ -2157,6 +2197,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   function paintFirstBuyPreview(){
     var el = $("#l-first-buy-preview");
     if (el) el.textContent = firstBuyPreview();
+    paintCreatePreview();
   }
   function basketQuoteHint(q){
     var base = (q.what || "Basket share")+". TOKEN/"+q.label+". No "+q.label+" required for LP.";
@@ -3649,13 +3690,16 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
         }
       }
       var sig = rows.map(function(r){
-        return [r.ticker, Math.round(r.mcap || 0), r.ch, Math.round(r.vol || 0), r.holders, r.k && r.k.img, r.ageH, r.quote].join(":");
+        return [r.ticker, Math.round(r.mcap || 0), r.ch, Math.round(r.vol || 0), r.holders, r.k && r.k.img, r.ageH, r.quote, (r.rewards || []).join(",")].join(":");
       }).join("|");
       if (grid.getAttribute("data-sig") !== sig){
         grid.innerHTML = stripGridHTML(rows);
         grid.setAttribute("data-sig", sig);
       }
-      rows.slice(0, 24).forEach(function(r){ scheduleHolders(r.k); });
+      rows.slice(0, 24).forEach(function(r){
+        scheduleHolders(r.k);
+        if (r.k && r.k.lockId && !r.k.yieldHydrated) hydrateLockYieldMode(r.k);
+      });
       return;
     }
     var list = $("#disc-list");
@@ -5893,7 +5937,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     return ((k.born||0)+1)+"h ago";
   }
   function artBlock(k, hot){
-    const badge = hot ? "Leading" : (k.st === "Graduating" || k.st === "Graduated" ? k.st : "");
+    const badge = hot ? "Leading" : "";
     const src = escUrl(k.img);
     const inner = src
       ? '<img src="'+src+'" alt="">'
@@ -6048,7 +6092,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     return '<footer class="footer">'+
       '<div><div class="brand-name" style="margin-bottom:8px">vice.</div>'+
         '<p style="margin:0;max-width:42ch">Fair launches on Sui. Instant seeds Bluefin in block one. Pair with SUI, gold, silver, T-bills, or a basket share. LP locked forever.</p></div>'+
-      '<div><h4>Product</h4><div data-go="explore">Strip</div><div data-go="pit">Rewards</div><div data-go="metrics">Books</div><div data-go="lock">Vicelock</div><div data-go="launch">List</div><a href="https://x.com/ViceFun" target="_blank" rel="noopener">X</a></div>'+
+      '<div><h4>Product</h4><div data-go="explore">Strip</div><div data-go="pit">Rewards</div><div data-go="metrics">Books</div><div data-go="lock">Vicelock</div><div data-go="launch">Launch</div><a href="https://x.com/ViceFun" target="_blank" rel="noopener">X</a></div>'+
       '<div><h4>Fees</h4>Bluefin 2% on the pair (keeps 20%).<br>Our 80% quote split: 5% platform + VICE buyback &amp; burn (5% minimum on this pad), rest creator/rewards. Rewards go to holders on Collect LP. The buyback &amp; burn share is swapped to VICEFUN and burned by a keeper.<br>Bridge 1%. Token-side LP fees burn.</div></footer>';
   }
   var pfCache = { addr: "", rows: [], at: 0 };
@@ -6505,16 +6549,8 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       if (win === "24h" && r.ageH > 24) return false;
       if (win === "7d" && r.ageH > 168) return false;
       var lane = state.scrLane || "all";
+      if (lane !== "all" && lane !== "new"){ lane = "all"; state.scrLane = "all"; }
       if (lane === "new" && !(r.ageH <= 24)) return false;
-      if (lane === "heating"){
-        var heating = r.status === "Graduating" || Math.abs(Number(r.ch)) >= 5 || (r.vol > 0 && r.mcap > 0 && r.vol >= r.mcap * 0.15);
-        if (!heating) return false;
-      }
-      if (lane === "graduated"){
-        var gk = r.k || {};
-        var gst = String(r.status || "");
-        if (!(gk.bluefinPool || gk.lpLocked || gst === "Graduated" || gst === "Instadex")) return false;
-      }
       if (state.scrLiveOnly && r.status !== "Live" && r.status !== "Graduating") return false;
       if (tab === "watch" && watch.indexOf(r.ticker) < 0) return false;
       if (tab === "hot" && r.status !== "Graduating" && r.ch < 18 && r.vol < r.mcap * 0.7) return false;
@@ -6631,9 +6667,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   function stripTitle(){
     var lane = state.scrLane || "all";
     if (lane === "new") return "New";
-    if (lane === "heating") return "Heating";
-    if (lane === "graduated") return "Graduated";
-    return "The strip";
+    return "Total tokens";
   }
   function stripQuoteList(){
     var out = screenerQuotes();
@@ -6654,11 +6688,18 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     return '<span class="strip-pair"><i style="background:'+escAttr(color)+'"></i>'+escHtml(q || "SUI")+'</span>';
   }
   function stripLaneBadge(r){
-    var k = r.k || {};
-    var st = String(r.status || "");
-    if (k.bluefinPool || k.lpLocked || st === "Graduated" || st === "Instadex") return '<span class="strip-lane grad">Graduated</span>';
     if (r.ageH <= 24) return '<span class="strip-lane">New</span>';
     return "";
+  }
+  function stripRewardMarks(k){
+    var labs = rwaLabsOf(rewardAssetsOf(k));
+    if (!labs.length) return "";
+    var title = labs.map(function(l){ return rewardLabName(l); }).join(" · ");
+    return '<span class="rwa-stack strip-rwa" title="'+escAttr(title)+'">'+
+      labs.map(function(lab){
+        return '<img src="'+escUrl(quoteRec(lab).logo)+'" alt="'+escAttr(rewardLabName(lab))+'">';
+      }).join("")+
+    '</span>';
   }
   function stripArt(r, hero){
     var k = r.k || {};
@@ -6669,9 +6710,9 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     var inner = src
       ? '<img src="'+src+'" alt="">'
       : '<span class="strip-letter">'+escHtml(String(r.ticker || "?").charAt(0))+'</span>';
-    var fee = (isInstadex(k) || k.bluefinPool) ? '<span class="strip-fee">2% fee</span>' : "";
+    var marks = stripRewardMarks(k);
     var lane = hero ? "" : stripLaneBadge(r);
-    return '<div class="strip-art'+(hero?" is-hero":"")+(house?" is-house":"")+'"'+(house?"":' style="--art:'+escAttr(color)+'"')+'>'+inner+fee+lane+'</div>';
+    return '<div class="strip-art'+(hero?" is-hero":"")+(house?" is-house":"")+'"'+(house?"":' style="--art:'+escAttr(color)+'"')+'>'+inner+marks+lane+'</div>';
   }
   function stripChg(r){
     var txt = scrChgText(r.ch);
@@ -6760,14 +6801,11 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     return '<div data-screen-label="The Strip" id="scr-board" class="shell">'+
       '<section class="strip-panel">'+
         '<div class="strip-head">'+
-          '<div><p class="strip-kicker">Tokens that listed on Bluefin</p>'+
-            '<h1 class="strip-title"><span id="strip-title">'+escHtml(stripTitle())+'</span> <span class="strip-count" id="strip-count">'+rows.length+'</span></h1></div>'+
+          '<h1 class="strip-title"><span id="strip-title">'+escHtml(stripTitle())+'</span> <span class="strip-count" id="strip-count">'+rows.length+'</span></h1>'+
           '<div class="strip-controls">'+
             '<div class="strip-seg" role="tablist" aria-label="Lane">'+
               stripSeg("data-strip-lane","all","All", lane)+
               stripSeg("data-strip-lane","new","New", lane)+
-              stripSeg("data-strip-lane","heating","Heating", lane)+
-              stripSeg("data-strip-lane","graduated","Graduated", lane)+
             '</div>'+
             '<div class="strip-seg" role="tablist" aria-label="Sort">'+
               stripSeg("data-strip-sort","new","Newest", sortKey)+
@@ -7357,6 +7395,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     paintSplitPresets();
     var host = $("#l-basket-host");
     if (host) host.innerHTML = basketPanelHTML();
+    paintCreatePreview();
   }
   function splitPresetCardsHTML(){
     var pre = state.lSplitPreset || "vice";
@@ -9364,15 +9403,58 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
         '<div id="launch-note" class="create-note'+(state.lNoteErr?" err":"")+'">'+escHtml(note)+'</div>'+
       '</div></div>'+footerHTML()+'</div>';
   }
+  function launchSideHTML(note){
+    var q = quoteRec(state.lQuote);
+    var name = String(state.lName || "").trim() || "Token name";
+    var tick = String(state.lTick || "").trim();
+    var art = state.lArtPreview
+      ? '<img src="'+escUrl(state.lArtPreview)+'" alt="">'
+      : escHtml(tick ? tick.charAt(0).toUpperCase() : "V");
+    var split = launchSplit();
+    var creator = Math.round((split.creator || 0) / 100);
+    var payUnit = launchSpendsQuote() ? q.label : "SUI";
+    var first = String(state.lFirstBuy || "").trim();
+    var firstTxt = (Number(first) > 0) ? (first+" "+payUnit) : "None";
+    var totalTxt = (Number(first) > 0) ? ("1 SUI + "+first+" "+payUnit) : "1 SUI";
+    return '<aside class="create-side">'+
+      '<section class="create-card create-preview">'+
+        '<div class="create-lab">Your token</div>'+
+        '<div class="lpv-id">'+
+          '<div class="lpv-art" id="lpv-art">'+art+'</div>'+
+          '<div><div class="lpv-name" id="lpv-name">'+escHtml(name)+'</div>'+
+          '<div class="lpv-tick" id="lpv-tick">'+escHtml(tick ? "$"+tick.toUpperCase() : "$TICKER")+'</div></div>'+
+        '</div>'+
+        '<dl class="lpv-rows">'+
+          '<div><dt>Paired with</dt><dd id="lpv-quote">'+quoteLogoHtml(q.label, "pair-quote-logo")+escHtml(q.label)+'</dd></div>'+
+          '<div><dt>Trade fee</dt><dd>2%</dd></div>'+
+          '<div><dt>Liquidity</dt><dd>Locked</dd></div>'+
+          '<div><dt>Opening cap</dt><dd>≈ $4.5k</dd></div>'+
+          '<div><dt>Creator share</dt><dd id="lpv-creator">'+creator+'%</dd></div>'+
+        '</dl>'+
+      '</section>'+
+      '<section class="create-card">'+
+        '<div class="create-lab">Cost to launch</div>'+
+        '<dl class="lpv-rows">'+
+          '<div><dt>Launch fee</dt><dd>1 SUI</dd></div>'+
+          '<div><dt>First buy</dt><dd id="lpv-first">'+escHtml(firstTxt)+'</dd></div>'+
+          '<div><dt>Total</dt><dd id="lpv-total">'+escHtml(totalTxt)+'</dd></div>'+
+        '</dl>'+
+        '<div class="create-cta">'+
+          '<button type="button" class="btn-launch" id="launch-go">'+escHtml(launchBtnLabel())+'</button>'+
+        '</div>'+
+        '<div id="launch-note" class="create-note'+(state.lNoteErr?" err":"")+'">'+escHtml(note)+'</div>'+
+      '</section>'+
+    '</aside>';
+  }
   function launchHTML(){
     if (state.createKind === "basket" && !basketPreviewOn()) state.createKind = "token";
     if (state.createKind === "basket") return basketLaunchHTML();
+    state.lSocialsOpen = true;
     state.lPath = "instadex";
     state.lCoinMode = "create";
     var q = quoteRec(state.lQuote);
     var payUnit = launchSpendsQuote() ? q.label : "SUI";
     var descLen = String(state.lDesc || "").length;
-    var socialsOn = !!state.lSocialsOpen;
     var me = suiSession.address;
     var artInner = state.lArtPreview
       ? '<img src="'+escUrl(state.lArtPreview)+'" alt="">'
@@ -9389,9 +9471,11 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       '<div class="create-page">'+
       '<div class="create-head">'+
         '<div class="pit-kicker">Launch</div>'+
-        '<h1>Create a token</h1>'+
+        '<h1>Launch a token</h1>'+
+        '<p class="create-sub">One transaction on Sui. Bluefin pool in block one, LP locked forever, 1 SUI fee.</p>'+
         createKindToggleHTML("token")+
       '</div>'+
+      '<div class="create-layout">'+
       '<div class="create-main">'+
           '<section class="create-card">'+
             '<h2>Coin details</h2>'+
@@ -9417,12 +9501,12 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
               '<div class="create-labrow"><span class="create-lab">Description <span class="opt">optional</span></span><span class="create-count" id="l-desc-count">'+descLen+'/280</span></div>'+
               '<textarea id="l-desc" maxlength="280" placeholder="A short description of the token">'+escHtml(state.lDesc)+'</textarea>'+
             '</div>'+
-            '<button type="button" class="create-socials-btn'+(socialsOn?" open":"")+'" data-socials-toggle>'+
+            '<button type="button" class="create-socials-btn open" data-socials-toggle>'+
               '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.07 0l1.41-1.41a5 5 0 0 0-7.07-7.07L10 5.93"/><path d="M14 11a5 5 0 0 0-7.07 0L5.52 12.4a5 5 0 0 0 7.07 7.07L14 18.07"/></svg>'+
-              'Add social links <span class="opt">(optional)</span>'+
+              'Social links <span class="opt">(optional)</span>'+
               '<svg class="chev" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M6 9l6 6 6-6"/></svg>'+
             '</button>'+
-            '<div class="create-socials" id="l-socials"'+(socialsOn?"":" hidden")+'>'+
+            '<div class="create-socials" id="l-socials">'+
               '<div class="social-row">'+
                 '<input id="l-x" spellcheck="false" placeholder="x.com/handle" value="'+escAttr(state.lX)+'">'+
                 '<input id="l-tg" spellcheck="false" placeholder="t.me/handle" value="'+escAttr(state.lTg)+'">'+
@@ -9467,10 +9551,8 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
               ? '<div id="launch-wallet-hint" class="create-hint" style="border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-top:14px">'+escHtml(launchWalletHintText())+'</div>'
               : '<div id="launch-wallet-hint" hidden></div>')+
           '</section>'+
-          '<div class="create-cta">'+
-            '<button type="button" class="btn-launch" id="launch-go">'+escHtml(launchBtnLabel())+'</button>'+
-          '</div>'+
-          '<div id="launch-note" class="create-note'+(state.lNoteErr?" err":"")+'">'+escHtml(note)+'</div>'+
+      '</div>'+
+      launchSideHTML(note)+
       '</div></div>'+
       footerHTML()+
     '</div>';
@@ -15750,6 +15832,7 @@ async function doBridgeDeposit(){
     }
     if (e.target && e.target.id === "l-name"){
       state.lName = e.target.value;
+      paintCreatePreview();
     }
     if (e.target && e.target.id === "l-tick"){
       state.lTick = e.target.value.toUpperCase();
@@ -15759,6 +15842,7 @@ async function doBridgeDeposit(){
       if (hint) hint.innerHTML = id ? ("Coin type will be <code>…::"+escHtml(id)+"::"+escHtml(id.toUpperCase())+"</code>") : "Ticker becomes the Move module name.";
       paintFirstBuyPreview();
       paintLaunchArtLetter();
+      paintCreatePreview();
     }
     if (e.target && e.target.id === "l-quote-coin") state.lQuoteCoin = e.target.value.trim();
     var splitLeg = e.target && e.target.getAttribute && e.target.getAttribute("data-split-leg");
@@ -15878,6 +15962,7 @@ async function doBridgeDeposit(){
           ? escHtml(state.lTick.charAt(0))
           : '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="18" height="18" rx="4"/><path d="M8 14l3-3 4 4 2-2 3 3"/><circle cx="9" cy="9" r="1.4"/></svg>';
       }
+      paintCreatePreview();
       if (input) input.value = "";
       paintLaunchArtNote();
       return;
@@ -15903,6 +15988,8 @@ async function doBridgeDeposit(){
     if (state.lArtPreview && state.lArtPreview.indexOf("blob:") === 0) URL.revokeObjectURL(state.lArtPreview);
     state.lArtPreview = URL.createObjectURL(file);
     if (prev) prev.innerHTML = '<img src="'+escUrl(state.lArtPreview)+'" alt="">';
+    var sideArt = $("#lpv-art");
+    if (sideArt) sideArt.innerHTML = '<img src="'+escUrl(state.lArtPreview)+'" alt="">';
     paintLaunchArtNote();
   }
   document.addEventListener("dragover", function(e){
