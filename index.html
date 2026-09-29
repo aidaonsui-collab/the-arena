@@ -2647,11 +2647,19 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
    */
   function gql(query, variables){
     var direct = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graphql";
+    // Sui answered (a GraphQL error, or a 4xx other than 429); the proxy would
+    // get the same answer.
+    function final(e){ return e && (e.answered || (e.status && e.status < 500 && e.status !== 429)); }
     return gqlOnce(direct, query, variables).catch(function(e){
-      // Sui answered (a GraphQL error, or a 4xx other than 429); the proxy
-      // would get the same answer.
-      if (e && (e.answered || (e.status && e.status < 500 && e.status !== 429))) throw e;
-      return gqlOnce("/api/sui-gql", query, variables);
+      if (final(e)) throw e;
+      // Sui's per-IP limit clears within a second or so; one short retry
+      // direct avoids a billed proxy call for most load bursts.
+      return new Promise(function(res){ setTimeout(res, 600 + Math.floor(Math.random() * 600)); })
+        .then(function(){ return gqlOnce(direct, query, variables); })
+        .catch(function(e2){
+          if (final(e2)) throw e2;
+          return gqlOnce("/api/sui-gql", query, variables);
+        });
     });
   }
   function saveWalletPref(w, addr){

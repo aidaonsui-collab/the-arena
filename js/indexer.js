@@ -420,7 +420,13 @@
     var target = url || DEFAULT_GQL;
     return once(target).catch(function (e) {
       if (noProxy || target === PROXY_GQL || !(e instanceof TypeError)) throw e;
-      return once(PROXY_GQL);
+      // Sui's per-IP limit clears within a second or so; retry direct once first.
+      return new Promise(function (res) { setTimeout(res, 600 + Math.floor(Math.random() * 600)); })
+        .then(function () { return once(target); })
+        .catch(function (e2) {
+          if (!(e2 instanceof TypeError)) throw e2;
+          return once(PROXY_GQL);
+        });
     });
   }
 
