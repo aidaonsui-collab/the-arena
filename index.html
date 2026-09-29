@@ -114,6 +114,13 @@ html[data-theme="pastel"] .dock{background:color-mix(in srgb,var(--card) 94%,tra
 .meta-sheet textarea:focus{border-color:var(--sui);background:var(--well-focus)}
 .meta-actions{display:flex;gap:8px;margin-top:4px}
 .meta-actions .btn-trade{flex:1;margin-top:0}
+.burn-bal{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:13px;color:var(--muted);margin:0 0 8px}
+.burn-bal button{border:0;background:var(--well);color:var(--ink);border-radius:999px;padding:4px 12px;font-size:12px;font-weight:600}
+.burn-bal button:hover{background:var(--lift)}
+.burn-ack{display:flex;gap:8px;align-items:flex-start;font-size:13px;color:var(--muted);margin:12px 0;line-height:1.4;cursor:pointer}
+.burn-ack input{margin-top:2px;flex:none}
+.burn-note{font-size:12px;color:var(--muted);text-align:center;margin-top:10px;overflow-wrap:anywhere}
+.burn-note.err{color:#FF6640}
 .search-row{display:flex;align-items:center;gap:10px;margin:10px auto 4px}
 .search-bar{flex:1;display:flex;align-items:center;gap:10px;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 14px;box-shadow:none;min-width:0}
 .search-bar svg{flex:none;opacity:.45}
@@ -1302,6 +1309,7 @@ html[data-theme="pastel"] .strip-panel{background:var(--card)}
   </div>
   <button type="button" class="btn-create" data-go="launch">+ Create</button>
 </div>
+<div class="wallet-overlay" id="burn-modal" hidden></div>
 <div class="wallet-overlay" id="wallet-modal" hidden></div>
 <div class="wallet-overlay" id="meta-modal" hidden></div>
 <main id="screens"></main>
@@ -2944,6 +2952,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     paintWallet();
     closeWalletPicker();
     closeMetaEditor();
+    closeBurnModal();
     if (state.route === "token") renderScreen();
   }
   async function connectWallet(chosen){
@@ -8970,7 +8979,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
         '<div class="mstat"><div class="k">Volume · USD</div><div class="v">'+(allUsd > 0 ? fmtUsd(allUsd) : "$0")+'</div><div class="s">all tokens · all time</div></div>'+
         '<div class="mstat"><div class="k">Bridged · USDC</div><div class="v">'+(bridgedUsd > 0 ? fmtUsd(bridgedUsd) : (booksBridgeAt ? "$0" : "—"))+'</div><div class="s">Robinhood wraps · on Sui</div></div>'+
         '<div class="mstat"><div class="k">Tokens launched</div><div class="v">'+m.launches+'</div><div class="s">'+m.grads+' graduated · all time</div></div>'+
-        '<div class="mstat"><div class="k">$VICEFUN burned</div><div class="v">'+fmtBig(viceBurn)+'</div><div class="s">LP collects · all time</div></div>'+
+        '<div class="mstat"><div class="k">$VICEFUN burned</div><div class="v">'+fmtBig(viceBurn)+'</div><div class="s">All burns · all time</div></div>'+
       '</div>'+
       '<div class="card" style="padding:20px 22px;margin-bottom:14px"><div class="sec-label" style="margin-top:0">Volume <span>last '+Math.max(m.hours.length,1)+' hours with fills</span></div>'+
         '<div class="vol-bars">'+bars+'</div></div>'+
@@ -9803,6 +9812,11 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
               '<div><dt>Split'+splitTag+'</dt><dd>'+Math.round(split.creator/100)+' / '+Math.round(split.platform/100)+' / '+Math.round(split.rewards/100)+' / '+Math.round(split.buyback/100)+'</dd></div>'+
             '</dl>'+
           '</section>'+
+          (isPlatformToken(tk) ? '<section class="desk-card">'+
+            '<h2>Burn $'+escHtml(tk.t)+'</h2>'+
+            '<p>Destroy '+escHtml(tk.t)+' from your wallet. Total supply goes down and the Burned count updates. This can’t be undone.</p>'+
+            '<button type="button" class="btn-trade btn-ghost" id="burn-open" style="margin-top:12px">Burn '+escHtml(tk.t)+'</button>'+
+          '</section>' : '')+
         '</aside>'+
         '<section class="desk-chart">'+
           '<div class="desk-chart-head">'+
@@ -12832,6 +12846,183 @@ async function doBridgeDeposit(){
     var sig = await signPersonal("arena-upload:" + ts);
     return { ts: ts, sig: sig, address: suiSession.address };
   }
+  /*
+   * $VICEFUN holder burn. launch::burn_from_mint_lock burns the coin through
+   * the TreasuryCap held by the shared InstadexMintLock, so total supply drops
+   * and the Burned stat (read from that supply) counts it. A send to 0x0 only
+   * parks the coins, and nothing on the site sees it.
+   */
+  var burnDlg = { open: false, busy: false, amt: "", ack: false, bal: null, balBusy: false, note: "", err: false, digest: "" };
+  var BURN_DEC = 9;
+  function burnAmtBig(){
+    return toSmallestBig(String(burnDlg.amt || "").replace(/,/g, "").trim(), BURN_DEC);
+  }
+  function burnHumanStr(big){
+    var scale = 10n ** BigInt(BURN_DEC);
+    var whole = big / scale;
+    var frac = (big % scale).toString().padStart(BURN_DEC, "0").replace(/0+$/, "");
+    return whole.toString() + (frac ? "." + frac : "");
+  }
+  function burnShow(big){
+    return Number(burnHumanStr(big)).toLocaleString(undefined, { maximumFractionDigits: 4 });
+  }
+  function syncBurnModal(){
+    var modal = $("#burn-modal");
+    if (!modal || !burnDlg.open) return;
+    var t = vicefunTk().t;
+    var bal = $("#burn-bal");
+    if (bal){
+      bal.textContent = !suiSession.address ? "Wallet not connected"
+        : burnDlg.balBusy ? "Balance …"
+        : burnDlg.bal != null ? "Balance " + burnShow(burnDlg.bal) + " " + t
+        : "Balance —";
+    }
+    var amt = burnAmtBig();
+    var go = $("#burn-go");
+    if (go){
+      var label, ok = false;
+      if (!suiSession.address){ label = "Connect wallet"; ok = !burnDlg.busy; }
+      else if (burnDlg.busy) label = "Burning…";
+      else if (amt <= 0n) label = "Enter an amount";
+      else if (burnDlg.bal != null && amt > burnDlg.bal) label = "Not enough " + t;
+      else { label = "Burn " + burnShow(amt) + " " + t; ok = burnDlg.ack && burnDlg.bal != null; }
+      go.textContent = label;
+      go.disabled = !ok;
+    }
+    var note = $("#burn-note");
+    if (note){
+      note.className = "burn-note" + (burnDlg.err ? " err" : "");
+      note.innerHTML = escHtml(burnDlg.note) + (burnDlg.digest
+        ? ' <a href="https://suiscan.xyz/mainnet/tx/' + escAttr(burnDlg.digest) + '" target="_blank" rel="noopener">View on Suiscan ↗</a>'
+        : "");
+    }
+  }
+  function paintBurnModal(){
+    var modal = $("#burn-modal");
+    if (!modal || !burnDlg.open) return;
+    var t = escHtml(vicefunTk().t);
+    modal.hidden = false;
+    modal.innerHTML =
+      '<div class="wallet-sheet" role="dialog" aria-modal="true" aria-labelledby="burn-title">'+
+        '<h3 id="burn-title">Burn $'+t+'</h3>'+
+        '<p class="wallet-sub">Burns through the '+t+' mint lock on-chain, so total supply goes down. Sending to 0x0 only locks coins away. It doesn’t lower supply.</p>'+
+        '<div class="burn-bal"><span id="burn-bal"></span><button type="button" id="burn-max">Max</button></div>'+
+        '<input id="burn-amt" class="amt" inputmode="decimal" autocomplete="off" placeholder="0" value="'+escAttr(burnDlg.amt)+'">'+
+        '<label class="burn-ack"><input type="checkbox" id="burn-ack"'+(burnDlg.ack ? " checked" : "")+'><span>I understand burned '+t+' is gone for good. Nobody can recover it.</span></label>'+
+        '<div class="meta-actions">'+
+          '<button type="button" class="btn-trade" id="burn-go"></button>'+
+          '<button type="button" class="btn-trade btn-ghost" id="burn-cancel">Close</button>'+
+        '</div>'+
+        '<div class="burn-note" id="burn-note"></div>'+
+      '</div>';
+    syncBurnModal();
+  }
+  async function loadBurnBal(){
+    var addr = suiSession.address;
+    if (!addr) return;
+    burnDlg.balBusy = true;
+    syncBurnModal();
+    try {
+      var coins = await coinsOfExact(addr, window.ARENA_VICEFUN_TYPE);
+      if (suiSession.address !== addr) return;
+      var sum = 0n;
+      (coins || []).forEach(function(c){
+        sum += typeof c.valueBig === "bigint" ? c.valueBig : BigInt(String(Math.trunc(Number(c.value) || 0)));
+      });
+      burnDlg.bal = sum;
+    } catch (e) {
+      burnDlg.bal = null;
+      burnDlg.note = "Couldn’t read your balance. Close and try again.";
+      burnDlg.err = true;
+    }
+    burnDlg.balBusy = false;
+    syncBurnModal();
+  }
+  function openBurnModal(){
+    burnDlg.open = true;
+    burnDlg.busy = false;
+    burnDlg.ack = false;
+    burnDlg.bal = null;
+    burnDlg.note = "";
+    burnDlg.err = false;
+    burnDlg.digest = "";
+    paintBurnModal();
+    loadBurnBal();
+  }
+  function closeBurnModal(){
+    if (burnDlg.busy) return;
+    var modal = $("#burn-modal");
+    if (modal){
+      modal.hidden = true;
+      modal.innerHTML = "";
+    }
+    burnDlg.open = false;
+  }
+  async function doBurn(){
+    if (burnDlg.busy) return;
+    if (!suiSession.address){
+      if (!hasSuiWallet()){
+        burnDlg.note = "No Sui wallet found.";
+        burnDlg.err = true;
+        syncBurnModal();
+        return;
+      }
+      try { await connectWallet(); } catch (e) {}
+      if (suiSession.address) loadBurnBal();
+      syncBurnModal();
+      return;
+    }
+    var amt = burnAmtBig();
+    if (amt <= 0n || !burnDlg.ack || burnDlg.bal == null || amt > burnDlg.bal) return;
+    var tk = vicefunTk();
+    burnDlg.busy = true;
+    burnDlg.note = "Confirm in your wallet.";
+    burnDlg.err = false;
+    burnDlg.digest = "";
+    syncBurnModal();
+    try {
+      var type = window.ARENA_VICEFUN_TYPE;
+      var CALL = window.ARENA_CALL_PACKAGE || window.ARENA_COLLECT_PACKAGE;
+      if (!type || !CALL) throw new Error("VICEFUN config missing");
+      var coins = await coinsOfExact(suiSession.address, type);
+      var Transaction = await loadTransaction();
+      var tx = new Transaction();
+      tx.setSender(suiSession.address);
+      var coin = takeCoin(tx, coins, amt);
+      tx.moveCall({
+        target: CALL + "::launch::burn_from_mint_lock",
+        typeArguments: [type],
+        arguments: [tx.object(VICEFUN_MINT_LOCK), coin]
+      });
+      var res = await walletExec(tx);
+      var st = res && res.effects && typeof res.effects === "object" && res.effects.status;
+      if (st && st.status && st.status !== "success") throw new Error(st.error || "Burn failed on-chain");
+      burnDlg.digest = txDigest(res);
+      burnDlg.note = "Burned " + burnShow(amt) + " " + tk.t + ".";
+      burnDlg.amt = "";
+      burnDlg.ack = false;
+      var input = $("#burn-amt");
+      if (input) input.value = "";
+      var box = $("#burn-ack");
+      if (box) box.checked = false;
+      // Show it right away, then reconcile with the lock's on-chain supply.
+      var cur = 0n;
+      try { cur = BigInt(String(tk.instadexBurn || "0").split(".")[0] || "0"); } catch (e) {}
+      try {
+        var floor = BigInt(String(tk.burnFloor || "0").split(".")[0] || "0");
+        if (floor > cur) cur = floor;
+      } catch (e) {}
+      if (noteBurnedMist(tk, cur + amt)) persistLaunches();
+      paintBurnSurfaces(tk);
+      setTimeout(function(){ hydrateMintLockBurn(tk); }, 3000);
+    } catch (e) {
+      burnDlg.note = isWalletReject(e) ? "Cancelled in your wallet. Nothing was burned." : walletErrText(e) || "Burn failed. Nothing was burned.";
+      burnDlg.err = true;
+    }
+    burnDlg.busy = false;
+    syncBurnModal();
+    if (burnDlg.digest) loadBurnBal();
+  }
   function closeMetaEditor(){
     var modal = $("#meta-modal");
     if (modal){
@@ -15243,6 +15434,18 @@ async function doBridgeDeposit(){
       if (!metaEdit.saving) closeMetaEditor();
       return;
     }
+    if (e.target.closest("#burn-open")){ openBurnModal(); return; }
+    if (e.target.closest("#burn-go")){ doBurn(); return; }
+    if (e.target.closest("#burn-cancel") || e.target.id === "burn-modal"){ closeBurnModal(); return; }
+    if (e.target.closest("#burn-max")){
+      if (burnDlg.bal != null && !burnDlg.busy){
+        burnDlg.amt = burnHumanStr(burnDlg.bal);
+        var burnIn = $("#burn-amt");
+        if (burnIn) burnIn.value = burnDlg.amt;
+        syncBurnModal();
+      }
+      return;
+    }
     const trade = e.target.closest("[data-trade]");
     const tfBtn = e.target.closest("[data-tf]");
     if (tfBtn){
@@ -15792,6 +15995,12 @@ async function doBridgeDeposit(){
     }
   });
   document.addEventListener("input", function(e){
+    if (e.target && e.target.id === "burn-amt"){
+      burnDlg.amt = e.target.value;
+      if (burnDlg.err){ burnDlg.note = ""; burnDlg.err = false; }
+      syncBurnModal();
+      return;
+    }
     if (e.target && e.target.id === "bridge-amt"){
       state.bridgeAmt = e.target.value;
       var dest = $("#bridge-dest");
@@ -15939,6 +16148,11 @@ async function doBridgeDeposit(){
     if (e.target && e.target.id === "m-creator") metaEdit.creator = e.target.value.trim();
   });
   document.addEventListener("change", function(e){
+    if (e.target && e.target.id === "burn-ack"){
+      burnDlg.ack = !!e.target.checked;
+      syncBurnModal();
+      return;
+    }
     if (e.target && e.target.id === "b-forfeit"){
       state.bForfeit = e.target.checked ? (e.target.getAttribute("data-key") || "") : "";
       return;
@@ -16071,6 +16285,7 @@ async function doBridgeDeposit(){
       closeDockSheet();
       closeWalletPicker();
       if (!metaEdit.saving) closeMetaEditor();
+      closeBurnModal();
     }
     if (e.key === "Enter" && e.target && e.target.id === "tape-wallet"){
       e.preventDefault();
