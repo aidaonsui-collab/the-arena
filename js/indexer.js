@@ -402,16 +402,30 @@
   }
 
   var DEFAULT_GQL = "https://graphql.mainnet.sui.io/graphql";
+  var PROXY_GQL = "/api/sui-gql";
+
+  // POST a GraphQL body straight to Sui. Every call through /api/sui-gql is a
+  // billed function invocation, so the proxy is only the fallback: when the
+  // direct request fails in transit or Sui answers 429/5xx, replay it once there.
+  function postGql(url, body) {
+    function once(u) {
+      return fetch(u, { method: "POST", headers: { "Content-Type": "application/json" }, body: body }).then(function (r) {
+        if ((r.status === 429 || r.status >= 500) && u !== PROXY_GQL) throw new TypeError("graphql " + r.status);
+        return r.json();
+      });
+    }
+    var target = url || DEFAULT_GQL;
+    return once(target).catch(function (e) {
+      if (target === PROXY_GQL || !(e instanceof TypeError)) throw e;
+      return once(PROXY_GQL);
+    });
+  }
 
   // Newest-first via last/before. (first/after is oldest-first and hits a
   // ~20k-event GraphQL ceiling that never reaches recent BasketYieldPushEvents.)
   function queryEventsGql(gql, type, cursor, limit) {
     var q = "query($t:String!,$last:Int!,$before:String){ events(last:$last, before:$before, filter:{ type:$t }){ pageInfo { hasPreviousPage startCursor } nodes { sequenceNumber timestamp sender { address } contents { json } transaction { digest } } } }";
-    return fetch(gql || DEFAULT_GQL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ query: q, variables: { t: type, last: limit || 50, before: cursor || null } })
-    }).then(function (r) { return r.json(); }).then(function (j) {
+    return postGql(gql, JSON.stringify({ query: q, variables: { t: type, last: limit || 50, before: cursor || null } })).then(function (j) {
       if (j.errors && j.errors.length) throw new Error(j.errors[0].message || "graphql");
       var conn = (j.data && j.data.events) || {};
       var nodes = (conn.nodes || []).slice().reverse(); // last: returns oldest→newest inside the page
@@ -446,10 +460,10 @@
   }
   function gqlEndpoint() {
     if (typeof window === "undefined") return DEFAULT_GQL;
-    // Same-origin proxy avoids browser CORS / rate-limit bursts against
-    // graphql.mainnet.sui.io. Absolute URLs (and missing) fall back to the proxy.
-    if (window.SUI_GRAPHQL && String(window.SUI_GRAPHQL).indexOf("://") < 0) return window.SUI_GRAPHQL;
-    return "/api/sui-gql";
+    // Sui GraphQL now sends Access-Control-Allow-Origin: *, so the browser goes
+    // direct and each visitor gets their own per-IP rate limit; postGql drops to
+    // /api/sui-gql only when that fails.
+    return window.SUI_GRAPHQL ? String(window.SUI_GRAPHQL) : DEFAULT_GQL;
   }
 
   function queryEvents(rpc, type, cursor, limit) {
@@ -520,14 +534,10 @@
   function queryPoolTxsGql(gql, poolId, before, limit) {
     var q =
       "query($o:SuiAddress!,$last:Int!,$before:String){ transactions(last:$last, before:$before, filter:{ affectedObject:$o }){ pageInfo { hasPreviousPage startCursor } nodes { digest sender { address } effects { timestamp events(first: 40) { nodes { timestamp sender { address } contents { type { repr } json } } } } } } }";
-    return fetch(gql || DEFAULT_GQL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        query: q,
-        variables: { o: poolId, last: limit || 50, before: before || null }
-      })
-    }).then(function (r) { return r.json(); }).then(function (j) {
+    return postGql(gql, JSON.stringify({
+      query: q,
+      variables: { o: poolId, last: limit || 50, before: before || null }
+    })).then(function (j) {
       if (j.errors && j.errors.length) throw new Error(j.errors[0].message || "graphql");
       var conn = (j.data && j.data.transactions) || {};
       var nodes = conn.nodes || [];

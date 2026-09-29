@@ -2630,30 +2630,28 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       return r.text().then(function(raw){
         var j = {};
         try { j = raw ? JSON.parse(raw) : {}; } catch (e) {}
-        if (!r.ok) throw new Error("graphql " + r.status);
-        if (j.errors && j.errors.length) throw new Error(j.errors[0].message || "graphql");
+        if (!r.ok){ var he = new Error("graphql " + r.status); he.status = r.status; throw he; }
+        if (j.errors && j.errors.length){ var ge = new Error(j.errors[0].message || "graphql"); ge.answered = true; throw ge; }
         return j.data;
       });
     });
   }
   /**
-   * Sui GraphQL, through our own origin first.
+   * Sui GraphQL, straight from the browser first.
    *
-   * graphql.mainnet.sui.io sends no Access-Control-Allow-Origin, so calling it
-   * straight from the browser is blocked before the request leaves — every call
-   * throws TypeError "Failed to fetch". Most callers catch that and quietly
-   * degrade, which is why the site looks healthy; coinsOfExact does not, so the
-   * bridge burn surfaced it as a bare "Failed to fetch" and redeem could never
-   * complete. /api/sui-gql takes the browser out of the CORS equation. The
-   * direct URL stays as a fallback for a static preview with no functions.
+   * graphql.mainnet.sui.io now sends Access-Control-Allow-Origin: * (it didn't
+   * when /api/sui-gql was added). Every proxied call is a billed function
+   * invocation — about 93% of this project's — and pools every visitor onto
+   * Vercel's egress IPs for Sui's per-IP rate limit. The proxy stays as the
+   * fallback when the direct call fails in transit or Sui returns 429/5xx.
    */
   function gql(query, variables){
     var direct = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graphql";
-    return gqlOnce("/api/sui-gql", query, variables).catch(function(e){
-      // A GraphQL-level error is a real answer, not a transport failure —
-      // do not replay the query upstream.
-      if (e && /^graphql/.test(String(e.message || ""))) throw e;
-      return gqlOnce(direct, query, variables);
+    return gqlOnce(direct, query, variables).catch(function(e){
+      // Sui answered (a GraphQL error, or a 4xx other than 429); the proxy
+      // would get the same answer.
+      if (e && (e.answered || (e.status && e.status < 500 && e.status !== 429))) throw e;
+      return gqlOnce("/api/sui-gql", query, variables);
     });
   }
   function saveWalletPref(w, addr){
