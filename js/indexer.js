@@ -51,6 +51,7 @@
     "0x3492c874c1e3b3e2984e8c41b589e642d4d0a5d6459e5a9cfc2d52fd7c89c267";
   var BLUEFIN_ASSET_SWAP = BLUEFIN_ORIGIN + "::events::AssetSwap";
   var BLUEFIN_TRADE_CAP = 50;
+  var BLUEFIN_REFRESH_TXS = 20;
   var DEMO_WALLET = "0x8f2a00000000000000000000000000000000000000000000000000000000ab71";
   var ADDRS = [
     DEMO_WALLET,
@@ -407,7 +408,9 @@
   // POST a GraphQL body straight to Sui. Every call through /api/sui-gql is a
   // billed function invocation, so the proxy is only the fallback: when the
   // direct request fails in transit or Sui answers 429/5xx, replay it once there.
-  function postGql(url, body) {
+  // `noProxy` is for background refreshes: a skipped cycle costs nothing, a
+  // proxied one is billed.
+  function postGql(url, body, noProxy) {
     function once(u) {
       return fetch(u, { method: "POST", headers: { "Content-Type": "application/json" }, body: body }).then(function (r) {
         if ((r.status === 429 || r.status >= 500) && u !== PROXY_GQL) throw new TypeError("graphql " + r.status);
@@ -416,9 +419,13 @@
     }
     var target = url || DEFAULT_GQL;
     return once(target).catch(function (e) {
-      if (target === PROXY_GQL || !(e instanceof TypeError)) throw e;
+      if (noProxy || target === PROXY_GQL || !(e instanceof TypeError)) throw e;
       return once(PROXY_GQL);
     });
+  }
+
+  function pageHidden() {
+    return typeof document !== "undefined" && document.hidden === true;
   }
 
   // Newest-first via last/before. (first/after is oldest-first and hits a
@@ -537,7 +544,7 @@
     return postGql(gql, JSON.stringify({
       query: q,
       variables: { o: poolId, last: limit || 50, before: before || null }
-    })).then(function (j) {
+    }), true).then(function (j) {
       if (j.errors && j.errors.length) throw new Error(j.errors[0].message || "graphql");
       var conn = (j.data && j.data.transactions) || {};
       var nodes = conn.nodes || [];
@@ -1105,8 +1112,11 @@
       }
       if (rec.pulling) return Promise.resolve();
       rec.pulling = true;
-      return collectPoolSwaps(gql, poolId, 1, BLUEFIN_TRADE_CAP).then(function (rows) {
+      // First pull fills the tape; later ones only need what's new.
+      var want = rec.loaded ? BLUEFIN_REFRESH_TXS : BLUEFIN_TRADE_CAP;
+      return collectPoolSwaps(gql, poolId, 1, want).then(function (rows) {
         rec.pulling = false;
+        rec.loaded = true;
         (rows || []).forEach(function (t) { push(t); });
         capBluefinPool(poolId);
       }).catch(function () { rec.pulling = false; });
@@ -1350,8 +1360,10 @@
       }
       byPkgs.forEach(pullBasketYield);
       if (opts.live) {
-        instaTimer = setInterval(refreshInstadex, opts.instadexMs || 60000);
+        // Background tabs poll nothing; the next visible tick catches up.
+        instaTimer = setInterval(function () { if (!pageHidden()) refreshInstadex(); }, opts.instadexMs || 60000);
         setInterval(function () {
+          if (pageHidden()) return;
           burnPkgs.forEach(pullBurn);
           mintPkgs.forEach(pullMintLock);
           benPkgs.forEach(pullBeneficiary);
@@ -1365,7 +1377,7 @@
             pullLockFeeEvents(id, 2);
           });
         }, opts.instadexMs || 45000);
-        bluefinTimer = setInterval(function () { refreshBluefin(); }, opts.bluefinMs || 12000);
+        bluefinTimer = setInterval(function () { if (!pageHidden()) refreshBluefin(); }, opts.bluefinMs || 30000);
       }
     }
 

@@ -16104,7 +16104,9 @@ async function doBridgeDeposit(){
       bshift = 0;
       T.forEach(function(k){ k.buckets.shift(); k.buckets.push(0); k.fbuckets.shift(); k.fbuckets.push(0); });
     }
-    if (state.route === "pit"){
+    // A background tab polls nothing; the next visible tick catches up.
+    var hidden = document.hidden === true;
+    if (state.route === "pit" && !hidden){
       if (bshift % 8 === 0){
         refreshPitObject();
       }
@@ -16112,12 +16114,15 @@ async function doBridgeDeposit(){
         pitStatePollAt = Date.now();
         loadPitState();
       }
-    } else if (state.route === "explore" && bshift % 3 === 0){
-      // The pit object is only shown on the pit route. Reading it here was an
-      // uncached /api/sui-gql every 3s for every open Explore tab.
-      if (bus.sub && bus.sub.refreshBluefin && bshift % 6 === 0) bus.sub.refreshBluefin();
+    } else if (state.route === "explore" && bshift % 3 === 0 && !hidden){
+      // The indexer's own timer refreshes every pool's trades. Also doing it
+      // here every 6s re-read every pool's last 50 txs — most of this site's
+      // Sui GraphQL traffic.
       hydrateScreener();
       paintExploreList();
+    } else if (state.route === "token" && bshift % 6 === 0 && !hidden){
+      var viewTk = findT(state.sym);
+      if (viewTk && viewTk.bluefinPool && bus.sub && bus.sub.refreshBluefin) bus.sub.refreshBluefin(viewTk.bluefinPool);
     }
     paintLive();
   }, 1000);
@@ -16130,7 +16135,7 @@ async function doBridgeDeposit(){
       tokens: T,
       live: !SHOT,
       demoMs: 1000,
-      bluefinMs: 12000,
+      bluefinMs: 30000,
       instadexMs: 45000,
       onTrade: function(ev){
         if (hydrating) return;
