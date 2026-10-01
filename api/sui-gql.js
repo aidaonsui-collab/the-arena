@@ -23,6 +23,13 @@ function bad(message, status = 400) {
 }
 
 export async function POST(request) {
+  // Builds since the per-tab proxy budget (#79) tag their fallbacks with
+  // x-vice-proxy. Untagged calls are tabs opened before that deploy, which
+  // proxy every read with no budget (~10k billed calls an hour). Refuse them
+  // before touching the body or Sui; those tabs get fresh code on reload.
+  if (!request.headers.get("x-vice-proxy")) {
+    return bad("This tab is running an old version of the site. Reload the page.", 426);
+  }
   let raw;
   try {
     raw = await request.text();
@@ -40,10 +47,6 @@ export async function POST(request) {
 
   const query = String((payload && payload.query) || "");
   if (!query.trim()) return bad("missing query");
-  // Builds since the per-tab proxy budget send x-vice-proxy. Untagged calls are
-  // tabs opened before that deploy (or something else entirely); this line is
-  // what runtime-log searches for "proxy-legacy" count.
-  if (!request.headers.get("x-vice-proxy")) console.log("proxy-legacy");
   // Strip comments and string literals before looking for an operation
   // keyword, so "mutation" inside a value cannot trip this and, more
   // importantly, cannot hide one either.
