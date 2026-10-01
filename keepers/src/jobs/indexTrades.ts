@@ -487,11 +487,32 @@ function poolMcUsd(sqrt: string, quote: string, hop: Record<string, number>): nu
   return n;
 }
 
+// Every token-stats POST is a function call plus a Blob write. Most ticks
+// nothing moved, so post only when the pool, burn total or market cap changed,
+// or the last post is older than the heartbeat.
+const STATS_HEARTBEAT_MS = 30 * 60_000;
+const STATS_MC_MOVE = 0.02;
+const TRADES_FULL_EVERY_MS = 6 * 60 * 60_000;
+
+function statsUnchanged(ticker: string, sig: string, mcUsd: number): boolean {
+  let prev: { sig?: string; mc?: number; ms?: number } = {};
+  try {
+    prev = JSON.parse(getMeta(`stats_sent:${ticker}`) || "{}");
+  } catch {
+    return false;
+  }
+  if (prev.sig !== sig || !prev.ms || Date.now() - prev.ms > STATS_HEARTBEAT_MS) return false;
+  const was = Number(prev.mc) || 0;
+  if (was <= 0) return !(mcUsd > 0);
+  return Math.abs(mcUsd - was) / was <= STATS_MC_MOVE;
+}
+
 async function publishStats() {
   const secret = process.env.ARENA_SETTLE_SECRET || process.env.CRON_SECRET || "";
   if (!secret) return { skipped: "no CRON_SECRET" };
   const hop = await hopUsd();
   const out = [];
+  let unchanged = 0;
   const byTicker = new Map<string, ReturnType<typeof listPools>>();
   for (const p of listPools()) {
     const rows = byTicker.get(p.ticker) || [];
@@ -514,6 +535,11 @@ async function publishStats() {
       mcUsd,
       updatedMs: Date.now(),
     };
+    const sig = [burned, body.coinA, body.coinB, body.sqrt, body.quote, body.pool, body.lock].join(":");
+    if (statsUnchanged(ticker, sig, mcUsd)) {
+      unchanged++;
+      continue;
+    }
     try {
       const r = await fetch(`${APP_URL}/api/token-stats`, {
         method: "POST",
@@ -531,12 +557,13 @@ async function publishStats() {
         j = { error: raw.slice(0, 120) };
       }
       if (!r.ok) throw new Error(j.error || `stats ${ticker} ${r.status}`);
+      setMeta(`stats_sent:${ticker}`, JSON.stringify({ sig, mc: mcUsd, ms: Date.now() }));
       out.push({ ticker, burned, mcUsd });
     } catch (e) {
       out.push({ ticker, error: e instanceof Error ? e.message : String(e) });
     }
   }
-  return out;
+  return { posted: out, unchanged };
 }
 
 export async function runIndexTrades() {
@@ -589,15 +616,22 @@ export async function runIndexTrades() {
     }
   }
 
+  // Each publish rewrites that ticker's whole trade blob. Ticks with no new
+  // trades used to republish every ticker; now only a periodic full pass does,
+  // to heal any blob that missed an update.
   const published = [];
-  const toPublish = dirty.size ? [...dirty] : tickers();
+  const fullDue = Date.now() - Number(getMeta("trades_full_ms") || 0) > TRADES_FULL_EVERY_MS;
+  const toPublish = dirty.size ? [...dirty] : fullDue ? tickers() : [];
+  let publishFailed = false;
   for (const t of toPublish) {
     try {
       published.push(await publishTicker(t));
     } catch (e) {
+      publishFailed = true;
       published.push({ ticker: t, error: e instanceof Error ? e.message : String(e) });
     }
   }
+  if (!dirty.size && fullDue && !publishFailed) setMeta("trades_full_ms", String(Date.now()));
 
   let stats: unknown = [];
   try {
