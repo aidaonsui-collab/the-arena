@@ -410,9 +410,30 @@
   // direct request fails in transit or Sui answers 429/5xx, replay it once there.
   // `noProxy` is for background refreshes: a skipped cycle costs nothing, a
   // proxied one is billed.
+  // Per-tab ceiling on proxied calls, shared with index.html's gql() through
+  // window.ViceProxyBudget: a burst of 12, then one more every 5s. Without it a
+  // tab whose IP Sui keeps rate-limiting proxies every read, ~15k billed calls
+  // an hour from one idle Explore tab.
+  var proxyBudget = { left: 12, at: Date.now() };
+  function takeProxyBudget() {
+    var now = Date.now();
+    var refill = Math.floor((now - proxyBudget.at) / 5000);
+    if (refill > 0) {
+      proxyBudget.left = Math.min(12, proxyBudget.left + refill);
+      proxyBudget.at += refill * 5000;
+    }
+    if (proxyBudget.left <= 0) return false;
+    proxyBudget.left -= 1;
+    return true;
+  }
+  if (typeof window !== "undefined") window.ViceProxyBudget = { take: takeProxyBudget };
+
   function postGql(url, body, noProxy) {
     function once(u) {
-      return fetch(u, { method: "POST", headers: { "Content-Type": "application/json" }, body: body }).then(function (r) {
+      var headers = { "Content-Type": "application/json" };
+      // Lets the proxy's logs tell this build's fallbacks from older open tabs.
+      if (u === PROXY_GQL) headers["x-vice-proxy"] = "2";
+      return fetch(u, { method: "POST", headers: headers, body: body }).then(function (r) {
         if ((r.status === 429 || r.status >= 500) && u !== PROXY_GQL) throw new TypeError("graphql " + r.status);
         return r.json();
       });
@@ -424,7 +445,7 @@
       return new Promise(function (res) { setTimeout(res, 600 + Math.floor(Math.random() * 600)); })
         .then(function () { return once(target); })
         .catch(function (e2) {
-          if (!(e2 instanceof TypeError)) throw e2;
+          if (!(e2 instanceof TypeError) || !takeProxyBudget()) throw e2;
           return once(PROXY_GQL);
         });
     });
@@ -436,9 +457,9 @@
 
   // Newest-first via last/before. (first/after is oldest-first and hits a
   // ~20k-event GraphQL ceiling that never reaches recent BasketYieldPushEvents.)
-  function queryEventsGql(gql, type, cursor, limit) {
+  function queryEventsGql(gql, type, cursor, limit, noProxy) {
     var q = "query($t:String!,$last:Int!,$before:String){ events(last:$last, before:$before, filter:{ type:$t }){ pageInfo { hasPreviousPage startCursor } nodes { sequenceNumber timestamp sender { address } contents { json } transaction { digest } } } }";
-    return postGql(gql, JSON.stringify({ query: q, variables: { t: type, last: limit || 50, before: cursor || null } })).then(function (j) {
+    return postGql(gql, JSON.stringify({ query: q, variables: { t: type, last: limit || 50, before: cursor || null } }), noProxy).then(function (j) {
       if (j.errors && j.errors.length) throw new Error(j.errors[0].message || "graphql");
       var conn = (j.data && j.data.events) || {};
       var nodes = (conn.nodes || []).slice().reverse(); // last: returns oldest→newest inside the page
@@ -1004,8 +1025,10 @@
     var gql = gqlEndpoint();
     var mode = prefer === "gql" ? "gql" : "rpc";
     var resumed = false;
+    // Background polls: the walk already alternates RPC and GraphQL, and a
+    // missed page resumes next poll, so it never needs the billed proxy.
     function fetchPage(m, c) {
-      return m === "gql" ? queryEventsGql(gql, type, c, limit || 50) : queryEventsRpc(rpc, type, c, limit || 50);
+      return m === "gql" ? queryEventsGql(gql, type, c, limit || 50, true) : queryEventsRpc(rpc, type, c, limit || 50);
     }
     for (var i = 0; i < (pages || 8); i++) {
       var page = null;

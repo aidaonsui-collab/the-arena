@@ -40,6 +40,10 @@ export async function POST(request) {
 
   const query = String((payload && payload.query) || "");
   if (!query.trim()) return bad("missing query");
+  // Builds since the per-tab proxy budget send x-vice-proxy. Untagged calls are
+  // tabs opened before that deploy (or something else entirely); this line is
+  // what runtime-log searches for "proxy-legacy" count.
+  if (!request.headers.get("x-vice-proxy")) console.log("proxy-legacy");
   // Strip comments and string literals before looking for an operation
   // keyword, so "mutation" inside a value cannot trip this and, more
   // importantly, cannot hide one either.
