@@ -5607,10 +5607,12 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     if (type && holderCache[type] && holderCache[type].list) return holderCache[type];
     return null;
   }
-  /** On-chain Coin objects for DEX / Instadex. Trade-tape reconstruction for curve
-   *  launches (no Coin objects in wallets yet). Never treat unique tape traders as
-   *  holders — that is why the screener showed 15 on $VICEFUN while the token page
-   *  showed 117. */
+  function blankAddr(addr){
+    return !String(addr || "").replace(/^0x/i, "").replace(/0/g, "");
+  }
+  /** Coin objects plus the address-balance accumulator. Explorers count any
+   *  positive total. The zero address is a protocol residue, not a holder.
+   *  Trade-tape reconstruction stays for curve launches only. */
   function holderCountOf(tk){
     var snap = holderSnapOf(tk);
     if (snap && snap.list) return snap.list.length;
@@ -5627,34 +5629,44 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     }
     if (!type) throw new Error("no token type");
     var coinType = "0x2::coin::Coin<" + type + ">";
+    var accType = "0x2::dynamic_field::Field<0x2::accumulator::Key<0x2::balance::Balance<" + type + ">>,0x2::accumulator::U128>";
     var frag = "owner { __typename ... on AddressOwner { address { address } } ... on ObjectOwner { address { address } } ... on ConsensusAddressOwner { address { address } } } asMoveObject { contents { json } }";
     var q1 = "query($t:String!,$first:Int!){ objects(first:$first, filter:{ type:$t }){ pageInfo { hasNextPage endCursor } nodes { "+frag+" } } }";
     var q2 = "query($t:String!,$first:Int!,$after:String!){ objects(first:$first, after:$after, filter:{ type:$t }){ pageInfo { hasNextPage endCursor } nodes { "+frag+" } } }";
     var map = {};
-    var after = null;
     var poolNorm = poolId.replace(/^0x0*/, "0x").toLowerCase();
     var prio = state.route === "token" && viewingToken(tk);
-    for (var page = 0; page < 40; page++){
-      var data = after
-        ? await gql(q2, { t: coinType, first: 50, after: after }, prio)
-        : await gql(q1, { t: coinType, first: 50 }, prio);
-      var conn = data && data.objects;
-      var nodes = (conn && conn.nodes) || [];
-      for (var i = 0; i < nodes.length; i++){
-        var n = nodes[i];
-        var addr = ownerAddress(n.owner);
-        if (!addr) continue;
-        var key = ("0x" + addr.replace(/^0x/, "")).toLowerCase();
-        if (poolNorm && key.replace(/^0x0*/, "0x") === poolNorm) continue;
-        var json = n.asMoveObject && n.asMoveObject.contents && n.asMoveObject.contents.json;
-        var big = coinValueBig(json);
-        if (big <= 0n) continue;
-        if (!map[key]) map[key] = { address: addr, balBig: 0n };
-        map[key].balBig += big;
-      }
-      if (!(conn && conn.pageInfo && conn.pageInfo.hasNextPage && conn.pageInfo.endCursor)) break;
-      after = conn.pageInfo.endCursor;
+    function addBal(addr, big){
+      if (!addr || blankAddr(addr) || big <= 0n) return;
+      var key = ("0x" + addr.replace(/^0x/, "")).toLowerCase();
+      if (poolNorm && key.replace(/^0x0*/, "0x") === poolNorm) return;
+      if (!map[key]) map[key] = { address: addr, balBig: 0n };
+      map[key].balBig += big;
     }
+    async function eachObject(objectType, onNode){
+      var after = null;
+      for (var page = 0; page < 40; page++){
+        var data = after
+          ? await gql(q2, { t: objectType, first: 50, after: after }, prio)
+          : await gql(q1, { t: objectType, first: 50 }, prio);
+        var conn = data && data.objects;
+        var nodes = (conn && conn.nodes) || [];
+        for (var i = 0; i < nodes.length; i++) onNode(nodes[i]);
+        if (!(conn && conn.pageInfo && conn.pageInfo.hasNextPage && conn.pageInfo.endCursor)) return;
+        after = conn.pageInfo.endCursor;
+      }
+    }
+    await eachObject(coinType, function(n){
+      var json = n.asMoveObject && n.asMoveObject.contents && n.asMoveObject.contents.json;
+      addBal(ownerAddress(n.owner), coinValueBig(json));
+    });
+    await eachObject(accType, function(n){
+      var json = n.asMoveObject && n.asMoveObject.contents && n.asMoveObject.contents.json;
+      if (!json) return;
+      var who = json.name && json.name.address;
+      var raw = json.value && json.value.value;
+      try { addBal(who, BigInt(raw || "0")); } catch (e) {}
+    });
     var poolAmt = 0;
     if (poolId){
       var snap = await poolSnap(poolId);
@@ -5664,7 +5676,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     }
     var list = Object.keys(map).map(function(k){
       return { address: map[k].address, bal: fromBase(map[k].balBig.toString(), 9) };
-    }).filter(function(h){ return h.bal >= 1; });
+    }).filter(function(h){ return h.bal > 0; });
     list.sort(function(a,b){ return b.bal - a.bal; });
     var held = list.reduce(function(s,h){ return s + h.bal; }, 0);
     return { list: list, poolAmt: poolAmt, burned: 0, held: held, curve: poolAmt, onchain: true, complete: true, ts: Date.now() };
