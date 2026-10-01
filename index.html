@@ -2656,11 +2656,24 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
    * Vercel's egress IPs for Sui's per-IP rate limit. The proxy stays as the
    * fallback when the direct call fails in transit or Sui returns 429/5xx.
    */
+  // Until this time, skip direct Sui GraphQL: it just failed twice in a row.
+  var gqlDirectDownUntil = 0;
   function gql(query, variables){
     var direct = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graphql";
     // Sui answered (a GraphQL error, or a 4xx other than 429); the proxy would
     // get the same answer.
     function final(e){ return e && (e.answered || (e.status && e.status < 500 && e.status !== 429)); }
+    // A tab whose IP Sui keeps rate-limiting would otherwise send every read
+    // through the proxy (~4/s from an idle Explore tab). Past the shared
+    // per-tab budget the caller gets the error and degrades — most fall back
+    // to JSON-RPC.
+    function viaProxy(e){
+      if (!(window.ViceProxyBudget && window.ViceProxyBudget.take())) return Promise.reject(e);
+      return gqlOnce("/api/sui-gql", query, variables);
+    }
+    // While direct is down, fail over at once. Paying the retry delay on every
+    // call stalled a cold load behind ~100 sequential object reads.
+    if (Date.now() < gqlDirectDownUntil) return viaProxy(new Error("graphql direct unavailable"));
     return gqlOnce(direct, query, variables).catch(function(e){
       if (final(e)) throw e;
       // Sui's per-IP limit clears within a second or so; one short retry
@@ -2669,11 +2682,8 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
         .then(function(){ return gqlOnce(direct, query, variables); })
         .catch(function(e2){
           if (final(e2)) throw e2;
-          // A tab whose IP Sui keeps rate-limiting would otherwise send every
-          // read through the proxy (~4/s from an idle Explore tab). Past the
-          // shared per-tab budget the caller gets the error and degrades.
-          if (!(window.ViceProxyBudget && window.ViceProxyBudget.take())) throw e2;
-          return gqlOnce("/api/sui-gql", query, variables);
+          gqlDirectDownUntil = Date.now() + 15000;
+          return viaProxy(e2);
         });
     });
   }
