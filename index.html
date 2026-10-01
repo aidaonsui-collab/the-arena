@@ -2658,7 +2658,9 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
    */
   // Until this time, skip direct Sui GraphQL: it just failed twice in a row.
   var gqlDirectDownUntil = 0;
-  function gql(query, variables){
+  // `prio`: a read the visible page cannot show without (the viewed token's
+  // holder list). It may proxy past the budget when direct is down.
+  function gql(query, variables, prio){
     var direct = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graphql";
     // Sui answered (a GraphQL error, or a 4xx other than 429); the proxy would
     // get the same answer.
@@ -2668,7 +2670,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     // per-tab budget the caller gets the error and degrades — most fall back
     // to JSON-RPC.
     function viaProxy(e){
-      if (!(window.ViceProxyBudget && window.ViceProxyBudget.take())) return Promise.reject(e);
+      if (!prio && !(window.ViceProxyBudget && window.ViceProxyBudget.take())) return Promise.reject(e);
       return gqlOnce("/api/sui-gql", query, variables);
     }
     // While direct is down, fail over at once. Paying the retry delay on every
@@ -5631,10 +5633,11 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     var map = {};
     var after = null;
     var poolNorm = poolId.replace(/^0x0*/, "0x").toLowerCase();
+    var prio = state.route === "token" && viewingToken(tk);
     for (var page = 0; page < 40; page++){
       var data = after
-        ? await gql(q2, { t: coinType, first: 50, after: after })
-        : await gql(q1, { t: coinType, first: 50 });
+        ? await gql(q2, { t: coinType, first: 50, after: after }, prio)
+        : await gql(q1, { t: coinType, first: 50 }, prio);
       var conn = data && data.objects;
       var nodes = (conn && conn.nodes) || [];
       for (var i = 0; i < nodes.length; i++){
