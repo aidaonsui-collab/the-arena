@@ -1,6 +1,16 @@
 {
   "rewrites": [
     {
+      "source": "/api/sui-gql",
+      "missing": [
+        {
+          "type": "header",
+          "key": "x-vice-proxy"
+        }
+      ],
+      "destination": "/stale-tab.json"
+    },
+    {
       "source": "/",
       "has": [
         {
