@@ -14,6 +14,11 @@
  *
  * Read-only: Sui GraphQL exposes executeTransactionBlock as a mutation, so
  * mutations are refused here. Signing and submitting stays on the client.
+ *
+ * Clients call /api/sui-gql, which has no function of its own: vercel.json
+ * rewrites tagged calls here and answers untagged ones (stale tabs) with
+ * stale-tab.json from the CDN, so they never start a function. A function at
+ * /api/sui-gql would take precedence over those rewrites.
  */
 const SUI_GRAPHQL = process.env.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graphql";
 const MAX_BODY = 64 * 1024;
@@ -25,8 +30,8 @@ function bad(message, status = 400) {
 export async function POST(request) {
   // Builds since the per-tab proxy budget (#79) tag their fallbacks with
   // x-vice-proxy. Untagged calls are tabs opened before that deploy, which
-  // proxy every read with no budget (~10k billed calls an hour). Refuse them
-  // before touching the body or Sui; those tabs get fresh code on reload.
+  // proxy every read with no budget (~10k billed calls an hour). vercel.json
+  // keeps them off this function; this check covers a direct call to the path.
   if (!request.headers.get("x-vice-proxy")) {
     return bad("This tab is running an old version of the site. Reload the page.", 426);
   }
