@@ -7296,7 +7296,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
           '<input id="xe-amt" type="text" inputmode="decimal" placeholder="0.0 XAUM" autocomplete="off" value="' + escAttr(X.all && !dep ? "All" : X.amt) + '"' + (conn ? "" : " disabled") + '>' +
           '<button type="button" class="xe-go" id="xe-go" data-xe-go' + (b.ok ? "" : " disabled") + '>' + escHtml(b.label) + '</button>' +
         '</div>' +
-        '<div class="xe-note' + (X.err ? " err" : "") + '">' + escHtml(X.note || (X.loading ? "Loading vault…" : "")) +
+        '<div class="xe-note' + (X.err ? " err" : "") + '">' + escHtml(X.note || (X.loading && !v ? "Loading vault…" : "")) +
           (X.digest ? ' <a href="https://suiscan.xyz/mainnet/tx/' + escAttr(X.digest) + '" target="_blank" rel="noopener">View on Suiscan ↗</a>' : "") + '</div>' +
       '</div>' +
       (pending ? '<div class="xe-pending">' + pending + '</div>' : "") +
