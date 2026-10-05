@@ -552,6 +552,30 @@ a.btn-trade{display:block;text-align:center;text-decoration:none;box-sizing:bord
 .rw-lookup-row input:focus{border-color:var(--sui)}
 .rw-lookup-row .btn{white-space:nowrap;padding:0 18px}
 .rw-lookup-err{color:#ff6b6b;font-size:13px;margin-top:10px}
+.xe{margin-top:14px}
+.xe-head{display:flex;align-items:center;gap:12px}
+.xe-head img{width:36px;height:36px;border-radius:50%;flex:none}
+.xe-head h2{margin:0}
+.xe-stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:16px 0}
+.xe-stat{background:var(--well);border-radius:14px;padding:12px 14px;min-width:0}
+.xe-stat .k{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.xe-stat .v{font-size:18px;font-weight:650;margin-top:6px;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.xe-stat .s{font-size:12px;color:var(--muted);margin-top:2px}
+.xe-tabs{display:flex;gap:6px;margin-bottom:10px;max-width:520px}
+.xe-tabs button{flex:1;border:1px solid var(--line);background:transparent;color:var(--muted);border-radius:10px;padding:9px 0;font-weight:650;font-size:13px;cursor:pointer}
+.xe-tabs button.on{background:var(--well);color:var(--ink)}
+.xe-form{max-width:520px}
+.xe-bal{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:12px;color:var(--muted);margin:0 0 6px}
+.xe-bal button{border:0;background:var(--well);color:var(--ink);border-radius:999px;padding:3px 10px;font-size:12px;font-weight:600;cursor:pointer}
+.xe-go{border:0;background:var(--pink);color:#fff;border-radius:12px;padding:0 18px;min-height:44px;font-weight:650;font-size:14px;cursor:pointer;white-space:nowrap}
+.xe-go:disabled{opacity:.5;cursor:default}
+.xe-pending{margin-top:14px;border-top:1px solid var(--line);padding-top:10px;max-width:520px}
+.xe-pending-row{display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:13px;padding:6px 0}
+.xe-pending-row button{border:1px solid var(--line);background:transparent;color:var(--ink);border-radius:8px;padding:5px 10px;font-size:12px;cursor:pointer}
+.xe-note{font-size:13px;margin-top:10px;color:var(--muted);overflow-wrap:anywhere}
+.xe-note.err{color:#ff6b6b}
+.xe-risk{font-size:12px;color:var(--muted);margin:16px 0 8px;line-height:1.45;max-width:640px}
+@media (max-width:720px){.xe-stats{grid-template-columns:repeat(2,minmax(0,1fr))}}
 .rw-card-wrap{margin-top:18px}
 .rw-card{background:#0b0f1a;border:1px solid #caa14a;border-radius:20px;padding:26px 28px;max-width:520px;color:#f4eee2;box-shadow:0 0 0 1px rgba(202,161,74,.15) inset}
 .rw-card-head{display:flex;align-items:center;gap:12px;margin-bottom:22px}
@@ -2760,6 +2784,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       renderScreen();
       refreshSwapBals(findT(state.sym));
     }
+    if (document.getElementById("xaum-earn")) xeRefresh(true);
   }
   async function tryResumeWallet(){
     if (suiSession.address || walletResuming) return;
@@ -2972,6 +2997,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     closeWalletPicker();
     closeMetaEditor();
     closeBurnModal();
+    if (document.getElementById("xaum-earn")) xeRefresh(true);
     if (state.route === "token") renderScreen();
   }
   async function connectWallet(chosen){
@@ -7129,6 +7155,225 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
         '<div class="rw-card-foot"><span>vicefun.com</span><span>Real-world assets, on-chain</span></div>' +
       '</div>';
   }
+  /*
+   * XAUM earn card (Rewards page): deposit XAUM into Volo's XAUm vault through NAVI's
+   * @naviprotocol/vault SDK. The SDK is loaded from esm.sh only once this card is on screen.
+   * It builds @mysten/sui 2.x transactions and this page's SDK is 1.x, so the bytes are built
+   * with the SDK's own gRPC client and handed to walletExec prebuilt (it still dry-runs them).
+   * Volo settles by request: a deposit or withdrawal shows as pending until Volo's operator
+   * processes it, usually within a day, and can be cancelled until then.
+   */
+  var XE_SDK = "https://esm.sh/@naviprotocol/vault@0.0.1?deps=@mysten/sui@2.34.0";
+  var XE_SUI = "https://esm.sh/@mysten/sui@2.34.0";
+  var xaumEarn = {
+    vault: null, position: null, pending: [], bal: null, owner: "", at: 0, loading: false,
+    mode: "deposit", amt: "", all: false, busy: false, note: "", err: false, digest: ""
+  };
+  function xeLoad(){
+    if (!xeLoad.p){
+      xeLoad.p = Promise.all([import(XE_SDK), import(XE_SUI + "/transactions"), import(XE_SUI + "/grpc")])
+        .then(function(m){ return { V: m[0], Transaction: m[1].Transaction, Grpc: m[2].SuiGrpcClient }; });
+      xeLoad.p.catch(function(){ xeLoad.p = null; });
+    }
+    return xeLoad.p;
+  }
+  function xeSlotHTML(){
+    setTimeout(xeEnsure, 0);
+    return '<div id="xaum-earn" class="dist-panel xe"></div>';
+  }
+  function xeEnsure(){
+    var el = document.getElementById("xaum-earn");
+    if (!el) return;
+    if (!el.innerHTML) xePaint();
+    if (!document.hidden) xeRefresh(false);
+  }
+  function xeNum(n, max){
+    n = Number(n);
+    if (!(n > 0)) return "0";
+    return n.toLocaleString(undefined, { maximumFractionDigits: max == null ? 6 : max });
+  }
+  async function xeWalletBal(owner){
+    var coins = await coinsOfExact(owner, window.ARENA_XAUM_TYPE);
+    var sum = 0n;
+    (coins || []).forEach(function(c){
+      sum += typeof c.valueBig === "bigint" ? c.valueBig : BigInt(String(Math.trunc(Number(c.value) || 0)));
+    });
+    return Number(sum) / 1e9;
+  }
+  async function xeRefresh(force){
+    if (xaumEarn.loading || xaumEarn.busy) return;
+    var owner = suiSession.address || "";
+    if (!force && xaumEarn.vault && owner === xaumEarn.owner && Date.now() - xaumEarn.at < 60000) return;
+    xaumEarn.loading = true;
+    xePaint();
+    try {
+      var M = await xeLoad();
+      var vaults = await M.V.getVaults();
+      xaumEarn.vault = (vaults || []).find(function(v){
+        var base = v.assets && v.assets.baseCoin && v.assets.baseCoin.coinType;
+        return v.source === "volo" && normType(base) === normType(window.ARENA_XAUM_TYPE);
+      }) || null;
+      if (owner && xaumEarn.vault){
+        var got = await Promise.all([M.V.getPositions(owner), M.V.getPendingRequests(owner), xeWalletBal(owner)]);
+        xaumEarn.position = (got[0] || []).find(function(p){ return sameAddr(p.vaultId, xaumEarn.vault.id); }) || null;
+        xaumEarn.pending = (got[1] || []).filter(function(r){ return sameAddr(r.vaultId, xaumEarn.vault.id); });
+        xaumEarn.bal = got[2];
+      } else {
+        xaumEarn.position = null;
+        xaumEarn.pending = [];
+        xaumEarn.bal = null;
+      }
+      xaumEarn.owner = owner;
+      xaumEarn.at = Date.now();
+      if (!xaumEarn.vault && !xaumEarn.note){
+        xaumEarn.note = "Volo's XAUm vault isn't listed right now.";
+        xaumEarn.err = true;
+      }
+    } catch (e) {
+      xaumEarn.note = "Couldn't load the vault: " + walletErrText(e);
+      xaumEarn.err = true;
+    }
+    xaumEarn.loading = false;
+    xePaint();
+  }
+  function xeButton(){
+    var X = xaumEarn, v = X.vault;
+    if (!suiSession.address) return { label: "Connect wallet", ok: !X.busy };
+    if (!v) return { label: X.loading ? "Loading vault…" : "Vault unavailable", ok: false };
+    if (X.busy) return { label: "Confirm in wallet…", ok: false };
+    var dep = X.mode === "deposit";
+    if (dep && v.status !== "open") return { label: "Vault closed to deposits", ok: false };
+    if (!dep && X.all) return { label: "Withdraw all", ok: !!(X.position && X.position.tokenBalance > 0) };
+    var n = Number(String(X.amt || "").replace(/,/g, ""));
+    if (!(n > 0)) return { label: "Enter an amount", ok: false };
+    if (dep){
+      if (X.bal != null && n > X.bal) return { label: "Not enough XAUM", ok: false };
+      if (v.minInvestment && n < v.minInvestment) return { label: "Minimum " + xeNum(v.minInvestment, 9) + " XAUM", ok: false };
+      return { label: "Deposit " + xeNum(n) + " XAUM", ok: true };
+    }
+    var held = X.position && X.position.tokenBalance || 0;
+    if (n > held) return { label: "More than you've deposited", ok: false };
+    return { label: "Withdraw " + xeNum(n) + " XAUM", ok: true };
+  }
+  function xeSyncButton(){
+    var go = document.getElementById("xe-go");
+    if (!go) return;
+    var b = xeButton();
+    go.textContent = b.label;
+    go.disabled = !b.ok;
+  }
+  function xeHTML(){
+    var X = xaumEarn, v = X.vault, pos = X.position;
+    var apy7 = v && v.apy && v.apy.avg7d != null ? (v.apy.avg7d * 100).toFixed(2) + "%" : "—";
+    var apy30 = v && v.apy && v.apy.avg30d != null ? (v.apy.avg30d * 100).toFixed(2) + "%" : "—";
+    var conn = !!suiSession.address;
+    var dep = X.mode === "deposit";
+    var stat = function(k, val, sub){
+      return '<div class="xe-stat"><div class="k">' + k + '</div><div class="v">' + val + '</div>' + (sub ? '<div class="s">' + sub + '</div>' : "") + '</div>';
+    };
+    var heldTxt = !conn ? "—" : (pos && pos.tokenBalance > 0 ? xeNum(pos.tokenBalance) : "0");
+    var heldSub = conn && pos && pos.tokenUsd > 0 ? escHtml(fmtUsd(pos.tokenUsd)) : "XAUM";
+    var avail = dep ? (X.bal == null ? "—" : xeNum(X.bal) + " XAUM in wallet") : (xeNum(pos && pos.tokenBalance || 0) + " XAUM deposited");
+    var pending = (X.pending || []).map(function(r, i){
+      return '<div class="xe-pending-row"><span>' + (r.type === "deposit" ? "Deposit" : "Withdrawal") + ' · ' + escHtml(xeNum(r.amount)) + ' XAUM · pending</span>' +
+        '<button type="button" data-xe-cancel="' + i + '"' + (X.busy ? " disabled" : "") + '>Cancel</button></div>';
+    }).join("");
+    var b = xeButton();
+    return '' +
+      '<div class="xe-head"><img src="/brand/quotes/xaum.png" alt=""><div><h2>Earn on your XAUM</h2>' +
+        '<div class="dist-lede" style="margin:4px 0 0">Deposit XAUM into Volo\'s XAUm vault. Volo processes deposits and withdrawals by request, usually within a day.</div></div></div>' +
+      '<div class="xe-stats">' +
+        stat("APY · 7 day", apy7, "30 day " + apy30) +
+        stat("Vault size", v ? escHtml(fmtUsd(v.totalStakedUsd || 0)) : "—", v ? xeNum(v.totalStaked, 2) + " XAUM" : "") +
+        stat("Your deposit", heldTxt, heldSub) +
+        stat("Pending", conn ? String((X.pending || []).length) : "—", "requests") +
+      '</div>' +
+      '<div class="xe-form">' +
+        '<div class="xe-tabs"><button type="button" data-xe-mode="deposit"' + (dep ? ' class="on"' : "") + '>Deposit</button>' +
+          '<button type="button" data-xe-mode="withdraw"' + (!dep ? ' class="on"' : "") + '>Withdraw</button></div>' +
+        (conn ? '<div class="xe-bal"><span>' + avail + '</span><button type="button" data-xe-max>Max</button></div>' : "") +
+        '<div class="rw-lookup-row">' +
+          '<input id="xe-amt" type="text" inputmode="decimal" placeholder="0.0 XAUM" autocomplete="off" value="' + escAttr(X.all && !dep ? "All" : X.amt) + '"' + (conn ? "" : " disabled") + '>' +
+          '<button type="button" class="xe-go" id="xe-go" data-xe-go' + (b.ok ? "" : " disabled") + '>' + escHtml(b.label) + '</button>' +
+        '</div>' +
+        '<div class="xe-note' + (X.err ? " err" : "") + '">' + escHtml(X.note || (X.loading ? "Loading vault…" : "")) +
+          (X.digest ? ' <a href="https://suiscan.xyz/mainnet/tx/' + escAttr(X.digest) + '" target="_blank" rel="noopener">View on Suiscan ↗</a>' : "") + '</div>' +
+      '</div>' +
+      (pending ? '<div class="xe-pending">' + pending + '</div>' : "") +
+      '<div class="xe-risk">This is Volo\'s vault (run by NAVI), not Vice: your XAUM goes to Volo, and Vice never holds it. ' +
+        'APY is Volo\'s reported average and changes over time. Volo\'s vaults were exploited in April 2026; Volo says most funds were recovered. Only deposit what you\'re comfortable with.</div>';
+  }
+  function xePaint(){
+    var el = document.getElementById("xaum-earn");
+    if (!el) return;
+    var inp = document.getElementById("xe-amt");
+    var focused = !!(inp && document.activeElement === inp);
+    var sel = focused ? [inp.selectionStart, inp.selectionEnd] : null;
+    el.innerHTML = xeHTML();
+    var ni = document.getElementById("xe-amt");
+    if (ni && focused){
+      ni.focus();
+      try { ni.setSelectionRange(sel[0], sel[1]); } catch (e) {}
+    }
+  }
+  async function xeRun(build, doneNote){
+    var X = xaumEarn;
+    X.busy = true;
+    X.note = "Confirm in your wallet.";
+    X.err = false;
+    X.digest = "";
+    xePaint();
+    try {
+      var M = await xeLoad();
+      var owner = suiSession.address;
+      var tx = new M.Transaction();
+      tx.setSender(owner);
+      await build(M, tx, owner);
+      var bytes = await tx.build({ client: new M.Grpc({ network: "mainnet", baseUrl: "https://fullnode.mainnet.sui.io:443" }) });
+      var res = await walletExec({
+        build: function(){ return Promise.resolve(bytes); },
+        toJSON: function(){ return tx.toJSON(); }
+      });
+      X.digest = txDigest(res);
+      X.note = doneNote;
+      X.amt = "";
+      X.all = false;
+      setTimeout(function(){ xeRefresh(true); }, 2500);
+    } catch (e) {
+      X.note = isWalletReject(e) ? "Cancelled in your wallet. Nothing was sent." : (walletErrText(e) || "Transaction failed.");
+      X.err = true;
+    }
+    X.busy = false;
+    xePaint();
+  }
+  async function xeSubmit(){
+    var X = xaumEarn;
+    if (X.busy) return;
+    if (!suiSession.address){
+      if (!hasSuiWallet()){ X.note = "No Sui wallet found."; X.err = true; xePaint(); return; }
+      try { await connectWallet(); } catch (e) {}
+      xeRefresh(true);
+      return;
+    }
+    if (!xeButton().ok) return;
+    var v = X.vault;
+    var amt = String(X.amt || "").replace(/,/g, "").trim();
+    if (X.mode === "deposit"){
+      xeRun(function(M, tx, owner){ return M.V.depositPTB(tx, v, owner, amt); },
+        "Deposit requested. Volo usually processes it within a day; until then it shows under Pending and can be cancelled.");
+    } else {
+      var target = X.all ? { kind: "all" } : { kind: "amount", amount: amt };
+      xeRun(function(M, tx, owner){ return M.V.withdrawPTB(tx, v, owner, target); },
+        "Withdrawal requested. Volo usually processes it within a day, then the XAUM returns to your wallet.");
+    }
+  }
+  function xeCancel(i){
+    var r = (xaumEarn.pending || [])[i];
+    if (!r || xaumEarn.busy) return;
+    xeRun(function(M, tx){
+      return r.type === "deposit" ? M.V.cancelPendingDepositPTB(tx, r) : M.V.cancelPendingWithdrawPTB(tx, r);
+    }, "Request cancelled.");
+  }
   function rewardsLookupHTML(){
     var L = rewardsCardLookup;
     var res = L.result;
@@ -8735,6 +8980,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
         '</div>'+
         '<div class="rewards-grid">'+cards+'</div>'+
         rewardsLookupHTML()+
+        xeSlotHTML()+
         '<div class="rewards-claim">'+
           '<button type="button" class="btn" data-rewards-claim disabled>'+escHtml(claimLabel)+'</button>'+
           pendingPillHTML()+
@@ -12680,6 +12926,11 @@ async function doBridgeDeposit(){
     // work" / a false "invalid address" (the click handler read the
     // just-wiped value).
     var keepRwAddr = host && host.querySelector("#rw-addr");
+    // The XAUM earn card owns its own DOM (amount field, loaded vault data); a screen rebuild
+    // would blank it and reload the SDK state on every Rewards repaint.
+    var keepXe = host && host.querySelector("#xaum-earn");
+    var keepXeFocused = keepXe && document.activeElement && keepXe.contains(document.activeElement) ? document.activeElement : null;
+    var keepXeSel = keepXeFocused && keepXeFocused.id === "xe-amt" ? [keepXeFocused.selectionStart, keepXeFocused.selectionEnd] : null;
     var keepRwAddrFocused = !!(keepRwAddr && document.activeElement === keepRwAddr);
     var keepRwAddrSel = keepRwAddrFocused ? [keepRwAddr.selectionStart, keepRwAddr.selectionEnd] : null;
     dropTv();
@@ -12694,6 +12945,14 @@ async function doBridgeDeposit(){
     var ticketSlot = host.querySelector("#swap-box.ticket-cetus");
     if (keepTicket && ticketSlot && keepSwapSym && keepSwapSym === String(state.sym || "").toUpperCase()){
       ticketSlot.parentNode.replaceChild(keepTicket, ticketSlot);
+    }
+    var xeSlot = host.querySelector("#xaum-earn");
+    if (keepXe && xeSlot && keepXe.innerHTML){
+      xeSlot.parentNode.replaceChild(keepXe, xeSlot);
+      if (keepXeFocused && keepXeFocused.focus){
+        keepXeFocused.focus();
+        if (keepXeSel) try { keepXeFocused.setSelectionRange(keepXeSel[0], keepXeSel[1]); } catch (e) {}
+      }
     }
     var rwAddrSlot = host.querySelector("#rw-addr");
     if (keepRwAddr && rwAddrSlot){
@@ -15472,6 +15731,28 @@ async function doBridgeDeposit(){
       return;
     }
     if (e.target.closest("#burn-open")){ openBurnModal(); return; }
+    var xeMode = e.target.closest("[data-xe-mode]");
+    if (xeMode){
+      xaumEarn.mode = xeMode.getAttribute("data-xe-mode") === "withdraw" ? "withdraw" : "deposit";
+      xaumEarn.amt = "";
+      xaumEarn.all = false;
+      if (xaumEarn.err){ xaumEarn.note = ""; xaumEarn.err = false; }
+      xePaint();
+      return;
+    }
+    if (e.target.closest("[data-xe-max]")){
+      if (xaumEarn.mode === "withdraw"){
+        xaumEarn.all = !!(xaumEarn.position && xaumEarn.position.tokenBalance > 0);
+        xaumEarn.amt = "";
+      } else if (xaumEarn.bal > 0){
+        xaumEarn.amt = String(xaumEarn.bal);
+      }
+      xePaint();
+      return;
+    }
+    if (e.target.closest("[data-xe-go]")){ xeSubmit(); return; }
+    var xeCan = e.target.closest("[data-xe-cancel]");
+    if (xeCan){ xeCancel(Number(xeCan.getAttribute("data-xe-cancel"))); return; }
     if (e.target.closest("#burn-go")){ doBurn(); return; }
     if (e.target.closest("#burn-cancel") || e.target.id === "burn-modal"){ closeBurnModal(); return; }
     if (e.target.closest("#burn-max")){
@@ -16032,6 +16313,18 @@ async function doBridgeDeposit(){
     }
   });
   document.addEventListener("input", function(e){
+    if (e.target && e.target.id === "xe-amt"){
+      xaumEarn.amt = e.target.value === "All" ? "" : e.target.value;
+      xaumEarn.all = false;
+      if (xaumEarn.err){
+        xaumEarn.note = "";
+        xaumEarn.err = false;
+        var xeNote = document.querySelector("#xaum-earn .xe-note");
+        if (xeNote){ xeNote.className = "xe-note"; xeNote.textContent = ""; }
+      }
+      xeSyncButton();
+      return;
+    }
     if (e.target && e.target.id === "burn-amt"){
       burnDlg.amt = e.target.value;
       if (burnDlg.err){ burnDlg.note = ""; burnDlg.err = false; }
