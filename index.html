@@ -1397,6 +1397,8 @@ window.ARENA_AXOL_SUI_POOL = "0xde265ef8645c680c71b33805de77ce5261a20c58397d83b3
 window.ARENA_LOFI_TYPE = "0xf22da9a24ad027cccb5f2d496cbe91de953d363513db08a3a734d361c7c17503::LOFI::LOFI";
 window.ARENA_LOFI_METADATA = "0x57a2bf5e6887eca522fe6c3ff0d9d8dc116d072998a477c6c24fe6603107ebb8"; // immutable coin::CoinMetadata (0xb086… is the coin_registry::Currency, which launch_* rejects)
 window.ARENA_LOFI_SUI_POOL = "0xd6147f5f50e2f9f593557e497c9ee0f2387652e2a4ad73ee28bd0bdef5e3f51d";
+// Cetus LOFI/SUI. The Turbos pool above is only for the dollar price. Swaps hop here.
+window.ARENA_LOFI_CETUS_POOL = "0xd6918afa64d432b84b48088d165b0dda0b7459463a7d66365f7ff890cae22d2d";
 window.ARENA_MANIFEST_TYPE = "0xc466c28d87b3d5cd34f3d5c088751532d71a38d93a8aae4551dd56272cfb4355::manifest::MANIFEST";
 window.ARENA_MANIFEST_METADATA = "0x2def4762956846ab63f9eac09f889e6e0a5888ddbdf6f8e358c8ee5463b688fb";
 window.ARENA_MANIFEST_SUI_POOL = "0x15a1adef56e1b716c29a6ce7df539fd7b8080da283199c92c6caa6f641a61c3f";
@@ -9934,7 +9936,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
         '</div>'
       : '<div id="pay-route" style="display:none"></div>';
     return '<div class="ticket" id="swap-box">'+
-      '<div class="pit-kicker">'+kicker+' · '+(q === "SUI" || isSuiHopQuote(q) ? "7k" : "Bluefin")+'</div>'+
+      '<div class="pit-kicker">'+kicker+' · Bluefin</div>'+
       '<div style="font-size:22px;font-weight:700;letter-spacing:-.03em;margin:8px 0 10px">Swap</div>'+
       '<div class="sides">'+
         '<div id="btn-buy" data-side="Buy"'+(buyOn?' class="on-buy"':'')+'>Buy</div>'+
@@ -9963,9 +9965,11 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
             ? (basketCanMint(q)
               ? 'Pay SUI mints the basket share from its vault, then swaps this pool. Redeem returns the recipe.'
               : 'This pool trades the basket share. SUI pay waits until the vault recipe is available.')
-          : (q === "SUI" || isSuiHopQuote(q)
-            ? 'Routes 7k aggregator across Sui DEXs, then this Instant pool. Powered by 7K Aggregator.'
-            : 'Swaps this pool on Bluefin. Optional SUI hop if you toggle it.')))+
+          : (q === "SUI"
+            ? 'Swaps this pool on Bluefin.'
+            : (isSuiHopQuote(q)
+              ? 'Pays SUI, hops to the pair coin, then swaps this pool on Bluefin.'
+              : 'Swaps this pool on Bluefin. Optional SUI hop if you toggle it.'))))+
         ' LP locked forever. Anyone can collect. Token-side fees burn.'+
         (tk.bluefinPool ? ' · <a href="https://trade.bluefin.io/swap?pool='+escAttr(tk.bluefinPool)+'" target="_blank" rel="noopener">Bluefin</a>' : '')+
       '</div>'+
@@ -14544,6 +14548,13 @@ async function doBridgeDeposit(){
     lofiSuiSnap = await poolSnap(window.ARENA_LOFI_SUI_POOL);
     return lofiSuiSnap;
   }
+  var lofiCetusSnap = null;
+  async function loadLofiCetusPool(){
+    if (lofiCetusSnap && lofiCetusSnap.a) return lofiCetusSnap;
+    if (!window.ARENA_LOFI_CETUS_POOL) throw new Error("ARENA_LOFI_CETUS_POOL missing");
+    lofiCetusSnap = await poolSnap(window.ARENA_LOFI_CETUS_POOL);
+    return lofiCetusSnap;
+  }
   async function loadManifestSuiPool(){
     if (manifestSuiSnap && manifestSuiSnap.a) return manifestSuiSnap;
     if (!window.ARENA_MANIFEST_SUI_POOL) throw new Error("ARENA_MANIFEST_SUI_POOL missing");
@@ -15005,29 +15016,25 @@ async function doBridgeDeposit(){
       return { tx: tx, coinType: Qtype, coin: bluefinHop(tx, xagmUsdc, usdc, silverUsdc.coinOut, 0), expected: estimatePoolOut(xagmUsdc, usdc, silverUsdc.minOut) };
     }
     if (q === "VICEFUN"){
-      // 7k does not index VICEFUN — hop SUI → VICEFUN on the platform Bluefin pool.
+      // 7k's settle minimum is above what this pool pays, so the wallet dry-run aborts.
       var vicePool = await loadVicefunSuiPool();
       return { tx: tx, coinType: Qtype, coin: bluefinHop(tx, vicePool, SUI_TYPE, suiCoin, 0), expected: await freshPoolOut(vicePool, SUI_TYPE, amount) };
     }
-    if (isSuiHopQuote(q)){
-      try {
-        var memeHop = await sevenkOnto(tx, suiCoin, SUI_TYPE, Qtype, amount, slip);
-        return { tx: memeHop.tx, coinType: Qtype, coin: memeHop.coinOut, expected: 0n };
-      } catch (e7) {
-        if (q === "AXOL"){
-          var axolPool = await loadAxolSuiPool();
-          return { tx: tx, coinType: Qtype, coin: cetusHop(tx, axolPool, SUI_TYPE, suiCoin), expected: await freshPoolOut(axolPool, SUI_TYPE, amount) };
-        }
-        if (q === "MANIFEST"){
-          var manPool = await loadManifestSuiPool();
-          return { tx: tx, coinType: Qtype, coin: bluefinHop(tx, manPool, SUI_TYPE, suiCoin, 0), expected: await freshPoolOut(manPool, SUI_TYPE, amount) };
-        }
-        if (NATIVE_SUI_POOLS[q]){
-          await loadNativeSuiPool(q);
-          return { tx: tx, coinType: Qtype, coin: hopOnNativePool(tx, q, SUI_TYPE, suiCoin), expected: await freshPoolOut(nativeSuiSnaps[q], SUI_TYPE, amount) };
-        }
-        throw e7;
-      }
+    if (q === "LOFI"){
+      var lofiPool = await loadLofiCetusPool();
+      return { tx: tx, coinType: Qtype, coin: cetusHop(tx, lofiPool, SUI_TYPE, suiCoin), expected: await freshPoolOut(lofiPool, SUI_TYPE, amount) };
+    }
+    if (q === "AXOL"){
+      var axolPool = await loadAxolSuiPool();
+      return { tx: tx, coinType: Qtype, coin: cetusHop(tx, axolPool, SUI_TYPE, suiCoin), expected: await freshPoolOut(axolPool, SUI_TYPE, amount) };
+    }
+    if (q === "MANIFEST"){
+      var manPool = await loadManifestSuiPool();
+      return { tx: tx, coinType: Qtype, coin: bluefinHop(tx, manPool, SUI_TYPE, suiCoin, 0), expected: await freshPoolOut(manPool, SUI_TYPE, amount) };
+    }
+    if (NATIVE_SUI_POOLS[q]){
+      await loadNativeSuiPool(q);
+      return { tx: tx, coinType: Qtype, coin: hopOnNativePool(tx, q, SUI_TYPE, suiCoin), expected: await freshPoolOut(nativeSuiSnaps[q], SUI_TYPE, amount) };
     }
     var midBuy = await sevenkOnto(tx, suiCoin, SUI_TYPE, Qtype, amount, slip);
     return { tx: midBuy.tx, coinType: Qtype, coin: midBuy.coinOut, expected: 0n };
@@ -15257,6 +15264,9 @@ async function doBridgeDeposit(){
         if (q === "AXOL"){
           outCoin = cetusHop(tx, await loadAxolSuiPool(), Qtype, qOut);
           requireMinOut(tx, SUI_TYPE, outCoin, minOut);
+        } else if (q === "LOFI"){
+          outCoin = cetusHop(tx, await loadLofiCetusPool(), Qtype, qOut);
+          requireMinOut(tx, SUI_TYPE, outCoin, minOut);
         } else if (q === "MANIFEST"){
           outCoin = bluefinHop(tx, await loadManifestSuiPool(), Qtype, qOut, minOut);
         } else if (NATIVE_SUI_POOLS[q]){
@@ -15343,17 +15353,10 @@ async function doBridgeDeposit(){
       if (btn){ btn.disabled = true; btn.textContent = "Swapping…"; }
       if (err) err.textContent = "";
       var minOut = 1n;
-      if (swapQuote && swapQuote.amountOut){
-        var quoted = BigInt(String(swapQuote.amountOut));
-        // Hop sells run our own multi-leg route, not the aggregator's, so an
-        // aggregator quote only prices it roughly. Same 10% floor as the pool estimate.
-        var hopSell = swapNeedsHop(tk) && state.side === "Sell";
-        var bps = (swapQuote.venue === "bluefin" || hopSell) ? 9000n : BigInt(Math.round((1 - SWAP_SLIP) * 10000));
-        minOut = (quoted * bps) / 10000n;
-        if (minOut < 1n) minOut = 1n;
-      }
       var result;
       if (swapNeedsHop(tk)){
+        // The aggregator quote is above what these pools pay. Locking the
+        // second swap to it makes Bluefin abort in the wallet.
         var hopSlip = 0;
         for (var hopTry = 0; ; hopTry++){
           try {
@@ -15368,16 +15371,11 @@ async function doBridgeDeposit(){
           }
         }
       } else {
-        var can7k = swapQuote && swapQuote.raw && swapQuote.venue && swapQuote.venue !== "bluefin";
-        if (can7k){
-          try {
-            result = await swapVia7k(tk, amount);
-          } catch (e7) {
-            result = await swapViaBluefin(tk, amount, minOut);
-          }
-        } else {
-          result = await swapViaBluefin(tk, amount, minOut);
-        }
+        var snap = await poolSnap(tk.bluefinPool);
+        var got = await sellLegQuoteOut(snap, swapPayType(tk), amount, swapOutType(tk));
+        if (got > 1n) minOut = (got * 9000n) / 10000n;
+        if (minOut < 1n) minOut = 1n;
+        result = await swapViaBluefin(tk, amount, minOut);
       }
       var digest = txDigest(result);
       if (btn){
