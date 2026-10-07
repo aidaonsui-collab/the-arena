@@ -33,7 +33,8 @@ use arena::math;
 use arena::pit::{Self, Pit};
 use arena::pool::{Self, Pool};
 use bluefin_spot::config::GlobalConfig;
-use bluefin_spot::position::Position;
+use bluefin_spot::position::{Self, Position};
+use integer_mate::i32;
 use std::option::{Self, Option};
 use sui::balance::Balance;
 use sui::dynamic_field as df;
@@ -732,6 +733,24 @@ public fun bluefin_lock_spot_id(lock: &BluefinPositionLock): ID { lock.bluefin_p
 public fun bluefin_lock_beneficiary(lock: &BluefinPositionLock): address { lock.beneficiary }
 public fun bluefin_lock_unlock_ms(lock: &BluefinPositionLock): u64 { lock.unlock_ms }
 public fun bluefin_lock_has_position(lock: &BluefinPositionLock): bool { lock.position.is_some() }
+
+/// Read-only view of the vaulted Bluefin Position: `(liquidity, tick_lower_bits, tick_upper_bits)`.
+/// Ticks are returned as raw I32 bits (two's-complement in a u32, same encoding as
+/// `bluefin::*_tick_bits` and `math::i32_from_bits`); rebuild with
+/// `integer_mate::i32::from_u32(bits)`. With the pool's current sqrt price this lets
+/// external integrations (e.g. redemption vaults) compute how many tokens are still
+/// unsold inside the locked LP. Aborts `nothing_to_claim` once the Position has been
+/// claimed out; check `bluefin_lock_has_position` first.
+/// Compatible: new public fun, no struct/signature change.
+public fun bluefin_lock_position_info(lock: &BluefinPositionLock): (u128, u32, u32) {
+    assert!(lock.position.is_some(), errors::nothing_to_claim());
+    let pos = option::borrow(&lock.position);
+    (
+        position::liquidity(pos),
+        i32::as_u32(position::lower_tick(pos)),
+        i32::as_u32(position::upper_tick(pos)),
+    )
+}
 
 /// Current creator hands the 60% LP quote cut to a new wallet (CTO).
 public fun set_beneficiary(

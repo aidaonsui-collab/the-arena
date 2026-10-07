@@ -93,3 +93,15 @@ fun test_new_lp_split_bad_sum() {
     };
     scenario.end();
 }
+
+#[test, expected_failure(abort_code = 14)]
+fun test_position_info_aborts_without_position() {
+    let mut scenario = ts::begin(ADMIN);
+    share_plain_lock(ADMIN, scenario.ctx());
+    scenario.next_tx(STRANGER);
+    let lock = scenario.take_shared<BluefinPositionLock>();
+    assert!(!lock::bluefin_lock_has_position(&lock), 0);
+    let (_liq, _lo, _hi) = lock::bluefin_lock_position_info(&lock);
+    ts::return_shared(lock);
+    scenario.end();
+}
