@@ -1960,6 +1960,15 @@ public(package) fun assert_instadex_amounts(token_amount: u64, quote_amount: u64
     assert!(token_amount > 0 && quote_amount > 0, errors::zero_amount());
 }
 
+/// Live total supply of `T`: the fixed 1B mint minus every burn so far
+/// (sell-side fee burns, `burn_from_mint_lock`, pit buy-and-burns).
+/// Read-only view for external integrations such as redemption vaults that
+/// price a holder's share against circulating supply.
+/// Compatible: new public fun, no struct/signature change.
+public fun mint_lock_total_supply<T>(mint: &InstadexMintLock<T>): u64 {
+    coin::total_supply(&mint.cap)
+}
+
 #[test_only]
 public fun share_mint_lock_for_testing<T>(cap: TreasuryCap<T>, ctx: &mut TxContext) {
     transfer::share_object(InstadexMintLock<T> {

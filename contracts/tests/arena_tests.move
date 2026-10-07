@@ -758,6 +758,32 @@ fun test_instadex_mint_lock_burn() {
 }
 
 #[test]
+fun test_mint_lock_total_supply_tracks_burns() {
+    let mut scenario = ts::begin(ADMIN);
+    let (mut cap, metadata) = tcoin::create_for_testing(scenario.ctx());
+    let mut minted = tcoin::mint(&mut cap, 1_000_000, scenario.ctx());
+    transfer::public_freeze_object(metadata);
+    launch::share_mint_lock_for_testing(cap, scenario.ctx());
+    scenario.next_tx(USER1);
+    let mut mint_lock = scenario.take_shared<InstadexMintLock<TCOIN>>();
+    assert!(launch::mint_lock_total_supply(&mint_lock) == 1_000_000, 0);
+    // Public view matches the test-only helper.
+    assert!(launch::mint_lock_total_supply(&mint_lock) == launch::mint_lock_supply(&mint_lock), 1);
+    // Partial burn drops live supply by exactly the burned amount.
+    let part = coin::split(&mut minted, 250_000, scenario.ctx());
+    launch::burn_from_mint_lock(&mut mint_lock, part);
+    assert!(launch::mint_lock_total_supply(&mint_lock) == 750_000, 2);
+    // Zero burn is a no-op.
+    launch::burn_from_mint_lock(&mut mint_lock, coin::zero<TCOIN>(scenario.ctx()));
+    assert!(launch::mint_lock_total_supply(&mint_lock) == 750_000, 3);
+    // Burn the rest.
+    launch::burn_from_mint_lock(&mut mint_lock, minted);
+    assert!(launch::mint_lock_total_supply(&mint_lock) == 0, 4);
+    ts::return_shared(mint_lock);
+    scenario.end();
+}
+
+#[test]
 #[expected_failure(abort_code = 3)]
 fun test_instadex_zero_amounts_abort() {
     // Mirrors launch_instadex's check, which runs before any Bluefin CALL.
