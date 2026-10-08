@@ -10122,7 +10122,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     if (!window.ViceCctp || !ViceCctp.chain(state.cctpChain)) state.cctpChain = "base";
     return '<div data-screen-label="Swap" class="shell swap-page">'+
       '<h1>Swap</h1>'+
-      '<p class="swap-lead">The three largest tokens, or paste a contract. Pay with USDC on Base, Ethereum, Arbitrum, or Arc. Circle burns it there and mints native USDC on Sui, then this pool swaps into the token. Vicefun pays the Sui gas. You still need gas on the chain the USDC starts on.</p>'+
+      '<p class="swap-lead">The three largest tokens, or paste a contract. Pay with USDC on Base, Ethereum, Arbitrum, or Arc. Circle burns it there and mints native USDC on Sui, then this pool swaps into the token. Vicefun pays the Sui gas on buys of at least 5 USDC. You still need gas on the chain the USDC starts on.</p>'+
       '<div class="swap-desk">'+
         '<div class="swap-top" id="swap-top">'+swapTopHTML()+'</div>'+
         '<input id="swap-addr" class="swap-find" type="text" inputmode="text" spellcheck="false" autocomplete="off" placeholder="Paste contract address" value="'+escAttr(state.swapAddr || "")+'">'+
@@ -15002,6 +15002,23 @@ async function doBridgeDeposit(){
     };
     paintSwapBox();
   }
+  async function cctpEstimateOut(tk, amount){
+    var q = poolQuote(tk);
+    var suiOut = estimatePoolOut(await loadUsdcSuiPool(), window.ARENA_USDC_TYPE, amount);
+    if (!(suiOut > 0n)) return 0n;
+    if (q === "SUI") return estimatePoolOut(await poolSnap(tk.bluefinPool), SUI_TYPE, suiOut);
+    var mid = 0n;
+    if (q === "VICEFUN") mid = estimatePoolOut(await loadVicefunSuiPool(), SUI_TYPE, suiOut);
+    else if (q === "LOFI") mid = estimatePoolOut(await loadLofiCetusPool(), SUI_TYPE, suiOut);
+    else if (q === "AXOL") mid = estimatePoolOut(await loadAxolSuiPool(), SUI_TYPE, suiOut);
+    else if (q === "MANIFEST") mid = estimatePoolOut(await loadManifestSuiPool(), SUI_TYPE, suiOut);
+    else if (NATIVE_SUI_POOLS[q]){
+      await loadNativeSuiPool(q);
+      mid = estimatePoolOut(nativeSuiSnaps[q], SUI_TYPE, suiOut);
+    }
+    if (!(mid > 0n)) return 0n;
+    return estimatePoolOut(await poolSnap(tk.bluefinPool), quoteTypeOf(tk), mid);
+  }
   async function quoteCctpSwap(tk, amount, seq){
     var chain = window.ViceCctp && ViceCctp.chain(state.cctpChain);
     var q = poolQuote(tk);
@@ -15009,28 +15026,7 @@ async function doBridgeDeposit(){
     if (q === "SUI") hops.push(tk.t);
     else { hops.push("SUI"); hops.push(q); hops.push(tk.t); }
     var out = 0n;
-    try {
-      var suiOut = estimatePoolOut(await loadUsdcSuiPool(), window.ARENA_USDC_TYPE, amount);
-      if (q === "SUI"){
-        out = estimatePoolOut(await poolSnap(tk.bluefinPool), SUI_TYPE, suiOut);
-      } else if (q === "VICEFUN"){
-        var viceOut = estimatePoolOut(await loadVicefunSuiPool(), SUI_TYPE, suiOut);
-        out = estimatePoolOut(await poolSnap(tk.bluefinPool), quoteTypeOf(tk), viceOut);
-      } else if (q === "LOFI"){
-        var lofiOut = estimatePoolOut(await loadLofiCetusPool(), SUI_TYPE, suiOut);
-        out = estimatePoolOut(await poolSnap(tk.bluefinPool), quoteTypeOf(tk), lofiOut);
-      } else if (q === "AXOL"){
-        var axolOut = estimatePoolOut(await loadAxolSuiPool(), SUI_TYPE, suiOut);
-        out = estimatePoolOut(await poolSnap(tk.bluefinPool), quoteTypeOf(tk), axolOut);
-      } else if (q === "MANIFEST"){
-        var manOut = estimatePoolOut(await loadManifestSuiPool(), SUI_TYPE, suiOut);
-        out = estimatePoolOut(await poolSnap(tk.bluefinPool), quoteTypeOf(tk), manOut);
-      } else if (NATIVE_SUI_POOLS[q]){
-        await loadNativeSuiPool(q);
-        var natOut = estimatePoolOut(nativeSuiSnaps[q], SUI_TYPE, suiOut);
-        out = estimatePoolOut(await poolSnap(tk.bluefinPool), quoteTypeOf(tk), natOut);
-      }
-    } catch (e) {}
+    try { out = await cctpEstimateOut(tk, amount); } catch (e) { out = 0n; }
     if (seq !== swapQuoteSeq) return;
     swapQuote = {
       venue: "cctp",
@@ -15709,6 +15705,7 @@ async function doBridgeDeposit(){
     if (!r.ok){
       var err = new Error((j && j.error) || "Gas sponsor failed");
       if (j && j.code === "route") err.sponsorRoute = true;
+      if (j && j.code === "minimum") err.sponsorSkip = true;
       throw err;
     }
     return j;
@@ -15759,12 +15756,17 @@ async function doBridgeDeposit(){
   }
   async function receiveCctp(messageHex, attestationHex){
     if (await cctpSponsorReady()){
-      var sponsored = await cctpSponsorPost({
-        action: "mint",
-        message: messageHex,
-        attestation: attestationHex,
-        recipient: suiSession.address
-      });
+      var sponsored = null;
+      try {
+        sponsored = await cctpSponsorPost({
+          action: "mint",
+          message: messageHex,
+          attestation: attestationHex,
+          recipient: suiSession.address
+        });
+      } catch (e) {
+        if (!(e && e.sponsorSkip)) throw e;
+      }
       if (sponsored && sponsored.digest){
         cctpSponsorTicket = sponsored.ticket || "";
         return sponsored;
@@ -15857,6 +15859,10 @@ async function doBridgeDeposit(){
       suiAmt = (suiAmt * 995n) / 1000n;
       if (suiAmt < 1n) suiAmt = 1n;
     }
+    var quotedOut = 0n;
+    try { quotedOut = await cctpEstimateOut(tk, usdcAmt); } catch (e) { quotedOut = 0n; }
+    var minOut = quotedOut > 1n ? (quotedOut * 9000n) / 10000n : 1n;
+    if (minOut < 1n) minOut = 1n;
     var Transaction = await loadTransaction();
     var tx = new Transaction();
     tx.setSender(suiSession.address);
@@ -15865,7 +15871,7 @@ async function doBridgeDeposit(){
     var insta = await poolSnap(tk.bluefinPool);
     var outCoin;
     if (q === "SUI"){
-      outCoin = bluefinHop(tx, insta, SUI_TYPE, suiCoin, 1n);
+      outCoin = bluefinHop(tx, insta, SUI_TYPE, suiCoin, minOut);
     } else {
       var spendSui = suiCoin;
       if (suiAmt > 0n){
@@ -15875,7 +15881,7 @@ async function doBridgeDeposit(){
       }
       var hopped = await hopHeldSuiToQuote(tx, q, spendSui, suiAmt > 0n ? suiAmt : 0n, 0.05);
       tx = hopped.tx;
-      outCoin = bluefinHop(tx, insta, hopped.coinType, hopped.coin, 1n);
+      outCoin = bluefinHop(tx, insta, hopped.coinType, hopped.coin, minOut);
     }
     if (outCoin) tx.transferObjects([outCoin], suiSession.address);
     if (!userGas && cctpSponsorTicket && await cctpSponsorReady()){
@@ -16028,6 +16034,7 @@ async function doBridgeDeposit(){
           chain = ViceCctp.chain(pend.chainKey) || chain;
           if (pend.sym && findT(pend.sym) && findT(pend.sym).bluefinPool) swapTk = findT(pend.sym);
         } else {
+          if (amount < 5000000n) throw new Error("Minimum is 5 USDC.");
           var burned = await ViceCctp.burn({
             request: evmRequest,
             chainKey: chain.key,

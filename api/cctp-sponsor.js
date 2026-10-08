@@ -29,9 +29,15 @@ const CCTP = {
 };
 const BLUEFIN = "0xd075338d105482f1527cbfd363d6413558f184dec36d9138a70261e87f486e9c";
 const CETUS = "0x25ebb9a7c50eb17b3fa9c5a30fb8b5ad8f97caaf4928943acbcff7153dfee5e3";
-const MINT_BUDGET = 50_000_000;
-const SWAP_BUDGETS = [80_000_000, 150_000_000];
+const MINT_BUDGET = 40_000_000;
+const SWAP_BUDGETS = [60_000_000, 100_000_000];
 const TICKET_MS = 30 * 60 * 1000;
+const SUI_DOMAIN = 8;
+const MSG_BODY = 148;
+const MIN_MINT = 5_000_000n;
+const RATE_WINDOW_MS = 60 * 60 * 1000;
+const hits = new Map();
+const spentCoins = new Map();
 
 const ALLOW = {
   [normalizeSuiAddress("0x2")]: {
@@ -63,20 +69,23 @@ function hexToBytes(hex) {
   return out;
 }
 
-function loadSponsor() {
-  const raw = String(process.env.ARENA_KEEPER_PHRASE || "").trim();
-  if (!raw) return null;
-  let kp;
+function keypairFrom(raw) {
   if (raw.startsWith("suiprivkey")) {
-    kp = Ed25519Keypair.fromSecretKey(decodeSuiPrivateKey(raw).secretKey);
-  } else if (raw.split(/\s+/).length >= 12) {
-    kp = Ed25519Keypair.deriveKeypair(raw);
-  } else {
-    const buf = fromBase64(raw);
-    const secret = buf.length === 33 ? buf.slice(1) : buf;
-    kp = Ed25519Keypair.fromSecretKey(secret);
+    return Ed25519Keypair.fromSecretKey(decodeSuiPrivateKey(raw).secretKey);
   }
-  if (!sameAddr(kp.getPublicKey().toSuiAddress(), PLATFORM)) {
+  if (raw.split(/\s+/).length >= 12) return Ed25519Keypair.deriveKeypair(raw);
+  const buf = fromBase64(raw);
+  const secret = buf.length === 33 ? buf.slice(1) : buf;
+  return Ed25519Keypair.fromSecretKey(secret);
+}
+
+function loadSponsor() {
+  const dedicated = String(process.env.ARENA_GAS_SPONSOR_KEY || "").trim();
+  const phrase = String(process.env.ARENA_KEEPER_PHRASE || "").trim();
+  const raw = dedicated || phrase;
+  if (!raw) return null;
+  const kp = keypairFrom(raw);
+  if (!dedicated && !sameAddr(kp.getPublicKey().toSuiAddress(), PLATFORM)) {
     throw new Error("Sponsor key is not the platform wallet");
   }
   return kp;
@@ -151,6 +160,65 @@ export function assertSwapCommands(tx, sender, coinId) {
   }
 }
 
+function readU32(bytes, off) {
+  return bytes[off] * 16777216 + bytes[off + 1] * 65536 + bytes[off + 2] * 256 + bytes[off + 3];
+}
+
+function readU256(bytes, off) {
+  let n = 0n;
+  for (let i = 0; i < 32; i++) n = (n << 8n) + BigInt(bytes[off + i]);
+  return n;
+}
+
+export function parseCctpBurn(message) {
+  if (!message || message.length < MSG_BODY + 228) throw new Error("CCTP message is too short");
+  if (readU32(message, 8) !== SUI_DOMAIN) throw new Error("CCTP message is not for Sui");
+  const body = MSG_BODY;
+  const recipient = normalizeSuiAddress("0x" + Buffer.from(message.subarray(body + 36, body + 68)).toString("hex"));
+  const amount = readU256(message, body + 68);
+  const fee = readU256(message, body + 164);
+  const net = amount > fee ? amount - fee : 0n;
+  return { recipient, net };
+}
+
+function limitError(message) {
+  const err = new Error(message);
+  err.code = "limit";
+  return err;
+}
+
+function minimumError() {
+  const err = new Error("Minimum sponsored buy is 5 USDC.");
+  err.code = "minimum";
+  return err;
+}
+
+function rateOk(key, max) {
+  const now = Date.now();
+  const row = hits.get(key) || [];
+  const fresh = row.filter((t) => now - t < RATE_WINDOW_MS);
+  if (fresh.length >= max) {
+    hits.set(key, fresh);
+    return false;
+  }
+  fresh.push(now);
+  hits.set(key, fresh);
+  return true;
+}
+
+function claimCoin(coinId) {
+  const now = Date.now();
+  const prev = spentCoins.get(coinId);
+  if (prev && now - prev < TICKET_MS) return false;
+  spentCoins.set(coinId, now);
+  return true;
+}
+
+function clientIp(request) {
+  const fwd = request.headers.get("x-forwarded-for") || "";
+  return fwd.split(",")[0].trim() || "unknown";
+}
+
 function routeError(message) {
   const err = new Error(message);
   err.code = "route";
@@ -168,11 +236,11 @@ async function signTicket(signer, recipient, coinId) {
   return Buffer.from(payload).toString("base64url") + "." + signed.signature;
 }
 
-async function readTicket(ticket, sender, coinId) {
+async function readTicket(ticket, sender, coinId, sponsor) {
   const parts = String(ticket || "").split(".");
   if (parts.length !== 2) throw new Error("Missing gas ticket");
   const payload = Buffer.from(parts[0], "base64url").toString();
-  await verifyPersonalMessageSignature(new TextEncoder().encode(payload), parts[1], { address: PLATFORM });
+  await verifyPersonalMessageSignature(new TextEncoder().encode(payload), parts[1], { address: sponsor });
   const data = JSON.parse(payload);
   if (!data || data.v !== 1 || Number(data.exp) < Date.now()) throw new Error("Gas ticket expired. Mint again.");
   if (!sameAddr(data.recipient, sender)) throw new Error("Gas ticket is for a different wallet");
@@ -193,12 +261,19 @@ function mintedCoin(result, recipient) {
   return "";
 }
 
-async function mint(body) {
+async function mint(body, request) {
   const signer = loadSponsor();
   if (!signer) return json({ sponsor: false, error: "Sui gas sponsor is not configured" }, 503);
   const recipient = normalizeSuiAddress(body.recipient || "");
   const message = hexToBytes(body.message);
   const attestation = hexToBytes(body.attestation);
+  const burn = parseCctpBurn(message);
+  if (!sameAddr(burn.recipient, recipient)) throw new Error("Mint recipient does not match this Sui wallet");
+  if (burn.net < MIN_MINT) throw minimumError();
+  const ip = clientIp(request);
+  if (!rateOk("mint:" + recipient, 3) || !rateOk("ip:" + ip, 5) || !rateOk("mint:all", 20)) {
+    throw limitError("Too many sponsored mints. Try again in an hour.");
+  }
   const tx = new Transaction();
   tx.setSender(signer.getPublicKey().toSuiAddress());
   tx.setGasBudget(MINT_BUDGET);
@@ -282,7 +357,7 @@ async function swap(body) {
   if (!signer) return json({ sponsor: false, error: "Sui gas sponsor is not configured" }, 503);
   const sender = normalizeSuiAddress(body.sender || "");
   const coinId = normalizeSuiAddress(body.coinId || "");
-  await readTicket(body.ticket, sender, coinId);
+  await readTicket(body.ticket, sender, coinId, signer.getPublicKey().toSuiAddress());
   const kind = String(body.kind || "");
   if (!kind || kind.length > 120000) throw new Error("Swap transaction is missing");
   const built = await buildSwap(kind, sender, coinId);
@@ -297,22 +372,29 @@ async function execute(body) {
   const tx = Transaction.from(bytes);
   const data = tx.getData();
   if (!sameAddr(data.sender, sender)) throw new Error("Swap sender changed");
-  if (!sameAddr(data.gasData && data.gasData.owner, PLATFORM)) throw new Error("Gas owner is not the platform wallet");
+  const sponsor = signer.getPublicKey().toSuiAddress();
+  if (!sameAddr(data.gasData && data.gasData.owner, sponsor)) throw new Error("Gas owner is not the sponsor wallet");
   const budget = Number(data.gasData && data.gasData.budget || 0);
   if (!(budget > 0) || budget > SWAP_BUDGETS[SWAP_BUDGETS.length - 1]) throw new Error("Gas budget is not allowed");
-  const ticket = await readTicket(body.ticket, sender, "");
+  const ticket = await readTicket(body.ticket, sender, "", sponsor);
   assertSwapCommands(tx, sender, ticket.coinId);
   await verifyTransactionSignature(bytes, String(body.signature || ""), { address: sender });
-  const { signature } = await signer.signTransaction(bytes);
-  const client = await suiClient();
-  const result = await client.executeTransactionBlock({
-    transactionBlock: bytes,
-    signature: [String(body.signature), signature],
-    options: { showEffects: true, showObjectChanges: true }
-  });
-  const st = result.effects && result.effects.status;
-  if (st && st.status && st.status !== "success") throw new Error(st.error || "Sponsored swap failed");
-  return json({ sponsor: true, digest: result.digest, objectChanges: result.objectChanges || [] }, 200);
+  if (!claimCoin(ticket.coinId)) throw limitError("This USDC coin was already sponsored.");
+  try {
+    const { signature } = await signer.signTransaction(bytes);
+    const client = await suiClient();
+    const result = await client.executeTransactionBlock({
+      transactionBlock: bytes,
+      signature: [String(body.signature), signature],
+      options: { showEffects: true, showObjectChanges: true }
+    });
+    const st = result.effects && result.effects.status;
+    if (st && st.status && st.status !== "success") throw new Error(st.error || "Sponsored swap failed");
+    return json({ sponsor: true, digest: result.digest, objectChanges: result.objectChanges || [] }, 200);
+  } catch (e) {
+    spentCoins.delete(ticket.coinId);
+    throw e;
+  }
 }
 
 export function GET() {
@@ -332,13 +414,13 @@ export async function POST(request) {
   catch { return json({ error: "invalid json" }, 400); }
   try {
     const action = body && body.action;
-    if (action === "mint") return await mint(body);
+    if (action === "mint") return await mint(body, request);
     if (action === "swap") return await swap(body);
     if (action === "execute") return await execute(body);
     return json({ error: "unknown action" }, 400);
   } catch (e) {
     const message = (e && e.message) ? e.message : "Gas sponsor failed";
-    const status = e && e.code === "route" ? 422 : 400;
+    const status = e && e.code === "route" ? 422 : (e && (e.code === "limit" || e.code === "minimum") ? 429 : 400);
     return json({ error: message, code: (e && e.code) || "" }, status);
   }
 }
