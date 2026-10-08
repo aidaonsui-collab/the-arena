@@ -323,7 +323,9 @@ main{padding:18px 0 72px}
 .btn-trade:disabled{opacity:.5;cursor:not-allowed;filter:none}
 a.btn-trade{display:block;text-align:center;text-decoration:none;box-sizing:border-box}
 .btn-ghost{background:var(--well);color:var(--ink)}
-.ticket .swap-err{color:#FF6640;font-size:12px;text-align:center;margin-top:8px}
+.ticket .swap-err{color:#FF6640;font-size:13px;line-height:1.4;text-align:center;margin-top:8px}
+.ticket .swap-err.ok{color:var(--muted)}
+.ticket .swap-err a{color:var(--sui);margin-left:4px}
 
 .tape-tabs{display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap}
 .tape-filter{margin-left:auto;width:36px;height:36px;border:0;background:transparent;color:#A898A8;border-radius:10px;padding:0;display:grid;place-items:center;flex:none}
@@ -1587,6 +1589,10 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   var cctpBal = null;
   var cctpBusy = false;
   var cctpBtn = "";
+  var cctpNote = "";
+  var cctpNoteHref = "";
+  var cctpNoteLabel = "";
+  var cctpNoteOk = false;
   var cctpSponsorOn = null;
   var cctpSponsorWait = null;
   var cctpSponsorTicket = "";
@@ -12654,13 +12660,17 @@ async function doBridgeDeposit(){
       if (hopRow) hopRow.style.display = (swapNeedsHop(tk) || cctpOn) ? "" : "none";
       if (hopEl) hopEl.textContent = cctpOn ? cctpPathText(tk) : (swapNeedsHop(tk) ? hopPathText(tk) : "");
     }
-    if (err && !cctpBusy && !(shownQuote && shownQuote.error && !shownQuote.amountOut)) err.textContent = "";
+    if (cctpNote) paintCctpNote();
+    else if (err && !cctpBusy && !(shownQuote && shownQuote.error && !shownQuote.amountOut)) err.textContent = "";
     const tr = $("#trade-btn");
     if (tr){
       tr.className = "btn-trade" + (buyOn ? "" : " sell");
       if (cctpBusy){
         tr.disabled = true;
         tr.textContent = cctpBtn || "USDC…";
+      } else if (cctpNoteOk){
+        tr.disabled = false;
+        tr.textContent = "Bought";
       } else if (swapping){
         tr.disabled = true;
         tr.textContent = "Swapping…";
@@ -15970,12 +15980,52 @@ async function doBridgeDeposit(){
       if (!cctpBusy) paintSwapBox();
     } catch (e) {}
   }
-  function cctpStatus(short, long){
-    cctpBtn = short;
-    var btn = $("#trade-btn");
+  function paintCctpNote(){
     var err = $("#swap-err");
+    if (!err) return;
+    err.classList.toggle("ok", !!cctpNoteOk);
+    err.textContent = "";
+    if (cctpNote) err.appendChild(document.createTextNode(cctpNote));
+    if (cctpNoteHref){
+      var a = document.createElement("a");
+      a.href = cctpNoteHref;
+      a.target = "_blank";
+      a.rel = "noopener";
+      a.textContent = cctpNoteLabel || "View";
+      if (cctpNote) a.textContent = " " + a.textContent;
+      err.appendChild(a);
+    }
+  }
+  function cctpForgetNote(){
+    cctpNote = "";
+    cctpNoteHref = "";
+    cctpNoteLabel = "";
+    cctpNoteOk = false;
+  }
+  function cctpTxUrl(chain, hash){
+    if (!chain || !chain.explorer || !hash) return "";
+    return String(chain.explorer).replace(/\/$/, "") + "/tx/" + hash;
+  }
+  function cctpStatus(short, long, href, label, ok){
+    cctpBtn = short;
+    if (long != null) cctpNote = long;
+    if (arguments.length > 2){
+      cctpNoteHref = href || "";
+      cctpNoteLabel = label || "";
+    }
+    cctpNoteOk = arguments.length > 4 ? ok !== false : true;
+    var btn = $("#trade-btn");
     if (btn){ btn.disabled = true; btn.textContent = short; }
-    if (err) err.textContent = long || "";
+    paintCctpNote();
+  }
+  function cctpMarkBought(sym, digest){
+    cctpBusy = false;
+    cctpBtn = "";
+    cctpNoteOk = true;
+    cctpNote = "Bought " + sym + ".";
+    cctpNoteHref = digest ? ("https://suiscan.xyz/mainnet/tx/" + digest) : "";
+    cctpNoteLabel = "View on Suiscan";
+    paintSwapBox();
   }
   async function doCctpSwap(){
     var btn = $("#trade-btn");
@@ -16039,11 +16089,8 @@ async function doBridgeDeposit(){
         });
         var resumed = await spendMintedUsdc(swapTk, looked.id, looked.valueBig);
         cctpClearPend();
-        cctpBusy = false;
-        cctpBtn = "";
         var resumedDigest = txDigest(resumed);
-        if (btn){ btn.disabled = false; btn.textContent = resumedDigest ? ("Swapped · " + String(resumedDigest).slice(0, 8)) : "Swapped"; }
-        if (err) err.textContent = "";
+        cctpMarkBought(swapTk.t, resumedDigest);
         await refreshSwapBals(tk);
         scheduleSwapQuote();
         return;
@@ -16055,11 +16102,8 @@ async function doBridgeDeposit(){
         cctpStatus("Swapping…", cctpSponsorTicket ? ("Confirm the swap into " + mintedTk.t + ". Vicefun pays the Sui gas.") : ("USDC is already on Sui. Confirm the swap into " + mintedTk.t + "."));
         var again = await spendMintedUsdc(mintedTk, pend.coinId, usdcAmount);
         cctpClearPend();
-        cctpBusy = false;
-        cctpBtn = "";
         var againDigest = txDigest(again);
-        if (btn){ btn.disabled = false; btn.textContent = againDigest ? ("Swapped · " + String(againDigest).slice(0, 8)) : "Swapped"; }
-        if (err) err.textContent = "";
+        cctpMarkBought(mintedTk.t, againDigest);
         await refreshSwapBals(tk);
         scheduleSwapQuote();
         return;
@@ -16103,8 +16147,9 @@ async function doBridgeDeposit(){
             at: Date.now()
           });
           cctpBal = null;
+          cctpStatus("Waiting for Circle…", "Burn confirmed on " + chain.label + ". Waiting for Circle. This can take several minutes.", cctpTxUrl(chain, burnTx), "View burn", true);
         }
-        cctpStatus("Waiting for Circle…", "Waiting for Circle to attest the " + chain.label + " burn. A standard transfer waits for finality. Ethereum often takes about 15 minutes.");
+        if (!cctpNoteHref) cctpStatus("Waiting for Circle…", "Waiting for Circle to attest the " + chain.label + " burn. This can take several minutes.", cctpTxUrl(chain, burnTx), "View burn", true);
         var att = await ViceCctp.waitAttestation({
           chainKey: chain.key,
           txHash: burnTx,
@@ -16163,14 +16208,8 @@ async function doBridgeDeposit(){
       cctpStatus("Swapping…", cctpSponsorTicket ? ("Swapping the minted USDC into " + swapTk.t + ". Confirm in the wallet. Vicefun pays the Sui gas.") : ("Swapping the minted USDC into " + swapTk.t + ". Confirm in the Sui wallet."));
       var result = await spendMintedUsdc(swapTk, coin.id, coin.valueBig);
       cctpClearPend();
-      cctpBusy = false;
-      cctpBtn = "";
       var digest = txDigest(result);
-      if (btn){
-        btn.disabled = false;
-        btn.textContent = digest ? ("Swapped · " + String(digest).slice(0, 8)) : "Swapped";
-      }
-      if (err) err.textContent = "";
+      cctpMarkBought(swapTk.t, digest);
       await refreshSwapBals(tk);
       if (swapTk.bluefinPool && bus.sub && bus.sub.refreshBluefin) bus.sub.refreshBluefin(swapTk.bluefinPool);
       scheduleSwapQuote();
@@ -16178,10 +16217,17 @@ async function doBridgeDeposit(){
       cctpBusy = false;
       cctpBtn = "";
       var msg = (err2 && err2.message) ? err2.message : String(err2 || "USDC buy failed");
-      if (isWalletReject(err2)) msg = "Wallet cancelled.";
+      if (isWalletReject(err2)) msg = "Wallet cancelled. Nothing new was sent.";
       else if (isTransientNet(err2)) msg = "RPC busy. Tap Finish to continue. The burn is saved.";
-      if (btn){ btn.disabled = false; btn.textContent = msg.length > 42 ? (cctpPendingHere() ? "Finish USDC buy" : "USDC buy failed") : msg; }
-      if (err) err.textContent = msg;
+      cctpNoteOk = false;
+      cctpNote = msg;
+      if (burnTx && chain){
+        cctpNoteHref = cctpTxUrl(chain, burnTx);
+        cctpNoteLabel = "View burn";
+      }
+      if (btn) btn.disabled = false;
+      paintSwapBox();
+      if (btn) btn.textContent = cctpPendingHere() ? "Finish USDC buy" : "Try again";
     }
   }
   async function doSwap(){
@@ -16794,6 +16840,7 @@ async function doBridgeDeposit(){
     if (swapTok && state.route === "swap"){
       var pickedTok = swapTok.getAttribute("data-swap-tok") || "";
       if (!pickedTok) return;
+      cctpForgetNote();
       state.swapPick = pickedTok;
       state.swapAddr = "";
       state.side = "Buy";
@@ -16809,6 +16856,7 @@ async function doBridgeDeposit(){
     const cctpPick = e.target.closest("[data-cctp]");
     if (cctpPick){
       if (cctpBusy || cctpPick.classList.contains("disabled") || cctpPick.getAttribute("aria-disabled") === "true") return;
+      cctpForgetNote();
       var nextCctp = cctpPick.getAttribute("data-cctp") || "";
       if ((state.cctpChain || "") === nextCctp) return;
       state.cctpChain = nextCctp;
@@ -17268,6 +17316,7 @@ async function doBridgeDeposit(){
       }
     }
     if (e.target && e.target.id === "swap-addr"){
+      cctpForgetNote();
       var prevSwap = state.sym;
       state.swapAddr = e.target.value;
       var nextTok = swapTokByAddr(state.swapAddr);
@@ -17278,6 +17327,7 @@ async function doBridgeDeposit(){
       return;
     }
     if (e.target && e.target.id === "amt"){
+      if (state.route === "swap" || state.cctpChain) cctpForgetNote();
       state.amt = e.target.value;
       paintTicket();
       if ((state.route === "token" || state.route === "swap") && isDexBout(findT(state.sym))) scheduleSwapQuote();
