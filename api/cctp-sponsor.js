@@ -29,6 +29,15 @@ const CCTP = {
 };
 const BLUEFIN = "0xd075338d105482f1527cbfd363d6413558f184dec36d9138a70261e87f486e9c";
 const CETUS = "0x25ebb9a7c50eb17b3fa9c5a30fb8b5ad8f97caaf4928943acbcff7153dfee5e3";
+const SUI_TYPE = "0x2::sui::SUI";
+const OPEN_FEE_BPS = 25n;
+const VICE_EVENTS = [
+  "0xcf7835ae4e3f8a3d4eb4bd9d14cb4a3dbdd80e70908feb6c433688a31e119de3::events::InstadexLaunchEvent",
+  "0x5cfddf8ba23be6835644a8ea22482ff6ebb0081e42cc1bc052b5f770ca8bbdea::events::LaunchEvent"
+];
+const GQL = "https://graphql.mainnet.sui.io/graphql";
+let viceSet = null;
+let viceAt = 0;
 const MINT_BUDGET = 40_000_000;
 const SWAP_BUDGETS = [60_000_000, 100_000_000];
 const TICKET_MS = 30 * 60 * 1000;
@@ -129,10 +138,151 @@ function inputObjectId(input) {
   return id ? normalizeSuiAddress(id) : "";
 }
 
-export function assertSwapCommands(tx, sender, coinId) {
+function normType(t) {
+  const parts = String(t || "").trim().split("::");
+  if (parts.length < 3) return "";
+  const addr = parts[0].replace(/^0x/i, "").replace(/^0+/, "") || "0";
+  parts[0] = "0x" + addr.toLowerCase();
+  return parts.join("::");
+}
+
+function pureU64(input) {
+  if (!input) return null;
+  if (input.$kind === "UnresolvedPure") {
+    const v = input.UnresolvedPure && input.UnresolvedPure.value;
+    if (v == null || v === "") return null;
+    try { return BigInt(v); } catch { return null; }
+  }
+  const raw = input.Pure && input.Pure.bytes;
+  if (typeof raw !== "string") return null;
+  const bytes = fromBase64(raw);
+  if (bytes.length !== 8) return null;
+  let n = 0n;
+  for (let i = 0; i < 8; i++) n += BigInt(bytes[i]) << (8n * BigInt(i));
+  return n;
+}
+
+function inputAt(data, arg) {
+  if (!arg || arg.$kind !== "Input") return null;
+  return data.inputs[arg.Input] || null;
+}
+
+function isFeeResult(arg, splitAt) {
+  if (!arg || splitAt < 0) return false;
+  if (arg.$kind === "NestedResult") {
+    const nr = arg.NestedResult || [];
+    return nr[0] === splitAt && nr[1] === 0;
+  }
+  return arg.$kind === "Result" && arg.Result === splitAt;
+}
+
+function tokenToType(token) {
+  if (!token) return "";
+  if (typeof token === "string") return normType(token);
+  if (token.address && token.module) return normType(String(token.address) + "::" + token.module + "::" + (token.name || ""));
+  if (token.name && String(token.name).indexOf("::") >= 0) return normType(token.name);
+  return "";
+}
+
+function routedCoin(commands) {
+  const blue = normalizeSuiAddress(BLUEFIN);
+  const cetus = normalizeSuiAddress(CETUS);
+  let cur = normType(USDC);
+  let hops = 0;
+  for (const cmd of commands) {
+    if (cmd.$kind !== "MoveCall") continue;
+    const call = cmd.MoveCall || {};
+    const pkg = normalizeSuiAddress(call.package || "");
+    const hop = (pkg === blue && call.module === "pool" && call.function === "swap")
+      || (pkg === cetus && call.module === "pool" && call.function === "flash_swap");
+    if (!hop) continue;
+    const types = (call.typeArguments || []).map(normType);
+    if (types.length < 2 || !types[0] || !types[1]) throw routeError("Swap pool types are missing");
+    if (types[0] === cur) cur = types[1];
+    else if (types[1] === cur) cur = types[0];
+    else throw routeError("Swap hops do not start from the minted USDC");
+    hops++;
+  }
+  if (!hops) throw routeError("Swap does not trade a pool");
+  if (!cur || cur === normType(USDC) || cur === normType(SUI_TYPE)) throw routeError("Swap must buy a token");
+  return cur;
+}
+
+function feeSplitIndex(data, coinId, fee) {
+  const want = normalizeSuiAddress(coinId);
+  let found = -1;
+  (data.commands || []).forEach((cmd, i) => {
+    if (cmd.$kind !== "SplitCoins") return;
+    const sc = cmd.SplitCoins || {};
+    const coin = inputAt(data, sc.coin);
+    if (inputObjectId(coin) !== want) return;
+    const amounts = sc.amounts || [];
+    if (amounts.length !== 1) return;
+    const n = pureU64(inputAt(data, amounts[0]));
+    if (n !== fee) return;
+    if (found >= 0) throw routeError("Swap splits the fee more than once");
+    found = i;
+  });
+  return found;
+}
+
+async function loadViceSet() {
+  const now = Date.now();
+  if (viceSet && now - viceAt < 60_000) return viceSet;
+  const next = new Set();
+  for (const eventType of VICE_EVENTS) {
+    let after = null;
+    for (let page = 0; page < 8; page++) {
+      const res = await fetch(GQL, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          query: "query($t:String!, $after:String){ events(first:50, after:$after, filter:{type:$t}){ pageInfo { hasNextPage endCursor } nodes { contents { json } } } }",
+          variables: { t: eventType, after }
+        })
+      });
+      if (!res.ok) break;
+      const body = await res.json();
+      const data = body && body.data && body.data.events;
+      if (!data) break;
+      for (const node of data.nodes || []) {
+        const t = tokenToType(node && node.contents && node.contents.json && node.contents.json.token);
+        if (t) next.add(t);
+      }
+      if (!data.pageInfo || !data.pageInfo.hasNextPage) break;
+      after = data.pageInfo.endCursor;
+    }
+  }
+  if (!next.size) {
+    if (viceSet) return viceSet;
+    throw routeError("Could not check whether this coin is a Vicefun token.");
+  }
+  viceSet = next;
+  viceAt = now;
+  return next;
+}
+
+async function usdcBalance(coinId) {
+  const client = await suiClient();
+  const obj = await client.getObject({ id: coinId, options: { showType: true, showContent: true } });
+  const data = obj && obj.data;
+  const type = String((data && data.type) || "");
+  if (type.toLowerCase().indexOf("::usdc::usdc") < 0) throw routeError("That coin is not native USDC");
+  const fields = data && data.content && data.content.fields;
+  const bal = fields && fields.balance;
+  try { return BigInt(String(bal)); }
+  catch { return 0n; }
+}
+
+// Vicefun launches stay fee-free. Any other coin must transfer exactly 0.25%
+// of the minted USDC coin to the platform wallet. `balance` is that coin's
+// on-chain balance; pass `vice` when the bought coin is a Vicefun launch.
+export function checkSwapShape(tx, sender, coinId, opts) {
   const data = tx.getData();
   const commands = data.commands || [];
-  if (!commands.length || commands.length > 30) throw routeError("Swap is empty or too large");
+  const vice = !!(opts && opts.vice);
+  const balance = opts && opts.balance != null ? BigInt(opts.balance) : 0n;
+  if (!commands.length || commands.length > 40) throw routeError("Swap is empty or too large");
   if (usesGas(commands)) throw routeError("Swap must not spend the gas coin");
   let sawCoin = false;
   const wantCoin = normalizeSuiAddress(coinId);
@@ -140,12 +290,26 @@ export function assertSwapCommands(tx, sender, coinId) {
     if (inputObjectId(input) === wantCoin) sawCoin = true;
   }
   if (!sawCoin) throw routeError("Swap does not spend the minted USDC");
+  const target = routedCoin(commands);
+  const fee = vice ? 0n : (balance * OPEN_FEE_BPS) / 10000n;
+  if (!vice && fee < 1n) throw routeError("That USDC amount is too small.");
+  const splitAt = fee > 0n ? feeSplitIndex(data, coinId, fee) : -1;
+  let feeSends = 0;
   for (const cmd of commands) {
     if (cmd.$kind === "SplitCoins" || cmd.$kind === "MergeCoins") continue;
     if (cmd.$kind === "TransferObjects") {
       const arg = cmd.TransferObjects && cmd.TransferObjects.address;
-      const input = arg && arg.$kind === "Input" ? data.inputs[arg.Input] : null;
-      const dest = pureAddress(input);
+      const dest = pureAddress(inputAt(data, arg));
+      const objs = (cmd.TransferObjects && cmd.TransferObjects.objects) || [];
+      const sendsFee = objs.some((o) => isFeeResult(o, splitAt));
+      if (sameAddr(dest, PLATFORM)) {
+        if (vice || !sendsFee || objs.length !== 1) {
+          throw routeError(vice ? "Vicefun tokens are not charged this fee" : "The fee must be 0.25% of the minted USDC.");
+        }
+        feeSends++;
+        continue;
+      }
+      if (sendsFee) throw routeError("The 0.25% fee must go to Vicefun");
       if (!dest || !sameAddr(dest, sender)) throw routeError("Swap sends coins somewhere other than the buyer");
       continue;
     }
@@ -158,6 +322,15 @@ export function assertSwapCommands(tx, sender, coinId) {
       throw routeError("This pair's route is not covered. A little SUI is still required.");
     }
   }
+  if (!vice && (splitAt < 0 || feeSends !== 1)) throw routeError("This coin takes a 0.25% fee.");
+  return target;
+}
+
+export async function assertSwapCommands(tx, sender, coinId) {
+  const target = routedCoin((tx.getData().commands) || []);
+  const vice = (await loadViceSet()).has(target);
+  const balance = vice ? 0n : await usdcBalance(coinId);
+  checkSwapShape(tx, sender, coinId, { vice, balance });
 }
 
 function readU32(bytes, off) {
@@ -334,7 +507,7 @@ async function buildSwap(kind, sender, coinId) {
     tx.setSender(sender);
     tx.setGasOwner(sponsor);
     tx.setGasBudget(budget);
-    assertSwapCommands(tx, sender, coinId);
+    await assertSwapCommands(tx, sender, coinId);
     try {
       const client = await suiClient();
       const bytes = await tx.build({ client });
@@ -377,7 +550,7 @@ async function execute(body) {
   const budget = Number(data.gasData && data.gasData.budget || 0);
   if (!(budget > 0) || budget > SWAP_BUDGETS[SWAP_BUDGETS.length - 1]) throw new Error("Gas budget is not allowed");
   const ticket = await readTicket(body.ticket, sender, "", sponsor);
-  assertSwapCommands(tx, sender, ticket.coinId);
+  await assertSwapCommands(tx, sender, ticket.coinId);
   await verifyTransactionSignature(bytes, String(body.signature || ""), { address: sender });
   if (!claimCoin(ticket.coinId)) throw limitError("This USDC coin was already sponsored.");
   try {

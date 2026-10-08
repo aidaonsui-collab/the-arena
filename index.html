@@ -1611,6 +1611,8 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   var swapQuoteTimer = 0;
   var swapQuoteSeq = 0;
   var swapQuote = null;
+  var swapOpenSeq = 0;
+  var swapIndexWait = 0;
   var swapBals = { sui: 0n, quote: 0n, tok: 0n };
   var cctpBal = null;
   var cctpBusy = false;
@@ -9957,6 +9959,31 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       footerHTML()+
     '</div>';
   }
+  function cctpMark(key){
+    if (key === "ethereum") return '<svg class="cctp-logo" viewBox="0 0 32 32" aria-hidden="true"><path fill="#627EEA" d="M16 2.2 15 5.6v15.2l1 .6 8.8-5.2z"/><path fill="#8A92B2" d="m16 2.2-8.8 16.2L16 21.4V2.2z"/><path fill="#627EEA" d="m16 23.1-1 .7v5.6l1 .6 8.8-12.4z"/><path fill="#8A92B2" d="M16 30v-6.9l-8.8 5.5z"/><path fill="#C0CBF6" d="m16 21.4 8.8-5.2L16 12.7z"/><path fill="#8A92B2" d="m7.2 16.2 8.8 5.2V12.7z"/></svg>';
+    if (key === "base") return '<svg class="cctp-logo" viewBox="0 0 111 111" aria-hidden="true"><path fill="#0052FF" d="M54.921 110.034C85.359 110.034 110.034 85.402 110.034 55.017 110.034 24.631 85.359 0 54.921 0 26.043 0 1.801 22.223 0 50.392H72.846V59.641H0C1.801 87.811 26.043 110.034 54.921 110.034Z"/></svg>';
+    if (key === "arbitrum") return '<svg class="cctp-logo" viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="16" fill="#213147"/><path fill="#12AAFF" d="M17.2 8.2 10.4 24h2.7l1.3-3.1h5.2L21 24h2.7L17.2 8.2zm-.1 5.4 1.6 3.8h-3.2l1.6-3.8z"/></svg>';
+    if (key === "arc") return '<svg class="cctp-logo" viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="16" fill="#0B0D12"/><path d="M9.2 19.2a8 8 0 1 1 13.6 0" fill="none" stroke="#3C8AFF" stroke-width="2.4" stroke-linecap="round"/></svg>';
+    return "";
+  }
+  function cctpChip(key, label, blocked){
+    var on = (state.cctpChain || "") === key;
+    var dis = !!(key && blocked);
+    var mark = cctpMark(key);
+    return '<div data-cctp="'+escAttr(key)+'" class="'+(dis?"disabled ":"")+(on?"on":"")+'"'+(dis?' aria-disabled="true" title="'+escAttr(blocked)+'"':'')+'>'+(mark ? mark : "")+'<span>'+label+'</span></div>';
+  }
+  function cctpRouteHTML(blocked){
+    var sui = state.route === "swap" ? "" : cctpChip("", "Sui", blocked);
+    return '<div id="cctp-row">'+
+      '<div class="kv" style="border:0;padding:10px 0 0"><span style="color:var(--muted)">USDC on</span></div>'+
+      '<div class="chips" id="cctp-route" style="margin-top:6px">'+
+        sui+
+        cctpChip("base", "Base", blocked)+
+        cctpChip("ethereum", "Ethereum", blocked)+
+        cctpChip("arbitrum", "Arbitrum", blocked)+
+        cctpChip("arc", "Arc", blocked)+
+      '</div></div>';
+  }
   function pairTicket(tk, q, insta){
     const permanent = insta || Number(tk.unlockMs)===0;
     const lockLabel = permanent ? "Permanent" : (tk.unlockMs ? new Date(tk.unlockMs).toLocaleDateString() : "—");
@@ -9995,28 +10022,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
           '<div data-pay="'+escAttr(q)+'"'+(state.payWith!=="SUI"?' class="on"':'')+'>'+(buyOn?"Pay "+q:"Get "+q)+'</div>'+
         '</div>'
       : '<div id="pay-route" style="display:none"></div>';
-    function cctpMark(key){
-      if (key === "ethereum") return '<svg class="cctp-logo" viewBox="0 0 32 32" aria-hidden="true"><path fill="#627EEA" d="M16 2.2 15 5.6v15.2l1 .6 8.8-5.2z"/><path fill="#8A92B2" d="m16 2.2-8.8 16.2L16 21.4V2.2z"/><path fill="#627EEA" d="m16 23.1-1 .7v5.6l1 .6 8.8-12.4z"/><path fill="#8A92B2" d="M16 30v-6.9l-8.8 5.5z"/><path fill="#C0CBF6" d="m16 21.4 8.8-5.2L16 12.7z"/><path fill="#8A92B2" d="m7.2 16.2 8.8 5.2V12.7z"/></svg>';
-      if (key === "base") return '<svg class="cctp-logo" viewBox="0 0 111 111" aria-hidden="true"><path fill="#0052FF" d="M54.921 110.034C85.359 110.034 110.034 85.402 110.034 55.017 110.034 24.631 85.359 0 54.921 0 26.043 0 1.801 22.223 0 50.392H72.846V59.641H0C1.801 87.811 26.043 110.034 54.921 110.034Z"/></svg>';
-      if (key === "arbitrum") return '<svg class="cctp-logo" viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="16" fill="#213147"/><path fill="#12AAFF" d="M17.2 8.2 10.4 24h2.7l1.3-3.1h5.2L21 24h2.7L17.2 8.2zm-.1 5.4 1.6 3.8h-3.2l1.6-3.8z"/></svg>';
-      if (key === "arc") return '<svg class="cctp-logo" viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="16" fill="#0B0D12"/><path d="M9.2 19.2a8 8 0 1 1 13.6 0" fill="none" stroke="#3C8AFF" stroke-width="2.4" stroke-linecap="round"/></svg>';
-      return "";
-    }
-    function cctpChip(key, label){
-      var on = (state.cctpChain || "") === key;
-      var dis = !!(key && cctpBlock);
-      var mark = cctpMark(key);
-      return '<div data-cctp="'+escAttr(key)+'" class="'+(dis?"disabled ":"")+(on?"on":"")+'"'+(dis?' aria-disabled="true" title="'+escAttr(cctpBlock)+'"':'')+'>'+(mark ? mark : "")+'<span>'+label+'</span></div>';
-    }
-    const cctpRow = '<div id="cctp-row"'+(buyOn?"":' style="display:none"')+'>'+
-      '<div class="kv" style="border:0;padding:10px 0 0"><span style="color:var(--muted)">USDC on</span></div>'+
-      '<div class="chips" id="cctp-route" style="margin-top:6px">'+
-        (state.route === "swap" ? "" : cctpChip("", "Sui"))+
-        cctpChip("base", "Base")+
-        cctpChip("ethereum", "Ethereum")+
-        cctpChip("arbitrum", "Arbitrum")+
-        cctpChip("arc", "Arc")+
-      '</div></div>';
+    const cctpRow = cctpRouteHTML(cctpBlock).replace('id="cctp-row"', 'id="cctp-row"'+(buyOn?"":' style="display:none"'));
     return '<div class="ticket" id="swap-box">'+
       '<div class="pit-kicker">'+kicker+' · Bluefin</div>'+
       '<div class="ticket-title" style="font-size:22px;font-weight:700;letter-spacing:-.03em;margin:8px 0 10px">Swap</div>'+
@@ -10072,6 +10078,283 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     if (raw.indexOf("::") >= 0) return looksLikeCoinType(raw);
     var hex = raw.replace(/^0x/i, "");
     return /^[0-9a-fA-F]{64}$/.test(hex);
+  }
+  var OPEN_FEE_BPS = 25n;
+  var OPEN_USDC_FLOOR = 50000000n;
+  var OPEN_SUI_FLOOR = 1000000000n;
+  var CETUS_POOL_TYPE = "0x1eabed72c53feb3805120a081dc15963c204dc8d091542592abaf7a35689b2fb::pool::Pool";
+  var BLUE_POOL_TYPE = "0x3492c874c1e3b3e2984e8c41b589e642d4d0a5d6459e5a9cfc2d52fd7c89c267::pool::Pool";
+  function openFeeOf(amount){
+    amount = asBigAmt(amount);
+    if (!(amount > 0n)) return 0n;
+    return (amount * OPEN_FEE_BPS) / 10000n;
+  }
+  function openPoolDex(type){
+    type = String(type || "");
+    if (type.indexOf(CETUS_POOL_TYPE) === 0) return "cetus";
+    if (type.indexOf(BLUE_POOL_TYPE) === 0) return "bluefin";
+    return "";
+  }
+  function openCoinMeta(type, meta){
+    var icon = (meta && (meta.iconUrl || meta.icon_url || meta.icon)) || "";
+    if (icon && typeof icon !== "string") icon = "";
+    if (icon && !/^https?:\/\//i.test(icon)) icon = "";
+    return {
+      type: normType(type),
+      symbol: (meta && meta.symbol) || type.split("::").pop() || "COIN",
+      name: (meta && meta.name) || (meta && meta.symbol) || "",
+      decimals: meta && meta.decimals != null ? Number(meta.decimals) : 9,
+      icon: icon
+    };
+  }
+  async function metaForCoinType(type){
+    type = normType(type);
+    if (!type || type.split("::").length < 3) return null;
+    try {
+      var rpcMeta = await rpcJson("suix_getCoinMetadata", [type]);
+      if (rpcMeta && (rpcMeta.symbol || rpcMeta.decimals != null)) return openCoinMeta(type, rpcMeta);
+    } catch (e) {}
+    try {
+      var data = await gql(
+        "query($t:String!){ objects(first:1, filter:{ type:$t }){ nodes { asMoveObject { contents { json } } } } }",
+        { t: "0x2::coin_registry::Currency<" + type + ">" }
+      );
+      var node = data && data.objects && data.objects.nodes && data.objects.nodes[0];
+      var json = node && node.asMoveObject && node.asMoveObject.contents && node.asMoveObject.contents.json;
+      if (json && (json.symbol || json.decimals != null)) return openCoinMeta(type, json);
+    } catch (e2) {}
+    return null;
+  }
+  async function resolveOpenCoin(raw){
+    raw = swapAddrNorm(raw);
+    if (raw.indexOf("::") >= 0){
+      var one = await metaForCoinType(raw);
+      if (!one) throw new Error("That is not a Sui coin.");
+      return one;
+    }
+    var pkg = padAddr(raw);
+    if (!pkg) throw new Error("Paste a coin type or a package address.");
+    var mods = await rpcJson("sui_getNormalizedMoveModulesByPackage", [pkg]);
+    var cands = [];
+    Object.keys(mods || {}).forEach(function(mod){
+      var structs = (mods[mod] && mods[mod].structs) || {};
+      Object.keys(structs).forEach(function(name){
+        var st = structs[name] || {};
+        var abilities = (st.abilities && st.abilities.abilities) || st.abilities || [];
+        var fields = st.fields || [];
+        var otw = !fields.length || (fields.length === 1 && fields[0] && fields[0].name === "dummy_field");
+        if (abilities.indexOf("Drop") >= 0 && otw) cands.push(normType(pkg + "::" + mod + "::" + name));
+      });
+    });
+    if (cands.length > 8) throw new Error("Paste the full coin type. This package has many types.");
+    var hits = [];
+    for (var i = 0; i < cands.length; i++){
+      var hit = await metaForCoinType(cands[i]);
+      if (hit) hits.push(hit);
+    }
+    if (hits.length === 1) return hits[0];
+    if (hits.length > 1) throw new Error("Paste the full coin type. This package has more than one coin.");
+    throw new Error("No coin at that address.");
+  }
+  function poolReserve(v){
+    if (v && typeof v === "object") v = v.value != null ? v.value : v.amount;
+    return asBigAmt(v);
+  }
+  async function verifyOpenPool(id, coinType){
+    var obj = await moveObject(id);
+    var dex = openPoolDex(obj.type);
+    if (!dex) return null;
+    var types = parsePoolTypes(obj.type);
+    var coin = normType(coinType);
+    var usdc = normType(window.ARENA_USDC_TYPE);
+    var sui = normType(SUI_TYPE);
+    var other = "";
+    if (types.a === coin) other = types.b;
+    else if (types.b === coin) other = types.a;
+    else return null;
+    var quote = other === usdc ? "USDC" : (other === sui ? "SUI" : "");
+    if (!quote) return null;
+    var j = obj.json || {};
+    if (j.is_pause || j.is_paused) return null;
+    var a = poolReserve(j.coin_a != null ? j.coin_a : j.coin_a_amount);
+    var b = poolReserve(j.coin_b != null ? j.coin_b : j.coin_b_amount);
+    var tokenRes = types.a === coin ? a : b;
+    var quoteRes = types.a === coin ? b : a;
+    if (!(tokenRes > 0n) || !(poolReserve(j.liquidity) > 0n)) return null;
+    return { id: padAddr(obj.address || id), dex: dex, quote: quote, quoteRes: quoteRes };
+  }
+  async function cetusOpenCandidates(coinType){
+    var url = "https://api-sui.cetus.zone/v2/sui/stats_pools?page_size=50&coin_type=" + encodeURIComponent(normType(coinType));
+    var r = await fetch(url);
+    if (!r.ok) throw new Error("Cetus pool list failed");
+    var j = await r.json();
+    var list = (j && j.data && j.data.lp_list) || [];
+    var want = normType(coinType);
+    var usdc = normType(window.ARENA_USDC_TYPE);
+    var sui = normType(SUI_TYPE);
+    var out = [];
+    list.forEach(function(p){
+      if (!p || p.is_closed || !p.address) return;
+      var a = normType(p.coin_a_address);
+      var b = normType(p.coin_b_address);
+      var other = a === want ? b : (b === want ? a : "");
+      var quote = other === usdc ? "USDC" : (other === sui ? "SUI" : "");
+      if (!quote) return;
+      out.push({ id: p.address, quote: quote, rank: Number(p.pure_tvl_in_usd) || 0 });
+    });
+    out.sort(function(a, b){ return b.rank - a.rank; });
+    return out;
+  }
+  async function bluefinOpenCandidates(coinType){
+    var r = await fetch("/api/bluefin-pools?coin=" + encodeURIComponent(normType(coinType)));
+    if (!r.ok) return [];
+    var j = await r.json().catch(function(){ return null; });
+    return ((j && j.pools) || []).map(function(p){
+      return { id: p.id, quote: p.quote, rank: Number(p.quoteAmt) || 0 };
+    }).filter(function(p){ return p.id && (p.quote === "USDC" || p.quote === "SUI"); });
+  }
+  function topOpenRows(rows, quote, n){
+    return (rows || []).filter(function(p){ return p.quote === quote; }).slice(0, n);
+  }
+  function pickOpenPool(rows){
+    var usdc = rows.filter(function(p){ return p && p.quote === "USDC" && p.quoteRes >= OPEN_USDC_FLOOR; });
+    usdc.sort(function(a, b){ return a.quoteRes > b.quoteRes ? -1 : 1; });
+    if (usdc.length) return usdc[0];
+    var sui = rows.filter(function(p){ return p && p.quote === "SUI" && p.quoteRes >= OPEN_SUI_FLOOR; });
+    sui.sort(function(a, b){ return a.quoteRes > b.quoteRes ? -1 : 1; });
+    return sui[0] || null;
+  }
+  async function findOpenPool(coin){
+    var cetus = [];
+    var blue = [];
+    try { cetus = await cetusOpenCandidates(coin.type); } catch (e) { cetus = []; }
+    try { blue = await bluefinOpenCandidates(coin.type); } catch (e2) { blue = []; }
+    var batch = topOpenRows(cetus, "USDC", 3).concat(topOpenRows(cetus, "SUI", 3), topOpenRows(blue, "USDC", 3), topOpenRows(blue, "SUI", 3));
+    if (!batch.length) throw new Error("No Cetus or Bluefin pool against SUI or USDC for this coin.");
+    var verified = await Promise.all(batch.map(function(p){
+      return verifyOpenPool(p.id, coin.type).catch(function(){ return null; });
+    }));
+    var pool = pickOpenPool(verified.filter(Boolean));
+    if (!pool) throw new Error("No liquid Cetus or Bluefin pool against SUI or USDC for this coin.");
+    return { id: pool.id, dex: pool.dex, quote: pool.quote };
+  }
+  function clearOpenCoin(){
+    swapOpenSeq++;
+    state.swapOpen = null;
+    state.swapOpenErr = "";
+    state.swapOpenKey = "";
+    state.swapOpenPending = "";
+  }
+  function kickOpenLookup(raw){
+    raw = swapAddrNorm(raw);
+    var seq = ++swapOpenSeq;
+    state.swapOpen = null;
+    state.swapOpenErr = "";
+    state.swapOpenKey = raw;
+    state.swapOpenPending = raw;
+    resolveOpenCoin(raw).then(function(coin){
+      if (seq !== swapOpenSeq) return null;
+      if (swapTokByAddr(raw)) return { vice: true };
+      var base = normType(coin.type);
+      var usdc = normType(window.ARENA_USDC_TYPE);
+      var sui = normType(SUI_TYPE);
+      if (base === usdc || base === sui) throw new Error("Paste the coin you want to buy.");
+      return findOpenPool(coin).then(function(pool){
+        return { coin: coin, pool: pool };
+      });
+    }).then(function(found){
+      if (seq !== swapOpenSeq || !found) return;
+      if (swapAddrNorm(state.swapAddr) !== raw) return;
+      if (found.vice){ paintSwapResult(); return; }
+      state.swapOpen = {
+        type: found.coin.type,
+        symbol: found.coin.symbol,
+        name: found.coin.name,
+        decimals: found.coin.decimals,
+        icon: found.coin.icon,
+        pool: found.pool
+      };
+      state.swapOpenPending = "";
+      state.swapOpenErr = "";
+      swapQuote = null;
+      paintSwapResult();
+    }).catch(function(err){
+      if (seq !== swapOpenSeq) return;
+      if (swapAddrNorm(state.swapAddr) !== raw) return;
+      state.swapOpen = null;
+      state.swapOpenPending = "";
+      var openMsg = (err && err.message) ? err.message : "Could not find that coin.";
+      if (/429|too frequent|failed to fetch|networkerror|load failed/i.test(openMsg)) openMsg = "The network is busy. Try that address again.";
+      else if (/does not exist|not found|Package object/i.test(openMsg)) openMsg = "No coin at that address.";
+      state.swapOpenErr = openMsg;
+      paintSwapResult();
+    });
+  }
+  function openFromPend(pend){
+    if (!pend || !pend.openType || !pend.openPool || !pend.openPool.id) return null;
+    return {
+      type: normType(pend.openType),
+      symbol: pend.openSymbol || pend.sym || "token",
+      name: pend.openName || "",
+      decimals: pend.openDecimals != null ? Number(pend.openDecimals) : 9,
+      icon: pend.openIcon || "",
+      pool: { id: pend.openPool.id, dex: pend.openPool.dex, quote: pend.openPool.quote }
+    };
+  }
+  function swapActiveOpen(){
+    if (state.route !== "swap") return null;
+    var raw = swapAddrNorm(state.swapAddr);
+    if (raw){
+      if (!swapAddrReady(raw) || swapTokByAddr(raw)) return null;
+      if (state.swapOpen && state.swapOpenKey === raw && state.swapOpen.pool) return state.swapOpen;
+      return null;
+    }
+    if (state.swapPick) return null;
+    var pend = cctpPendingHere();
+    return openFromPend(pend);
+  }
+  function openCardHTML(open){
+    var icon = open.icon && /^https?:\/\//i.test(open.icon) ? escUrl(open.icon) : "";
+    var letter = escHtml(String(open.symbol || "?").charAt(0).toUpperCase());
+    var face = icon
+      ? '<div class="avatar" style="width:36px;height:36px;padding:0;overflow:hidden"><img src="'+icon+'" alt=""></div>'
+      : '<div class="avatar" style="width:36px;height:36px;background:#298DFF;color:#fff;font-family:Instrument Serif,Georgia,serif;font-size:16px">'+letter+'</div>';
+    var where = (open.pool && open.pool.dex === "bluefin" ? "Bluefin" : "Cetus") + " · " + ((open.pool && open.pool.quote) || "");
+    return '<div class="swap-card">'+
+      face+
+      '<span class="swap-row-name"><b>'+escHtml(open.symbol || "")+'</b><span>'+escHtml(open.name || open.symbol || "")+'</span></span>'+
+      '<span class="swap-row-meta">'+escHtml(where)+'<br>0.25% fee</span>'+
+    '</div>';
+  }
+  function openPathText(open){
+    var chain = window.ViceCctp && ViceCctp.chain(state.cctpChain);
+    var name = chain ? chain.label : "that chain";
+    var sym = open.symbol || "token";
+    if (open.pool && open.pool.quote === "USDC") return "USDC on " + name + " → Sui USDC → " + sym;
+    return "USDC on " + name + " → Sui USDC → SUI → " + sym;
+  }
+  function openTicketHTML(open){
+    if (!window.ViceCctp || !ViceCctp.chain(state.cctpChain)) state.cctpChain = "base";
+    var amtVal = escAttr(state.amt || "10");
+    var dex = open.pool && open.pool.dex === "bluefin" ? "Bluefin" : "Cetus";
+    return openCardHTML(open)+
+      '<div class="ticket" id="swap-box">'+
+        '<div class="pit-kicker">'+escHtml(dex)+'</div>'+
+        '<div class="ticket-title" style="font-size:22px;font-weight:700;letter-spacing:-.03em;margin:8px 0 10px">Swap</div>'+
+        cctpRouteHTML("")+
+        '<div style="margin-top:12px">'+
+          '<div class="kv" style="border:0;padding:0 0 8px"><span id="pay-label">Pay with USDC</span><span id="bal-text" class="mono" style="color:var(--muted)">—</span></div>'+
+          '<input id="amt" class="amt" inputmode="decimal" autocomplete="off" value="'+amtVal+'">'+
+          '<div class="chips" id="amt-chips"></div>'+
+        '</div>'+
+        '<div class="kv"><span style="color:var(--muted)">You receive</span><span id="receive">'+escHtml(open.symbol || "")+' …</span></div>'+
+        '<div class="kv"><span style="color:var(--muted)">Route</span><span id="venue-text">Circle CCTP</span></div>'+
+        '<div class="kv" id="hop-row"><span style="color:var(--muted)">Path</span><span id="hop-text">'+escHtml(openPathText(open))+'</span></div>'+
+        '<div class="kv"><span style="color:var(--muted)">Vicefun fee</span><span>0.25%</span></div>'+
+        '<button type="button" class="btn-trade" id="trade-btn" data-trade>Connect wallet</button>'+
+        '<div id="swap-err" class="swap-err"></div>'+
+        '<div style="margin-top:10px;text-align:center;font-size:11px;color:var(--muted)">0.25% of the USDC goes to Vicefun before the swap. Vicefun tokens on this page stay free. Vicefun pays the Sui gas.</div>'+
+      '</div>';
   }
   function swapTokByAddr(raw){
     raw = swapAddrNorm(raw);
@@ -10135,13 +10418,25 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     var raw = swapAddrNorm(state.swapAddr);
     if (raw){
       if (!swapAddrReady(raw)) return "";
-      var byAddr = swapTokByAddr(raw);
-      if (!byAddr){
-        var indexed = T.some(function(k){ return k && k.bluefinPool && !k.missing; });
-        return '<p class="swap-note">'+(indexed ? "That contract is not a Vice token." : "Looking up that contract…")+'</p>';
+      var indexed = T.some(function(k){ return k && k.bluefinPool && !k.missing; });
+      if (!indexed){
+        if (!swapIndexWait){
+          swapIndexWait = setTimeout(function(){
+            swapIndexWait = 0;
+            if (state.route === "swap") paintSwapResult();
+          }, 400);
+        }
+        return '<p class="swap-note">Looking up that contract…</p>';
       }
-      return swapTicketFor(byAddr, true);
+      var byAddr = swapTokByAddr(raw);
+      if (byAddr) return swapTicketFor(byAddr, true);
+      if (state.swapOpen && state.swapOpenKey === raw && state.swapOpen.pool) return openTicketHTML(state.swapOpen);
+      if (state.swapOpenErr && state.swapOpenKey === raw && state.swapOpenPending !== raw) return '<p class="swap-note">'+escHtml(state.swapOpenErr)+'</p>';
+      if (state.swapOpenPending !== raw) kickOpenLookup(raw);
+      return '<p class="swap-note">Looking up that coin…</p>';
     }
+    var pendingOpen = !state.swapPick && openFromPend(cctpPendingHere());
+    if (pendingOpen) return openTicketHTML(pendingOpen);
     if (!state.swapPick) return "";
     var picked = T.find(function(k){ return k && !k.missing && k.t === state.swapPick && !isHiddenToken(k); });
     if (!picked) return "";
@@ -10151,6 +10446,11 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     var host = $("#swap-result");
     if (!host || state.route !== "swap") return;
     host.innerHTML = swapResultHTML();
+    if (swapActiveOpen()){
+      scheduleSwapQuote();
+      refreshCctpBal();
+      return;
+    }
     var tk = $("#swap-box") ? findT(state.sym) : null;
     if (tk && tk.bluefinPool && !tk.missing){
       refreshSwapBals(tk);
@@ -10159,19 +10459,23 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   }
   function swapHTML(){
     state.side = "Buy";
+    if (!state.swapAmtInit){
+      if (!state.amt || state.amt === "1") state.amt = "10";
+      state.swapAmtInit = true;
+    }
     if (!window.ViceCctp || !ViceCctp.chain(state.cctpChain)) state.cctpChain = "base";
     return '<div data-screen-label="USDC Swap" class="shell swap-page">'+
       '<h1>USDC Swap</h1>'+
       '<div class="swap-split">'+
         '<div class="swap-desk">'+
           '<div class="swap-top" id="swap-top">'+swapTopHTML()+'</div>'+
-          '<input id="swap-addr" class="swap-find" type="text" inputmode="text" spellcheck="false" autocomplete="off" placeholder="Paste contract address" value="'+escAttr(state.swapAddr || "")+'">'+
+          '<input id="swap-addr" class="swap-find" type="text" inputmode="text" spellcheck="false" autocomplete="off" placeholder="Paste a coin type or package" value="'+escAttr(state.swapAddr || "")+'">'+
           '<div id="swap-result">'+swapResultHTML()+'</div>'+
         '</div>'+
         '<aside class="swap-aside">'+
           '<ol class="swap-steps">'+
             '<li><b>1</b><span>Swap USDC from Base, Ethereum, Arbitrum, or Arc.</span></li>'+
-            '<li><b>2</b><span>Select a Vicefun token.</span></li>'+
+            '<li><b>2</b><span>Paste any Sui coin, or pick a Vicefun token. Other coins pay 0.25%.</span></li>'+
             '<li><b>3</b><span>No need for Sui gas. Vicefun sponsors it on swaps of at least 5 USDC.</span></li>'+
           '</ol>'+
           '<div class="store-row">'+
@@ -12612,7 +12916,61 @@ async function doBridgeDeposit(){
     if (q.venue === "cctp") return "Circle CCTP";
     return q.venue || "Aggregator";
   }
+  function paintOpenSwapBox(){
+    var open = swapActiveOpen();
+    if (!open) return;
+    var chainBal = window.ViceCctp && ViceCctp.chain(state.cctpChain);
+    var bt = $("#bal-text");
+    if (bt){
+      if (!suiSession.address) bt.textContent = "Connect";
+      else if (cctpBal && cctpBal.chain === state.cctpChain && cctpBal.raw != null && chainBal) bt.textContent = fmtSwapAmt(fromBase(cctpBal.raw, 6)) + " USDC";
+      else bt.textContent = evmSession.address && chainBal ? ("USDC on " + chainBal.label) : "EVM wallet";
+    }
+    var chipHost = $("#amt-chips");
+    if (chipHost) chipHost.innerHTML = ["5","10","25","100","Max"].map(function(c){ return '<div data-chip="'+c+'">'+c+'</div>'; }).join("");
+    var rec = $("#receive");
+    var venue = $("#venue-text");
+    var hopEl = $("#hop-text");
+    var shown = swapQuote && swapQuote.venue === "open" ? swapQuote : null;
+    if (shown && shown.error && !shown.amountOut){
+      if (rec) rec.textContent = "—";
+      if (venue) venue.textContent = "No route yet";
+      if (hopEl) hopEl.textContent = shown.error;
+    } else if (shown && shown.amountOut){
+      var outN = fromBase(shown.amountOut, open.decimals != null ? open.decimals : 9);
+      if (rec) rec.textContent = "~ " + fmtSwapAmt(outN) + " " + (open.symbol || "");
+      if (venue) venue.textContent = "Circle CCTP";
+      if (hopEl) hopEl.textContent = (shown.hops && shown.hops.length) ? shown.hops.join(" → ") : openPathText(open);
+    } else {
+      if (rec) rec.textContent = shown && shown.quoting ? "…" : ("— " + (open.symbol || ""));
+      if (venue) venue.textContent = "Circle CCTP";
+      if (hopEl) hopEl.textContent = openPathText(open);
+    }
+    $$("[data-cctp]").forEach(function(el){
+      el.classList.toggle("on", (el.getAttribute("data-cctp") || "") === (state.cctpChain || ""));
+    });
+    paintCctpNote();
+    var tr = $("#trade-btn");
+    if (tr){
+      tr.className = "btn-trade";
+      if (cctpBusy){
+        tr.disabled = true;
+        tr.textContent = cctpBtn || "USDC…";
+      } else if (cctpNoteOk){
+        tr.disabled = false;
+        tr.textContent = "Bought";
+      } else {
+        tr.disabled = false;
+        if (!suiSession.address) tr.textContent = "Connect wallet";
+        else if (cctpPendingHere()) tr.textContent = "Finish USDC buy";
+        else if (shown && shown.quoting) tr.textContent = "Quoting…";
+        else tr.textContent = "Buy " + (open.symbol || "token") + " with USDC";
+      }
+    }
+    if (suiSession.address && cctpSponsorOn == null) cctpSponsorReady();
+  }
   function paintSwapBox(){
+    if (state.route === "swap" && swapActiveOpen()){ paintOpenSwapBox(); return; }
     const tk = findT(state.sym);
     const buy = $("#btn-buy"), sell = $("#btn-sell");
     if (!buy || !tk || !tk.bluefinPool) return;
@@ -12737,6 +13095,7 @@ async function doBridgeDeposit(){
     }
   }
   function paintTicket(){
+    if (state.route === "swap" && swapActiveOpen()){ paintOpenSwapBox(); return; }
     if ((state.route === "token" || state.route === "swap") && isDexBout(findT(state.sym))) {
       if (state.route === "token" && usesCetusSwap(findT(state.sym))){
         mountCetusTerminal(findT(state.sym));
@@ -14972,7 +15331,40 @@ async function doBridgeDeposit(){
       paintSwapBox();
     } catch (e) {}
   }
+  async function fetchOpenQuote(){
+    var open = swapActiveOpen();
+    if (!open || state.route !== "swap") return;
+    var seq = ++swapQuoteSeq;
+    var amount = humanToBase(state.amt, 6);
+    var chain = window.ViceCctp && ViceCctp.chain(state.cctpChain);
+    var hops = ["USDC on " + (chain ? chain.label : "EVM"), "Sui USDC"];
+    if (!open.pool || open.pool.quote !== "USDC") hops.push("SUI");
+    hops.push(open.symbol || "token");
+    var out = 0n;
+    try {
+      var spend = amount - openFeeOf(amount);
+      if (spend > 0n){
+        var snap = await poolSnap(open.pool.id);
+        if (open.pool.quote === "USDC") out = estimatePoolOut(snap, window.ARENA_USDC_TYPE, spend);
+        else {
+          var suiOut = estimatePoolOut(await loadUsdcSuiPool(), window.ARENA_USDC_TYPE, spend);
+          out = estimatePoolOut(snap, SUI_TYPE, suiOut);
+        }
+      }
+    } catch (e) { out = 0n; }
+    if (seq !== swapQuoteSeq) return;
+    swapQuote = { venue: "open", amountIn: String(amount), amountOut: out > 0n ? String(out) : "", hops: hops, estimated: true };
+    paintOpenSwapBox();
+  }
   function scheduleSwapQuote(){
+    if (state.route === "swap" && swapActiveOpen()){
+      clearTimeout(swapQuoteTimer);
+      var keep = swapQuote && swapQuote.venue === "open" ? swapQuote : null;
+      swapQuote = { quoting: true, venue: "open", amountOut: keep && keep.amountOut, hops: keep && keep.hops };
+      paintOpenSwapBox();
+      swapQuoteTimer = setTimeout(function(){ fetchOpenQuote(); }, 280);
+      return;
+    }
     if (state.route !== "token" && state.route !== "swap") return;
     var tk = findT(state.sym);
     if (usesCetusSwap(tk)) return;
@@ -15954,6 +16346,102 @@ async function doBridgeDeposit(){
     if (!(got > 1n)) throw new Error("The pool would not pay this swap.");
     return got;
   }
+  async function buildOpenSpend(open, coinId, usdcAmt, minOut){
+    var fee = openFeeOf(usdcAmt);
+    if (!(fee >= 1n) || fee >= usdcAmt) throw new Error("That USDC amount is too small.");
+    var snap = await poolSnap(open.pool.id);
+    if (openPoolDex(snap.type) !== open.pool.dex) throw new Error("That pool is no longer the quoted Cetus or Bluefin pool.");
+    var types = parsePoolTypes(snap.type);
+    var coin = normType(open.type);
+    var other = types.a === coin ? types.b : (types.b === coin ? types.a : "");
+    var wantQuote = open.pool.quote === "USDC" ? normType(window.ARENA_USDC_TYPE) : normType(SUI_TYPE);
+    if (other !== wantQuote) throw new Error("That pool does not pair this coin with " + open.pool.quote + ".");
+    var Transaction = await loadTransaction();
+    var tx = new Transaction();
+    tx.setSender(suiSession.address);
+    var usdcCoin = tx.object(coinId);
+    var split = tx.splitCoins(usdcCoin, [txPure(tx, "u64", txAmt(fee))]);
+    var feeCoin = Array.isArray(split) ? split[0] : split;
+    tx.transferObjects([feeCoin], txPure(tx, "address", platformWallet()));
+    var outCoin;
+    var usdcType = window.ARENA_USDC_TYPE;
+    if (open.pool.quote === "USDC"){
+      if (open.pool.dex === "bluefin") outCoin = bluefinHop(tx, snap, usdcType, usdcCoin, minOut);
+      else {
+        outCoin = cetusHop(tx, snap, usdcType, usdcCoin);
+        if (minOut > 1n) requireMinOut(tx, open.type, outCoin, minOut);
+      }
+    } else {
+      var suiCoin = cetusHop(tx, await loadUsdcSuiPool(), usdcType, usdcCoin);
+      if (open.pool.dex === "bluefin") outCoin = bluefinHop(tx, snap, SUI_TYPE, suiCoin, minOut);
+      else {
+        outCoin = cetusHop(tx, snap, SUI_TYPE, suiCoin);
+        if (minOut > 1n) requireMinOut(tx, open.type, outCoin, minOut);
+      }
+    }
+    if (outCoin) tx.transferObjects([outCoin], suiSession.address);
+    return tx;
+  }
+  async function openSimTokenOut(open, coinId, usdcAmt){
+    var tx = await buildOpenSpend(open, coinId, usdcAmt, 1n);
+    var bytes = await buildTxBytes(tx);
+    var dry = await rpcJson("sui_dryRunTransactionBlock", [toB64(bytes)]);
+    var st = dry && dry.effects && dry.effects.status;
+    if (!st || st.status !== "success") throw new Error((st && st.error) || "The pool would not pay this swap.");
+    var want = normType(open.type);
+    var got = 0n;
+    (dry.balanceChanges || []).forEach(function(b){
+      var who = cctpOwnerAddr(b && b.owner);
+      if (who && sameAddr(who, suiSession.address) && normType(b.coinType) === want){
+        var n = asBigAmt(b.amount);
+        if (n > got) got = n;
+      }
+    });
+    if (!(got > 1n)) throw new Error("The pool would not pay this swap.");
+    return got;
+  }
+  async function spendOpenUsdc(open, coinId, usdcAmt, userGas){
+    try {
+      var held = await moveObject(coinId);
+      var bal = poolReserve(held.json && held.json.balance);
+      if (bal > 0n) usdcAmt = bal;
+    } catch (e) {}
+    if (!(usdcAmt > 0n)) throw new Error("Minted USDC amount is missing. Check the Sui wallet for the new USDC coin.");
+    var simOut = await openSimTokenOut(open, coinId, usdcAmt);
+    var minOut = simOut > 1n ? (simOut * 9000n) / 10000n : 1n;
+    if (minOut < 1n) minOut = 1n;
+    var tx = await buildOpenSpend(open, coinId, usdcAmt, minOut);
+    if (!userGas && cctpSponsorTicket && await cctpSponsorReady()){
+      try {
+        var kind = await buildTxKind(tx);
+        var prepared = await cctpSponsorPost({
+          action: "swap",
+          kind: toB64(kind),
+          sender: suiSession.address,
+          coinId: coinId,
+          ticket: cctpSponsorTicket
+        });
+        if (prepared && prepared.bytes){
+          var sig = await signSponsoredBytes(prepared.bytes);
+          return cctpSponsorPost({
+            action: "execute",
+            bytes: prepared.bytes,
+            signature: sig,
+            sender: suiSession.address,
+            ticket: cctpSponsorTicket
+          });
+        }
+      } catch (e) {
+        var sponsorMsg = String((e && e.message) || "");
+        if ((e && e.sponsorRoute) || /cannot sign a sponsored|Wallet did not sign/i.test(sponsorMsg)){
+          return spendOpenUsdc(open, coinId, usdcAmt, true);
+        }
+        throw e;
+      }
+    }
+    await assertSwapDry(tx);
+    return walletExecSigned(tx);
+  }
   async function spendMintedUsdc(tk, coinId, usdcAmt, userGas){
     var q = poolQuote(tk);
     var block = cctpBlocked(q);
@@ -16081,18 +16569,41 @@ async function doBridgeDeposit(){
   }
   async function doCctpSwap(){
     var btn = $("#trade-btn");
-    var tk = findT(state.sym);
     var err = $("#swap-err");
     if (!window.ViceCctp){
       if (err) err.textContent = "USDC buy failed to load. Refresh the page.";
       return;
     }
     var chain = ViceCctp.chain(state.cctpChain);
-    if (!tk || !tk.bluefinPool || !chain) return;
-    var block = cctpBlocked(poolQuote(tk));
-    if (block){
-      if (err) err.textContent = block;
-      return;
+    var pend0 = cctpPendingHere();
+    var buyOpen = (pend0 && pend0.openType) ? openFromPend(pend0) : (pend0 ? null : swapActiveOpen());
+    var tk = buyOpen ? null : findT(state.sym);
+    if (!buyOpen && pend0 && pend0.sym && findT(pend0.sym) && findT(pend0.sym).bluefinPool) tk = findT(pend0.sym);
+    if (!chain) return;
+    if (!buyOpen && (!tk || !tk.bluefinPool)) return;
+    if (!buyOpen){
+      var block = cctpBlocked(poolQuote(tk));
+      if (block){
+        if (err) err.textContent = block;
+        return;
+      }
+    }
+    function buyLabel(){ return buyOpen ? (buyOpen.symbol || "token") : tk.t; }
+    function stamp(obj){
+      obj.sym = buyLabel();
+      if (buyOpen){
+        obj.openType = buyOpen.type;
+        obj.openSymbol = buyOpen.symbol || "";
+        obj.openName = buyOpen.name || "";
+        obj.openDecimals = buyOpen.decimals;
+        obj.openIcon = buyOpen.icon || "";
+        obj.openPool = buyOpen.pool;
+      }
+      return obj;
+    }
+    function spendBuy(coinId, amt){
+      if (buyOpen) return spendOpenUsdc(buyOpen, coinId, amt);
+      return spendMintedUsdc(tk, coinId, amt);
     }
     try {
       if (!hasSuiWallet() && !suiSession.address){
@@ -16115,9 +16626,7 @@ async function doBridgeDeposit(){
       var attestation = "";
       var burnTx = "";
       var usdcAmount = amount;
-      var swapTk = tk;
       if (pend && pend.stage === "received"){
-        if (pend.sym && findT(pend.sym) && findT(pend.sym).bluefinPool) swapTk = findT(pend.sym);
         cctpSponsorTicket = pend.ticket || "";
         cctpStatus("Swapping…", "USDC is already on Sui. Looking up the minted coin.");
         var prior = null;
@@ -16127,35 +16636,33 @@ async function doBridgeDeposit(){
         }
         var looked = await findMintedUsdc(prior, cctpIdsFrom(pend.before));
         if (!looked || !(looked.valueBig > 0n)) throw new Error("USDC is on Sui, but the new coin is not visible yet. Tap Finish in a few seconds.");
-        cctpSavePend({
+        cctpSavePend(stamp({
           stage: "minted",
           chainKey: pend.chainKey,
           burnTx: pend.burnTx,
           amount: looked.valueBig.toString(),
           coinId: looked.id,
           suiAddress: suiSession.address,
-          sym: swapTk.t,
           digest: pend.digest || "",
           ticket: pend.ticket || "",
           at: Date.now()
-        });
-        var resumed = await spendMintedUsdc(swapTk, looked.id, looked.valueBig);
+        }));
+        var resumed = await spendBuy(looked.id, looked.valueBig);
         cctpClearPend();
         var resumedDigest = txDigest(resumed);
-        cctpMarkBought(swapTk.t, resumedDigest);
+        cctpMarkBought(buyLabel(), resumedDigest);
         await refreshSwapBals(tk);
         scheduleSwapQuote();
         return;
       }
       if (pend && pend.stage === "minted" && pend.coinId){
         usdcAmount = BigInt(pend.amount || "0");
-        var mintedTk = (pend.sym && findT(pend.sym) && findT(pend.sym).bluefinPool) ? findT(pend.sym) : tk;
         cctpSponsorTicket = pend.ticket || "";
-        cctpStatus("Swapping…", cctpSponsorTicket ? ("Confirm the swap into " + mintedTk.t + ". Vicefun pays the Sui gas.") : ("USDC is already on Sui. Confirm the swap into " + mintedTk.t + "."));
-        var again = await spendMintedUsdc(mintedTk, pend.coinId, usdcAmount);
+        cctpStatus("Swapping…", cctpSponsorTicket ? ("Confirm the swap into " + buyLabel() + ". Vicefun pays the Sui gas.") : ("USDC is already on Sui. Confirm the swap into " + buyLabel() + "."));
+        var again = await spendBuy(pend.coinId, usdcAmount);
         cctpClearPend();
         var againDigest = txDigest(again);
-        cctpMarkBought(mintedTk.t, againDigest);
+        cctpMarkBought(buyLabel(), againDigest);
         await refreshSwapBals(tk);
         scheduleSwapQuote();
         return;
@@ -16166,14 +16673,12 @@ async function doBridgeDeposit(){
         burnTx = pend.burnTx;
         usdcAmount = BigInt(pend.amount || "0");
         chain = ViceCctp.chain(pend.chainKey) || chain;
-        if (pend.sym && findT(pend.sym) && findT(pend.sym).bluefinPool) swapTk = findT(pend.sym);
         cctpStatus("Minting on Sui…", (await cctpSponsorReady()) ? "Circle already attested this burn. Vicefun pays the Sui mint." : "Circle already attested this burn. Confirm the Sui mint.");
       } else {
         if (pend){
           burnTx = pend.burnTx;
           usdcAmount = BigInt(pend.amount || "0");
           chain = ViceCctp.chain(pend.chainKey) || chain;
-          if (pend.sym && findT(pend.sym) && findT(pend.sym).bluefinPool) swapTk = findT(pend.sym);
         } else {
           if (amount < 5000000n) throw new Error("Minimum is 5 USDC.");
           var burned = await ViceCctp.burn({
@@ -16189,15 +16694,14 @@ async function doBridgeDeposit(){
           evmSession.chainId = burned.chainId || chain.chainId;
           burnTx = burned.hash;
           usdcAmount = amount;
-          cctpSavePend({
+          cctpSavePend(stamp({
             stage: "burned",
             chainKey: chain.key,
             burnTx: burnTx,
             amount: amount.toString(),
             suiAddress: suiSession.address,
-            sym: tk.t,
             at: Date.now()
-          });
+          }));
           cctpBal = null;
           cctpStatus("Waiting for Circle…", "Burn confirmed on " + chain.label + ". Waiting for Circle. This can take several minutes.", cctpTxUrl(chain, burnTx), "View burn", true);
         }
@@ -16209,17 +16713,16 @@ async function doBridgeDeposit(){
         });
         message = att.message;
         attestation = att.attestation;
-        cctpSavePend({
+        cctpSavePend(stamp({
           stage: "attested",
           chainKey: chain.key,
           burnTx: burnTx,
           amount: usdcAmount.toString(),
           suiAddress: suiSession.address,
-          sym: swapTk.t,
           message: message,
           attestation: attestation,
           at: Date.now()
-        });
+        }));
         cctpStatus("Minting on Sui…", (await cctpSponsorReady()) ? "Minting native USDC on Sui. Vicefun pays this fee." : "Minting native USDC on Sui. Confirm in the Sui wallet. The swap is a second confirmation.");
       }
       var before = [];
@@ -16229,41 +16732,39 @@ async function doBridgeDeposit(){
       var beforeSaved = cctpIdMap(before);
       var recv = await receiveCctp(message, attestation);
       var recvDigest = txDigest(recv);
-      cctpSavePend({
+      cctpSavePend(stamp({
         stage: "received",
         chainKey: chain.key,
         burnTx: burnTx,
         amount: usdcAmount.toString(),
         suiAddress: suiSession.address,
-        sym: swapTk.t,
         digest: recvDigest,
         before: beforeSaved,
         ticket: cctpSponsorTicket || "",
         coinId: (recv && recv.coinId) || "",
         at: Date.now()
-      });
+      }));
       var coin = await findMintedUsdc(recv, beforeIds);
       if (!coin || !(coin.valueBig > 0n)){
         throw new Error("USDC minted, but the new coin is not visible yet. Tap Finish in a few seconds.");
       }
-      cctpSavePend({
+      cctpSavePend(stamp({
         stage: "minted",
         chainKey: chain.key,
         burnTx: burnTx,
         amount: coin.valueBig.toString(),
         coinId: coin.id,
         suiAddress: suiSession.address,
-        sym: swapTk.t,
         ticket: cctpSponsorTicket || "",
         at: Date.now()
-      });
-      cctpStatus("Swapping…", cctpSponsorTicket ? ("Swapping the minted USDC into " + swapTk.t + ". Confirm in the wallet. Vicefun pays the Sui gas.") : ("Swapping the minted USDC into " + swapTk.t + ". Confirm in the Sui wallet."));
-      var result = await spendMintedUsdc(swapTk, coin.id, coin.valueBig);
+      }));
+      cctpStatus("Swapping…", cctpSponsorTicket ? ("Swapping the minted USDC into " + buyLabel() + ". Confirm in the wallet. Vicefun pays the Sui gas.") : ("Swapping the minted USDC into " + buyLabel() + ". Confirm in the Sui wallet."));
+      var result = await spendBuy(coin.id, coin.valueBig);
       cctpClearPend();
       var digest = txDigest(result);
-      cctpMarkBought(swapTk.t, digest);
+      cctpMarkBought(buyLabel(), digest);
       await refreshSwapBals(tk);
-      if (swapTk.bluefinPool && bus.sub && bus.sub.refreshBluefin) bus.sub.refreshBluefin(swapTk.bluefinPool);
+      if (tk && tk.bluefinPool && bus.sub && bus.sub.refreshBluefin) bus.sub.refreshBluefin(tk.bluefinPool);
       scheduleSwapQuote();
     } catch (err2){
       cctpBusy = false;
@@ -16733,6 +17234,7 @@ async function doBridgeDeposit(){
       return;
     }
     if (trade){
+      if (state.route === "swap" && swapActiveOpen()){ doCctpSwap(); return; }
       if ((state.route === "token" || state.route === "swap") && isDexBout(findT(state.sym))){
         if (state.route === "swap" || (state.side !== "Sell" && state.cctpChain)) doCctpSwap();
         else doSwap();
@@ -16893,6 +17395,7 @@ async function doBridgeDeposit(){
       var pickedTok = swapTok.getAttribute("data-swap-tok") || "";
       if (!pickedTok) return;
       cctpForgetNote();
+      clearOpenCoin();
       state.swapPick = pickedTok;
       state.swapAddr = "";
       state.side = "Buy";
@@ -16918,7 +17421,7 @@ async function doBridgeDeposit(){
         var inpC = $("#amt"); if (inpC) inpC.value = state.amt;
       }
       paintTicket();
-      if ((state.route === "token" || state.route === "swap") && isDexBout(findT(state.sym))){
+      if ((state.route === "token" || state.route === "swap") && isDexBout(findT(state.sym)) || (state.route === "swap" && swapActiveOpen())){
         scheduleSwapQuote();
         refreshCctpBal();
       }
@@ -16970,7 +17473,7 @@ async function doBridgeDeposit(){
       }
       const inp = $("#amt"); if (inp) inp.value = state.amt;
       paintTicket();
-      if ((state.route === "token" || state.route === "swap") && isDexBout(findT(state.sym))) scheduleSwapQuote();
+      if (((state.route === "token" || state.route === "swap") && isDexBout(findT(state.sym))) || (state.route === "swap" && swapActiveOpen())) scheduleSwapQuote();
       return;
     }
     const tapeFilt = e.target.closest("button.tape-filter");
@@ -17371,6 +17874,7 @@ async function doBridgeDeposit(){
       cctpForgetNote();
       var prevSwap = state.sym;
       state.swapAddr = e.target.value;
+      clearOpenCoin();
       var nextTok = swapTokByAddr(state.swapAddr);
       if (!nextTok || nextTok.t !== prevSwap) swapQuote = null;
       var topHost = $("#swap-top");
@@ -17382,7 +17886,7 @@ async function doBridgeDeposit(){
       if (state.route === "swap" || state.cctpChain) cctpForgetNote();
       state.amt = e.target.value;
       paintTicket();
-      if ((state.route === "token" || state.route === "swap") && isDexBout(findT(state.sym))) scheduleSwapQuote();
+      if (((state.route === "token" || state.route === "swap") && isDexBout(findT(state.sym))) || (state.route === "swap" && swapActiveOpen())) scheduleSwapQuote();
     }
     if (e.target && (e.target.id === "q" || e.target.id === "q-global")){
       state.search = e.target.value;
