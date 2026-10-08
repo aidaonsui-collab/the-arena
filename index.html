@@ -283,9 +283,18 @@ main{padding:18px 0 72px}
 .tv-wrap-dex{height:420px;background:#0b0e11;border-radius:0;overflow:hidden}
 .dex-embed{border:0;display:block;width:100%;height:100%;min-height:420px}
 .ticket{background:var(--card);border-radius:28px;padding:18px;box-shadow:var(--shadow);position:sticky;top:84px;min-width:0;max-width:100%;overflow:hidden}
-.swap-page h1{font-family:"Instrument Sans",ui-sans-serif,system-ui,sans-serif;font-size:clamp(32px,5vw,48px);letter-spacing:-.03em;margin:8px 0 0;max-width:420px}
-.swap-lead{color:var(--muted);max-width:420px;margin:8px 0 0;font-size:15px;line-height:1.45}
-.swap-desk{max-width:420px;margin-top:18px}
+.swap-page h1{font-family:"Instrument Sans",ui-sans-serif,system-ui,sans-serif;font-size:clamp(32px,5vw,48px);letter-spacing:-.03em;margin:8px 0 0}
+.swap-split{display:grid;grid-template-columns:420px minmax(240px,340px);gap:64px;align-items:start;margin-top:22px}
+.swap-desk{max-width:none;margin-top:0}
+.swap-aside{padding-top:6px}
+.swap-steps{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:18px}
+.swap-steps li{display:flex;gap:12px;align-items:flex-start;font-size:15px;line-height:1.4}
+.swap-steps b{flex:none;width:26px;height:26px;border-radius:999px;background:var(--well);display:grid;place-items:center;font-size:13px;font-weight:700}
+.store-row{display:flex;flex-direction:column;gap:8px;margin-top:28px}
+.store-btn{display:flex;align-items:center;gap:10px;width:220px;background:#000;color:#fff;border:1px solid rgba(255,255,255,.18);border-radius:12px;padding:8px 14px;text-decoration:none}
+.store-btn small{display:block;font-size:10px;letter-spacing:.02em;opacity:.78;font-weight:500}
+.store-btn strong{display:block;font-size:16px;font-weight:650;line-height:1.1}
+.store-btn svg{flex:none}
 .swap-top{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-bottom:12px}
 .swap-chip{display:flex;align-items:center;gap:8px;min-width:0;border:1px solid transparent;background:var(--card);color:var(--ink);border-radius:16px;padding:10px;cursor:pointer;text-align:left}
 .swap-chip.on{border-color:var(--line);background:var(--lift)}
@@ -306,11 +315,15 @@ main{padding:18px 0 72px}
 .swap-desk .chips{margin-top:8px}
 .swap-desk .chips>div{padding:7px 0}
 .swap-desk .btn-trade{padding:11px;margin-top:8px}
+@media (max-width:900px){
+  .swap-split{grid-template-columns:1fr;gap:28px}
+  .swap-aside{padding-top:0}
+}
 @media (max-width:720px){
-  .swap-page h1,.swap-lead,.swap-desk{max-width:none}
   .swap-desk .ticket{padding:16px 14px}
   .swap-desk .amt{padding:12px 14px}
   .swap-desk .btn-trade{padding:13px}
+  .store-btn{width:100%}
 }
 .ticket.ticket-cetus{overflow:visible;padding:12px 12px 16px}
 #cetus-terminal{width:100%;min-height:440px}
@@ -322,7 +335,8 @@ main{padding:18px 0 72px}
 .amt{width:100%;border:1px solid var(--line);border-radius:16px;padding:14px 16px;font-size:26px;font-weight:650;outline:none;background:var(--well);color:var(--ink)}
 .amt:focus{border-color:var(--sui);background:var(--well-focus)}
 .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
-.chips>div{flex:1;text-align:center;background:var(--well);border-radius:999px;padding:8px 0;font-size:12px;font-weight:600;cursor:pointer}
+.chips>div{flex:1;display:flex;align-items:center;justify-content:center;gap:6px;text-align:center;background:var(--well);border-radius:999px;padding:8px 8px;font-size:12px;font-weight:600;cursor:pointer}
+.cctp-logo{width:14px;height:14px;flex:none;display:block}
 .chips>div:hover{background:var(--lift)}
 .chips>div.on{background:var(--lift);color:var(--ink)}
 .chips>div.disabled,.chips>div.disabled:hover{opacity:.4;cursor:not-allowed;filter:grayscale(.4);background:var(--well);pointer-events:none}
@@ -9981,10 +9995,18 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
           '<div data-pay="'+escAttr(q)+'"'+(state.payWith!=="SUI"?' class="on"':'')+'>'+(buyOn?"Pay "+q:"Get "+q)+'</div>'+
         '</div>'
       : '<div id="pay-route" style="display:none"></div>';
+    function cctpMark(key){
+      if (key === "ethereum") return '<svg class="cctp-logo" viewBox="0 0 32 32" aria-hidden="true"><path fill="#627EEA" d="M16 2.2 15 5.6v15.2l1 .6 8.8-5.2z"/><path fill="#8A92B2" d="m16 2.2-8.8 16.2L16 21.4V2.2z"/><path fill="#627EEA" d="m16 23.1-1 .7v5.6l1 .6 8.8-12.4z"/><path fill="#8A92B2" d="M16 30v-6.9l-8.8 5.5z"/><path fill="#C0CBF6" d="m16 21.4 8.8-5.2L16 12.7z"/><path fill="#8A92B2" d="m7.2 16.2 8.8 5.2V12.7z"/></svg>';
+      if (key === "base") return '<svg class="cctp-logo" viewBox="0 0 111 111" aria-hidden="true"><path fill="#0052FF" d="M54.921 110.034C85.359 110.034 110.034 85.402 110.034 55.017 110.034 24.631 85.359 0 54.921 0 26.043 0 1.801 22.223 0 50.392H72.846V59.641H0C1.801 87.811 26.043 110.034 54.921 110.034Z"/></svg>';
+      if (key === "arbitrum") return '<svg class="cctp-logo" viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="16" fill="#213147"/><path fill="#12AAFF" d="M17.2 8.2 10.4 24h2.7l1.3-3.1h5.2L21 24h2.7L17.2 8.2zm-.1 5.4 1.6 3.8h-3.2l1.6-3.8z"/></svg>';
+      if (key === "arc") return '<svg class="cctp-logo" viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="16" fill="#0B0D12"/><path d="M9.2 19.2a8 8 0 1 1 13.6 0" fill="none" stroke="#3C8AFF" stroke-width="2.4" stroke-linecap="round"/></svg>';
+      return "";
+    }
     function cctpChip(key, label){
       var on = (state.cctpChain || "") === key;
       var dis = !!(key && cctpBlock);
-      return '<div data-cctp="'+escAttr(key)+'" class="'+(dis?"disabled ":"")+(on?"on":"")+'"'+(dis?' aria-disabled="true" title="'+escAttr(cctpBlock)+'"':'')+'>'+label+'</div>';
+      var mark = cctpMark(key);
+      return '<div data-cctp="'+escAttr(key)+'" class="'+(dis?"disabled ":"")+(on?"on":"")+'"'+(dis?' aria-disabled="true" title="'+escAttr(cctpBlock)+'"':'')+'>'+(mark ? mark : "")+'<span>'+label+'</span></div>';
     }
     const cctpRow = '<div id="cctp-row"'+(buyOn?"":' style="display:none"')+'>'+
       '<div class="kv" style="border:0;padding:10px 0 0"><span style="color:var(--muted)">USDC on</span></div>'+
@@ -10138,13 +10160,31 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
   function swapHTML(){
     state.side = "Buy";
     if (!window.ViceCctp || !ViceCctp.chain(state.cctpChain)) state.cctpChain = "base";
-    return '<div data-screen-label="Swap" class="shell swap-page">'+
-      '<h1>Swap</h1>'+
-      '<p class="swap-lead">The three largest tokens, or paste a contract. Pay with USDC on Base, Ethereum, Arbitrum, or Arc. Circle burns it there and mints native USDC on Sui, then this pool swaps into the token. Vicefun pays the Sui gas on buys of at least 5 USDC. You still need gas on the chain the USDC starts on.</p>'+
-      '<div class="swap-desk">'+
-        '<div class="swap-top" id="swap-top">'+swapTopHTML()+'</div>'+
-        '<input id="swap-addr" class="swap-find" type="text" inputmode="text" spellcheck="false" autocomplete="off" placeholder="Paste contract address" value="'+escAttr(state.swapAddr || "")+'">'+
-        '<div id="swap-result">'+swapResultHTML()+'</div>'+
+    return '<div data-screen-label="USDC Swap" class="shell swap-page">'+
+      '<h1>USDC Swap</h1>'+
+      '<div class="swap-split">'+
+        '<div class="swap-desk">'+
+          '<div class="swap-top" id="swap-top">'+swapTopHTML()+'</div>'+
+          '<input id="swap-addr" class="swap-find" type="text" inputmode="text" spellcheck="false" autocomplete="off" placeholder="Paste contract address" value="'+escAttr(state.swapAddr || "")+'">'+
+          '<div id="swap-result">'+swapResultHTML()+'</div>'+
+        '</div>'+
+        '<aside class="swap-aside">'+
+          '<ol class="swap-steps">'+
+            '<li><b>1</b><span>Swap USDC from Base, Ethereum, Arbitrum, or Arc.</span></li>'+
+            '<li><b>2</b><span>Select a Vicefun token.</span></li>'+
+            '<li><b>3</b><span>No need for Sui gas. Vicefun sponsors it on swaps of at least 5 USDC.</span></li>'+
+          '</ol>'+
+          '<div class="store-row">'+
+            '<a class="store-btn" href="https://apps.apple.com/app/slush-a-sui-wallet/id6476572140" target="_blank" rel="noopener">'+
+              '<svg width="18" height="22" viewBox="0 0 18 22" aria-hidden="true"><path fill="#fff" d="M14.7 11.6c0-2.3 1.9-3.4 2-3.5-1.1-1.6-2.8-1.8-3.4-1.8-1.4-.2-2.8.8-3.5.8s-1.8-.8-3-.8c-1.5 0-3 .9-3.8 2.3-1.6 2.8-.4 7 1.2 9.3.8 1.1 1.7 2.3 2.9 2.3 1.2 0 1.6-.7 3-.7s1.8.7 3 .7 2-.1 2.9-2.2c.7-1 1.2-2.1 1.5-3.2-3.9-1.5-3.8-5.4-3.8-5.6zM12.2 4.8c.6-.8 1.1-1.9.9-3-.9 0-2 .6-2.6 1.4-.6.7-1.1 1.8-.9 2.8 1 .1 2-.5 2.6-1.2z"/></svg>'+
+              '<span><small>Download on the</small><strong>App Store</strong></span>'+
+            '</a>'+
+            '<a class="store-btn" href="https://play.google.com/store/apps/details?id=com.mystenlabs.suiwallet" target="_blank" rel="noopener">'+
+              '<svg width="18" height="20" viewBox="0 0 18 20" aria-hidden="true"><path fill="#34A853" d="M1 1.6v16.8c0 .7.8 1.1 1.4.7l8.2-8.3L2.4.9C1.8.5 1 .9 1 1.6z"/><path fill="#FBBC04" d="m12.2 9.2-1.6 1.6 3.2 1.8 2.6-1.5c.7-.4.7-1.4 0-1.8l-2.6-1.5-1.6 1.4z"/><path fill="#EA4335" d="M10.6 10.8 2.4 19.1c.3.2.6.3 1 .3.3 0 .6-.1.8-.2l8.4-4.8-2-2.6z"/><path fill="#4285F4" d="M12.6 7.4 4.2.9C4 .8 3.7.7 3.4.7c-.4 0-.7.1-1 .3l8.2 8.3 2-1.9z"/></svg>'+
+              '<span><small>Get it on</small><strong>Google Play</strong></span>'+
+            '</a>'+
+          '</div>'+
+        '</aside>'+
       '</div>'+
       footerHTML()+
     '</div>';
@@ -12143,7 +12183,7 @@ async function doBridgeDeposit(){
       image = origin + "/card/" + encodeURIComponent(tk.t) + ".jpg";
       url = origin + "/t/" + encodeURIComponent(tokenRouteId(tk));
     } else if (state.route === "swap"){
-      title = "Swap USDC into Vice tokens | Vice";
+      title = "USDC Swap | Vice";
       desc = "USDC on Base, Ethereum, Arbitrum, or Arc. Circle mints it on Sui, then the pool.";
       image = origin + "/og.png";
       url = origin + "/#/swap";
