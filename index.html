@@ -285,20 +285,15 @@ main{padding:18px 0 72px}
 .ticket{background:var(--card);border-radius:28px;padding:18px;box-shadow:var(--shadow);position:sticky;top:84px;min-width:0;max-width:100%;overflow:hidden}
 .swap-page h1{font-family:"Instrument Sans",ui-sans-serif,system-ui,sans-serif;font-size:clamp(32px,5vw,48px);letter-spacing:-.03em;margin:8px 0 0}
 .swap-lead{color:var(--muted);max-width:68ch;margin:8px 0 0;font-size:15px;line-height:1.45}
-.swap-layout{display:grid;grid-template-columns:minmax(0,1fr) minmax(300px,400px);gap:18px;align-items:start;margin-top:18px}
-.swap-find{width:100%;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:14px;padding:12px 14px;font-size:15px;margin:0 0 10px}
-.swap-list{display:flex;flex-direction:column;gap:6px;max-height:calc(100vh - 220px);overflow:auto;padding-right:2px}
-.swap-row{display:flex;align-items:center;gap:10px;width:100%;text-align:left;border:1px solid transparent;background:var(--card);color:var(--ink);border-radius:16px;padding:10px 12px;cursor:pointer}
-.swap-row.on{border-color:var(--line);background:var(--lift)}
+.swap-desk{max-width:720px;margin-top:18px}
+.swap-find{width:100%;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:14px;padding:12px 14px;font-size:15px;font-family:"IBM Plex Mono",ui-monospace,monospace}
+.swap-note{color:var(--muted);font-size:13px;margin:12px 2px 0}
+.swap-card{display:flex;align-items:center;gap:10px;width:100%;text-align:left;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:16px;padding:10px 12px;margin-top:12px}
 .swap-row-name{display:flex;flex-direction:column;min-width:0;flex:1}
 .swap-row-name b{font-size:14px;letter-spacing:-.01em}
 .swap-row-name span{color:var(--muted);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .swap-row-meta{text-align:right;font-size:12px;color:var(--muted);font-family:"IBM Plex Mono",ui-monospace,monospace;line-height:1.35}
-@media (max-width:800px){
-  .swap-layout{grid-template-columns:1fr}
-  .swap-list{max-height:none}
-  .swap-layout .ticket{position:static}
-}
+.swap-desk .ticket{position:static;margin-top:14px}
 .ticket.ticket-cetus{overflow:visible;padding:12px 12px 16px}
 #cetus-terminal{width:100%;min-height:440px}
 #cetus-terminal .cs-swap-container{width:100%!important;max-width:none!important}
@@ -10018,53 +10013,77 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       '</div>'+
     '</div>';
   }
-  function swapCandidates(){
-    var needle = String(state.swapFilter || "").trim().toUpperCase();
-    return T.filter(function(k){
-      if (!k || k.missing || !k.t || !k.bluefinPool || isHiddenToken(k)) return false;
-      if (cctpBlocked(poolQuote(k))) return false;
-      if (!needle) return true;
-      var name = String(k.n || "").toUpperCase();
-      return String(k.t).toUpperCase().indexOf(needle) >= 0 || name.indexOf(needle) >= 0;
-    }).sort(function(a, b){ return (usdCap(b) || 0) - (usdCap(a) || 0); });
+  function swapAddrNorm(raw){
+    raw = String(raw || "").trim().replace(/\s+/g, "");
+    if (!raw) return "";
+    if (raw.indexOf("::") >= 0) return raw;
+    if (/^0x/i.test(raw)) return raw;
+    if (/^[0-9a-fA-F]{6,}$/.test(raw)) return "0x" + raw;
+    return raw;
   }
-  function swapListHTML(){
-    var rows = swapCandidates();
-    if (!rows.length) return '<div class="empty">No tokens match.</div>';
-    var cur = String(state.sym || "").toUpperCase();
-    return rows.slice(0, 80).map(function(k){
-      var on = String(k.t).toUpperCase() === cur;
-      var cap = usdCap(k);
-      return '<button type="button" class="swap-row'+(on?" on":"")+'" data-swap-tok="'+escAttr(k.t)+'">'+
-        avatar(k, 32)+
-        '<span class="swap-row-name"><b>'+escHtml(k.t)+'</b><span>'+escHtml(k.n || k.t)+'</span></span>'+
-        '<span class="swap-row-meta">'+escHtml(poolQuote(k))+'<br>'+(cap > 0 ? escHtml(fmtUsd(cap)) : "—")+'</span>'+
-      '</button>';
-    }).join("");
+  function swapAddrReady(raw){
+    raw = swapAddrNorm(raw);
+    if (raw.indexOf("::") >= 0) return looksLikeCoinType(raw);
+    var hex = raw.replace(/^0x/i, "");
+    return /^[0-9a-fA-F]{64}$/.test(hex);
+  }
+  function swapTokByAddr(raw){
+    raw = swapAddrNorm(raw);
+    if (!looksLikeCoinType(raw)) return null;
+    var want = normType(raw).toLowerCase();
+    var pkg = want.split("::")[0];
+    return T.find(function(k){
+      if (!k || k.missing || !k.t || isHiddenToken(k)) return false;
+      var ct = coinTypeOf(k).toLowerCase();
+      if (!ct) return false;
+      if (ct === want) return true;
+      return want.indexOf("::") < 0 && ct.split("::")[0] === pkg;
+    }) || null;
+  }
+  function swapCardHTML(tk){
+    var cap = usdCap(tk);
+    return '<div class="swap-card">'+
+      avatar(tk, 36)+
+      '<span class="swap-row-name"><b>'+escHtml(tk.t)+'</b><span>'+escHtml(tk.n || tk.t)+'</span></span>'+
+      '<span class="swap-row-meta">'+escHtml(poolQuote(tk))+'<br>'+(cap > 0 ? escHtml(fmtUsd(cap)) : "—")+'</span>'+
+    '</div>';
+  }
+  function swapResultHTML(){
+    var raw = swapAddrNorm(state.swapAddr);
+    if (!raw) return "";
+    if (!swapAddrReady(raw)) return "";
+    var tk = swapTokByAddr(raw);
+    if (!tk){
+      var indexed = T.some(function(k){ return k && k.bluefinPool && !k.missing; });
+      return '<p class="swap-note">'+(indexed ? "That contract is not a Vice token." : "Looking up that contract…")+'</p>';
+    }
+    state.side = "Buy";
+    state.sym = tk.t;
+    if (!window.ViceCctp || !ViceCctp.chain(state.cctpChain)) state.cctpChain = "base";
+    var block = cctpBlocked(poolQuote(tk));
+    if (!tk.bluefinPool) return swapCardHTML(tk) + '<p class="swap-note">This pool is not ready yet.</p>';
+    if (block) return swapCardHTML(tk) + '<p class="swap-note">'+escHtml(block)+'</p>';
+    return swapCardHTML(tk) + pairTicket(tk, poolQuote(tk), !!tk.instadex);
+  }
+  function paintSwapResult(){
+    var host = $("#swap-result");
+    if (!host || state.route !== "swap") return;
+    host.innerHTML = swapResultHTML();
+    var tk = $("#swap-box") ? findT(state.sym) : null;
+    if (tk && tk.bluefinPool && !tk.missing){
+      refreshSwapBals(tk);
+      scheduleSwapQuote();
+    }
   }
   function swapHTML(){
     state.side = "Buy";
     if (!window.ViceCctp || !ViceCctp.chain(state.cctpChain)) state.cctpChain = "base";
-    var rows = swapCandidates();
-    var tk = findT(state.sym);
-    var ok = tk && !tk.missing && tk.bluefinPool && !cctpBlocked(poolQuote(tk));
-    if (!ok && rows[0]){
-      state.sym = rows[0].t;
-      tk = rows[0];
-      ok = true;
-    }
-    var ticket = ok
-      ? pairTicket(tk, poolQuote(tk), !!tk.instadex)
-      : '<div class="ticket"><div style="font-size:22px;font-weight:700;letter-spacing:-.03em">Swap</div><p style="color:var(--muted)">No Instant pool is ready for USDC yet.</p></div>';
     return '<div data-screen-label="Swap" class="shell swap-page">'+
       '<h1>Swap</h1>'+
-      '<p class="swap-lead">Pay with USDC on Base, Ethereum, Arbitrum, or Arc. Circle burns it there and mints native USDC on Sui, then this pool swaps into the token. Vicefun pays the Sui gas. You still need gas on the chain the USDC starts on.</p>'+
-      '<div class="swap-layout">'+
-        '<div>'+
-          '<input id="swap-q" class="swap-find" type="search" placeholder="Search tokens" autocomplete="off" value="'+escAttr(state.swapFilter || "")+'">'+
-          '<div class="swap-list" id="swap-list">'+swapListHTML()+'</div>'+
-        '</div>'+
-        ticket+
+      '<p class="swap-lead">Paste a Vice token contract. Pay with USDC on Base, Ethereum, Arbitrum, or Arc. Circle burns it there and mints native USDC on Sui, then this pool swaps into the token. Vicefun pays the Sui gas. You still need gas on the chain the USDC starts on.</p>'+
+      '<div class="swap-desk">'+
+        '<input id="swap-addr" class="swap-find" type="text" inputmode="text" spellcheck="false" autocomplete="off" placeholder="Paste contract address" value="'+escAttr(state.swapAddr || "")+'">'+
+        '<div id="swap-result">'+swapResultHTML()+'</div>'+
       '</div>'+
       footerHTML()+
     '</div>';
@@ -13183,7 +13202,7 @@ async function doBridgeDeposit(){
     if (qg && qg !== q) qg.value = state.search;
     prevPot = money(pot);
     if (state.route === "token" && !isDexBout(findT(state.sym))) mountTvChart();
-    if ((state.route === "token" || state.route === "swap") && isDexBout(findT(state.sym))){
+    if ((state.route === "token" || (state.route === "swap" && $("#swap-box"))) && isDexBout(findT(state.sym))){
       var swapTk = findT(state.sym);
       if (state.route === "token" && usesCetusSwap(swapTk)) mountCetusTerminal(swapTk);
       else {
@@ -16676,18 +16695,6 @@ async function doBridgeDeposit(){
       else done();
       return;
     }
-    const swapTok = e.target.closest("[data-swap-tok]");
-    if (swapTok){
-      var picked = swapTok.getAttribute("data-swap-tok") || "";
-      if (!picked || String(picked).toUpperCase() === String(state.sym || "").toUpperCase()) return;
-      state.sym = picked;
-      state.side = "Buy";
-      if (!window.ViceCctp || !ViceCctp.chain(state.cctpChain)) state.cctpChain = "base";
-      state.amt = "10";
-      swapQuote = null;
-      renderScreen();
-      return;
-    }
     const cctpPick = e.target.closest("[data-cctp]");
     if (cctpPick){
       if (cctpBusy || cctpPick.classList.contains("disabled") || cctpPick.getAttribute("aria-disabled") === "true") return;
@@ -17149,10 +17156,12 @@ async function doBridgeDeposit(){
         if (!state.bridgeBusy) goDest.textContent = okDest ? "Burn & redeem" : "Enter RH destination";
       }
     }
-    if (e.target && e.target.id === "swap-q"){
-      state.swapFilter = e.target.value;
-      var swapList = $("#swap-list");
-      if (swapList) swapList.innerHTML = swapListHTML();
+    if (e.target && e.target.id === "swap-addr"){
+      var prevSwap = state.sym;
+      state.swapAddr = e.target.value;
+      var nextTok = swapTokByAddr(state.swapAddr);
+      if (!nextTok || nextTok.t !== prevSwap) swapQuote = null;
+      paintSwapResult();
       return;
     }
     if (e.target && e.target.id === "amt"){
