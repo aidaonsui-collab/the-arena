@@ -241,7 +241,8 @@
       if (bal < amount + reserve) throw new Error("Leave a little USDC on " + chain.label + " for gas.");
     }
     await ensureAllowance(request, chain, owner, amount, opts.onStatus);
-    var burnData = encodeDeposit(amount, chain.domain, recipient, chain.usdc);
+    // Destination is Sui (domain 8). chain.domain is only the source, for Iris.
+    var burnData = encodeDeposit(amount, SUI.domain, recipient, chain.usdc);
     var why = await preflight(request, owner, MESSENGER, burnData);
     if (/allowance/i.test(why)){
       if (opts.onStatus) opts.onStatus("Approving USDC on " + chain.label + " again.");
