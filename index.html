@@ -283,9 +283,9 @@ main{padding:18px 0 72px}
 .tv-wrap-dex{height:420px;background:#0b0e11;border-radius:0;overflow:hidden}
 .dex-embed{border:0;display:block;width:100%;height:100%;min-height:420px}
 .ticket{background:var(--card);border-radius:28px;padding:18px;box-shadow:var(--shadow);position:sticky;top:84px;min-width:0;max-width:100%;overflow:hidden}
-.swap-page h1{font-family:"Instrument Sans",ui-sans-serif,system-ui,sans-serif;font-size:clamp(32px,5vw,48px);letter-spacing:-.03em;margin:8px 0 0}
-.swap-lead{color:var(--muted);max-width:68ch;margin:8px 0 0;font-size:15px;line-height:1.45}
-.swap-desk{max-width:720px;margin-top:18px}
+.swap-page h1{font-family:"Instrument Sans",ui-sans-serif,system-ui,sans-serif;font-size:clamp(32px,5vw,48px);letter-spacing:-.03em;margin:8px 0 0;max-width:420px}
+.swap-lead{color:var(--muted);max-width:420px;margin:8px 0 0;font-size:15px;line-height:1.45}
+.swap-desk{max-width:420px;margin-top:18px}
 .swap-top{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-bottom:12px}
 .swap-chip{display:flex;align-items:center;gap:8px;min-width:0;border:1px solid transparent;background:var(--card);color:var(--ink);border-radius:16px;padding:10px;cursor:pointer;text-align:left}
 .swap-chip.on{border-color:var(--line);background:var(--lift)}
@@ -299,7 +299,19 @@ main{padding:18px 0 72px}
 .swap-row-name b{font-size:14px;letter-spacing:-.01em}
 .swap-row-name span{color:var(--muted);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .swap-row-meta{text-align:right;font-size:12px;color:var(--muted);font-family:"IBM Plex Mono",ui-monospace,monospace;line-height:1.35}
-.swap-desk .ticket{position:static;margin-top:14px}
+.swap-desk .ticket{position:static;margin-top:12px;padding:14px 14px 12px;border-radius:22px}
+.swap-desk .ticket-title{display:none}
+.swap-desk .amt{padding:10px 12px;font-size:22px;border-radius:14px}
+.swap-desk .kv{padding:7px 0;font-size:13px}
+.swap-desk .chips{margin-top:8px}
+.swap-desk .chips>div{padding:7px 0}
+.swap-desk .btn-trade{padding:11px;margin-top:8px}
+@media (max-width:720px){
+  .swap-page h1,.swap-lead,.swap-desk{max-width:none}
+  .swap-desk .ticket{padding:16px 14px}
+  .swap-desk .amt{padding:12px 14px}
+  .swap-desk .btn-trade{padding:13px}
+}
 .ticket.ticket-cetus{overflow:visible;padding:12px 12px 16px}
 #cetus-terminal{width:100%;min-height:440px}
 #cetus-terminal .cs-swap-container{width:100%!important;max-width:none!important}
@@ -9946,7 +9958,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
     if (!tk.bluefinPool){
       return '<div class="ticket">'+
         '<div class="pit-kicker">'+kicker+'</div>'+
-        '<div style="font-size:22px;font-weight:700;letter-spacing:-.03em;margin:8px 0 10px">Swap</div>'+
+        '<div class="ticket-title" style="font-size:22px;font-weight:700;letter-spacing:-.03em;margin:8px 0 10px">Swap</div>'+
         '<p style="color:var(--muted);margin:0 0 14px">Bluefin pool pending. Refresh in a few seconds.</p>'+
         '<button type="button" class="btn-trade" disabled>Bluefin pool pending</button>'+
       '</div>';
@@ -9985,7 +9997,7 @@ window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graph
       '</div></div>';
     return '<div class="ticket" id="swap-box">'+
       '<div class="pit-kicker">'+kicker+' · Bluefin</div>'+
-      '<div style="font-size:22px;font-weight:700;letter-spacing:-.03em;margin:8px 0 10px">Swap</div>'+
+      '<div class="ticket-title" style="font-size:22px;font-weight:700;letter-spacing:-.03em;margin:8px 0 10px">Swap</div>'+
       '<div class="sides"'+(state.route==="swap"?' style="display:none"':'')+'>'+
         '<div id="btn-buy" data-side="Buy"'+(buyOn?' class="on-buy"':'')+'>Buy</div>'+
         '<div id="btn-sell" data-side="Sell"'+(buyOn?'':' class="on-sell"')+'>Sell</div>'+
