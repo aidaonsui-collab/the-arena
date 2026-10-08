@@ -155,6 +155,36 @@
     if (!raw || raw === "0x") return 0n;
     return BigInt(raw);
   }
+  function revertText(err){
+    var data = "";
+    var msg = String((err && err.message) || err || "");
+    var bag = err && (err.data || (err.error && err.error.data) || "");
+    if (bag && typeof bag === "object") bag = bag.data || bag.message || "";
+    data = String(bag || "");
+    var hex = data.indexOf("08c379a0") >= 0 ? data.slice(data.indexOf("08c379a0") + 8) : "";
+    if (hex.length >= 128){
+      try {
+        var len = parseInt(hex.slice(64, 128), 16);
+        if (len > 0 && len < 200){
+          var chars = hex.slice(128, 128 + len * 2);
+          var text = "";
+          for (var i = 0; i < chars.length; i += 2) text += String.fromCharCode(parseInt(chars.substr(i, 2), 16));
+          if (text) return text;
+        }
+      } catch (e) {}
+    }
+    var known = msg.match(/execution reverted:?\s*(.+)/i);
+    if (known && known[1]) return known[1].replace(/^"|"$/g, "").slice(0, 180);
+    return "";
+  }
+  async function preflight(request, from, to, data){
+    try {
+      await request("eth_call", [{ from: from, to: to, data: data }, "latest"]);
+      return "";
+    } catch (e) {
+      return revertText(e) || "This burn would revert.";
+    }
+  }
   async function sendAndWait(request, tx){
     var hash = await request("eth_sendTransaction", [tx]);
     if (!hash) throw new Error("Wallet did not return a transaction");
@@ -164,7 +194,7 @@
       try { rec = await request("eth_getTransactionReceipt", [hash]); } catch (e) { rec = null; }
       if (rec && rec.blockNumber){
         var status = String(rec.status || "");
-        if (status === "0x0" || status === "0x00") throw new Error("Transaction reverted: " + hash);
+        if (status === "0x0" || status === "0x00") throw new Error("The chain reverted this transaction. " + hash);
         return hash;
       }
       await sleep(1500);
@@ -211,13 +241,33 @@
       if (bal < amount + reserve) throw new Error("Leave a little USDC on " + chain.label + " for gas.");
     }
     await ensureAllowance(request, chain, owner, amount, opts.onStatus);
+    var burnData = encodeDeposit(amount, chain.domain, recipient, chain.usdc);
+    var why = await preflight(request, owner, MESSENGER, burnData);
+    if (/allowance/i.test(why)){
+      if (opts.onStatus) opts.onStatus("Approving USDC on " + chain.label + " again.");
+      await sendAndWait(request, {
+        from: owner,
+        to: chain.usdc,
+        data: "0x" + APPROVE_SELECTOR + pad32(MESSENGER) + u256(amount),
+        value: "0x0"
+      });
+      why = await preflight(request, owner, MESSENGER, burnData);
+    }
+    if (why){
+      if (/allowance/i.test(why)) throw new Error("USDC approval did not cover this burn.");
+      if (/balance/i.test(why)) throw new Error("Not enough USDC on " + chain.label + ".");
+      if (/max fee/i.test(why)) throw new Error("Circle's fee is higher than this amount.");
+      throw new Error(why);
+    }
+    var gas = null;
+    try {
+      var est = await request("eth_estimateGas", [{ from: owner, to: MESSENGER, data: burnData, value: "0x0" }]);
+      if (est) gas = "0x" + ((BigInt(est) * 12n) / 10n).toString(16);
+    } catch (e) {}
     if (opts.onStatus) opts.onStatus("Burning USDC on " + chain.label + ". Confirm in the wallet.");
-    var hash = await sendAndWait(request, {
-      from: owner,
-      to: MESSENGER,
-      data: encodeDeposit(amount, chain.domain, recipient, chain.usdc),
-      value: "0x0"
-    });
+    var tx = { from: owner, to: MESSENGER, data: burnData, value: "0x0" };
+    if (gas) tx.gas = gas;
+    var hash = await sendAndWait(request, tx);
     return { hash: hash, owner: owner, chainId: chain.chainId };
   }
 

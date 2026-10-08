@@ -1461,7 +1461,7 @@ window.SUI_RPC = window.SUI_RPC || "https://mainnet.suiet.app";
 window.SUI_GRAPHQL = window.SUI_GRAPHQL || "https://graphql.mainnet.sui.io/graphql";
 </script>
 <script src="/js/indexer.js?v=20260930a"></script>
-<script src="/js/cctp-buy.js?v=20261008b"></script>
+<script src="/js/cctp-buy.js?v=20261008c"></script>
 <script>
 (function(){
   const GRAD = 2000;
@@ -15846,6 +15846,52 @@ async function doBridgeDeposit(){
     }
     return null;
   }
+  async function cctpSimTokenOut(tk, coinId, usdcAmt){
+    var q = poolQuote(tk);
+    var usdcType = window.ARENA_USDC_TYPE;
+    var suiAmt = 0n;
+    if (cctpNeedsSuiAmount(q)){
+      suiAmt = await dryUsdcToSuiOut(coinId, usdcAmt);
+      if (!(suiAmt > 1n)) throw new Error("That USDC amount is too small to hop into " + q + ".");
+      suiAmt = (suiAmt * 995n) / 1000n;
+    }
+    var Transaction = await loadTransaction();
+    var tx = new Transaction();
+    tx.setSender(suiSession.address);
+    var usdcCoin = takeCoin(tx, [{ id: coinId, valueBig: usdcAmt }], usdcAmt);
+    var suiCoin = cetusHop(tx, await loadUsdcSuiPool(), usdcType, usdcCoin);
+    var insta = await poolSnap(tk.bluefinPool);
+    var outCoin;
+    if (q === "SUI"){
+      outCoin = bluefinHop(tx, insta, SUI_TYPE, suiCoin, 1n);
+    } else {
+      var spendSui = suiCoin;
+      if (suiAmt > 0n){
+        var sp = tx.splitCoins(suiCoin, [txAmt(suiAmt)]);
+        spendSui = Array.isArray(sp) ? sp[0] : sp;
+        tx.transferObjects([suiCoin], suiSession.address);
+      }
+      var hopped = await hopHeldSuiToQuote(tx, q, spendSui, suiAmt > 0n ? suiAmt : 0n, 0.05);
+      tx = hopped.tx;
+      outCoin = bluefinHop(tx, insta, hopped.coinType, hopped.coin, 1n);
+    }
+    if (outCoin) tx.transferObjects([outCoin], suiSession.address);
+    var bytes = await buildTxBytes(tx);
+    var dry = await rpcJson("sui_dryRunTransactionBlock", [toB64(bytes)]);
+    var st = dry && dry.effects && dry.effects.status;
+    if (!st || st.status !== "success") throw new Error((st && st.error) || "Swap dry-run failed");
+    var want = normType(tokenTypeOf(tk));
+    var got = 0n;
+    (dry.balanceChanges || []).forEach(function(b){
+      var who = cctpOwnerAddr(b && b.owner);
+      if (who && sameAddr(who, suiSession.address) && normType(b.coinType) === want){
+        var n = asBigAmt(b.amount);
+        if (n > got) got = n;
+      }
+    });
+    if (!(got > 1n)) throw new Error("The pool would not pay this swap.");
+    return got;
+  }
   async function spendMintedUsdc(tk, coinId, usdcAmt, userGas){
     var q = poolQuote(tk);
     var block = cctpBlocked(q);
@@ -15859,9 +15905,8 @@ async function doBridgeDeposit(){
       suiAmt = (suiAmt * 995n) / 1000n;
       if (suiAmt < 1n) suiAmt = 1n;
     }
-    var quotedOut = 0n;
-    try { quotedOut = await cctpEstimateOut(tk, usdcAmt); } catch (e) { quotedOut = 0n; }
-    var minOut = quotedOut > 1n ? (quotedOut * 9000n) / 10000n : 1n;
+    var simOut = await cctpSimTokenOut(tk, coinId, usdcAmt);
+    var minOut = simOut > 1n ? (simOut * 9000n) / 10000n : 1n;
     if (minOut < 1n) minOut = 1n;
     var Transaction = await loadTransaction();
     var tx = new Transaction();
