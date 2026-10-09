@@ -35,7 +35,7 @@ use arena::pool::{Self, Pool};
 use bluefin_spot::config::GlobalConfig;
 use bluefin_spot::position::Position;
 use std::option::{Self, Option};
-use sui::balance::Balance;
+use sui::balance::{Self, Balance};
 use sui::dynamic_field as df;
 use sui::clock::Clock;
 use sui::coin::{Self, Coin, CoinMetadata};
@@ -568,6 +568,48 @@ public fun claim_bluefin_position(
     let position = option::extract(&mut lock.position);
     events::emit_lp_claim(object::id(lock), lock.pool_id, ctx.sender(), 0, 0);
     position
+}
+
+/// Admin closes a locked Bluefin position and sends both coins to the sender.
+/// Works while `unlock_ms` is 0. `claim_bluefin_position` is unchanged.
+public fun admin_close_locked_lp<A, B>(
+    lock: &mut BluefinPositionLock,
+    pool: &mut bluefin_spot::pool::Pool<A, B>,
+    bf_config: &GlobalConfig,
+    _: &AdminCap,
+    clock: &Clock,
+    ctx: &mut TxContext,
+) {
+    assert!(object::id(pool) == lock.bluefin_pool_id, errors::bad_param());
+    assert!(option::is_some(&lock.position), errors::nothing_to_claim());
+    let mut position = option::extract(&mut lock.position);
+    let liq = bluefin_spot::position::liquidity(&position);
+    let mut bal_a = balance::zero<A>();
+    let mut bal_b = balance::zero<B>();
+    if (liq > 0) {
+        let (_, _, out_a, out_b) = bluefin_spot::pool::remove_liquidity(
+            bf_config, pool, &mut position, liq, clock,
+        );
+        balance::join(&mut bal_a, out_a);
+        balance::join(&mut bal_b, out_b);
+    };
+    let (_, _, fee_a, fee_b) = bluefin_spot::pool::collect_fee(
+        clock, bf_config, pool, &mut position,
+    );
+    balance::join(&mut bal_a, fee_a);
+    balance::join(&mut bal_b, fee_b);
+    bluefin_spot::pool::close_position_v2(clock, bf_config, pool, position);
+    pay_balance(bal_a, ctx);
+    pay_balance(bal_b, ctx);
+    events::emit_lp_claim(object::id(lock), lock.pool_id, ctx.sender(), 0, 0);
+}
+
+fun pay_balance<T>(b: Balance<T>, ctx: &mut TxContext) {
+    if (b.value() == 0) {
+        balance::destroy_zero(b);
+    } else {
+        transfer::public_transfer(coin::from_balance(b, ctx), ctx.sender());
+    };
 }
 
 /// Split already-collected LP quote by Config.std_* bps plus buyback bps.
